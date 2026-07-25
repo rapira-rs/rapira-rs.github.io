@@ -2,6 +2,29 @@
 
 Documentation site for **Rapira**, built with [VitePress](https://vitepress.dev/). Multilingual: English (root) + Russian (`ru/`), Spanish (`es/`), Chinese (`zh/`), Polish (`pl/`).
 
+## What Rapira Is
+
+**A PHP application server written in Rust**, MIT-licensed. It lives in the [`rapira-rs`](https://github.com/rapira-rs) GitHub organization, which describes itself as *"a PHP application server with extensions from the RoadRunner maintainers"* — that lineage is the project's main credibility claim.
+
+**PHP runs with nothing in between.** It is embedded in the server process and the host calls the interpreter directly, so between Rust and PHP there is no FastCGI, no sockets and no serialization of any kind. RoadRunner reaches its PHP workers over Goridge and FrankenPHP embeds PHP through CGO; Rapira needs neither.
+
+**Existing applications keep working.** The classic SAPI is supported, so an ordinary front controller runs as it is: Rapira takes php-fpm's place with no changes to the code, and runs faster doing it.
+
+**Four execution modes** form a ladder, `Classic → Franken → RoadRunner → Async`, and an application picks the rung it can actually reach. The names are the site's own — deliberately not tied to the products they echo:
+
+- **Classic** — the entry script runs from scratch on every request, exactly as it would under php-fpm.
+- **Franken** — the same shape, except the worker does not die: the superglobals are refilled for each request while the warmed-up process keeps running.
+- **RoadRunner** — the PHP side pulls requests from Rapira through an API call and decides what to do with each one: fill the superglobals for compatibility, or skip them entirely and work with a PSR-7 message. One request at a time.
+- **Async** — the same API, except the worker asks for more than one request at once and handles them concurrently, which PHP 8.1 fibers make possible.
+
+All four rungs are open to any application; what limits the choice is the application's own stack, never the server. Global state that cannot survive a second request keeps you on the Classic rung, a library that is not fiber-safe keeps you below Async — that is a property of the code, not a restriction Rapira imposes. Frame it that way: Rapira offers the whole ladder, the app decides how high it climbs.
+
+The mode is selected in the config, but neither the config format nor the PHP-side API is stable yet — describe the modes by what they do, and check specific keys and function names before they reach the site.
+
+**It is engineered, not vibe-coded.** A considered architecture and carefully written code, backed by years of building RoadRunner — the same maintainers. No performance numbers are published, so keep any claim about speed qualitative and never invent figures or percentages.
+
+This positioning is what the home page carries: the lede comes from the `tagline` and `pitch` frontmatter fields of each locale's `index.md`, and the three feature cards — zero interop, php-fpm compatibility, the four modes — from its `features` block. English is written first, then every translation follows.
+
 ## Structure
 
 ```

@@ -11,7 +11,7 @@ features:
   - title: Совместимость с php-fpm
     details: "Поддерживается классический SAPI: Rapira встаёт на место php-fpm без правок в коде, но работает быстрее."
   - title: Четыре режима работы
-    details: "FPM → FrankenPHP → RoadRunner → Async<br>На что способно ваше приложение?"
+    details: "Classic → Franken → RoadRunner → Async<br>На что способно ваше приложение?"
 ---
 
 <div class="sponsors-section">

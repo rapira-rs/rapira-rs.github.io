@@ -11,7 +11,7 @@ features:
   - title: 兼容 php-fpm
     details: "支持经典 SAPI：Rapira 直接顶替 php-fpm，代码不用改，但跑得更快。"
   - title: 四种运行模式
-    details: "FPM → FrankenPHP → RoadRunner → Async<br>你的应用能走到哪一步？"
+    details: "Classic → Franken → RoadRunner → Async<br>你的应用能走到哪一步？"
 ---
 
 <div class="sponsors-section">

@@ -215,9 +215,14 @@ Assisted-By: <model name> <noreply@anthropic.com>
 
 For example, a commit written by Opus 5 with the 1M-token context window ends with `Assisted-By: Claude Opus 5 (1M context) <noreply@anthropic.com>`; one written by Sonnet 5 ends with `Assisted-By: Claude Sonnet 5 <noreply@anthropic.com>`. Use the model's human-readable name, not its API id (`claude-opus-5`), and note the context-window variant only when you are running one. If you genuinely don't know which model you are, ask rather than copying the example verbatim.
 
-## Deployment
+## CI & Deployment
 
-Every push to `main` triggers `.github/workflows/deploy.yml`: it runs `npm ci` + `npm run build` and publishes `.vitepress/dist` to GitHub Pages at **https://rapira-rs.github.io/**. The Pages source must be set to **GitHub Actions** (Settings → Pages → Source).
+Two workflows, both running `npm ci` + `npm run build` on Node 24:
+
+- `.github/workflows/ci.yml` — runs on every pull request against `main`. Build only, no deploy: it is the gate that keeps a broken `main` from ever reaching production. VitePress fails the build on dead internal links, so this doubles as a link check.
+- `.github/workflows/deploy.yml` — runs on every push to `main` and publishes `.vitepress/dist` to GitHub Pages at **https://rapira-rs.github.io/**.
+
+The Pages source must be set to **GitHub Actions** (Settings → Pages → Source). For the CI gate to actually block a merge, `Build` has to be a required status check in the branch protection rules for `main` (Settings → Branches).
 
 ---
 

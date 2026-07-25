@@ -65,6 +65,12 @@ export default withMermaid(defineConfig({
                 { text: 'Getting Started', link: '/docs/' },
               ],
             },
+            {
+              text: 'Contributing',
+              items: [
+                { text: 'Contributing to the docs', link: '/docs/contributing' },
+              ],
+            },
           ],
         },
       },
@@ -93,6 +99,12 @@ export default withMermaid(defineConfig({
               text: 'Введение',
               items: [
                 { text: 'Начало работы', link: '/ru/docs/' },
+              ],
+            },
+            {
+              text: 'Участие',
+              items: [
+                { text: 'Помощь с документацией', link: '/ru/docs/contributing' },
               ],
             },
           ],
@@ -139,6 +151,12 @@ export default withMermaid(defineConfig({
                 { text: 'Primeros pasos', link: '/es/docs/' },
               ],
             },
+            {
+              text: 'Contribuir',
+              items: [
+                { text: 'Contribuir a la documentación', link: '/es/docs/contributing' },
+              ],
+            },
           ],
         },
         outline: {
@@ -183,6 +201,12 @@ export default withMermaid(defineConfig({
                 { text: '快速开始', link: '/zh/docs/' },
               ],
             },
+            {
+              text: '参与贡献',
+              items: [
+                { text: '参与文档贡献', link: '/zh/docs/contributing' },
+              ],
+            },
           ],
         },
         outline: {
@@ -225,6 +249,12 @@ export default withMermaid(defineConfig({
               text: 'Wprowadzenie',
               items: [
                 { text: 'Pierwsze kroki', link: '/pl/docs/' },
+              ],
+            },
+            {
+              text: 'Współtworzenie',
+              items: [
+                { text: 'Współtworzenie dokumentacji', link: '/pl/docs/contributing' },
               ],
             },
           ],

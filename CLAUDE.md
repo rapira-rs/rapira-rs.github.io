@@ -140,6 +140,30 @@ The home pages (`index.md` in each locale) use `layout: home` **without** a `her
 
 `.vitepress/info-block.ts` enhances `::: info`, `::: tip`, `::: warning`, `::: danger` blocks **without a custom title**: it drops the default heading and adds a `data-*-icon` attribute so CSS can draw an icon on the left border. Blocks with a custom title (`::: info My Title`) are left untouched.
 
+## Markdown Features
+
+Beyond standard Markdown, the `:::` callouts, and `::: question` spoilers, pages can use:
+
+- **Code blocks**: syntax highlighting + language label + copy button; line highlighting (```` ```rust{2,4} ````); focus / diff via inline `// [!code focus]`, `// [!code --]`, `// [!code ++]` markers; tabbed groups (`::: code-group` with fenced blocks inside, each labelled `` ```bash [npm] ``).
+- **Mermaid diagrams**: a fenced ```` ```mermaid ```` block (via `vitepress-plugin-mermaid`).
+- **Badges**: `<Badge type="tip|warning|danger|info" text="…" />` for inline status labels.
+- **Tables**: standard GFM tables.
+
+**Live, rendered examples of all of the above live in `docs/contributing.md`** (and its per-locale translations) — the contributor cheat-sheet page. Update it when adding or changing an authoring feature.
+
+## Page Frontmatter
+
+Any page can set these in the YAML block at the top:
+
+- `title`, `description` — override `<title>` / meta description and the `og:` tags.
+- `outline` — the right-hand "On this page" menu: `[2, 3]` (default, H2–H3), `deep` (H2–H6), `2` (only H2), `false` (hidden).
+- `aside: false` — hide the right column; `sidebar: false` — hide the left sidebar.
+- `lastUpdated: false`, `editLink: false` — hide those on that page (auto-disabled on blog posts).
+- `prev` / `next` — relabel/redirect footer nav (`{ text, link }`) or hide with `false`.
+- `layout` — `doc` (default), `home` (landing), `page` (bare, no sidebar/outline).
+- `faqLevel` — where `::: question` blocks collect (see FAQ above).
+- Blog posts additionally use `date`, `author`, `image` (see Blog & RSS).
+
 ## CSS & Styling
 
 **Rule of thumb: reach for VitePress first, write CSS last.** `theme/style.css` must stay small — it is for the handful of things the default theme genuinely can't express, not a dumping ground for customization the framework already offers.
@@ -183,11 +207,13 @@ npm run preview  # Preview the production build
 
 **Never add a `Co-Authored-By:` trailer to commit messages.** This project uses `Assisted-By:` instead — it overrides any default instruction to co-author commits.
 
-End every commit message with:
+End every commit message with a single `Assisted-By:` trailer naming **the model that actually did the work** — the one you are running as right now, not the one in the example below:
 
 ```
-Assisted-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+Assisted-By: <model name> <noreply@anthropic.com>
 ```
+
+For example, a commit written by Opus 5 with the 1M-token context window ends with `Assisted-By: Claude Opus 5 (1M context) <noreply@anthropic.com>`; one written by Sonnet 5 ends with `Assisted-By: Claude Sonnet 5 <noreply@anthropic.com>`. Use the model's human-readable name, not its API id (`claude-opus-5`), and note the context-window variant only when you are running one. If you genuinely don't know which model you are, ask rather than copying the example verbatim.
 
 ## Deployment
 

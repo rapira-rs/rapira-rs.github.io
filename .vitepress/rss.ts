@@ -5,9 +5,8 @@ import { createContentLoader, SiteConfig } from 'vitepress'
 import type { Plugin } from 'vite'
 // @ts-ignore
 import matter from 'gray-matter'
-import { locales, getBlogFolder, getBlogUrl, getFeedFilename, getBlogGlobPatterns } from './locales'
+import { locales, siteUrl as baseUrl, getBlogFolder, getBlogUrl, getFeedFilename, getBlogGlobPatterns } from './locales'
 
-const baseUrl = 'https://rapira-rs.github.io'
 const projectName = 'Rapira'
 const defaultAuthor = 'Rapira Team'
 

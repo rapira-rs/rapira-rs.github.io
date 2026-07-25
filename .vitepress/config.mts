@@ -1,11 +1,9 @@
 import { defineConfig, HeadConfig } from 'vitepress'
 import { withMermaid } from 'vitepress-plugin-mermaid'
 import { generateRss, rssPlugin } from './rss'
-import { isBlogPath } from './locales'
+import { isBlogPath, siteUrl as baseUrl } from './locales'
 import { faqPlugin } from './faq'
 import { infoBlockPlugin } from './info-block'
-
-const baseUrl = 'https://rapira-rs.github.io'
 
 export default withMermaid(defineConfig({
   title: 'Rapira',

@@ -220,9 +220,16 @@ For example, a commit written by Opus 5 with the 1M-token context window ends wi
 Two workflows, both running `npm ci` + `npm run build` on Node 24:
 
 - `.github/workflows/ci.yml` — runs on every pull request against `main`. Build only, no deploy: it is the gate that keeps a broken `main` from ever reaching production. VitePress fails the build on dead internal links, so this doubles as a link check.
-- `.github/workflows/deploy.yml` — runs on every push to `main` and publishes `.vitepress/dist` to GitHub Pages at **https://rapira-rs.github.io/**.
+- `.github/workflows/deploy.yml` — runs on every push to `main` and publishes `.vitepress/dist` to GitHub Pages at **https://rapira.rs/**.
 
 The Pages source must be set to **GitHub Actions** (Settings → Pages → Source). For the CI gate to actually block a merge, `Build` has to be a required status check in the branch protection rules for `main` (Settings → Branches).
+
+**Custom domain.** The site is served from `rapira.rs`, and that lives in two places that must always agree:
+
+- `public/CNAME` — a one-line file copied verbatim into `dist`. Because we publish a build artifact rather than a branch, GitHub has no other way to learn the domain: delete this file and the custom domain resets on the next deploy.
+- `siteUrl` in `.vitepress/locales.ts` — the canonical origin used for every absolute URL (`og:`/`twitter:` tags in `config.mts`, links and `<guid>`s in `rss.ts`). Never hardcode the origin anywhere else.
+
+The `editLink.pattern` entries still point at `github.com/rapira-rs/…` — those are repository links, not site links, and must not follow the domain.
 
 ---
 

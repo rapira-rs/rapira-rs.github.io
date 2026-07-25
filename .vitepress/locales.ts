@@ -14,6 +14,16 @@
  * The English (root) locale has an empty `prefix` and is the fallback.
  */
 
+/**
+ * Canonical origin of the published site, without a trailing slash.
+ *
+ * Used wherever an absolute URL is required — `og:` / `twitter:` tags and the
+ * RSS feeds. Keep it in sync with `public/CNAME`: that file is what tells
+ * GitHub Pages which custom domain to serve, this constant is what the
+ * generated markup points at. Changing the domain means changing both.
+ */
+export const siteUrl = 'https://rapira.rs'
+
 export interface LocaleConfig {
   code: string             // 'en', 'ru', 'es', 'zh', 'pl'
   prefix: string           // '' for root (EN), otherwise the URL/folder prefix

@@ -23,6 +23,10 @@ html {
   /* Accent glow, shared by the feature and sponsor card hovers */
   --rapira-glow: rgba(44, 110, 155, 0.2);
 
+  /* Frosted nav bar: translucent --vp-nav-bg-color + this blur */
+  --rapira-nav-blur: blur(12px);
+  --vp-nav-bg-color: rgba(255, 255, 255, 0.72);
+
   /* Tip follows the brand; info/warning/danger stay semantic */
   --vp-custom-block-tip-border: var(--vp-c-brand-1);
   --vp-custom-block-tip-bg: var(--vp-c-brand-soft);
@@ -53,6 +57,9 @@ html {
   --vp-c-border: #313a4b;
 
   --rapira-glow: rgba(111, 179, 222, 0.16);
+
+  /* Matches the dark --vp-c-bg (#0e121b) */
+  --vp-nav-bg-color: rgba(14, 18, 27, 0.72);
 
   /* Brand-3 rather than brand-1: the tip icon carries white text */
   --vp-custom-block-tip-border: var(--vp-c-brand-3);
@@ -101,6 +108,39 @@ html {
   display: none;
 }
 
+/* Frosted nav bar: the background is translucent, so content stays visible —
+   blurred — as it scrolls underneath. VitePress paints that background in three
+   different places (the bar, or .content-body once a sidebar is present) and has
+   no variable for the blur, so the filter mirrors its selectors. */
+.VPNavBar:not(.home) {
+  -webkit-backdrop-filter: var(--rapira-nav-blur);
+  backdrop-filter: var(--rapira-nav-blur);
+}
+
+@media (min-width: 960px) {
+  /* With a sidebar the background moves to .content-body… */
+  .VPNavBar:not(.home) {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .VPNavBar:not(.home.top) .content-body {
+    -webkit-backdrop-filter: var(--rapira-nav-blur);
+    backdrop-filter: var(--rapira-nav-blur);
+  }
+
+  /* …without one it is back on the bar itself. */
+  .VPNavBar:not(.has-sidebar):not(.home.top) {
+    -webkit-backdrop-filter: var(--rapira-nav-blur);
+    backdrop-filter: var(--rapira-nav-blur);
+  }
+
+  .VPNavBar:not(.has-sidebar):not(.home.top) .content-body {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
 /* Wider content for all pages */
 .VPDoc .container {
   max-width: 1200px !important;
@@ -129,6 +169,9 @@ html {
   align-items: center;
   justify-content: center;
   gap: 4rem;
+  /* Decorative cover: nothing here is worth selecting, and a stray drag-select looks broken */
+  -webkit-user-select: none;
+  user-select: none;
   width: calc(100% - 48px);
   max-width: 1152px;
   margin: 32px auto 0;

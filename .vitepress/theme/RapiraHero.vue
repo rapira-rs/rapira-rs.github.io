@@ -34,7 +34,7 @@ const githubUrl = 'https://github.com/rapira-rs/rapira'
 <template>
   <div class="rapira-hero">
     <div class="rapira-hero-logo">
-      <VPImage :image="wordmark" />
+      <VPImage :image="wordmark" draggable="false" />
     </div>
     <div class="rapira-hero-actions">
       <a class="rapira-hero-action" :href="t.docs">{{ t.start }}</a>

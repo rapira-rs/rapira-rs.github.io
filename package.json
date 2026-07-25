@@ -1,0 +1,26 @@
+{
+  "name": "rapira-docs",
+  "version": "1.0.0",
+  "description": "Documentation for Rapira",
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview"
+  },
+  "keywords": [
+    "rapira",
+    "documentation"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^25.3.3",
+    "gray-matter": "^4.0.3",
+    "mermaid": "^11.14.0",
+    "vitepress": "^1.6.4",
+    "vitepress-plugin-mermaid": "^2.0.17"
+  },
+  "dependencies": {
+    "feed": "^5.1.0"
+  }
+}

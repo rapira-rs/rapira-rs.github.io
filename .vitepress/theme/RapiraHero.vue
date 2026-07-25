@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useData } from 'vitepress'
-import { VPImage, VPButton } from 'vitepress/theme'
+import { VPImage } from 'vitepress/theme'
+import GitHubIcon from './GitHubIcon.vue'
 import { getLocaleByCode, getDocsUrl } from '../locales'
 
 const { lang } = useData()
@@ -9,7 +10,7 @@ const { lang } = useData()
 // "Get Started" button label per locale (UI string). Docs URL comes from the locale service.
 const startLabels: Record<string, string> = {
   en: 'Get Started',
-  ru: 'Начать',
+  ru: 'Быстрый старт',
   es: 'Empezar',
   zh: '开始使用',
   pl: 'Zacznij',
@@ -36,8 +37,11 @@ const githubUrl = 'https://github.com/rapira-rs/rapira'
       <VPImage :image="wordmark" />
     </div>
     <div class="rapira-hero-actions">
-      <VPButton theme="brand" :text="t.start" :href="t.docs" />
-      <VPButton theme="alt" text="GitHub" :href="githubUrl" />
+      <a class="rapira-hero-action" :href="t.docs">{{ t.start }}</a>
+      <a class="rapira-hero-action" :href="githubUrl" target="_blank" rel="noreferrer">
+        <GitHubIcon />
+        GitHub
+      </a>
     </div>
   </div>
 </template>

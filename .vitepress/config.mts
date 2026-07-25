@@ -278,6 +278,14 @@ export default withMermaid(defineConfig({
   },
 
   themeConfig: {
+    // The wordmark replaces the site title in the nav bar; each locale inherits it.
+    logo: {
+      light: '/rapira-bg-light.svg',
+      dark: '/rapira-bg-dark.svg',
+      alt: 'Rapira',
+    },
+    siteTitle: false,
+
     search: {
       provider: 'local',
     },

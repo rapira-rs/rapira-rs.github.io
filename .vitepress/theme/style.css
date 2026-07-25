@@ -78,9 +78,15 @@ html {
   display: none !important;
 }
 
+/* The wordmark is wide (769:103), so it runs shorter than the default 24px
+   logo height — and shorter still on mobile, where the nav bar is crowded. */
+:root {
+  --vp-nav-logo-height: 20px;
+}
+
 @media (max-width: 767px) {
-  .VPNavBarTitle .logo {
-    display: none !important;
+  :root {
+    --vp-nav-logo-height: 16px;
   }
 }
 
@@ -122,7 +128,7 @@ html {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2.5rem;
+  gap: 4rem;
   width: calc(100% - 48px);
   max-width: 1152px;
   margin: 32px auto 0;
@@ -144,18 +150,47 @@ html {
 .rapira-hero-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 2rem;
   justify-content: center;
+}
+
+/* Text-only actions: no frame, no background — just links that act as buttons.
+   Plain text colour at rest, brand accent on hover. */
+.rapira-hero-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 32px;
+  color: var(--vp-c-text-1);
+  text-decoration: none;
+  transition: color 0.25s;
+}
+
+/* Icon rides the text size, so it stays in proportion on mobile too */
+.rapira-hero-action .github-icon {
+  width: 0.95em;
+  height: 0.95em;
+}
+
+.rapira-hero-action:hover {
+  color: var(--vp-c-brand-1);
 }
 
 @media (max-width: 640px) {
   .rapira-hero {
-    gap: 2rem;
+    gap: 3rem;
     padding: 48px 20px;
   }
 
   .rapira-hero-logo img {
     max-width: 88%;
+  }
+
+  .rapira-hero-action {
+    font-size: 19px;
+    line-height: 28px;
   }
 }
 

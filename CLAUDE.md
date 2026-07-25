@@ -128,7 +128,7 @@ faqLevel: false   # no collection — questions stay in place as inline spoilers
 
 ## Home Landing Cover
 
-The home pages (`index.md` in each locale) use `layout: home` **without** a `hero:` frontmatter block. The landing cover is a custom component, `theme/RapiraHero.vue`, injected via the `home-hero-before` layout slot: a rectangle with the theme-aware RAPIRA wordmark (`public/rapira-bg-light.svg` / `rapira-bg-dark.svg`) centered, and "Get Started" + "GitHub" buttons below.
+The home pages (`index.md` in each locale) use `layout: home` **without** a `hero:` frontmatter block. The landing cover is a custom component, `theme/RapiraHero.vue`, injected via the `home-hero-before` layout slot: the theme-aware RAPIRA wordmark (`public/rapira-bg-light.svg` / `rapira-bg-dark.svg`) centered on the page background — no card, frame or border — with two frameless text actions below, "Get Started" + "GitHub" (plain links styled via `.rapira-hero-action`, not `VPButton`).
 
 - The "Get Started" label is a per-locale UI string in `RapiraHero.vue`; the docs link comes from the locale service (`getDocsUrl`). Add a `startLabels` entry when adding a locale.
 - The `features:` frontmatter block still renders below the cover as usual.
@@ -171,7 +171,7 @@ Any page can set these in the YAML block at the top:
 Before adding a single rule, in this order:
 
 1. **CSS variables.** VitePress exposes a large set (`--vp-c-brand-*`, `--vp-c-bg-soft`, `--vp-c-divider`, `--vp-code-bg`, `--vp-custom-block-*-border/bg`, `--vp-layout-max-width`, …). Retheming means reassigning a variable in `:root` / `.dark`, not restyling a component. Never hardcode a color, background or border that a variable already covers — that breaks dark mode.
-2. **Built-in theme components.** Import from `vitepress/theme` instead of rebuilding markup: `VPButton`, `VPImage`, `VPBadge`, `VPTeamMembers`, etc. See `theme/RapiraHero.vue` — the landing buttons are `<VPButton theme="brand" />`, so they inherit hover, focus and dark-mode styling for free.
+2. **Built-in theme components.** Import from `vitepress/theme` instead of rebuilding markup: `VPButton`, `VPImage`, `VPBadge`, `VPTeamMembers`, etc. See `theme/RapiraHero.vue` — the wordmark is a `<VPImage>`, so the light/dark swap comes for free. Write your own markup only when no built-in matches the design (the hero's frameless text actions, for instance — `VPButton` always draws a pill).
 3. **Built-in classes and markdown features.** `.vp-doc`, `.custom-block`, `.VPFeature`, code groups, `:::` containers, `[!code focus]`, `vp-raw` — use them rather than styling raw elements.
 4. **Frontmatter and config.** Layout, hero, features, nav, sidebar, aside and outline are configured in `config.mts` or page frontmatter, not with CSS overrides.
 5. **Only then** write custom CSS — and only for something genuinely project-specific (e.g. `.rapira-hero*`, `.faq-*`).

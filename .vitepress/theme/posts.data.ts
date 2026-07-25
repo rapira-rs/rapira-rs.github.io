@@ -11,7 +11,7 @@ export interface Post {
   author?: string
 }
 
-// Derive an optional list thumbnail path from the image: /blog/hello.jpg → /blog/hello.thumb.jpg.
+// Derive an optional list thumbnail path from the image: /blog/hello/preview.jpg → /blog/hello/preview.thumb.jpg.
 // If the thumbnail file doesn't exist, BlogPosts.vue falls back to the full image.
 function getThumbUrl(imageUrl: string | undefined): string | undefined {
   if (!imageUrl) return undefined

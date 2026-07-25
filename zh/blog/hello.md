@@ -3,7 +3,7 @@ title: "你好，Rapira"
 date: 2026-07-26
 description: "Rapira 博客正式上线，并且从 7 月 20 日起，项目的仓库已经公开。"
 author: Rapira Team
-image: /blog/hello.jpg
+image: /blog/hello/preview.jpg
 ---
 
 # 你好，Rapira

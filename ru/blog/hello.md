@@ -3,7 +3,7 @@ title: "Привет, Rapira"
 date: 2026-07-26
 description: "Блог Rapira запущен, а 20 июля репозитории проекта стали публичными."
 author: Rapira Team
-image: /blog/hello.jpg
+image: /blog/hello/preview.jpg
 ---
 
 # Привет, Rapira

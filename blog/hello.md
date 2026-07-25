@@ -3,7 +3,7 @@ title: "Hello, Rapira"
 date: 2026-07-26
 description: "The Rapira blog is live — and since July 20 the project's repositories are public."
 author: Rapira Team
-image: /blog/hello.jpg
+image: /blog/hello/preview.jpg
 ---
 
 # Hello, Rapira

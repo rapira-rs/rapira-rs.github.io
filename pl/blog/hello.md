@@ -3,7 +3,7 @@ title: "Witaj, Rapira"
 date: 2026-07-26
 description: "Blog Rapiry wystartował, a od 20 lipca repozytoria projektu są publiczne."
 author: Rapira Team
-image: /blog/hello.jpg
+image: /blog/hello/preview.jpg
 ---
 
 # Witaj, Rapira

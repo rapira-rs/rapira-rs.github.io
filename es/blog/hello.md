@@ -3,7 +3,7 @@ title: "Hola, Rapira"
 date: 2026-07-26
 description: "El blog de Rapira ya está en marcha y, desde el 20 de julio, los repositorios del proyecto son públicos."
 author: Rapira Team
-image: /blog/hello.jpg
+image: /blog/hello/preview.jpg
 ---
 
 # Hola, Rapira

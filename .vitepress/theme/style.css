@@ -226,7 +226,7 @@ html {
 .rapira-hero-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 2rem;
+  gap: 4.5rem;
   justify-content: center;
 }
 

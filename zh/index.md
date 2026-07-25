@@ -1,7 +1,9 @@
 ---
 layout: home
 title: Rapira
-description: Rapira 文档
+description: Rapira 是用 Rust 编写的 PHP 应用服务器。
+tagline: 用 Rust 编写的 PHP 应用服务器。
+pitch: 这不是 vibe coding 的产物，而是深思熟虑的架构与逐行斟酌的代码，背后是多年打造 RoadRunner 的积累。
 
 features:
   - title: 零中间层

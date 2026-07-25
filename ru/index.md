@@ -1,7 +1,9 @@
 ---
 layout: home
 title: Rapira
-description: Документация Rapira
+description: Rapira — сервер приложений для PHP, написанный на Rust.
+tagline: Сервер для PHP-приложений, написанный на Rust.
+pitch: Не артефакт вайбкоддинга, а продуманная архитектура и выверенный код, подкреплённые годами работы над RoadRunner.
 
 features:
   - title: Нулевой интероп

@@ -20,7 +20,8 @@ docs/         # English (root)
         ├── style.css         # Custom styles (brand colors, blocks, FAQ)
         ├── posts.data.ts      # Blog posts data loader
         ├── GitHubStars.vue
-        ├── RapiraHero.vue      # Home landing cover (wordmark + actions)
+        ├── GitHubIcon.vue      # Shared GitHub mark (nav stars + hero action)
+        ├── RapiraHero.vue      # Home landing cover (wordmark + lede + actions)
         ├── BlogPosts.vue       # Blog index list
         └── BlogPostHeader.vue  # Per-post hero image + meta
 
@@ -128,11 +129,13 @@ faqLevel: false   # no collection — questions stay in place as inline spoilers
 
 ## Home Landing Cover
 
-The home pages (`index.md` in each locale) use `layout: home` **without** a `hero:` frontmatter block. The landing cover is a custom component, `theme/RapiraHero.vue`, injected via the `home-hero-before` layout slot: the theme-aware RAPIRA wordmark (`public/rapira-bg-light.svg` / `rapira-bg-dark.svg`) centered on the page background — no card, frame or border — with two frameless text actions below, "Get Started" + "GitHub" (plain links styled via `.rapira-hero-action`, not `VPButton`).
+The home pages (`index.md` in each locale) use `layout: home` **without** a `hero:` frontmatter block. The landing cover is a custom component, `theme/RapiraHero.vue`, injected via the `home-hero-before` layout slot. Top to bottom: the theme-aware RAPIRA wordmark (`public/rapira-bg-light.svg` / `rapira-bg-dark.svg`) centered on the page background — no card, frame or border — then the lede saying what the project is, then two frameless text actions, "Get Started" + "GitHub" (plain links styled via `.rapira-hero-action`, not `VPButton`; the GitHub one carries `GitHubIcon.vue`).
 
-- The "Get Started" label is a per-locale UI string in `RapiraHero.vue`; the docs link comes from the locale service (`getDocsUrl`). Add a `startLabels` entry when adding a locale.
+- **The lede copy lives in frontmatter**, not in the component: `tagline` (what Rapira is) and `pitch` (the line below it). Both are optional — each `<p>` is skipped when its field is missing. Keeping them in `index.md` means translators edit content, not Vue.
+- The "Get Started" label *is* a per-locale UI string in `RapiraHero.vue`, since it is UI rather than content; the docs link comes from the locale service (`getDocsUrl`). Add a `startLabels` entry when adding a locale.
+- The cover sets `user-select: none` (decoration, and a stray drag-select looks broken) and the wordmark is `draggable="false"`. `.rapira-lede` opts back into selection — it is prose worth copying.
 - The `features:` frontmatter block still renders below the cover as usual.
-- Styles: `.rapira-hero*` in `theme/style.css`.
+- Styles: `.rapira-hero*`, `.rapira-lede*` in `theme/style.css`.
 
 **Sponsors block:** each home page ends with a `<div class="sponsors-section">` showing the sponsor logo (`public/sponsors/logo-buhta.svg`, links to buhta.com) plus a "Become a Sponsor | Star on GitHub" CTA. "Become a Sponsor" points to the in-site sponsor page (`/sponsor`, `/ru/sponsor`, …); the heading and CTA text are translated inline per locale. Styles: `.sponsors-section`, `.sponsor-*` in `theme/style.css` (the logo is auto-inverted in dark mode). The sponsor pages themselves live at `sponsor.md` in each locale.
 
@@ -163,6 +166,7 @@ Any page can set these in the YAML block at the top:
 - `layout` — `doc` (default), `home` (landing), `page` (bare, no sidebar/outline).
 - `faqLevel` — where `::: question` blocks collect (see FAQ above).
 - Blog posts additionally use `date`, `author`, `image` (see Blog & RSS).
+- Home pages additionally use `tagline` and `pitch` for the landing lede (see Home Landing Cover).
 
 ## CSS & Styling
 

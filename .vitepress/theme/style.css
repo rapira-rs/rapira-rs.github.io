@@ -175,13 +175,46 @@ html {
   width: calc(100% - 48px);
   max-width: 1152px;
   margin: 32px auto 0;
-  padding: 76px 32px;
+  padding: 48px 32px 76px;
+}
+
+/* Wordmark and lede read as one block, so they sit tighter than the 4rem
+   that separates them from the actions below */
+.rapira-hero-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2.5rem;
+  width: 100%;
 }
 
 .rapira-hero-logo {
   width: 100%;
   display: flex;
   justify-content: center;
+}
+
+/* What the project is, stated under the wordmark. Unlike the rest of the cover
+   this is prose worth copying, so it opts back into selection. */
+.rapira-lede {
+  max-width: 720px;
+  text-align: center;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.rapira-lede-title {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+.rapira-lede-text {
+  margin: 0.75rem 0 0;
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--vp-c-text-2);
 }
 
 .rapira-hero-logo img {
@@ -224,11 +257,19 @@ html {
 @media (max-width: 640px) {
   .rapira-hero {
     gap: 3rem;
-    padding: 48px 20px;
+    padding: 32px 20px 48px;
   }
 
   .rapira-hero-logo img {
     max-width: 88%;
+  }
+
+  .rapira-lede-title {
+    font-size: 19px;
+  }
+
+  .rapira-lede-text {
+    font-size: 16px;
   }
 
   .rapira-hero-action {

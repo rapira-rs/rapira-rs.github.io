@@ -1,7 +1,9 @@
 ---
 layout: home
 title: Rapira
-description: Dokumentacja Rapiry
+description: Rapira to serwer aplikacji PHP napisany w Ruście.
+tagline: Serwer dla aplikacji PHP, napisany w Ruście.
+pitch: Nie artefakt vibe codingu, a przemyślana architektura i starannie napisany kod, za którymi stoją lata pracy nad RoadRunnerem.
 
 features:
   - title: Zero interopu

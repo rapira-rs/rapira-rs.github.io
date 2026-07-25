@@ -4,12 +4,12 @@ title: Rapira
 description: Документация Rapira
 
 features:
-  - title: Начало работы
-    details: Всё необходимое, чтобы начать работу с Rapira.
-  - title: Руководства
-    details: Пошаговые объяснения ключевых концепций и рабочих процессов.
-  - title: Справочник
-    details: Подробное описание API и конфигурации.
+  - title: Нулевой интероп
+    details: "Между Rust и PHP нет прослойки: ни FastCGI, ни сокетов, ни Goridge, ни CGO, ни какой-либо сериализации."
+  - title: Совместимость с php-fpm
+    details: "Поддерживается классический SAPI: Rapira встаёт на место php-fpm без правок в коде, но работает быстрее."
+  - title: Четыре режима работы
+    details: "FPM → FrankenPHP → RoadRunner → Async<br>На что способно ваше приложение?"
 ---
 
 <div class="sponsors-section">

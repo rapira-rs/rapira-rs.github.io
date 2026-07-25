@@ -4,12 +4,12 @@ title: Rapira
 description: Rapira 文档
 
 features:
-  - title: 快速开始
-    details: 开始使用 Rapira 所需的一切。
-  - title: 指南
-    details: 对核心概念和工作流程的分步讲解。
-  - title: 参考
-    details: API 与配置的详细说明。
+  - title: 零中间层
+    details: "Rust 与 PHP 之间没有任何中间层：不用 FastCGI，不走 socket，没有 Goridge，也没有 CGO，更不需要任何序列化。"
+  - title: 兼容 php-fpm
+    details: "支持经典 SAPI：Rapira 直接顶替 php-fpm，代码不用改，但跑得更快。"
+  - title: 四种运行模式
+    details: "FPM → FrankenPHP → RoadRunner → Async<br>你的应用能走到哪一步？"
 ---
 
 <div class="sponsors-section">

@@ -4,12 +4,12 @@ title: Rapira
 description: Dokumentacja Rapiry
 
 features:
-  - title: Pierwsze kroki
-    details: Wszystko, czego potrzebujesz, aby zacząć pracę z Rapirą.
-  - title: Przewodniki
-    details: Krok po kroku o kluczowych koncepcjach i przepływach pracy.
-  - title: Dokumentacja referencyjna
-    details: Szczegółowy opis API i konfiguracji.
+  - title: Zero interopu
+    details: "Między Rustem a PHP nie ma żadnej warstwy pośredniej: ani FastCGI, ani socketów, ani Goridge, ani CGO, ani jakiejkolwiek serializacji."
+  - title: Zgodność z php-fpm
+    details: "Obsługa klasycznego SAPI: Rapira wchodzi na miejsce php-fpm bez zmian w kodzie, ale działa szybciej."
+  - title: Cztery tryby pracy
+    details: "FPM → FrankenPHP → RoadRunner → Async<br>Na co stać twoją aplikację?"
 ---
 
 <div class="sponsors-section">

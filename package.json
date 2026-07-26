@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vitepress dev",
-    "build": "vitepress build",
-    "preview": "vitepress preview"
+    "build": "npm run thumbnails && vitepress build",
+    "preview": "vitepress preview",
+    "thumbnails": "node scripts/generate-thumbnails.mjs"
   },
   "keywords": [
     "rapira",
@@ -17,6 +18,7 @@
     "@types/node": "^25.3.3",
     "gray-matter": "^4.0.3",
     "mermaid": "^11.14.0",
+    "sharp": "^0.34.5",
     "vitepress": "^1.6.4",
     "vitepress-plugin-mermaid": "^2.0.17"
   },

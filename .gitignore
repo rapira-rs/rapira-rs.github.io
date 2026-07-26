@@ -9,6 +9,9 @@ node_modules
 .DS_Store
 *.local
 
+# Generated blog thumbnails (rebuilt by `npm run thumbnails`)
+*.thumb.jpg
+
 # Vite SSR temp files
 *.timestamp-*
 

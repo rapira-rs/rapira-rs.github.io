@@ -2,7 +2,7 @@
 layout: home
 title: Rapira
 description: Rapira es un servidor de aplicaciones PHP escrito en Rust.
-tagline: Un servidor para aplicaciones PHP, escrito en Rust.
+tagline: Un servidor de aplicaciones PHP, escrito en Rust.
 pitch: Una arquitectura pensada y código escrito con cuidado, con años de RoadRunner detrás.
 
 features:

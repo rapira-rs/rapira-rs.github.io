@@ -27,6 +27,8 @@ The mode is selected in the config, but neither the config format nor the PHP-si
 
 This positioning is what the home page carries: the lede comes from the `tagline` and `pitch` frontmatter fields of each locale's `index.md`, and the three feature cards — zero interop, php-fpm compatibility, the execution modes — from its `features` block. English is written first, then every translation follows.
 
+**One deliberate exception:** the English `tagline` calls Rapira *post-modern* — a nod to the "Modern PHP" era of Composer and the PSRs, which an English-speaking reader catches at once. That reference does not exist in the other languages, so there is no "modern" to be "post" of, and the calque lands as art-criticism irony instead. Every translated `tagline` therefore stays plain — the equivalent of "PHP application server, written in Rust" — and this gap is intentional, not an out-of-sync translation to be fixed.
+
 ## Structure
 
 ```

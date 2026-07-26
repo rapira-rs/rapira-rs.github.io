@@ -3,15 +3,15 @@ layout: home
 title: Rapira
 description: Rapira es un servidor de aplicaciones PHP escrito en Rust.
 tagline: Un servidor para aplicaciones PHP, escrito en Rust.
-pitch: No es un artefacto de vibe coding, sino una arquitectura pensada y código escrito con cuidado, con años de RoadRunner detrás.
+pitch: Una arquitectura pensada y código escrito con cuidado, con años de RoadRunner detrás.
 
 features:
   - title: Interop cero
     details: "Entre Rust y PHP no hay ninguna capa intermedia: ni FastCGI, ni sockets, ni Goridge, ni CGO, ni serialización de ningún tipo."
   - title: Compatible con php-fpm
     details: "Admite el SAPI clásico: Rapira ocupa el lugar de php-fpm sin tocar el código, pero va más rápido."
-  - title: Cuatro modos de ejecución
-    details: "Classic → Franken → RoadRunner → Async<br>¿Hasta dónde llega tu aplicación?"
+  - title: Modos de ejecución
+    details: "Classic → Worker → Async<br>¿Hasta dónde llega tu aplicación?"
 ---
 
 <div class="sponsors-section">

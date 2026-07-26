@@ -10,20 +10,22 @@ Documentation site for **Rapira**, built with [VitePress](https://vitepress.dev/
 
 **Existing applications keep working.** The classic SAPI is supported, so an ordinary front controller runs as it is: Rapira takes php-fpm's place with no changes to the code, and runs faster doing it.
 
-**Four execution modes** form a ladder, `Classic → Franken → RoadRunner → Async`, and an application picks the rung it can actually reach. The names are the site's own — deliberately not tied to the products they echo:
+**Four execution modes** form a ladder, `Classic → SAPI Worker → PSR Worker → Async`, and an application picks the rung it can actually reach. The names are the site's own: they say what the rung *is* — a live worker, and the contract it speaks — instead of pointing at the product that made the shape familiar. Never name the modes after FrankenPHP or RoadRunner on the site:
 
 - **Classic** — the entry script runs from scratch on every request, exactly as it would under php-fpm.
-- **Franken** — the same shape, except the worker does not die: the superglobals are refilled for each request while the warmed-up process keeps running.
-- **RoadRunner** — the PHP side pulls requests from Rapira through an API call and decides what to do with each one: fill the superglobals for compatibility, or skip them entirely and work with a PSR-7 message. One request at a time.
+- **SAPI Worker** — the same shape, except the worker does not die: the superglobals are refilled for each request while the warmed-up process keeps running.
+- **PSR Worker** — the PHP side pulls requests from Rapira through an API call and decides what to do with each one: fill the superglobals for compatibility, or skip them entirely and work with a PSR-7 message. One request at a time.
 - **Async** — the same API, except the worker asks for more than one request at once and handles them concurrently, which PHP 8.1 fibers make possible.
 
 All four rungs are open to any application; what limits the choice is the application's own stack, never the server. Global state that cannot survive a second request keeps you on the Classic rung, a library that is not fiber-safe keeps you below Async — that is a property of the code, not a restriction Rapira imposes. Frame it that way: Rapira offers the whole ladder, the app decides how high it climbs.
 
+**The home page shows a shortened ladder,** `Classic → Worker → Async` — three rungs, because four names plus their distinctions do not fit a feature card and the middle pair differ in a detail (who initiates the request) that means nothing to someone seeing the project for the first time. There, `Worker` stands for both worker rungs. The full four-rung ladder belongs in the documentation, where there is room to explain it.
+
 The mode is selected in the config, but neither the config format nor the PHP-side API is stable yet — describe the modes by what they do, and check specific keys and function names before they reach the site.
 
-**It is engineered, not vibe-coded.** A considered architecture and carefully written code, backed by years of building RoadRunner — the same maintainers. No performance numbers are published, so keep any claim about speed qualitative and never invent figures or percentages.
+**It is engineered.** A considered architecture and carefully written code, backed by years of building RoadRunner — the same maintainers. State this affirmatively and never mention vibe coding on the site: naming the thing you are not invites the reader to weigh the accusation, and the site does not need to argue with it. No performance numbers are published, so keep any claim about speed qualitative and never invent figures or percentages.
 
-This positioning is what the home page carries: the lede comes from the `tagline` and `pitch` frontmatter fields of each locale's `index.md`, and the three feature cards — zero interop, php-fpm compatibility, the four modes — from its `features` block. English is written first, then every translation follows.
+This positioning is what the home page carries: the lede comes from the `tagline` and `pitch` frontmatter fields of each locale's `index.md`, and the three feature cards — zero interop, php-fpm compatibility, the execution modes — from its `features` block. English is written first, then every translation follows.
 
 ## Structure
 

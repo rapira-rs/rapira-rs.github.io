@@ -3,15 +3,15 @@ layout: home
 title: Rapira
 description: Rapira — сервер приложений для PHP, написанный на Rust.
 tagline: Сервер для PHP-приложений, написанный на Rust.
-pitch: Не артефакт вайбкоддинга, а продуманная архитектура и выверенный код, подкреплённые годами работы над RoadRunner.
+pitch: Продуманная архитектура и выверенный код, подкреплённые годами работы над RoadRunner.
 
 features:
   - title: Нулевой интероп
     details: "Между Rust и PHP нет прослойки: ни FastCGI, ни сокетов, ни Goridge, ни CGO, ни какой-либо сериализации."
   - title: Совместимость с php-fpm
     details: "Поддерживается классический SAPI: Rapira встаёт на место php-fpm без правок в коде, но работает быстрее."
-  - title: Четыре режима работы
-    details: "Classic → Franken → RoadRunner → Async<br>На что способно ваше приложение?"
+  - title: Режимы работы
+    details: "Classic → Worker → Async<br>На что способно ваше приложение?"
 ---
 
 <div class="sponsors-section">

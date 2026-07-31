@@ -12,6 +12,7 @@ features:
     details: "Obsługa klasycznego SAPI: Rapira wchodzi na miejsce php-fpm bez zmian w kodzie, ale działa szybciej."
   - title: Tryby pracy
     details: "Classic → Worker → Async<br>Na co stać twoją aplikację?"
+    link: /pl/docs/execution-modes
 ---
 
 <div class="sponsors-section">

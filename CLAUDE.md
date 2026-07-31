@@ -60,6 +60,8 @@ pl/           # Polish locale    ┘
 
 English (root) is the **source of truth**. Every other locale mirrors its structure.
 
+The docs sidebar (five per-locale blocks in `.vitepress/config.mts`) has six groups — Introduction, Getting started, Writing your app, Running the server, Framework integration, Contributing — with an identical group/item structure in every locale; only the labels are translated.
+
 ## Style Guide
 
 **Tone:** Informal but technically accurate. Write for newcomers — use full sentences, explain concepts before showing code. Avoid telegraphic style ("Register plugin. Call it.") — context and motivation matter.

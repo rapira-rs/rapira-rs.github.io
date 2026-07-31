@@ -1,0 +1,119 @@
+---
+title: Сборка из исходников
+description: "Когда и как собрать Rapira самому: инструменты Rust и C, PHP в сборке NTS с embed SAPI и тонкости линковки на Linux и macOS."
+---
+
+# Сборка из исходников
+
+Большинству эта страница никогда не понадобится: возьмите готовый бинарник со страницы [Установка](/ru/docs/installation) — и на этом всё. Собирать Rapira самому имеет смысл там, куда готовые артефакты не дотягиваются, и ничего сложного в этом нет: единственная по-настоящему новая деталь — PHP, который Rapira сможет встроить. Собирается Rapira на Linux и macOS.
+
+## Когда это нужно
+
+- **Для вашей платформы нет готового бинарника** — необычная архитектура процессора или дистрибутив на musl вроде Alpine.
+- **Дистрибутив старше, чем поддерживают пакеты.** Релизы собраны под glibc 2.34, так что самые старые системы, куда они встанут, — это Debian 12, Ubuntu 22.04 и RHEL 9 (подробности на странице [Установка](/ru/docs/installation)).
+- **Нужен другой набор расширений PHP.** В релизные сборки вложен PHP, собранный по списку флагов из [`ci/php-configure-flags.txt`](https://github.com/rapira-rs/rapira/blob/main/ci/php-configure-flags.txt), а список этот намеренно короткий: session, mbstring, OPcache, OpenSSL, curl, семейство XML, PDO с SQLite. Если приложению нужны `pdo_mysql`, `intl` или `gd`, соберите Rapira с тем PHP, где они есть.
+- **Вы дорабатываете саму Rapira** или хотите то, что ещё не попало в релиз.
+
+## Инструменты сборки
+
+Кроме привычного набора для сборки понадобятся три вещи:
+
+- **Rust, стабильный канал.** Версия закреплена в `rust-toolchain.toml` в репозитории, поэтому [rustup](https://rustup.rs/) сам подтянет нужный тулчейн — выбирать ничего не придётся.
+- **Компилятор C и `pkg-config`.** Часть сборки написана на C — небольшие прослойки, которые компилируются с заголовками PHP.
+- **libclang** — привязки к Zend API генерирует bindgen прямо во время сборки. Пакет называется `libclang-dev` в Debian/Ubuntu, `clang-devel` в Fedora и `clang` в Arch.
+
+## PHP с embed SAPI
+
+Rapira не ходит к PHP через сокет, а линкует интерпретатор прямо в свой процесс. Значит, PHP должен существовать в виде разделяемой библиотеки: **версия 8.4 или 8.5, сборка NTS (непотокобезопасная), собранная с `--enable-embed=shared`** — именно этот флаг и даёт `libphp.so` (на macOS — `libphp.dylib`).
+
+::: warning Сборки ZTS отвергаются
+Потокобезопасный (ZTS) PHP валит сборку с внятной ошибкой: Rapira работает только с NTS, потому что держит по одному интерпретатору на процесс-воркер. Если PHP в вашем `PATH` собран как ZTS, поставьте сборку NTS и укажите на неё через `PHP_CONFIG` (см. ниже).
+:::
+
+В нескольких дистрибутивах embed SAPI уже лежит в пакетах:
+
+```bash
+sudo apt install php8.4-dev libphp8.4-embed   # Debian/Ubuntu (deb.sury.org / ppa:ondrej)
+sudo dnf install php-devel php-embedded       # Fedora/RHEL
+sudo pacman -S php php-embed                  # Arch
+sudo apk add php84-dev php84-embed            # Alpine
+```
+
+::: warning В macOS готового embed SAPI нет
+Формула `php` в Homebrew собрана без него, так что линковаться просто не с чем. На macOS придётся собрать PHP из исходников.
+:::
+
+### Собираем PHP сами
+
+Эталонная строка `configure` лежит в репозитории — это `ci/php-configure-flags.txt`, тот самый список, по которому собираются релизы. Передайте его в `configure` в распакованных исходниках PHP и допишите расширения, которые нужны вашему приложению:
+
+```bash
+./configure --prefix="$HOME/.local/php-nts" $(tr '\n' ' ' < /path/to/rapira/ci/php-configure-flags.txt)
+make -j"$(getconf _NPROCESSORS_ONLN)"
+make install
+```
+
+На macOS сначала поставьте зависимости (`brew install pkg-config openssl@3 curl oniguruma libxml2 sqlite`), добавьте их каталоги `lib/pkgconfig` в `PKG_CONFIG_PATH`, а после файла с флагами допишите `--with-iconv="$(xcrun --show-sdk-path)/usr"`: голый `--with-iconv` там libiconv не находит, а в autoconf побеждает последнее вхождение.
+
+### Простое имя `libphp.so`
+
+Сборка линкуется с `-lphp` и ищет библиотеку только в `lib` и `lib64` внутри префикса PHP, поэтому файл ровно с именем `libphp.so` (или `libphp.dylib`) должен лежать в одном из них. Debian и Ubuntu кладут только версионный `libphp8.4.so`, у Alpine имя простое, но сам файл лежит в `lib/phpXX`, куда сборка не заглядывает. И там, и там линковка падает, пока вы не положите в `lib` или `lib64` префикса симлинк с простым именем:
+
+```bash
+sudo ln -sf /usr/lib/libphp8.4.so /usr/lib/libphp.so        # Debian/Ubuntu
+sudo ln -sf /usr/lib/php84/libphp.so /usr/lib/libphp.so     # Alpine
+```
+
+Если прав root нет, сделайте симлинк в своём каталоге и покажите на него и линковщику, и загрузчику:
+
+```bash
+mkdir -p ~/.local/phplib
+ln -sf /usr/lib/libphp8.4.so ~/.local/phplib/libphp.so
+export RUSTFLAGS="-L native=$HOME/.local/phplib"
+export LD_LIBRARY_PATH="$HOME/.local/phplib:/usr/lib"
+```
+
+## Сборка Rapira
+
+Когда PHP на месте, дальше всё как в любом проекте на Rust — обычная сборка через cargo:
+
+```bash
+git clone https://github.com/rapira-rs/rapira.git
+cd rapira
+cargo build --release
+```
+
+Готовый бинарник окажется в `target/release/rapira`.
+
+PHP находится через `php-config`. Если тот, что лежит в `PATH`, — не та сборка, которую вы хотите встроить, укажите нужную явно:
+
+```bash
+PHP_CONFIG=$HOME/.local/php-nts/bin/php-config cargo build --release
+```
+
+::: tip
+`make test` прогоняет наборы тестов и сам разбирается с путями к библиотекам: находит embed-библиотеку внутри префикса `php-config` (`lib`, `lib64`, `lib/phpXX`, простое или версионное имя) и приводит её к простому имени, которого ждёт линковщик. Хороший способ убедиться, что окружение собрано правильно, прежде чем полагаться на свою сборку.
+:::
+
+## Запуск собранного бинарника
+
+Во время работы Rapira подгружает `libphp.so` (на macOS — `libphp.dylib`) динамически. Если библиотека лежит в стандартном месте, делать ничего не нужно; если нет — подскажите загрузчику, где её искать:
+
+```bash
+LD_LIBRARY_PATH=$HOME/.local/php-nts/lib ./target/release/rapira serve worker.php     # Linux
+DYLD_LIBRARY_PATH=$HOME/.local/php-nts/lib ./target/release/rapira serve worker.php   # macOS
+```
+
+Дальше перед вами тот же сервер, что ставится из пакетов: [Быстрый старт](/ru/docs/quickstart) проведёт через первый скрипт, [Командная строка](/ru/docs/cli) перечисляет всё, что принимает `serve`, а [Конфигурация](/ru/docs/configuration) разбирает `rapira.toml`.
+
+::: question Придётся ли собирать из исходников ещё и PHP?
+Только если в вашем дистрибутиве нет пакета с embed SAPI, если вы работаете на macOS или если нужны расширения, которых в пакетной сборке нет. В остальных случаях хватит пакета `php-embed` / `libphpX.Y-embed` из дистрибутива — плюс симлинк с простым именем `libphp.so` в Debian и Ubuntu.
+:::
+
+::: question Можно ли собрать с ZTS-сборкой PHP из моего дистрибутива?
+Нет: если `php-config` указывает на потокобезопасную сборку, сборка останавливается с ошибкой. Поставьте или соберите PHP в варианте NTS с embed SAPI и пропишите в `PHP_CONFIG` путь к его `php-config`.
+:::
+
+## Разработка самой Rapira
+
+Если вы пришли сюда не просто собрать Rapira, а что-то в ней поменять: `make test` прогоняет оба набора тестов — внутрипроцессный и сквозной, который запускает настоящий бинарник; `make stubs` перегенерирует заголовок с arginfo из `crates/php_sys/rapira.stub.php`; а CI на каждый пул-реквест собирает проект и гоняет `cargo fmt`, clippy и покрытие.

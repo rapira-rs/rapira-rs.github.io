@@ -12,6 +12,7 @@ features:
     details: "The classic SAPI is supported: Rapira drops in where php-fpm was with no code changes, but runs faster."
   - title: Execution modes
     details: "Classic → Worker → Async<br>How far can your app go?"
+    link: /docs/execution-modes
 ---
 
 <div class="sponsors-section">

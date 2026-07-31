@@ -65,13 +65,50 @@ gtag('config', 'G-Q7Z14B1SZ9');`],
             {
               text: 'Introduction',
               items: [
-                { text: 'Getting Started', link: '/docs/' },
+                { text: 'What is Rapira?', link: '/docs/' },
+                { text: 'Execution modes', link: '/docs/execution-modes' },
+              ],
+            },
+            {
+              text: 'Getting started',
+              items: [
+                { text: 'Installation', link: '/docs/installation' },
+                { text: 'Quickstart', link: '/docs/quickstart' },
+                { text: 'Build from source', link: '/docs/build-from-source' },
+              ],
+            },
+            {
+              text: 'Writing your app',
+              items: [
+                { text: 'Classic mode', link: '/docs/classic' },
+                { text: 'Worker mode', link: '/docs/worker' },
+                { text: 'HTTP requests and responses', link: '/docs/http' },
+              ],
+            },
+            {
+              text: 'Running the server',
+              items: [
+                { text: 'Command line', link: '/docs/cli' },
+                { text: 'Configuration', link: '/docs/configuration' },
+                { text: 'Process model', link: '/docs/process-model' },
+                { text: 'Logging', link: '/docs/logging' },
+                { text: 'Running in production', link: '/docs/deployment' },
+              ],
+            },
+            {
+              text: 'Framework integration',
+              items: [
+                { text: 'Overview', link: '/docs/frameworks/' },
+                { text: 'Symfony', link: '/docs/frameworks/symfony' },
+                { text: 'Laravel', link: '/docs/frameworks/laravel' },
+                { text: 'Yii3', link: '/docs/frameworks/yii3' },
               ],
             },
             {
               text: 'Contributing',
               items: [
                 { text: 'Contributing to the docs', link: '/docs/contributing' },
+                { text: 'Contributing to Rapira', link: 'https://github.com/rapira-rs/rapira/blob/main/CONTRIBUTING.md' },
               ],
             },
           ],
@@ -101,13 +138,50 @@ gtag('config', 'G-Q7Z14B1SZ9');`],
             {
               text: 'Введение',
               items: [
-                { text: 'Начало работы', link: '/ru/docs/' },
+                { text: 'Что такое Rapira', link: '/ru/docs/' },
+                { text: 'Режимы выполнения', link: '/ru/docs/execution-modes' },
+              ],
+            },
+            {
+              text: 'Начало работы',
+              items: [
+                { text: 'Установка', link: '/ru/docs/installation' },
+                { text: 'Быстрый старт', link: '/ru/docs/quickstart' },
+                { text: 'Сборка из исходников', link: '/ru/docs/build-from-source' },
+              ],
+            },
+            {
+              text: 'Разработка приложения',
+              items: [
+                { text: 'Классический режим', link: '/ru/docs/classic' },
+                { text: 'Режим воркера', link: '/ru/docs/worker' },
+                { text: 'Запросы и ответы HTTP', link: '/ru/docs/http' },
+              ],
+            },
+            {
+              text: 'Запуск сервера',
+              items: [
+                { text: 'Командная строка', link: '/ru/docs/cli' },
+                { text: 'Конфигурация', link: '/ru/docs/configuration' },
+                { text: 'Модель процессов', link: '/ru/docs/process-model' },
+                { text: 'Логирование', link: '/ru/docs/logging' },
+                { text: 'Запуск в продакшене', link: '/ru/docs/deployment' },
+              ],
+            },
+            {
+              text: 'Интеграция с фреймворками',
+              items: [
+                { text: 'Обзор', link: '/ru/docs/frameworks/' },
+                { text: 'Symfony', link: '/ru/docs/frameworks/symfony' },
+                { text: 'Laravel', link: '/ru/docs/frameworks/laravel' },
+                { text: 'Yii3', link: '/ru/docs/frameworks/yii3' },
               ],
             },
             {
               text: 'Участие',
               items: [
                 { text: 'Помощь с документацией', link: '/ru/docs/contributing' },
+                { text: 'Участие в разработке', link: 'https://github.com/rapira-rs/rapira/blob/main/CONTRIBUTING.md' },
               ],
             },
           ],
@@ -151,13 +225,50 @@ gtag('config', 'G-Q7Z14B1SZ9');`],
             {
               text: 'Introducción',
               items: [
-                { text: 'Primeros pasos', link: '/es/docs/' },
+                { text: '¿Qué es Rapira?', link: '/es/docs/' },
+                { text: 'Modos de ejecución', link: '/es/docs/execution-modes' },
+              ],
+            },
+            {
+              text: 'Primeros pasos',
+              items: [
+                { text: 'Instalación', link: '/es/docs/installation' },
+                { text: 'Inicio rápido', link: '/es/docs/quickstart' },
+                { text: 'Compilar desde el código', link: '/es/docs/build-from-source' },
+              ],
+            },
+            {
+              text: 'Escribir tu aplicación',
+              items: [
+                { text: 'Modo clásico', link: '/es/docs/classic' },
+                { text: 'Modo worker', link: '/es/docs/worker' },
+                { text: 'Peticiones y respuestas HTTP', link: '/es/docs/http' },
+              ],
+            },
+            {
+              text: 'Ejecutar el servidor',
+              items: [
+                { text: 'Línea de comandos', link: '/es/docs/cli' },
+                { text: 'Configuración', link: '/es/docs/configuration' },
+                { text: 'Modelo de procesos', link: '/es/docs/process-model' },
+                { text: 'Registros', link: '/es/docs/logging' },
+                { text: 'En producción', link: '/es/docs/deployment' },
+              ],
+            },
+            {
+              text: 'Integración con frameworks',
+              items: [
+                { text: 'Visión general', link: '/es/docs/frameworks/' },
+                { text: 'Symfony', link: '/es/docs/frameworks/symfony' },
+                { text: 'Laravel', link: '/es/docs/frameworks/laravel' },
+                { text: 'Yii3', link: '/es/docs/frameworks/yii3' },
               ],
             },
             {
               text: 'Contribuir',
               items: [
                 { text: 'Contribuir a la documentación', link: '/es/docs/contributing' },
+                { text: 'Contribuir al proyecto', link: 'https://github.com/rapira-rs/rapira/blob/main/CONTRIBUTING.md' },
               ],
             },
           ],
@@ -201,13 +312,50 @@ gtag('config', 'G-Q7Z14B1SZ9');`],
             {
               text: '简介',
               items: [
-                { text: '快速开始', link: '/zh/docs/' },
+                { text: '什么是 Rapira', link: '/zh/docs/' },
+                { text: '执行模式', link: '/zh/docs/execution-modes' },
+              ],
+            },
+            {
+              text: '快速上手',
+              items: [
+                { text: '安装', link: '/zh/docs/installation' },
+                { text: '快速开始', link: '/zh/docs/quickstart' },
+                { text: '从源码构建', link: '/zh/docs/build-from-source' },
+              ],
+            },
+            {
+              text: '编写应用',
+              items: [
+                { text: '经典模式', link: '/zh/docs/classic' },
+                { text: 'Worker 模式', link: '/zh/docs/worker' },
+                { text: 'HTTP 请求与响应', link: '/zh/docs/http' },
+              ],
+            },
+            {
+              text: '运行服务器',
+              items: [
+                { text: '命令行', link: '/zh/docs/cli' },
+                { text: '配置', link: '/zh/docs/configuration' },
+                { text: '进程模型', link: '/zh/docs/process-model' },
+                { text: '日志', link: '/zh/docs/logging' },
+                { text: '生产环境部署', link: '/zh/docs/deployment' },
+              ],
+            },
+            {
+              text: '框架集成',
+              items: [
+                { text: '概览', link: '/zh/docs/frameworks/' },
+                { text: 'Symfony', link: '/zh/docs/frameworks/symfony' },
+                { text: 'Laravel', link: '/zh/docs/frameworks/laravel' },
+                { text: 'Yii3', link: '/zh/docs/frameworks/yii3' },
               ],
             },
             {
               text: '参与贡献',
               items: [
                 { text: '参与文档贡献', link: '/zh/docs/contributing' },
+                { text: '参与开发', link: 'https://github.com/rapira-rs/rapira/blob/main/CONTRIBUTING.md' },
               ],
             },
           ],
@@ -251,13 +399,50 @@ gtag('config', 'G-Q7Z14B1SZ9');`],
             {
               text: 'Wprowadzenie',
               items: [
-                { text: 'Pierwsze kroki', link: '/pl/docs/' },
+                { text: 'Czym jest Rapira', link: '/pl/docs/' },
+                { text: 'Tryby wykonania', link: '/pl/docs/execution-modes' },
+              ],
+            },
+            {
+              text: 'Pierwsze kroki',
+              items: [
+                { text: 'Instalacja', link: '/pl/docs/installation' },
+                { text: 'Szybki start', link: '/pl/docs/quickstart' },
+                { text: 'Budowanie ze źródeł', link: '/pl/docs/build-from-source' },
+              ],
+            },
+            {
+              text: 'Tworzenie aplikacji',
+              items: [
+                { text: 'Tryb klasyczny', link: '/pl/docs/classic' },
+                { text: 'Tryb workera', link: '/pl/docs/worker' },
+                { text: 'Żądania i odpowiedzi HTTP', link: '/pl/docs/http' },
+              ],
+            },
+            {
+              text: 'Uruchamianie serwera',
+              items: [
+                { text: 'Wiersz poleceń', link: '/pl/docs/cli' },
+                { text: 'Konfiguracja', link: '/pl/docs/configuration' },
+                { text: 'Model procesów', link: '/pl/docs/process-model' },
+                { text: 'Logi', link: '/pl/docs/logging' },
+                { text: 'Wdrożenie produkcyjne', link: '/pl/docs/deployment' },
+              ],
+            },
+            {
+              text: 'Integracja z frameworkami',
+              items: [
+                { text: 'Przegląd', link: '/pl/docs/frameworks/' },
+                { text: 'Symfony', link: '/pl/docs/frameworks/symfony' },
+                { text: 'Laravel', link: '/pl/docs/frameworks/laravel' },
+                { text: 'Yii3', link: '/pl/docs/frameworks/yii3' },
               ],
             },
             {
               text: 'Współtworzenie',
               items: [
                 { text: 'Współtworzenie dokumentacji', link: '/pl/docs/contributing' },
+                { text: 'Rozwój Rapiry', link: 'https://github.com/rapira-rs/rapira/blob/main/CONTRIBUTING.md' },
               ],
             },
           ],

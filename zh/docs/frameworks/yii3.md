@@ -1,0 +1,199 @@
+---
+title: Yii3
+description: 在 Rapira 的 SAPI Worker 这一级上跑 Yii3 应用——常驻的 HttpApplicationRunner 配 StateResetter、更省心的每请求一个 runner 的写法，以及路由、session、上传和错误处理都验证出了什么。
+---
+
+# Yii3
+
+本站写到的三个框架里，Yii3 是天生就冲着这件事去设计的那一个。它的 DI 容器里躺着一个正经的 `StateResetter`，runner 通过公开 API 就把容器交给你；而“应用只搭一次，每次应答完把单请求状态重置掉”也不是谁为了常驻服务器现编出来的花招——框架本来就长这个样子。官方的 RoadRunner runner [`yiisoft/yii-runner-roadrunner`](https://github.com/yiisoft/yii-runner-roadrunner) 就是照这个思路写的，这说明下面这套写法正是框架设想中的常驻用法，而不是什么聪明的歪用。
+
+::: info 验证环境
+- **PHP 8.5.8**——NTS，embed SAPI
+- **Rapira 0.6.0**
+- **yiisoft/app** 模板 1.4，配 **yii-runner-http 3.2.1**（router-fastroute 4.x）
+
+本页这两个 worker 脚本都在这套环境上跑过，并通过了全套测试：路由、生成 URL、表单和 JSON 提交、session、文件上传、错误处理，以及连续 200 个请求。
+:::
+
+## Yii3 为什么适合 worker 这一级
+
+一个常驻 worker 需要的东西，两处公开 API 就够了。
+
+`ApplicationRunner::getContainer()` 是公开的——runner 直接把应用真正在用的那个容器给你，不必去继承谁，也不必伸手掏私有状态。而 `Yiisoft\Di\StateResetter` 就是这个容器里的一个普通服务：各个组件把自己的重置回调注册给它，一次 `reset()` 就把它们统统拨回起始的样子。这就是框架自己对“这个对象攥着请求状态”给出的答案，它之所以存在，正是因为 Yii3 早就料到自己会跑在一个不退出的进程里。
+
+所以常驻这套写法就是三行胶水代码：runner 只造一次，每个请求跑一遍，跑完把容器的状态重置掉。
+
+## 前置条件
+
+- 装好 Rapira——见[安装](/zh/docs/installation)。
+- 一个 Yii3 应用：新建一个 [`yiisoft/app`](https://github.com/yiisoft/app) 项目，或者用你手上现成的那个。
+
+PHP 那边什么都不用装。没有 runtime 包，没有桥接层，也没有适配器——下面这个 worker 脚本是项目里唯一新增的文件，它放在项目根目录、`composer.json` 旁边，因为 runner 的 `rootPath` 就是项目根目录。
+
+## 常驻 worker
+
+推荐用这一套。把它存成项目根目录下的 `worker.php`：
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use App\Environment;
+use Rapira\Plugin\Http\HttpHandlerConfig;
+use Yiisoft\Di\StateResetter;
+use Yiisoft\Yii\Runner\Http\HttpApplicationRunner;
+
+use function Rapira\create_plugin_handler;
+
+require_once __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/src/bootstrap.php';
+
+$runner = new HttpApplicationRunner(
+    rootPath: __DIR__,
+    debug: Environment::appDebug(),
+    checkEvents: Environment::appDebug(),
+    environment: Environment::appEnv(),
+);
+$container = $runner->getContainer();
+
+$http = create_plugin_handler(new HttpHandlerConfig());
+
+$handler = static function () use ($runner, $container): void {
+    $runner->run();
+    $container->get(StateResetter::class)->reset();
+};
+
+while ($http->handleRequest($handler)) {
+    gc_collect_cycles();
+}
+```
+
+逐段看下来：
+
+**`src/bootstrap.php` 是模板自带的启动文件**。它加载 Composer 的自动加载器，`.env` 在的话就读进来，然后调用 `Environment::prepare()`——`public/index.php` 在碰 runner 之前干的正是这些。上面那行显式的 `vendor/autoload.php` 纯属双保险（`require_once`，所以不花什么代价），顺带让这个 worker 单独拿出来看也是一个读得懂的入口脚本。
+
+**runner 只构造一次，参数照抄 `public/index.php`**。`rootPath`、`debug`、`checkEvents` 和 `environment` 都取自 `App\Environment`，和前端控制器传的一模一样，所以 worker 启动起来的就是 Web 入口那同一个应用。模板的 `public/index.php` 还多传了一个参数——一个接到 `StreamTarget` 日志器上的 `temporaryErrorHandler`——并在 `APP_C3` 打开时 require `c3.php`。经过验证的这个 worker 两样都没要。这个临时处理器管的只是构建配置和容器期间抛出的错误；不传的话，runner 会退回到一个配 `NullLogger` 的 `ErrorHandler`（`HttpApplicationRunner::createTemporaryErrorHandler()`），所以你要是想让容器构建失败也进日志，这里照样传上就是。
+
+**`getContainer()` 是公开 API**，所以你抓到的就是应用自己的容器——runner 处理每个请求用的都是它。`StateResetter` 则在 handler 内部从这个容器里取。
+
+**每个请求先 `run()`，再 `reset()`**。`run()` 就是前端控制器调的那一个；`reset()` 会把容器里注册的重置回调挨个走一遍，赶在下一个请求到来之前，把带状态的服务拨回初始状态。
+
+**常驻的 runner 照样看得见每一个新请求**。这一点常让人犯迷糊，所以明说一句：`run()` 并不在构造的时候就把请求定死。它每次被调用都会向容器要一个 `RequestFactory`，再从 `$_SERVER`、`$_GET`、`$_POST`、`$_COOKIE`、`$_FILES` 和 `php://input` 现场造出一个 PSR-7 的 `ServerRequest`——而这些超全局变量，Rapira 在循环每转一圈之前都会重新填好（这份契约见 [Worker 模式](/zh/docs/worker)）。对象是常驻的，请求每次都是新的。
+
+**内存是平的**。连续 200 个请求跑下来，worker 的常驻内存没有任何值得一提的增长——应用只搭一次，重置又便宜，压根不存在每个请求启动一遍、再等着被回收的那堆东西。这就是这套写法比下面那套实在的地方。
+
+## 更省心的另一种：每个请求造一个新 runner
+
+如果你根本不想操心常驻状态，那就把 runner 造在 handler *里面*。这样应用创建出来的一切都只属于一个请求：
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use App\Environment;
+use Rapira\Plugin\Http\HttpHandlerConfig;
+use Yiisoft\Yii\Runner\Http\HttpApplicationRunner;
+
+use function Rapira\create_plugin_handler;
+
+require_once __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/src/bootstrap.php';
+
+$http = create_plugin_handler(new HttpHandlerConfig());
+
+$handler = static function (): void {
+    // A fresh runner per request; constructor arguments mirror public/index.php.
+    $runner = new HttpApplicationRunner(
+        rootPath: __DIR__,
+        debug: Environment::appDebug(),
+        checkEvents: Environment::appDebug(),
+        environment: Environment::appEnv(),
+    );
+    $runner->run();
+};
+
+while ($http->handleRequest($handler)) {
+    gc_collect_cycles();
+}
+```
+
+零件更少，没有可能写错的重置，状态也没机会从上一个请求漏到下一个——容器每次都是重建的。这一套同样通过了全套测试。
+
+代价说白了也很实在，这也正是它排在本页第二位的原因：容器每个请求都要启动一遍，这份开销你每次都得付，还每次都造出整整一个容器的垃圾。这些容器要堆到一定程度 PHP 才成批回收，期间 worker 的内存是往上走的——这是每请求启动一遍的正常形态，不是泄漏，但仍然值得给它划个上限。把这套写法和 `pool.max_requests` 搭着用，让 worker 每隔一阵退役换新；各种内存形态见[框架集成](/zh/docs/frameworks/)，这个键的说明见[配置](/zh/docs/configuration)。
+
+自动加载器和模板的启动文件仍然常驻，循环也仍然握在你手里——所以这依然是一个 worker，只不过它选择在两次请求之间把应用扔掉，跟[经典模式](/zh/docs/classic)不是一回事。
+
+## 跑起来
+
+```bash
+rapira serve worker.php
+```
+
+整条命令就这么长——worker 模式本来就是默认的。其余参数见[命令行](/zh/docs/cli)。
+
+上生产的话，把它写进 `rapira.toml`：
+
+```toml
+[http]
+listen = "127.0.0.1:8000"
+
+[pool]
+entrypoint = "/srv/app/worker.php"
+processes = 8
+max_requests = 500
+request_terminate_timeout_secs = 30
+
+[log]
+level = "info"
+format = "json"
+```
+
+每个键的默认值和取值范围都在[配置](/zh/docs/configuration)那一页；systemd unit 和挡在它前面的反向代理，见[部署](/zh/docs/deployment)。
+
+## 验证出了什么
+
+两套写法都在 `yiisoft/app` 模板上跑过同一套测试。结果如下：
+
+**路由能用，不用去动 `$_SERVER`**。Rapira 把 `SCRIPT_NAME` 设成入口脚本的文件名——是 `/worker.php`，不是 `/index.php`——FastRoute 照样匹配上了带查询串的多级路径。根路径 `/` 渲染出模板的首页，不存在的路径交出的是框架自己的 404。`SCRIPT_NAME`、`REQUEST_URI`、`DOCUMENT_ROOT` 一个都不用改写。
+
+**生成出来的 URL 是干净的**。`UrlGeneratorInterface::generate()` 给出的就是普通的应用路径，worker 脚本的文件名不会渗进去。
+
+**session 按请求走，隔离得干干净净**。带着 cookie 的客户端接连请求，计数器如实地走 1、2；紧接着换一个新客户端打同一个接口，拿到的是从 1 重新开始的新 session。容器一直活着的常驻写法下，这一点同样成立。
+
+**表单提交、JSON 请求体和文件上传都到得了**。`$_POST` 里的字段、从 `php://input` 读出来的 JSON、以及一次 multipart 上传（临时文件在请求期间读得到）——yii-runner-http 从超全局变量拼出来的那个 PSR-7 `ServerRequest`，把这些全都带上了。
+
+**抛异常就是 500，worker 照常服务**。action 里抛出的异常会被 `ErrorCatcher` 接住，像在别处一样渲染成错误响应；异常照常进日志，紧接着的下一个请求由同一个 worker 进程正常应答。在 Rapira 里，未捕获的异常只是一次请求的失败，不是 worker 级别的失败——什么会把 worker 弄死、什么不会，见 [Worker 模式](/zh/docs/worker)。
+
+## CSRF 照常生效
+
+应用模板的默认中间件链里就有 `CsrfTokenMiddleware`，token 存在 session 里——而 session 正是这轮测试实打实压过的那块状态：按请求走，按客户端隔离。worker 循环没有碰过 token 这条链路上的任何东西，所以这里的 POST 和别处一样，该带 token 还得带。搬到 worker 之后如果提交开始被拒，第一个要查的就是 token——修法也还是老一套（把 token 渲染进表单、再原样交回来），跟 worker 脚本没关系。
+
+## 退路：经典模式
+
+如果你眼下并不想上 worker，Yii3 当成普通前端控制器跑也完全没问题：
+
+```bash
+rapira serve --classic public/index.php
+```
+
+代码原封不动，不用写 worker 脚本，每个请求的状态都是全新的——这一级能给你什么、又要你付出什么，见[经典模式](/zh/docs/classic)。
+
+翻那个文件时会看到一处古怪的东西：模板的 `public/index.php` 里有一个 `PHP_SAPI === 'cli-server'` 分支，专门提供静态文件并改写 `SCRIPT_NAME`。它是给 PHP 内置开发服务器准备的，在 Rapira 下永远不会走到——这里的 `PHP_SAPI` 是 `rapira`（PHP 8.4 上是 `fastcgi`，见[安装](/zh/docs/installation)）。别去动它，它在这儿就是段不起作用的代码。
+
+::: question 这两套写法我该选哪个？
+没有特别理由的话，选常驻那套。它是框架自己给出的常驻方案，内存是平的，重置也就一次调用。什么时候用每请求一个 runner 的写法？当你的启动流程带着你不太想去理清的先后顺序时——比如有代码必须赶在容器构建之前跑，或者有些每请求都要做的启动动作，`StateResetter` 的回调撤不回来。从这一套起步、以后再往上挪也完全可以，要改的只有 worker 脚本。
+:::
+
+::: question 常驻写法下，`checkEvents` 和其余启动流程每个请求都会重跑一遍吗？
+会——`run()` 每次调用都会把它内部那一串重走一遍：注册错误处理器、`runBootstrap()`、`checkEvents()`，然后才是处理请求。连续 200 次调用验证下来没什么影响，runner 本来就是照可重入设计的。尤其是那个事件检查，只有开关为真时才真的干活，而模板里这个开关就是 `Environment::appDebug()`——debug 一关，它每次调用都是空转。
+:::
+
+::: question `public/index.php` 还需要留着吗？
+留着。它不占什么成本，[经典模式](/zh/docs/classic)下要退回去用的就是它，本地拿 PHP 内置服务器干活时也照样好使。worker 脚本是多出来的一个入口，不是前端控制器的替代品。
+:::
+
+::: question `StateResetter::reset()` 到底重置了什么？
+你容器里的服务注册了什么，它就重置什么——把它做成一个容器服务而不是框架钩子，图的就是这个。Yii3 自带的那些有状态组件都注册了自己的重置回调；你要是写了攥着请求状态的服务，也把自己的注册进去——在这个服务的 DI 定义里加一个 `'reset' => function (): void { … }` 键，写法跟 `yiisoft/session` 和 `yiisoft/router` 声明它们的一样；闭包会绑定到实例上，所以不用重建对象就能把私有状态恢复回去。Rapira 自己在两次请求之间重置什么、又刻意不碰什么，写在[框架集成](/zh/docs/frameworks/)和 [Worker 模式](/zh/docs/worker)里。
+:::

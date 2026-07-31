@@ -7,7 +7,7 @@ description: "Cómo convierte Rapira una petición HTTP en superglobales de PHP,
 
 El frontal HTTP de Rapira está construido sobre [Pingora](https://github.com/cloudflare/pingora) y viene dentro del binario. Acepta conexiones en el socket que abrió el proceso maestro, parsea la petición, se la entrega a PHP y devuelve lo que PHP haya producido. No hay ningún upstream detrás: cada petición se responde aquí mismo, con tu código.
 
-La mayor parte del tiempo ni te acuerdas de esta capa: escribes `$_GET['page']`, haces `echo` de algo y funciona. Esta página trata de los sitios donde la traducción entre HTTP y PHP no es uno a uno: qué campo de cabecera acaba en qué clave de `$_SERVER`, qué pasa cuando un cliente manda el mismo campo dos veces, cuánto puede ocupar el cuerpo de una petición y cómo se delimita tu respuesta al salir.
+Esta página cubre las partes donde la traducción entre HTTP y PHP no es uno a uno: qué campo de cabecera acaba en qué clave de `$_SERVER`, qué pasa cuando un cliente manda el mismo campo dos veces, cuánto puede ocupar el cuerpo de una petición y cómo se delimita tu respuesta al salir.
 
 ::: info
 El frontal termina conexiones HTTP en claro. Si necesitas TLS, termínalo en un proxy delante de Rapira: mira [En producción](/es/docs/deployment).
@@ -31,19 +31,19 @@ Esta colisión de nombres es un problema de seguridad. Si un proxy de confianza 
 
 ## Nombres que colisionan con una variable CGI
 
-Por eso Rapira revisa los nombres de campo de la petición antes de que nadie más los mire. Un nombre se acepta cuando todos sus bytes están en `[A-Za-z0-9-]`. Los caracteres que de verdad colisionan son `_` y `.`: los dos caen en la misma clave de `$_SERVER` que le pertenece a un nombre con guiones. La regla es una lista de permitidos y no una lista de esos dos bytes prohibidos, así que un carácter legal pero raro como `~` también se rechaza, y el filtro seguirá siendo correcto si alguna de las dos transformaciones se amplía algún día. Qué pasa con un nombre rechazado lo decide `http.unsafe_field_names`:
+Por eso Rapira revisa los nombres de campo de la petición antes de que los vea ninguna otra capa. Un nombre se acepta cuando todos sus bytes están en `[A-Za-z0-9-]`. Los caracteres que colisionan son `_` y `.`: los dos caen en la misma clave de `$_SERVER` que la grafía con guiones. La regla es una lista de permitidos y no una lista de esos dos bytes prohibidos, así que un carácter legal pero raro como `~` también se rechaza, y el filtro seguirá siendo correcto si alguna de las dos transformaciones se amplía algún día. Qué pasa con un nombre rechazado lo decide `http.unsafe_field_names`:
 
 - **`drop`** (por defecto) — el campo se elimina antes de que PHP lo vea, y cada eliminación se registra con nivel `warn` en el target `http`.
-- **`reject`** — a la petición se le responde `400` y no se sirve nada, así que el cliente ni lo puede intentar.
+- **`reject`** — a la petición se le responde `400` y no se sirve nada.
 
 ```toml
 [http]
 unsafe_field_names = "drop"
 ```
 
-No hay una tercera opción que apague el filtro, y es a propósito. Los servidores que llegaron a incluir un interruptor para desactivarlo son justo donde esta colisión reaparece una y otra vez, así que Rapira no lo ofrece. En [Configuración](/es/docs/configuration) puedes ver dónde encaja esta clave entre el resto de ajustes.
+No hay una tercera opción que apague el filtro ni excepciones para un nombre concreto, porque la colisión que el filtro evita es un problema de seguridad. En [Configuración](/es/docs/configuration) puedes ver dónde encaja esta clave entre el resto de ajustes.
 
-Si tus clientes mandan legítimamente un nombre con guion bajo, la solución es renombrarlo a la grafía con `-`. Un proxy delante de Rapira hace esa reescritura con una línea de su propia configuración, y a partir de ahí el nombre es de lo más corriente y pasa intacto.
+Si tus clientes mandan legítimamente un nombre con guion bajo, la solución es renombrarlo a la grafía con `-`. El filtro trata igual los campos del propio proxy: Rapira no puede distinguir un campo con guion bajo escrito por un proxy de confianza de otro falsificado por un cliente, así que el `X_Forwarded_For` que ponga un proxy también se descarta antes de que PHP se ejecute. Un proxy delante de Rapira hace esa reescritura con una línea de su propia configuración, y a partir de ahí el nombre es de lo más corriente y pasa intacto.
 
 ::: tip
 `drop` registra cada eliminación con nivel `warn`, pero el nivel por defecto es `error`, así que esas líneas no se ven hasta que lo subes. Si a `$_SERVER` le falta inesperadamente una cabecera, sube el nivel y mira primero el target `http`: en [Registros](/es/docs/logging) tienes cómo hacerlo.
@@ -55,7 +55,7 @@ HTTP permite que un cliente repita un campo, y en CGI solo cabe un valor por var
 
 - **Campos de lista** — los valores se unen con `, `, que es la recombinación que la [RFC 9110 §5.3](https://www.rfc-editor.org/rfc/rfc9110#section-5.3) permite para un campo definido como lista separada por comas. Dos líneas `Accept` quedan en `text/*, image/*`.
 - **`Cookie`** — también es una lista, pero no de comas. Sus repeticiones se unen con `; `, la forma de cookie-string que espera el parser de PHP, y así `$_COOKIE` sale bien.
-- **Campos de valor único** — `Authorization`, `Proxy-Authorization`, `Content-Type`, `Content-Length`, `Referer` y `From` conservan solo la **primera** línea; las demás se descartan con un `warn`. Unirlas las estropearía: un segundo `Authorization` combinado con el primero acaba dentro de la credencial que PHP está a punto de decodificar en base64, y un login que funcionaba se convierte en basura.
+- **Campos de valor único** — `Authorization`, `Proxy-Authorization`, `Content-Type`, `Content-Length`, `Referer` y `From` conservan solo la **primera** línea; las demás se descartan con un `warn`. Unirlas las estropearía: un segundo `Authorization` combinado con el primero acaba dentro de la credencial que PHP está a punto de decodificar en base64.
 - **`Host`** — a más de una línea `Host` se le responde `400`; nunca se combinan. La [RFC 9112 §3.2](https://www.rfc-editor.org/rfc/rfc9112#section-3.2) lo marca como obligatorio, y la capa que termina la conexión es la única que puede dar la respuesta correcta.
 
 Los valores de los campos llegan a PHP como bytes en crudo, siempre. Una cookie en latin1 o una cabecera firmada conservan cada octeto que mandó el cliente, porque una conversión a UTF-8 por el camino estropearía justo los valores que no pueden cambiar.
@@ -92,7 +92,7 @@ Todo lo demás pasa tal y como lo escribió PHP, repeticiones incluidas: `Set-Co
 
 ## Terminar la respuesta antes de tiempo
 
-A veces la parte del trabajo que le importa al cliente está lista mucho antes que la petición. La respuesta ya está, pero queda un webhook que disparar, una entrada de cola que escribir, una caché que calentar. Hacer que el navegador espere a todo eso solo añade latencia.
+A un handler le suele quedar trabajo una vez que la respuesta está lista: un webhook que disparar, una entrada de cola que escribir, una caché que calentar. El cliente no tiene por qué esperar a eso.
 
 `rapira_finish_request()` cierra la respuesta en ese punto. Se vacía la salida acumulada, la respuesta pasa al frontal y sale hacia el cliente, y tu handler sigue ejecutándose con el cliente ya con la respuesta entera en la mano. Es el mismo contrato que `fastcgi_finish_request()`, así que el código escrito para php-fpm se comporta como siempre:
 
@@ -109,25 +109,11 @@ $mailer->sendConfirmation($order);
 $metrics->flush();
 ```
 
-La firma es `rapira_finish_request(): bool`. Está declarada, junto con todo lo demás que Rapira le expone a PHP, en [`crates/php_sys/rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php): apunta tu IDE a ese archivo y tienes autocompletado y tipos gratis.
+La firma es `rapira_finish_request(): bool`. Está declarada, junto con todo lo demás que Rapira le expone a PHP, en [`crates/php_sys/rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php): apunta tu IDE a ese archivo para tener autocompletado y sugerencias de tipos.
+
+La función se registra para todo el proceso y actúa sobre la petición que se está atendiendo, así que el modo clásico también la admite: el comportamiento es el mismo tanto si el script es residente como si se vuelve a ejecutar en cada petición. En [Modos de ejecución](/es/docs/execution-modes) tienes qué más cambia de un modo a otro.
 
 Dos cosas que conviene tener presentes:
 
 - **Lo que imprimas después de la llamada no se manda.** La respuesta queda cerrada, así que un `echo` posterior se descarta: no se guarda para vaciarlo más tarde. Todo lo que el cliente tenga que ver hay que escribirlo antes de la llamada.
-- **El worker sigue ocupado.** Terminar la respuesta libera al *cliente*, no al proceso. Este worker no coge la siguiente petición hasta que tu handler devuelve de verdad, así que el trabajo que has movido después de la llamada es trabajo que la siguiente petición sigue esperando; en [Modelo de procesos](/es/docs/process-model) tienes cuántos workers hay para repartir esa espera. Es una herramienta de latencia, no de concurrencia: si el trabajo es pesado, su sitio es una cola.
-
-::: question Mi proxy pone `X_Forwarded_For` y de repente PHP no lo ve. ¿Qué ha pasado?
-Se ha descartado: un nombre con guion bajo cae en la misma clave de `$_SERVER` que el que va con guiones, y Rapira no puede distinguir la cabecera de tu proxy de la falsificación de un cliente. Renómbrala a `X-Forwarded-For` en el proxy; esa grafía es corriente y pasa intacta. Sube el nivel de registro a `warn` y verás cómo se registra la eliminación.
-:::
-
-::: question ¿Puedo desactivar el filtro de nombres de campo solo para una cabecera?
-No. No hay interruptor para apagarlo ni excepciones por nombre: los únicos valores son `drop` y `reject`. Renombra el campo a su grafía con `-` en la capa que tienes delante de Rapira; eso lo arregla de verdad, en lugar de volver a abrir el agujero.
-:::
-
-::: question ¿Por qué mi `header('Content-Length: …')` no aparece en la respuesta?
-Porque delimitar el cuerpo es cosa del servidor. Rapira guarda el cuerpo entero en un búfer, así que sabe la longitud real y manda esa; tu valor se descarta en lugar de darse por bueno. Lo mismo vale para `Transfer-Encoding` y para los campos salto a salto.
-:::
-
-::: question ¿Funciona `rapira_finish_request()` en modo clásico?
-Sí. La función se registra para todo el proceso y actúa sobre la petición que se está atendiendo, así que se comporta igual tanto si el script es residente como si se vuelve a ejecutar en cada petición. En [Modos de ejecución](/es/docs/execution-modes) tienes qué más cambia de un modo a otro.
-:::
+- **El worker sigue ocupado.** Terminar la respuesta libera al *cliente*, no al proceso. Este worker no coge la siguiente petición hasta que tu handler devuelve, así que el trabajo que has movido después de la llamada es trabajo que la siguiente petición sigue esperando; en [Modelo de procesos](/es/docs/process-model) tienes cuántos workers hay para repartir esa espera. La llamada baja la latencia del cliente, pero no añade concurrencia, así que el trabajo pesado va en una cola.

@@ -7,7 +7,7 @@ description: How Rapira turns an HTTP request into PHP superglobals and a PHP re
 
 Rapira's HTTP front is built on [Pingora](https://github.com/cloudflare/pingora) and ships inside the binary. It accepts connections on the socket the master bound, parses the request, hands it to PHP, and writes back whatever PHP produced. There is no upstream: every request is answered locally, by your code.
 
-Most of the time you never think about this layer — you write `$_GET['page']`, you `echo` something, and it works. This page is about the parts where the translation between HTTP and PHP is not one-to-one: which header field lands in which `$_SERVER` key, what happens when a client sends the same field twice, how big a request body may be, and how your response is framed on the way out.
+This page covers the parts where the translation between HTTP and PHP is not one-to-one: which header field lands in which `$_SERVER` key, what happens when a client sends the same field twice, how big a request body may be, and how your response is framed on the way out.
 
 ::: info
 The front terminates plaintext HTTP. If you need TLS, terminate it in a proxy in front of Rapira — see [Deployment](/docs/deployment).
@@ -31,19 +31,19 @@ This aliasing is a security problem. If a trusted proxy in front of Rapira sets 
 
 ## Names that alias a CGI variable
 
-Because of that, Rapira screens request field names before anything else looks at them. A name is accepted when every byte is in `[A-Za-z0-9-]`. `_` and `.` are the characters that actually alias — both collapse onto the same `$_SERVER` key a dash name owns. The rule is an allowlist rather than a denylist of those two bytes, so a legal but unusual character like `~` is refused as well, and the screen stays correct if either mapping ever widens. `http.unsafe_field_names` decides what happens to a name it refuses:
+Because of that, Rapira screens request field names before any other layer sees them. A name is accepted when every byte is in `[A-Za-z0-9-]`. `_` and `.` are the characters that alias — both collapse onto the same `$_SERVER` key as the dash spelling. The rule is an allowlist rather than a denylist of those two bytes, so a legal but unusual character like `~` is refused as well, and the screen stays correct if either mapping ever widens. `http.unsafe_field_names` decides what happens to a name it refuses:
 
 - **`drop`** (the default) — the field is removed before PHP sees it, and each removal is logged at `warn` on the `http` target.
-- **`reject`** — the request is answered `400` and nothing is served, so a client cannot even try.
+- **`reject`** — the request is answered `400` and nothing is served.
 
 ```toml
 [http]
 unsafe_field_names = "drop"
 ```
 
-There is deliberately no third option that turns the screen off. Servers that shipped a plain off-switch are exactly where this collision keeps coming back, so Rapira does not offer one — see [Configuration](/docs/configuration) for where the key sits among the rest of the settings.
+There is no third option that turns the screen off and no per-name exception, because the aliasing the screen prevents is a security problem — see [Configuration](/docs/configuration) for where the key sits among the rest of the settings.
 
-If your clients legitimately send a name with an underscore in it, the fix is to rename it to the `-` spelling. A proxy in front of Rapira can do that rewrite in one line of its own configuration, and then the name is ordinary and passes untouched.
+If your clients legitimately send a name with an underscore in it, the fix is to rename it to the `-` spelling. The screen treats a proxy's own fields the same way, since Rapira cannot tell an underscore-spelled field written by a trusted proxy from one forged by a client, so a proxy that sets `X_Forwarded_For` has it dropped before PHP runs. A proxy in front of Rapira can do that rewrite in one line of its own configuration, and then the name is ordinary and passes untouched.
 
 ::: tip
 `drop` logs every removal at `warn`, but the default log level is `error`, so those lines are invisible until you raise it. If a header is unexpectedly missing from `$_SERVER`, turn the level up and look at the `http` target first — [Logging](/docs/logging) shows how.
@@ -55,7 +55,7 @@ HTTP lets a client repeat a field, and CGI has room for only one value per varia
 
 - **List fields** — the values are joined with `, `, which is the recombination [RFC 9110 §5.3](https://www.rfc-editor.org/rfc/rfc9110#section-5.3) permits for a field defined as a comma-separated list. Two `Accept` lines become `text/*, image/*`.
 - **`Cookie`** — also a list, but not a comma one. Its repeats are joined with `; `, the cookie-string form PHP's parser expects, so `$_COOKIE` comes out right.
-- **Single-value fields** — `Authorization`, `Proxy-Authorization`, `Content-Type`, `Content-Length`, `Referer` and `From` keep the **first** line only, and the extra ones are dropped with a `warn`. Joining them would corrupt them: a second `Authorization` folded into the first lands inside the credential PHP is about to base64-decode, turning a working login into garbage.
+- **Single-value fields** — `Authorization`, `Proxy-Authorization`, `Content-Type`, `Content-Length`, `Referer` and `From` keep the **first** line only, and the extra ones are dropped with a `warn`. Joining them would corrupt them: a second `Authorization` folded into the first lands inside the credential PHP is about to base64-decode.
 - **`Host`** — more than one `Host` line is answered `400`, never folded. [RFC 9112 §3.2](https://www.rfc-editor.org/rfc/rfc9112#section-3.2) makes that a MUST, and the layer terminating the connection is the only one that can give the correct answer.
 
 Field values reach PHP as raw bytes throughout. A latin1 cookie or a signed header keeps every octet the client sent, because a UTF-8 conversion in the middle would corrupt exactly the values that must not change.
@@ -92,7 +92,7 @@ Everything else passes through as PHP wrote it, repeats included: `Set-Cookie`, 
 
 ## Finishing the response early
 
-Sometimes the client's part of the work is done long before the request is. The response is ready, but there is a webhook to fire, a queue entry to write, a cache to warm. Making the browser wait for that only adds latency.
+A handler often has work left once the response is ready: a webhook to fire, a queue entry to write, a cache to warm. The client does not have to wait for it.
 
 `rapira_finish_request()` ends the response at that point. The buffered output is flushed, the response is handed to the front and goes out to the client, and your handler keeps running with the client already holding the whole response. It is the same contract as `fastcgi_finish_request()`, so code written for php-fpm behaves the way it always did:
 
@@ -109,25 +109,11 @@ $mailer->sendConfirmation($order);
 $metrics->flush();
 ```
 
-The signature is `rapira_finish_request(): bool`. It is declared, along with everything else Rapira exposes to PHP, in [`crates/php_sys/rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php) — point your IDE at that file and you get completion and type hints for free.
+The signature is `rapira_finish_request(): bool`. It is declared, along with everything else Rapira exposes to PHP, in [`crates/php_sys/rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php) — point your IDE at that file for completion and type hints.
+
+The function is registered for the whole process and acts on the request being served, so classic mode supports it as well: the behavior is the same whether the script is resident or re-run per request. See [Execution modes](/docs/execution-modes) for what else changes between modes.
 
 Two things to keep in mind:
 
 - **Output after the call is not sent.** The response is closed, so an `echo` that follows is discarded — it is not queued for a later flush. Anything the client must see has to be written before the call.
-- **The worker is still busy.** Finishing the response frees the *client*, not the process. This worker does not pick up the next request until your handler actually returns, so the work you moved after the call is work the next request still waits for — see [Process model](/docs/process-model) for how many workers there are to wait on. It is a latency tool, not a concurrency one; if the work is heavy, it belongs in a queue.
-
-::: question My proxy sets `X_Forwarded_For` and PHP suddenly can't see it. What happened?
-It was dropped, because an underscore name lands on the same `$_SERVER` key as the dash-spelled one and Rapira cannot tell your proxy's header from a client's forgery. Rename it to `X-Forwarded-For` in the proxy — that spelling is ordinary and passes untouched. Raise the log level to `warn` and you will see the drop being logged.
-:::
-
-::: question Can I turn the field-name screen off just for one header?
-No. There is no off-switch and no per-name exception — the only settings are `drop` and `reject`. Rename the field to its `-` spelling in the layer in front of Rapira instead; that solves it properly rather than reopening the hole.
-:::
-
-::: question Why doesn't my `header('Content-Length: …')` show up in the response?
-Because framing belongs to the server. Rapira buffers the whole body, so it knows the real length and sends that; your value is dropped rather than trusted. The same goes for `Transfer-Encoding` and the hop-by-hop fields.
-:::
-
-::: question Does `rapira_finish_request()` work in classic mode?
-Yes — the function is registered for the whole process and acts on the request being served, so it behaves the same whether the script is resident or re-run per request. See [Execution modes](/docs/execution-modes) for what else changes between modes.
-:::
+- **The worker is still busy.** Finishing the response frees the *client*, not the process. This worker does not pick up the next request until your handler returns, so the work you moved after the call is work the next request still waits for — see [Process model](/docs/process-model) for how many workers there are to wait on. The call lowers client latency but adds no concurrency, so heavy work belongs in a queue.

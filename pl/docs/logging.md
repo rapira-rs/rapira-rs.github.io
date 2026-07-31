@@ -1,13 +1,13 @@
 ---
 title: Logi
-description: Jak Rapira loguje — poziomy, nadpisania dla poszczególnych celów, diagnostyka PHP, formaty plain i JSON oraz zmienna RUST_LOG do debugowania.
+description: "Jak Rapira loguje — poziomy, nadpisania dla poszczególnych celów, diagnostyka PHP, formaty plain i JSON oraz zmienna RUST_LOG do debugowania."
 ---
 
 # Logi
 
-Rapira zapisuje wszystko do jednego strumienia: zdarzenia z cyklu życia samego serwera, decyzje nadzorcze procesu nadrzędnego, warstwa HTTP i diagnostyka z PHP — wszystko na stderr i wszystko przepuszczone przez ten sam filtr. PHP nie jest tu wyjątkiem: ostrzeżenia z PHP nie szukasz w osobnym pliku `error_log`, bo to zwykły wpis w tym samym logu co reszta — i tak samo jak każdemu innemu wpisowi możesz podnieść albo obniżyć poziom.
+Rapira zapisuje wszystko do jednego strumienia: zdarzenia z cyklu życia samego serwera, decyzje nadzorcze procesu nadrzędnego, warstwa HTTP i diagnostyka z PHP — wszystko na stderr i wszystko przepuszczone przez ten sam filtr. Ostrzeżenie z PHP jest wpisem w tym samym logu, a nie linijką w osobnym pliku `error_log`, i jego poziom podnosisz albo obniżasz tak samo jak każdego innego wpisu.
 
-Domyślnie jest cicho i jest to zamierzone. Bez żadnych ustawień przechodzi tylko `error`, bo logu serwera, który na produkcji pisze bez przerwy, i tak nikt nie czyta. Podniesienie poziomu to jedna linijka w konfiguracji, a jeśli w ogóle nie chcesz jej ruszać — jest od tego zmienna środowiskowa.
+Domyślny poziom to `error`, więc przechodzą tylko błędy, a sprawny serwer nie zapisuje nic. Podniesienie go to jedna linijka w konfiguracji albo zmienna środowiskowa `RUST_LOG`, kiedy nie chcesz w ogóle ruszać konfiguracji.
 
 ## Poziomy i format
 
@@ -25,7 +25,7 @@ Oba klucze są opcjonalne, tak samo jak cała sekcja. Resztę pliku — nasłuch
 
 ## Nadpisania dla poszczególnych celów
 
-Jeden globalny poziom bywa zbyt zgrubny. Kiedy tropisz problem w PHP, chcesz mieć diagnostykę PHP na `debug`, a nie podnosić przy okazji każdego szczegółu z wnętrza stosu HTTP. Od tego jest `[log.targets]`:
+Jeden globalny poziom bywa zbyt zgrubny. `[log.targets]` podnosi albo obniża pojedyncze cele ponad niego, dzięki czemu diagnostyka PHP może działać na `debug`, a szczegóły z wnętrza stosu HTTP nie idą razem z nią:
 
 ```toml
 [log]
@@ -36,7 +36,7 @@ php = "debug"
 pingora_core = "warn"
 ```
 
-Każdy klucz nazywa jeden cel i podnosi albo obniża wyłącznie jego; cała reszta zostaje na `level`. Dopasowanie idzie **po prefiksie**, więc `php` obejmuje też `php_sys` i `php_sys::callbacks` — podajesz najkrótszy prefiks pokrywający to, co cię interesuje, i nigdy nie musisz wyliczać podmodułów.
+Każdy klucz nazywa jeden cel i podnosi albo obniża wyłącznie jego; cała reszta zostaje na `level`. Dopasowanie idzie **po prefiksie**, więc `php` obejmuje też `php_sys` i `php_sys::callbacks` — wystarczy najkrótszy pasujący prefiks, a podmodułów nigdy nie trzeba wymieniać po kolei.
 
 Cele, pod którymi loguje sama Rapira:
 
@@ -48,7 +48,9 @@ Cele, pod którymi loguje sama Rapira:
 | `ext`    | wyniki zadań rozszerzeń                                                        |
 | `php`    | wyjście i diagnostyka prosto z PHP                                             |
 
-Zależności logują pod własnymi ścieżkami modułów — `pingora_core`, `tokio` i reszta — i podlegają dokładnie temu samemu filtrowi. Jeśli jakaś biblioteka pisze w logu za dużo, nazwę jej celu masz od razu we wpisie, gotową do użycia w `[log.targets]`.
+Logu dostępu nie ma: Rapira nie zapisuje jednej linijki na żądanie. To, co cel `http` raportuje o polach żądania i odpowiedzi, opisuje strona [HTTP](/pl/docs/http).
+
+Zależności logują pod własnymi ścieżkami modułów — `pingora_core`, `tokio` i reszta — i podlegają dokładnie temu samemu filtrowi. Każdy wpis niesie nazwę swojego celu, więc hałaśliwą zależność wyciszysz, przepisując tę nazwę do `[log.targets]`.
 
 ::: tip
 Gdy chcesz zrozumieć, dlaczego pula zachowuje się tak, a nie inaczej, obserwuj cel `master` — podstawianie workerów, przeładowania i skalowanie puli trafiają właśnie tam. Co znaczą te zdarzenia, wyjaśnia [Model procesów](/pl/docs/process-model).
@@ -65,7 +67,7 @@ Wszystko, co zgłasza PHP, trafia do celu `php`, a poziom każdej diagnostyki wy
 | Powiadomienia — `E_NOTICE`, `E_USER_NOTICE`                                                                       | `info`  |
 | Ostrzeżenia o wycofaniu — `E_DEPRECATED`, `E_USER_DEPRECATED`                                                     | `debug` |
 
-Ostrzeżenia o wycofaniu siedzą na `debug` po to, żeby kilka tysięcy takich komunikatów z zależności nie przykryło dwóch ostrzeżeń, które naprawdę chciałeś zobaczyć.
+Ostrzeżenia o wycofaniu siedzą na `debug` po to, żeby kilka tysięcy takich komunikatów z zależności nie przykryło zgłaszanych obok nich ostrzeżeń i błędów.
 
 Diagnostyka, którą skrypt odfiltrował maską [`error_reporting`](https://www.php.net/manual/en/function.error-reporting.php), nie znika — spada do `trace`. Zwykła maska działa więc tak, jak się spodziewasz:
 
@@ -74,17 +76,19 @@ Diagnostyka, którą skrypt odfiltrował maską [`error_reporting`](https://www.
 error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
 ```
 
-Dzięki temu przy żadnym normalnym poziomie ostrzeżenia z zależności nie trafiają do logu, a `level = "trace"` i tak je przywróci, kiedy zechcesz sprawdzić, co właściwie zostało wyciszone. Warto znać dwa wyjątki. Błędy krytyczne **nigdy** nie lądują niżej, cokolwiek mówi maska: to jedyna relacja z tego, dlaczego worker poszedł na wymianę, a `error_reporting(0)` zakopane gdzieś w katalogu `vendor` nie może tego zasłonić. Poza tym `E_CORE_ERROR` i `E_CORE_WARNING` powstają, zanim skrypt zdąży w ogóle ustawić maskę, więc do nich też żadna maska się nie stosuje.
+Dzięki temu przy żadnym normalnym poziomie ostrzeżenia z zależności nie trafiają do logu, a `level = "trace"` i tak je przywróci, kiedy zechcesz sprawdzić, co właściwie zostało wyciszone. Wyjątki są dwa. Błędy krytyczne **nigdy** nie lądują niżej, cokolwiek mówi maska, bo tylko one tłumaczą, dlaczego worker poszedł na wymianę — `error_reporting(0)` w katalogu `vendor` ich nie ukryje. `E_CORE_ERROR` i `E_CORE_WARNING` powstają, zanim skrypt zdąży w ogóle ustawić maskę, więc do nich też żadna maska się nie stosuje.
 
 ::: info
-Diagnostyka idzie do logu, a nie do odpowiedzi. Rapira domyślnie ustawia [`display_errors`](https://www.php.net/manual/en/errorfunc.configuration.php#ini.display-errors) na `0`, a [`log_errors`](https://www.php.net/manual/en/errorfunc.configuration.php#ini.log-errors) na `1` — serwer nie powinien wypuszczać stack trace'ów na stronę. To *wartości domyślne*, a nie nadpisania: jeśli którąkolwiek z nich ustawia php.ini, wygrywa php.ini.
+Diagnostyka idzie do logu, a nie do odpowiedzi: Rapira domyślnie ustawia [`display_errors`](https://www.php.net/manual/en/errorfunc.configuration.php#ini.display-errors) na `0`, a [`log_errors`](https://www.php.net/manual/en/errorfunc.configuration.php#ini.log-errors) na `1`. To *wartości domyślne*, a nie nadpisania: jeśli którąkolwiek z nich ustawia php.ini, wygrywa php.ini.
 :::
 
 ## Formaty
 
 Oba formaty lecą na stderr, jeden zapis na wpis. Właśnie ta zasada jednego zapisu sprawia, że proces nadrzędny i kilkanaście workerów piszących do tego samego deskryptora pliku nie mieszają się nawzajem w środku wpisu — każdy wpis idzie w całości, zamiast być składanym z kawałków.
 
-**`plain`** wybierzesz do terminala — znacznik czasu, poziom, cel, komunikat:
+Rapira nie zapisuje nigdzie indziej, więc to przekierowanie stderr procesu umieszcza log w pliku, a menedżer usług zbiera go bez żadnej konfiguracji. Więcej informacji znajdziesz na stronie [Wdrożenie produkcyjne](/pl/docs/deployment).
+
+**`plain`** służy do czytania w terminalu — znacznik czasu, poziom, cel, komunikat:
 
 ```text
 2026-07-30T09:12:34.567890Z ERROR php: …
@@ -92,17 +96,17 @@ Oba formaty lecą na stderr, jeden zapis na wpis. Właśnie ta zasada jednego za
 
 Kolory pojawiają się tylko wtedy, gdy stderr jest terminalem, i nigdy przy przekierowaniu do pliku — zapisany log zostaje więc czysty, bez sekwencji sterujących. Ustawienie [`NO_COLOR`](https://no-color.org/) na dowolną niepustą wartość gasi kolory nawet w terminalu.
 
-**`json`** wybierzesz, gdy log zbiera kolektor — jeden obiekt na linijkę:
+**`json`** jest dla kolektora logów — jeden obiekt na linijkę:
 
 ```text
 {"timestamp":…,"level":"ERROR","message":…,"target":…}
 ```
 
-`timestamp` to RFC 3339 w UTC, z milisekundami. Znaki nowej linii w komunikacie są ekranowane, więc wpis zawsze zajmuje dokładnie jedną linijkę, a wielolinijkowy stack trace z PHP nigdy nie rozpada się na cztery linijki, których nic już nie sparsuje. Wpisy z wbudowanego silnika proxy niosą dodatkowe pola `log.*` z miejscem wywołania. Wyjście JSON nie jest kolorowane nigdy — w terminalu też nie.
+`timestamp` to RFC 3339 w UTC, z milisekundami. Znaki nowej linii w komunikacie są ekranowane, więc wpis zawsze zajmuje dokładnie jedną linijkę, łącznie z wielolinijkowym stack trace'em z PHP. Wpisy z wbudowanego silnika proxy niosą dodatkowe pola `log.*` z miejscem wywołania. Wyjście JSON nie jest kolorowane nigdy — w terminalu też nie.
 
 ## `RUST_LOG`
 
-Edytowanie pliku konfiguracyjnego, żeby odpowiedzieć sobie na jedno pytanie, a potem odkręcanie tego z powrotem to kiepska pętla — jest więc zmienna środowiskowa, która pozwala ją pominąć:
+`RUST_LOG` ustawia filtr logów ze środowiska, więc jednorazowa sesja debugowania nie wymaga edycji konfiguracji:
 
 ```sh
 RUST_LOG=info rapira serve worker.php
@@ -114,20 +118,4 @@ Pierwsza linijka podgłaśnia wszystko do `info`. Druga to celowana para — cel
 
 ::: warning
 Gdy `RUST_LOG` jest ustawiona na niepustą wartość, **zastępuje** `level` i `[log.targets]` w całości — podmienia cały filtr, a nie scala go z konfiguracją. Twoje wpisy z `[log.targets]` nie leżą pod spodem jako druga warstwa: po prostu nikt do nich nie zagląda. Żeby wrócić do konfiguracji, zostaw zmienną nieustawioną (albo pustą). Na `format` nie wpływa nigdy.
-:::
-
-::: question Mam pusty log — coś się zepsuło?
-Prawie na pewno nie: `level` domyślnie stoi na `error`, więc zdrowy serwer po prostu nic nie zapisuje. Uruchom go z `RUST_LOG=info`, a zobaczysz start, nasłuch i cykl życia workerów.
-:::
-
-::: question Jak zapisać log do pliku?
-Przekieruj stderr procesu. Rapira pisze wyłącznie tam, co przy okazji znaczy, że menedżer usług zbierze log za ciebie bez żadnej konfiguracji — zobacz [Wdrożenie produkcyjne](/pl/docs/deployment).
-:::
-
-::: question Dlaczego wciąż widzę ostrzeżenie o wycofaniu, które zamaskowałem przez `error_reporting()`?
-Zamaskowana diagnostyka spada do `trace`, zamiast znikać, więc wraca dopiero przy `level = "trace"`. Jeśli pracujesz na `trace` i nie chcesz jej widzieć, podnieś poziom.
-:::
-
-::: question Czy jest log dostępu?
-Nie — nie ma logu z jedną linijką na żądanie. Cel `http` raportuje nasłuchy, wygaszanie i wszystko nietypowe w polach żądania czy odpowiedzi; co z nimi robi, opisuje [HTTP](/pl/docs/http).
 :::

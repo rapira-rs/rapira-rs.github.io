@@ -1,13 +1,13 @@
 ---
 title: 从源码构建
-description: 什么时候需要自己编译 Rapira，具体又该怎么做：Rust 和 C 工具链、带 embed SAPI 的 NTS 版 PHP，以及 Linux 和 macOS 上的链接细节。
+description: "什么时候需要自己编译 Rapira，具体又该怎么做：Rust 和 C 工具链、带 embed SAPI 的 NTS 版 PHP，以及 Linux 和 macOS 上的链接细节。"
 ---
 
 # 从源码构建
 
-大多数人用不到这一页：照[安装](/zh/docs/installation)里说的取一个预编译好的二进制文件，事情就结束了。自己编译 Rapira，是为了官方产物覆盖不到的那些场景；这件事并不难，唯一新增的要求就是一个能被 Rapira 嵌入的 PHP。Rapira 可以在 Linux 和 macOS 上构建。
+Rapira 可以在 Linux 和 macOS 上从源码构建。[安装](/zh/docs/installation)页面上的预编译二进制文件覆盖不到的场景，就交给自己编译来解决；除了常规的 Rust 和 C 工具链之外，唯一的要求就是一个能被 Rapira 嵌入的 PHP。
 
-## 什么时候需要自己编译
+## 什么时候需要从源码构建
 
 - **你的平台没有预编译的二进制文件**——冷门的 CPU 架构，或者 Alpine 这类基于 musl 的发行版。
 - **你的发行版比软件包支持的更老。**发布的二进制是针对 glibc 2.34 构建的，能装上的最老的系统是 Debian 12、Ubuntu 22.04 和 RHEL 9（见[安装](/zh/docs/installation)）。
@@ -18,13 +18,13 @@ description: 什么时候需要自己编译 Rapira，具体又该怎么做：Rus
 
 除了常规的编译工具，还需要三样东西：
 
-- **Rust，stable 通道。**仓库里的 `rust-toolchain.toml` 已经把版本钉死，[rustup](https://rustup.rs/) 会自己挑对工具链，你什么都不用选。
+- **Rust，stable 通道。**仓库里的 `rust-toolchain.toml` 已经把版本钉死，[rustup](https://rustup.rs/) 会自己选中正确的工具链。
 - **一个 C 编译器和 `pkg-config`。**构建里有一部分是 C：几个对着 PHP 头文件编译的小垫片。
 - **libclang**，因为到 Zend API 的绑定是构建时由 bindgen 生成的。这个包在 Debian/Ubuntu 上叫 `libclang-dev`，Fedora 上叫 `clang-devel`，Arch 上叫 `clang`。
 
 ## 带 embed SAPI 的 PHP
 
-Rapira 不通过 socket 跟 PHP 打交道，而是把解释器直接链接进自己的进程。这就要求 PHP 以共享库的形式存在：**8.4 或 8.5 版本，NTS（非线程安全），并且用 `--enable-embed=shared` 配置**——正是这个开关产出了 `libphp.so`（macOS 上是 `libphp.dylib`）。
+Rapira 把解释器直接链接进自己的进程，而不是通过 socket 与它通信，因此 PHP 必须以共享库的形式存在：**8.4 或 8.5 版本，NTS（非线程安全），并且用 `--enable-embed=shared` 配置**——正是这个开关产出了 `libphp.so`（macOS 上是 `libphp.dylib`）。
 
 ::: warning ZTS 构建会被拒绝
 线程安全（ZTS）的 PHP 会让构建带着明确的错误停下来——Rapira 只支持 NTS，因为它给每个 worker 进程配一个解释器。如果 `PATH` 上的 PHP 是 ZTS 构建，就装一个 NTS 的，再把 `PHP_CONFIG` 指向它（见下文）。
@@ -44,6 +44,8 @@ Homebrew 的 `php` formula 在编译时没带上它，也就没有东西可供�
 :::
 
 ### 自己编译 PHP
+
+如果你的发行版没有 embed 包、你在 macOS 上，或者现成的包里缺少应用需要的扩展，就自己编译 PHP。
 
 仓库里的 `ci/php-configure-flags.txt` 就是参考用的 configure 参数，官方发布的构建用的也是这一份。解开 PHP 源码后把它喂给 `configure`，再补上你的应用需要的扩展：
 
@@ -92,7 +94,7 @@ PHP_CONFIG=$HOME/.local/php-nts/bin/php-config cargo build --release
 ```
 
 ::: tip
-`make test` 会跑测试套件，并替你处理库路径：它在 `php-config` 的前缀下找到 embed 库（`lib`、`lib64`、`lib/phpXX`，带不带版本号都行），再把它规整成链接器需要的那个不带版本号的名字。在真正信任自己的构建之前，用它确认一遍整套环境是否可用最合适。
+`make test` 会跑测试套件，并替你处理库路径：它在 `php-config` 的前缀下找到 embed 库（`lib`、`lib64`、`lib/phpXX`，带不带版本号都行），再把它规整成链接器需要的那个不带版本号的名字。在依赖自己的构建之前，先运行它确认环境是否配置妥当。
 :::
 
 ## 运行你构建出的二进制
@@ -104,16 +106,8 @@ LD_LIBRARY_PATH=$HOME/.local/php-nts/lib ./target/release/rapira serve worker.ph
 DYLD_LIBRARY_PATH=$HOME/.local/php-nts/lib ./target/release/rapira serve worker.php   # macOS
 ```
 
-从这里开始，它和软件包安装的服务器完全一样：[快速开始](/zh/docs/quickstart)带你写第一个脚本，[命令行](/zh/docs/cli)列出了 `serve` 接受的全部参数，[配置](/zh/docs/configuration)讲的是 `rapira.toml`。
-
-::: question 我是不是也得从源码编译 PHP？
-只有三种情况需要：你的发行版没有 embed 包、你在 macOS 上，或者你要的扩展现成的构建里没有。其余时候，发行版的 `php-embed` / `libphpX.Y-embed` 包就够了——在 Debian 和 Ubuntu 上再补一个不带版本号的 `libphp.so` 符号链接。
-:::
-
-::: question 能用发行版自带的 ZTS 版 PHP 来构建吗？
-不能。`php-config` 指向线程安全的构建时，构建会直接报错停下。装一个或者自己编译一个带 embed SAPI 的 NTS 版 PHP，再把 `PHP_CONFIG` 设成它的 `php-config`。
-:::
+构建出来的就是软件包安装的那个服务器：[快速开始](/zh/docs/quickstart)带你写第一个脚本，[命令行](/zh/docs/cli)列出了 `serve` 接受的全部参数，[配置](/zh/docs/configuration)讲的是 `rapira.toml`。
 
 ## 参与 Rapira 本身的开发
 
-如果你来这儿不只是想编译 Rapira，而是要动它的代码：`make test` 会把两套测试都跑一遍——进程内的那套，以及会拉起真实二进制的端到端那套；`make stubs` 从 `crates/php_sys/rapira.stub.php` 重新生成 arginfo 头文件；CI 则在每个 pull request 上跑构建、`cargo fmt`、clippy 和覆盖率。
+`make test` 会把两套测试都跑一遍——进程内的那套，以及会拉起真实二进制的端到端那套；`make stubs` 从 `crates/php_sys/rapira.stub.php` 重新生成 arginfo 头文件；CI 则在每个 pull request 上跑构建、`cargo fmt`、clippy 和覆盖率。

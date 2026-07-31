@@ -14,7 +14,7 @@ rapira serve --config /etc/rapira/rapira.toml
 The file has four sections, and every one of them is optional: `[http]` configures the listener, `[pool]` the worker processes, `[supervisor]` the master process, `[log]` what gets written to stderr. The one value Rapira has no default for is the PHP entry script — set `pool.entrypoint` here, or pass the script as a positional argument on the command line.
 
 ::: info
-Settings are layered: a CLI flag beats the config file, which beats the built-in default. `--processes 8` therefore wins over `processes = 4` in the file, so a config you keep in version control can still be overridden for a single run. The flags themselves are documented on the [CLI page](/docs/cli).
+Settings are layered: a CLI flag beats the config file, which beats the built-in default. `--processes 8` therefore wins over `processes = 4` in the file, so a config you keep in version control can still be overridden for a single run. Environment variables are not part of that layering: apart from two that only affect logging, settings come from the file and the flags alone. The flags themselves are documented on the [CLI page](/docs/cli).
 :::
 
 ## A complete rapira.toml
@@ -53,7 +53,7 @@ php = "debug"
 pingora_core = "warn"
 ```
 
-The rest of this page is the same file, key by key.
+The rest of this page documents those keys section by section.
 
 ## The `[http]` section
 
@@ -67,27 +67,29 @@ This section covers where Rapira listens, what the request environment tells PHP
 | `max_body_size_mb` | integer | `8` | Largest request body Rapira will accept, in MiB (1024 × 1024 bytes). Anything bigger is answered `413`. Must be at least 1. |
 | `unsafe_field_names` | `"drop"` \| `"reject"` | `"drop"` | What happens to a request field whose name is not `[A-Za-z0-9-]`: remove it before PHP sees it, logging each removal at `warn`, or answer `400`. Both the reasoning and the CGI mapping behind it are on the [HTTP page](/docs/http). |
 
-`server_name` and `server_port` only shape what PHP sees in `$_SERVER`; neither changes what the server actually binds. That is `listen`, and nothing else.
+`server_name` and `server_port` only shape what PHP sees in `$_SERVER`; neither changes what the server binds, which is set by `listen` alone.
 
 ## The `[pool]` section
 
-Workers are the processes that actually run PHP, and this section says what they run, how many of them there are, and when the master takes one away. The [process model](/docs/process-model) explains what the master is doing with these numbers; here they are just keys.
+Workers are the processes that actually run PHP, and this section says what they run, how many of them there are, and when the master takes one away. The [process model](/docs/process-model) explains what the master does with these numbers.
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `entrypoint` | string | none — required | The PHP script every worker runs. A relative path resolves against the directory holding the config file. A `SCRIPT` argument on the command line overrides it, and one of the two must be present or the server refuses to boot. |
 | `processes` | integer | one per logical CPU | How many worker processes to fork. Under `dynamic` and `ondemand` this is the ceiling rather than the count. Must be at least 1. |
-| `classic` | boolean | `false` | `false` keeps the worker resident between requests (the SAPI Worker rung); `true` re-runs the entry script from scratch on every request, the way php-fpm would. See [execution modes](/docs/execution-modes). `--classic` only turns this on — a `true` here cannot be overridden from the command line. |
+| `classic` | boolean | `false` | `false` keeps the worker resident between requests (SAPI Worker mode); `true` re-runs the entry script from scratch on every request, the way php-fpm would. See [execution modes](/docs/execution-modes). `--classic` only turns this on — a `true` here cannot be overridden from the command line. |
 | `mode` | `"static"` \| `"dynamic"` \| `"ondemand"` | `"static"` | How the pool sizes itself. `static` keeps `processes` workers alive at all times; `dynamic` scales between the spare thresholds, capped by `processes`; `ondemand` forks only when there is work and lets idle workers retire. |
 | `min_spare` | integer | none | `dynamic` only, and required there: keep at least this many workers idle and ready. |
-| `max_spare` | integer | none | `dynamic` only, and required there: trim back to at most this many idle workers. The pair must satisfy `1 <= min_spare <= max_spare <= processes`; setting either under another mode is an error, not a hint. |
+| `max_spare` | integer | none | `dynamic` only, and required there: trim back to at most this many idle workers. The pair must satisfy `1 <= min_spare <= max_spare <= processes`; setting either under another mode is an error. |
 | `max_requests` | integer | `0` | Recycle a worker after it has served this many requests, plus a little jitter so the whole pool never turns over at once. `0` means never. |
 | `process_idle_timeout_secs` | integer | `10` | Read by `ondemand`: how long a worker may sit idle before the master retires it. |
 | `request_terminate_timeout_secs` | integer | `0` | Wall-clock budget for a single request. A worker still working on one past that is killed and replaced. `0` disables the check. |
 
+The spare bounds are checked against the effective `processes` value, so a `--processes` flag on the command line lowers the ceiling `max_spare` has to fit under.
+
 ## The `[supervisor]` section
 
-Policy for the master process — the one that owns the listen socket, supervises the workers and receives your signals. It is also what an init system talks to, so this section is usually the one you fill in when you write a unit file; see [deployment](/docs/deployment).
+Policy for the master process — the one that owns the listen socket, supervises the workers and receives your signals. It is also what an init system talks to, so these are the keys a unit file usually sets; see [deployment](/docs/deployment).
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
@@ -106,34 +108,24 @@ Rapira writes everything to stderr, one write per record, so master and worker o
 
 A `[log.targets]` key has to look like a module path: letters, digits and `_` `:` `.` `-`, starting with a letter, digit or `_`. The keys are assembled into a filter string, so anything outside that shape would be read as filter syntax instead of a target name and is rejected up front.
 
+`RUST_LOG` and `NO_COLOR` are the only environment variables Rapira reads, and both are log-only: `RUST_LOG` replaces the whole filter for one run, so a noisy debugging session needs no config edit, and `NO_COLOR` strips the color from the `plain` format when it holds any non-empty value, even when stderr is a terminal.
+
 ## Unknown keys are rejected
 
 Rapira parses `rapira.toml` strictly. Every table and every key inside it has to be one the server knows, so `[htttp]` or `lissten = ":8000"` is a boot failure that names what it could not recognise, not a line silently ignored. Every key also has exactly one table: `max_requests` belongs to `[pool]` and nowhere else, `pidfile` to `[supervisor]` and nowhere else, and putting one under the wrong table fails just like a typo would.
 
-Values are checked the same way. `level = "verbose"`, `format = "pretty"` and `unsafe_field_names = "allow"` are all hard errors rather than a quiet fall back to the default — a misspelling that silently downgrades a security setting is worse than one that stops the boot. Numbers have bounds too: `pool.processes` and `http.max_body_size_mb` must be at least 1, and every `*_secs` key caps at `86400`, one day.
+Values are checked the same way. `level = "verbose"`, `format = "pretty"` and `unsafe_field_names = "allow"` are all hard errors rather than a quiet fall back to the default, so a misspelling cannot silently downgrade a security setting. Numbers have bounds too: `pool.processes` and `http.max_body_size_mb` must be at least 1, and every `*_secs` key caps at `86400`, one day.
 
 ::: warning
-Validation happens before anything starts, so an unrecognised key stops the boot instead of quietly degrading the run. Worth remembering when you edit `rapira.toml` on a machine that is currently serving: the running process is untouched, but the next start is the one that has to succeed.
+Validation happens before anything starts, so an unrecognised key stops the boot instead of quietly degrading the run. Editing `rapira.toml` on a machine that is currently serving leaves the running process untouched, but the next start is the one that has to succeed.
 :::
 
 ## Relative paths
 
 Two keys hold a filesystem path, and both resolve against the directory that contains the config file rather than the working directory of whoever started the server: `pool.entrypoint` and `supervisor.pidfile`. With `/etc/rapira/rapira.toml` and `entrypoint = "app/worker.php"`, the script is `/etc/rapira/app/worker.php` regardless of where `rapira serve` was invoked from.
 
-The positional `SCRIPT` argument works the other way round. It is a command-line value, so a relative path there resolves against the current directory, exactly as it would for any other program you type a filename at.
+The positional `SCRIPT` argument works the other way round. It is a command-line value, so a relative path there resolves against the current working directory.
 
 ::: tip
 Keep `rapira.toml` inside the application and write its paths relative to it. Moving the directory then moves the whole configuration with it, and nothing depends on which directory the service happens to start in.
-:::
-
-::: question Do I need a config file at all?
-No. `rapira serve` with a script and a flag or two covers the common case, and every default documented above applies to whatever you leave unset. A file starts paying off once there are more settings than you care to remember, or once you want them reviewed and version-controlled alongside the app.
-:::
-
-::: question Can I configure Rapira with environment variables?
-No — settings come from the config file and the CLI flags, and from nothing else. The exceptions are two log-only variables: `RUST_LOG`, a debugging override that replaces the whole log filter so a noisy session needs no config edit, and `NO_COLOR`, which strips the color from the `plain` format — any non-empty value turns it off, even on a terminal. Both are described on the [logging page](/docs/logging).
-:::
-
-::: question Why won't the server start with `mode = "dynamic"`?
-Most likely the spare counts. `dynamic` requires both `min_spare` and `max_spare`, and they must satisfy `1 <= min_spare <= max_spare <= processes` — note that a `--processes` flag lowers the ceiling they are checked against. Under `static` or `ondemand` the same keys are rejected outright, which usually means the `mode` line says something other than what was intended.
 :::

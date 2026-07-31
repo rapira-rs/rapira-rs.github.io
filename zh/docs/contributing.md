@@ -2,6 +2,8 @@
 
 想帮忙改进 Rapira 文档吗？太好了。本页实时展示了文档引擎的全部能力——下面的每个区块都由你会写的同样的 Markdown 生成，编辑页面时可以把它当作速查表。
 
+想预览自己的改动，先执行一次 `npm install`，然后运行 `npm run dev`，打开它输出的本地地址即可。译文按语言分目录存放——`ru/`、`es/`、`zh/`、`pl/`——结构与英文版一致，英文是内容的基准。
+
 ## 提示块
 
 用 `:::` 容器包裹文本，就能得到带颜色和图标的提示块：
@@ -114,7 +116,6 @@ flowchart LR
 | 提示块        |    ✅    |
 | 代码分组      |    ✅    |
 | Mermaid       |    ✅    |
-| FAQ 折叠      |    ✅    |
 
 行内徽章很适合标注状态：<Badge type="tip" text="新" /> <Badge type="warning" text="测试版" /> <Badge type="danger" text="已弃用" />。
 
@@ -134,7 +135,6 @@ prev: false               # 隐藏页脚的“上一页”链接
 next:                     # 或者重命名 / 重定向页脚链接
   text: 博客
   link: /zh/blog/
-faqLevel: 2               # ::: question 块的收集位置（见上文）
 ---
 ```
 
@@ -148,34 +148,3 @@ outline: false    # 隐藏
 ```
 
 落地页用 `layout: home`，没有侧边栏和目录的空白页用 `layout: page`；普通页面使用默认的 `doc` 布局。
-
-## 问答（FAQ 折叠）
-
-在页面的任何位置写一个 `::: question` 块：
-
-```md
-::: question 如何在本地运行站点？
-先 `npm install` 一次，再 `npm run dev`。
-:::
-```
-
-引擎会把文中所有问题抽取出来，折叠收纳到章节末尾——就像下面这样。
-
-它们出现在哪里由你决定：在页面 frontmatter 中设置 `faqLevel`：
-
-```yaml
----
-faqLevel: 1       # 默认——每个 H1 章节的末尾（通常就是页面末尾）
-faqLevel: 2       # 每个 H2 章节的末尾
-faqLevel: 0       # 页面最末尾，忽略标题
-faqLevel: false   # 不分组——每个问题就留在你书写的位置
----
-```
-
-::: question 如何在本地运行站点？
-先执行一次 `npm install`，然后运行 `npm run dev`，打开它输出的本地地址即可。
-:::
-
-::: question 翻译放在哪里？
-每种语言都有自己的目录——`ru/`、`es/`、`zh/`、`pl/`——结构与英文版一致。英文是内容的基准。
-:::

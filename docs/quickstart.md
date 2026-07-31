@@ -1,15 +1,15 @@
 ---
 title: Quickstart
-description: Serve your first PHP app with Rapira — a classic front controller, the same app as a resident worker, and a five-line rapira.toml.
+description: Serving a PHP application with Rapira in classic mode and in worker mode, and moving the settings into a rapira.toml file.
 ---
 
 # Quickstart
 
-This page picks up where [Installation](/docs/installation) leaves off: you have a working `rapira` binary, with the PHP it bundles. In the next few minutes you will serve a page in classic mode, turn the same app into a resident worker, and move the settings into a config file.
+This page covers serving a page in classic mode, turning the same application into a resident worker, and moving the settings into a config file. It assumes a working `rapira` binary with the PHP it bundles; see [Installation](/docs/installation) for more information.
 
-## Hello world in Classic mode
+## Classic mode
 
-Classic mode is the rung available to every application: Rapira re-includes your entry script for every request, exactly the way php-fpm would run a front controller. Nothing about the code has to change, which makes it the right place to start.
+Classic mode is available to every application: Rapira re-includes your entry script for every request, exactly the way php-fpm would run a front controller. Nothing about the code has to change.
 
 Create `public/index.php`:
 
@@ -37,11 +37,11 @@ Hello, world!
 Method: GET
 ```
 
-The process is not thrown away between requests — Rapira forks its workers once and keeps a PHP interpreter booted inside each of them. What gets discarded is your script's own state: variables, the autoloader, whatever the framework built. That is the tradeoff of classic mode, and it is why the next rung exists.
+The process is not thrown away between requests — Rapira forks its workers once and keeps a PHP interpreter booted inside each of them. What gets discarded is your script's own state: variables, the autoloader, whatever the framework built.
 
-## The same app as a resident worker
+## Worker mode
 
-The SAPI Worker rung keeps the script alive. It boots once, then sits in a loop asking Rapira for the next request; Rapira refills the superglobals and calls your handler. The shape of the PHP code stays familiar — you still read `$_GET` and `echo` a response — but the boot work happens once per process instead of once per request. See [Execution modes](/docs/execution-modes) for the whole ladder.
+SAPI Worker mode keeps the script alive. It boots once, then sits in a loop asking Rapira for the next request; Rapira refills the superglobals and calls your handler. The PHP code stays familiar — you still read `$_GET` and `echo` a response — but the boot work happens once per process instead of once per request. See [Execution modes](/docs/execution-modes) for more information.
 
 Create `worker.php` in the project root:
 
@@ -67,7 +67,9 @@ while ($http->handleRequest($handler)) {
 }
 ```
 
-`create_plugin_handler()` asks the server for the handler that serves HTTP — `HttpHandlerConfig` is what names it. `handleRequest()` then blocks until a request arrives, runs your callback for it, and returns `true`; it returns `false` when the server is shutting down, which is what ends the loop.
+`create_plugin_handler()` returns the handler that serves HTTP, selected by the `HttpHandlerConfig` passed to it. `handleRequest()` then blocks until a request arrives, runs your callback for it, and returns `true`; it returns `false` when the server is shutting down, which is what ends the loop.
+
+`create_plugin_handler()`, `HttpHandlerConfig` and the handler classes come from the PHP module Rapira registers when it boots the interpreter, so the script above runs with no autoloader. An application with Composer dependencies loads its own `vendor/autoload.php` before the loop.
 
 Stop the classic server first — `Ctrl-C` in its terminal — since both bind `127.0.0.1:8000`. Worker mode is the default, so there is no flag this time:
 
@@ -79,19 +81,19 @@ rapira serve worker.php
 curl '127.0.0.1:8000/?name=world'
 ```
 
-Run that `curl` a few times and the counter goes up: the same process keeps serving requests. By default Rapira forks one worker per CPU, so a request can land on any of them — the kernel picks which worker accepts it — and each worker keeps its own count; the pid in the output tells you which one answered. Start with `rapira serve --processes 1 worker.php` if you want a single, tidy sequence. The [process model](/docs/process-model) explains how the pool is supervised.
+Run that `curl` a few times and the counter goes up: the same process keeps serving requests. By default Rapira forks one worker per CPU, so a request can land on any of them — the kernel picks which worker accepts it — and each worker keeps its own count; the pid in the output tells you which one answered. Start with `rapira serve --processes 1 worker.php` if you want the count to run as a single sequence. The [process model](/docs/process-model) explains how the pool is supervised.
 
-Everything you build before the `while` loop stays in memory for the life of the worker: the Composer autoloader, a DI container, database and cache connections, compiled routes and templates — all of it paid for once, at boot, instead of on every request. Only the per-request state is new each time round.
+Everything you build before the `while` loop stays in memory for the life of the worker: the Composer autoloader, a DI container, database and cache connections, compiled routes and templates — all of it built once, at boot, instead of on every request. Only the per-request state is new each time round.
 
 ::: warning
-State that survives between requests is now your responsibility. A static property, a global, an open transaction left behind by one request is still there for the next one. [Worker mode](/docs/worker) covers what to watch for and how to keep a worker clean.
+State that survives between requests must be reset by the worker script. A static property, a global, an open transaction left behind by one request is still there for the next one. [Worker mode](/docs/worker) covers what to watch for and how to keep a worker clean.
 :::
 
-Inside the handler you have the usual toolkit — `header()`, `http_response_code()`, `echo`, and `rapira_finish_request()` to flush the response early and keep working afterwards. [HTTP](/docs/http) documents all of it.
+Inside the handler the usual functions work — `header()`, `http_response_code()`, `echo`, and `rapira_finish_request()` to flush the response early and keep working afterwards. See [HTTP](/docs/http) for more information.
 
-## Move the settings into a config file
+## Configuration file
 
-Flags are fine while you experiment; a deployed app usually keeps its settings in a file. A `rapira.toml` next to your code is enough to start:
+Settings can live in a `rapira.toml` file instead of on the command line. A file next to your code is enough to start:
 
 ```toml
 [http]
@@ -110,22 +112,14 @@ rapira serve --config rapira.toml
 A relative `pool.entrypoint` resolves against the config file's own directory, so the same file works whatever your current directory is. Flags still win over the file — `rapira serve --config rapira.toml --processes 1` keeps everything else and forks a single worker.
 :::
 
-Those five lines are a fraction of what the file accepts: pool scaling modes, worker recycling, request timeouts, logging, the supervisor's pidfile. Unknown keys are rejected rather than ignored, so a typo fails the boot instead of quietly doing nothing. The full reference lives in [Configuration](/docs/configuration), and the flags in [CLI](/docs/cli).
+The file also accepts pool scaling modes, worker recycling, request timeouts, logging and the supervisor's pidfile. Unknown keys are rejected rather than ignored, so a typo fails the boot instead of quietly doing nothing. The full reference is in [Configuration](/docs/configuration), and the flags in [CLI](/docs/cli).
 
 ## Stopping the server
 
-Press `Ctrl-C` and Rapira drains: it stops taking new work, lets the requests already in flight finish, shuts the extensions down and exits. A second `Ctrl-C` skips the wait and forces the exit — useful when a request is stuck and you would rather not wait for it. `SIGTERM` behaves the same way, which is what makes a service manager's restart graceful. [Process model](/docs/process-model) has the full signal table, including reload without dropping connections.
+Press `Ctrl-C` and Rapira drains: it stops taking new work, lets the requests already in flight finish, shuts the extensions down and exits. A second `Ctrl-C` skips the wait and forces the exit, so a stuck request does not hold the server open. `SIGTERM` behaves the same way, which is what makes a service manager's restart graceful. [Process model](/docs/process-model) has the full signal table, including reload without dropping connections.
 
 ## Next steps
 
 - [Worker mode](/docs/worker) — the resident loop in depth: state, leaks, recycling, and how to boot a real application before the loop.
 - [Configuration](/docs/configuration) — every key `rapira.toml` accepts, with defaults.
-- [Frameworks](/docs/frameworks/) — ready-made entry scripts for Symfony, Laravel and Yii3.
-
-::: question Do I need Composer to run the worker script?
-No. `create_plugin_handler()`, `HttpHandlerConfig` and the handler classes come from the PHP module Rapira registers when it boots the interpreter, so the script above runs with no autoloader at all. A real application will of course `require` its own `vendor/autoload.php` — before the loop, so it is paid for once.
-:::
-
-::: question Can one script serve both classic and worker mode?
-No, and the error is explicit: `create_plugin_handler()` throws a `Rapira\RapiraException` outside worker mode, because classic mode has no resident loop to hand you. Keep the plain front controller for classic mode and a separate `worker.php` for the worker rung; the [framework guides](/docs/frameworks/) cover the per-framework wiring.
-:::
+- [Frameworks](/docs/frameworks/) — integration guides for Symfony, Laravel and Yii3.

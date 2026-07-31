@@ -2,6 +2,8 @@
 
 Want to help improve the Rapira docs? Wonderful. This page is a live tour of everything the documentation engine can do — every block below is rendered from the same Markdown you'll write, so keep it handy as a cheat-sheet while editing pages.
 
+To preview your edits, run `npm install` once, then `npm run dev` and open the local URL it prints. Translations live in per-language folders — `ru/`, `es/`, `zh/`, `pl/` — mirroring the English structure, and English is the source of truth.
+
 ## Callout blocks
 
 Wrap text in a fenced `:::` container to get a colored, icon-marked callout:
@@ -114,7 +116,6 @@ Standard Markdown tables just work:
 | Callouts     |    ✅    |
 | Code groups  |    ✅    |
 | Mermaid      |    ✅    |
-| FAQ spoilers |    ✅    |
 
 Inline badges are handy for status labels: <Badge type="tip" text="new" /> <Badge type="warning" text="beta" /> <Badge type="danger" text="deprecated" />.
 
@@ -134,7 +135,6 @@ prev: false               # hide the footer "previous" link
 next:                     # or relabel / redirect a footer link
   text: Blog
   link: /blog/
-faqLevel: 2               # where ::: question blocks collect (see above)
 ---
 ```
 
@@ -148,34 +148,3 @@ outline: false    # hide it
 ```
 
 Use `layout: home` for a landing page or `layout: page` for a bare page with no sidebar or outline; regular pages use the default `doc` layout.
-
-## Questions (FAQ spoilers)
-
-Write a `::: question` block anywhere in a page:
-
-```md
-::: question How do I run the site locally?
-`npm install` once, then `npm run dev`.
-:::
-```
-
-The engine pulls every question out of the text and groups them into collapsible spoilers at the end of the section — like the ones just below.
-
-Where they land is up to you — set `faqLevel` in the page frontmatter:
-
-```yaml
----
-faqLevel: 1       # default — end of each H1 section (usually the page end)
-faqLevel: 2       # end of each H2 section
-faqLevel: 0       # very end of the page, regardless of headings
-faqLevel: false   # no grouping — each question stays inline, right where you wrote it
----
-```
-
-::: question How do I run the site locally?
-Run `npm install` once, then `npm run dev` and open the local URL it prints.
-:::
-
-::: question Where do translations live?
-Each language has its own folder — `ru/`, `es/`, `zh/`, `pl/` — mirroring the English structure. English is the source of truth.
-:::

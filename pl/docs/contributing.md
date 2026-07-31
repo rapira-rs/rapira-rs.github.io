@@ -2,6 +2,8 @@
 
 Chcesz pomóc ulepszyć dokumentację Rapiry? Świetnie. Ta strona to żywy przegląd wszystkiego, co potrafi silnik dokumentacji — każdy blok poniżej powstaje z tego samego Markdownu, który będziesz pisać, więc miej ją pod ręką jako ściągę podczas edycji stron.
 
+Aby podejrzeć swoje zmiany, uruchom raz `npm install`, a potem `npm run dev` i otwórz wyświetlony lokalny adres. Każdy język ma własny katalog z tłumaczeniami — `ru/`, `es/`, `zh/`, `pl/` — o tej samej strukturze co wersja angielska, a angielski jest źródłem prawdy.
+
 ## Bloki z wyróżnieniem
 
 Otocz tekst kontenerem `:::`, aby uzyskać kolorowe wyróżnienie z ikoną:
@@ -114,7 +116,6 @@ Zwykłe tabele Markdown działają od razu:
 | Wyróżnienia      |     ✅     |
 | Grupy kodu       |     ✅     |
 | Mermaid          |     ✅     |
-| Spoilery FAQ     |     ✅     |
 
 Plakietki w tekście świetnie nadają się do oznaczania statusu: <Badge type="tip" text="nowość" /> <Badge type="warning" text="beta" /> <Badge type="danger" text="wycofane" />.
 
@@ -134,7 +135,6 @@ prev: false               # ukryj stopkowy link „Poprzednia”
 next:                     # albo zmień nazwę / cel linku w stopce
   text: Blog
   link: /pl/blog/
-faqLevel: 2               # gdzie zbierają się bloki ::: question (patrz wyżej)
 ---
 ```
 
@@ -148,34 +148,3 @@ outline: false    # ukryj
 ```
 
 Użyj `layout: home` dla strony startowej lub `layout: page` dla pustej strony bez paska bocznego i spisu; zwykłe strony korzystają z domyślnego układu `doc`.
-
-## Pytania (spoilery FAQ)
-
-Napisz blok `::: question` w dowolnym miejscu strony:
-
-```md
-::: question Jak uruchomić stronę lokalnie?
-Raz `npm install`, a potem `npm run dev`.
-:::
-```
-
-Silnik wyławia z tekstu wszystkie pytania i zbiera je w rozwijane spoilery na końcu sekcji — takie jak poniżej.
-
-Gdzie się pojawią, zależy od Ciebie — ustaw `faqLevel` we frontmatterze strony:
-
-```yaml
----
-faqLevel: 1       # domyślnie — na końcu każdej sekcji H1 (zwykle koniec strony)
-faqLevel: 2       # na końcu każdej sekcji H2
-faqLevel: 0       # na samym końcu strony, niezależnie od nagłówków
-faqLevel: false   # bez grupowania — każde pytanie zostaje tam, gdzie je napisałeś
----
-```
-
-::: question Jak uruchomić stronę lokalnie?
-Uruchom raz `npm install`, a potem `npm run dev` i otwórz wyświetlony lokalny adres.
-:::
-
-::: question Gdzie są tłumaczenia?
-Każdy język ma własny katalog — `ru/`, `es/`, `zh/`, `pl/` — o tej samej strukturze co wersja angielska. Angielski jest źródłem prawdy.
-:::

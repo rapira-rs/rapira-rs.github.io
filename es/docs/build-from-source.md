@@ -1,13 +1,13 @@
 ---
 title: Compilar desde el código
-description: Cuándo y cómo compilar Rapira tú mismo — las herramientas de Rust y C, un PHP NTS con el SAPI embed y los detalles del enlazado en Linux y macOS.
+description: "Cuándo y cómo compilar Rapira tú mismo — las herramientas de Rust y C, un PHP NTS con el SAPI embed y los detalles del enlazado en Linux y macOS."
 ---
 
 # Compilar desde el código
 
-Casi nadie necesita esta página: coges un binario ya compilado de [Instalación](/es/docs/installation) y listo. Compilar Rapira por tu cuenta es para los casos que no cubren los artefactos publicados, y no es complicado: el único requisito nuevo es un PHP que Rapira pueda incrustar. Rapira se compila en Linux y macOS.
+Rapira se compila desde el código en Linux y macOS. Compilarlo tú mismo resuelve los casos que no cubren los binarios ya compilados de la página [Instalación](/es/docs/installation), y el único requisito más allá de las herramientas habituales de Rust y C es un PHP que Rapira pueda incrustar.
 
-## Cuándo lo necesitas
+## Cuándo compilar desde el código
 
 - **No hay binario para tu plataforma**: una arquitectura de CPU poco habitual, o una distro basada en musl como Alpine.
 - **Tu distribución es más antigua de lo que admiten los paquetes.** Las releases se compilan contra glibc 2.34, así que Debian 12, Ubuntu 22.04 y RHEL 9 son las versiones más antiguas donde llegan a instalarse (lo tienes en [Instalación](/es/docs/installation)).
@@ -18,13 +18,13 @@ Casi nadie necesita esta página: coges un binario ya compilado de [Instalación
 
 Aparte de lo básico para compilar cualquier cosa, hacen falta tres cosas:
 
-- **Rust, canal stable.** El `rust-toolchain.toml` del repositorio lo fija, así que [rustup](https://rustup.rs/) elige el toolchain correcto él solo: tú no tienes que seleccionar nada.
+- **Rust, canal stable.** El `rust-toolchain.toml` del repositorio lo fija, así que [rustup](https://rustup.rs/) elige el toolchain correcto él solo.
 - **Un compilador de C y `pkg-config`.** Parte de la compilación es C: unos shims pequeños que se compilan contra las cabeceras de PHP.
 - **libclang**, porque bindgen genera los bindings de la API de Zend durante la compilación. El paquete se llama `libclang-dev` en Debian/Ubuntu, `clang-devel` en Fedora y `clang` en Arch.
 
 ## PHP con el SAPI embed
 
-Rapira no habla con PHP por un socket: enlaza el intérprete dentro de su propio proceso. Eso obliga a que PHP exista como biblioteca compartida: **versión 8.4 u 8.5, NTS (no thread-safe) y configurado con `--enable-embed=shared`**, que es lo que produce `libphp.so` (`libphp.dylib` en macOS).
+Rapira enlaza el intérprete dentro de su propio proceso en lugar de hablar con él por un socket, así que PHP tiene que existir como biblioteca compartida: **versión 8.4 u 8.5, NTS (no thread-safe) y configurado con `--enable-embed=shared`**, que es lo que produce `libphp.so` (`libphp.dylib` en macOS).
 
 ::: warning Las compilaciones ZTS se rechazan
 Un PHP thread-safe (ZTS) tumba la compilación con un error explícito: Rapira es solo NTS, porque ejecuta un intérprete por proceso worker. Si el PHP que tienes en el `PATH` es una compilación ZTS, instala uno NTS y apunta `PHP_CONFIG` hacia él (lo verás más abajo).
@@ -44,6 +44,8 @@ La fórmula `php` de Homebrew se compila sin él, así que no queda nada con lo 
 :::
 
 ### Compilar PHP tú mismo
+
+Compila PHP tú mismo cuando tu distribución no tenga paquete embed, cuando estés en macOS o cuando la compilación empaquetada no traiga las extensiones que necesita tu aplicación.
 
 El `ci/php-configure-flags.txt` del repositorio es la línea de `configure` de referencia: la misma lista que usan las compilaciones de release. Pásasela a `configure` dentro de un árbol de fuentes de PHP ya desempaquetado y añade las extensiones que necesite tu aplicación:
 
@@ -92,7 +94,7 @@ PHP_CONFIG=$HOME/.local/php-nts/bin/php-config cargo build --release
 ```
 
 ::: tip
-`make test` ejecuta las suites de tests y resuelve por ti las rutas de las bibliotecas: busca la biblioteca embed bajo el prefijo de `php-config` (`lib`, `lib64`, `lib/phpXX`, con el nombre a secas o con versión) y la normaliza al nombre a secas que quiere el enlazador. Es una buena forma de comprobar que todo el montaje funciona antes de fiarte de tu compilación.
+`make test` ejecuta las suites de tests y resuelve por ti las rutas de las bibliotecas: busca la biblioteca embed bajo el prefijo de `php-config` (`lib`, `lib64`, `lib/phpXX`, con el nombre a secas o con versión) y la normaliza al nombre a secas que quiere el enlazador. Ejecútalo para comprobar el montaje antes de fiarte de tu propia compilación.
 :::
 
 ## Ejecutar el binario que has compilado
@@ -104,16 +106,8 @@ LD_LIBRARY_PATH=$HOME/.local/php-nts/lib ./target/release/rapira serve worker.ph
 DYLD_LIBRARY_PATH=$HOME/.local/php-nts/lib ./target/release/rapira serve worker.php   # macOS
 ```
 
-A partir de aquí es el mismo servidor que instalan los paquetes: [Inicio rápido](/es/docs/quickstart) te guía por un primer script, [CLI](/es/docs/cli) enumera lo que acepta `serve` y [Configuración](/es/docs/configuration) cubre `rapira.toml`.
-
-::: question ¿Tengo que compilar también PHP desde el código?
-Solo si tu distribución no tiene paquete embed, si estás en macOS o si necesitas extensiones que la compilación empaquetada no trae. En los demás casos basta con el paquete `php-embed` / `libphpX.Y-embed` de la distro, más el symlink `libphp.so` a secas en Debian y Ubuntu.
-:::
-
-::: question ¿Puedo compilar contra el PHP ZTS que trae mi distro?
-No: la compilación se para con un error en cuanto `php-config` apunta a una compilación thread-safe. Instala o compila un PHP NTS con el SAPI embed y pon `PHP_CONFIG` apuntando a su `php-config`.
-:::
+El resultado es el mismo servidor que instalan los paquetes: [Inicio rápido](/es/docs/quickstart) te guía por un primer script, [CLI](/es/docs/cli) enumera lo que acepta `serve` y [Configuración](/es/docs/configuration) cubre `rapira.toml`.
 
 ## Trabajar en el propio Rapira
 
-Si has llegado hasta aquí para cambiar Rapira y no solo para compilarlo: `make test` ejecuta las dos suites —la que corre dentro del mismo proceso y la de extremo a extremo, que lanza el binario de verdad—, `make stubs` regenera la cabecera de arginfo a partir de `crates/php_sys/rapira.stub.php`, y CI ejecuta la compilación, `cargo fmt`, clippy y la cobertura en cada pull request.
+`make test` ejecuta las dos suites —la que corre dentro del mismo proceso y la de extremo a extremo, que lanza el binario de verdad—, `make stubs` regenera la cabecera de arginfo a partir de `crates/php_sys/rapira.stub.php`, y CI ejecuta la compilación, `cargo fmt`, clippy y la cobertura en cada pull request.

@@ -5,9 +5,9 @@ description: When and how to compile Rapira yourself — the Rust and C toolchai
 
 # Build from source
 
-Most people never need this page: take a prebuilt binary from [Installation](/docs/installation) and you are done. Compiling Rapira yourself is for the cases the released artifacts don't cover, and it is not hard — the only new requirement is a PHP that Rapira can embed. Rapira builds on Linux and macOS.
+Rapira compiles from source on Linux and macOS. Building it yourself covers the cases the prebuilt binaries on the [Installation](/docs/installation) page don't, and the only requirement beyond the usual Rust and C toolchain is a PHP that Rapira can embed.
 
-## When you need this
+## When to build from source
 
 - **There is no prebuilt binary for your platform** — an unusual CPU architecture, or a musl-based distro such as Alpine.
 - **Your distribution is older than the packages support.** The releases are built against glibc 2.34 — Debian 12, Ubuntu 22.04 and RHEL 9 are the oldest they install on (see [Installation](/docs/installation)).
@@ -18,13 +18,13 @@ Most people never need this page: take a prebuilt binary from [Installation](/do
 
 Three things beyond the usual build essentials:
 
-- **Rust, stable channel.** `rust-toolchain.toml` in the repository pins it, so [rustup](https://rustup.rs/) picks the right toolchain on its own — you don't have to select anything.
+- **Rust, stable channel.** `rust-toolchain.toml` in the repository pins it, so [rustup](https://rustup.rs/) selects the right toolchain on its own.
 - **A C compiler and `pkg-config`.** Part of the build is C: small shims compiled against the PHP headers.
 - **libclang**, because the bindings to the Zend API are generated at build time by bindgen. The package is `libclang-dev` on Debian/Ubuntu, `clang-devel` on Fedora, `clang` on Arch.
 
 ## PHP with the embed SAPI
 
-Rapira doesn't talk to PHP over a socket — it links the interpreter into its own process. That means PHP has to exist as a shared library: **version 8.4 or 8.5, NTS (non-thread-safe), configured with `--enable-embed=shared`**, which is what produces `libphp.so` (`libphp.dylib` on macOS).
+Rapira links the interpreter into its own process rather than reaching it over a socket, so PHP has to exist as a shared library: **version 8.4 or 8.5, NTS (non-thread-safe), configured with `--enable-embed=shared`**, which is what produces `libphp.so` (`libphp.dylib` on macOS).
 
 ::: warning ZTS builds are rejected
 A thread-safe (ZTS) PHP fails the build with an explicit error — Rapira is NTS-only, since it runs one interpreter per worker process. If the PHP on your `PATH` is a ZTS build, install an NTS one and point `PHP_CONFIG` at it (see below).
@@ -44,6 +44,8 @@ Homebrew's `php` formula is built without it, so there is nothing to link agains
 :::
 
 ### Building PHP yourself
+
+Build PHP yourself when your distribution has no embed package, when you're on macOS, or when the packaged build lacks extensions your application needs.
 
 `ci/php-configure-flags.txt` in the repository is the reference configure line — the same list the release builds use. Feed it to `configure` in an unpacked PHP source tree and add whatever extensions your application needs:
 
@@ -92,7 +94,7 @@ PHP_CONFIG=$HOME/.local/php-nts/bin/php-config cargo build --release
 ```
 
 ::: tip
-`make test` runs the test suites and resolves the library paths for you: it finds the embed library under the `php-config` prefix (`lib`, `lib64`, `lib/phpXX`, plain or versioned name) and normalizes it into the plain name the linker wants. A good way to confirm the whole setup works before you trust your build.
+`make test` runs the test suites and resolves the library paths for you: it finds the embed library under the `php-config` prefix (`lib`, `lib64`, `lib/phpXX`, plain or versioned name) and normalizes it into the plain name the linker wants. Run it to confirm the setup before relying on your own build.
 :::
 
 ## Running the binary you built
@@ -104,16 +106,8 @@ LD_LIBRARY_PATH=$HOME/.local/php-nts/lib ./target/release/rapira serve worker.ph
 DYLD_LIBRARY_PATH=$HOME/.local/php-nts/lib ./target/release/rapira serve worker.php   # macOS
 ```
 
-From here it is the same server the packages install: [Quickstart](/docs/quickstart) walks through a first script, [CLI](/docs/cli) lists what `serve` accepts, and [Configuration](/docs/configuration) covers `rapira.toml`.
-
-::: question Do I have to build PHP from source as well?
-Only if your distribution has no embed package, if you're on macOS, or if you need extensions the packaged build doesn't have. Otherwise the distro's `php-embed` / `libphpX.Y-embed` package is enough — plus the plain `libphp.so` symlink on Debian and Ubuntu.
-:::
-
-::: question Can I build against the ZTS PHP my distro ships?
-No — the build stops with an error when `php-config` points at a thread-safe build. Install or compile an NTS PHP with the embed SAPI and set `PHP_CONFIG` to its `php-config`.
-:::
+The result is the same server the packages install: [Quickstart](/docs/quickstart) walks through a first script, [CLI](/docs/cli) lists what `serve` accepts, and [Configuration](/docs/configuration) covers `rapira.toml`.
 
 ## Working on Rapira itself
 
-If you're here to change Rapira rather than just compile it: `make test` runs both suites — the in-process one and the end-to-end suite that spawns the real binary — `make stubs` regenerates the arginfo header from `crates/php_sys/rapira.stub.php`, and CI runs the build, `cargo fmt`, clippy and coverage on every pull request.
+`make test` runs both suites — the in-process one and the end-to-end suite that spawns the real binary — `make stubs` regenerates the arginfo header from `crates/php_sys/rapira.stub.php`, and CI runs the build, `cargo fmt`, clippy and coverage on every pull request.

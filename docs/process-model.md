@@ -148,5 +148,5 @@ The default is one per CPU, which is the right starting point for `static`. PHP 
 :::
 
 ::: question What happens to requests already in flight when I stop or reload?
-They finish. Both a stop and a reload begin by telling a worker to stop accepting and drain what it holds; the worker exits on its own once the last response is written. The only thing that cuts a request short is the escalation ladder after `supervisor.process_control_timeout_secs`, a second `SIGTERM`/`SIGINT`, which TERMs every worker at once, or the `pool.request_terminate_timeout_secs` watchdog if you configured one.
+They finish. Both a stop and a reload begin by telling a worker to stop accepting and drain what it holds; the worker exits on its own once the last response is written. The only thing that cuts a request short is the escalation ladder after `supervisor.process_control_timeout_secs`, or a second `SIGTERM`/`SIGINT`, which TERMs every worker at once. The `pool.request_terminate_timeout_secs` watchdog is suspended while a stop or reload is in progress.
 :::

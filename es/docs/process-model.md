@@ -148,5 +148,5 @@ Por defecto va uno por CPU, que es el punto de partida correcto para `static`. P
 :::
 
 ::: question ¿Qué pasa con las peticiones que ya están en curso cuando paro o recargo?
-Terminan. Tanto una parada como una recarga empiezan diciéndole al worker que deje de aceptar y termine lo que tiene entre manos; el worker sale por su cuenta en cuanto escribe la última respuesta. Lo único que corta una petición por la mitad es la escalera que arranca al agotarse `supervisor.process_control_timeout_secs`, un segundo `SIGTERM`/`SIGINT` —que manda TERM a todos los workers a la vez— o el vigilante de `pool.request_terminate_timeout_secs`, si lo has configurado.
+Terminan. Tanto una parada como una recarga empiezan diciéndole al worker que deje de aceptar y termine lo que tiene entre manos; el worker sale por su cuenta en cuanto escribe la última respuesta. Lo único que corta una petición por la mitad es la escalera que arranca al agotarse `supervisor.process_control_timeout_secs`, o un segundo `SIGTERM`/`SIGINT`, que manda TERM a todos los workers a la vez. El vigilante de `pool.request_terminate_timeout_secs` queda suspendido mientras hay una parada o una recarga en curso.
 :::

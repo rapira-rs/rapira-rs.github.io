@@ -148,5 +148,5 @@ Domyślnie jest to jeden na rdzeń CPU i dla `static` to dobry punkt wyjścia. P
 :::
 
 ::: question Co dzieje się z żądaniami będącymi już w toku, gdy zatrzymuję albo przeładowuję serwer?
-Zostają dokończone. Zarówno zatrzymanie, jak i przeładowanie zaczynają się od tego samego polecenia dla workera: przestań przyjmować i dokończ to, co trzymasz — a worker sam się kończy, gdy zapisze ostatnią odpowiedź. Żądanie przerwie tylko drabina eskalacji po `supervisor.process_control_timeout_secs`, drugi `SIGTERM`/`SIGINT`, który TERM-uje wszystkie workery naraz, albo nadzór z `pool.request_terminate_timeout_secs`, jeśli go skonfigurowałeś.
+Zostają dokończone. Zarówno zatrzymanie, jak i przeładowanie zaczynają się od tego samego polecenia dla workera: przestań przyjmować i dokończ to, co trzymasz — a worker sam się kończy, gdy zapisze ostatnią odpowiedź. Żądanie przerwie tylko drabina eskalacji po `supervisor.process_control_timeout_secs` albo drugi `SIGTERM`/`SIGINT`, który TERM-uje wszystkie workery naraz. Nadzór z `pool.request_terminate_timeout_secs` jest na czas zatrzymania albo przeładowania zawieszony.
 :::

@@ -148,5 +148,5 @@ master = "info"
 :::
 
 ::: question 停止或者重载的时候，已经在处理的请求会怎样？
-会跑完。停止和重载都是先让 worker 不再接活、把手上的排空；最后一个响应写完之后，worker 自己退出。只有三样东西会把请求拦腰截断：`supervisor.process_control_timeout_secs` 之后的升级阶梯、第二个 `SIGTERM`/`SIGINT`（它会一次性 TERM 掉所有 worker），以及你配了 `pool.request_terminate_timeout_secs` 时的那个看门狗。
+会跑完。停止和重载都是先让 worker 不再接活、把手上的排空；最后一个响应写完之后，worker 自己退出。只有两样东西会把请求拦腰截断：`supervisor.process_control_timeout_secs` 之后的升级阶梯，以及第二个 `SIGTERM`/`SIGINT`（它会一次性 TERM 掉所有 worker）。`pool.request_terminate_timeout_secs` 这个看门狗在停止或重载期间是挂起的。
 :::

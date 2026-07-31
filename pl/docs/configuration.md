@@ -5,21 +5,21 @@ description: "Pełny opis rapira.toml: każdy klucz sekcji [http], [pool], [supe
 
 # Konfiguracja
 
-Rapira nie potrzebuje pliku konfiguracyjnego, żeby wystartować — `rapira serve app/worker.php` dobierze wartość domyślną do wszystkiego. Po `rapira.toml` sięgasz wtedy, gdy te domyślne wartości przestają wystarczać: inny adres nasłuchu, ustalona liczba workerów, polityka recyklingu, pidfile, który odczyta twój system init, poziom logowania, z którego wreszcie coś wynika. Wskaż serwerowi plik, a od tej chwili to on rządzi:
+Rapira nie potrzebuje pliku konfiguracyjnego, żeby wystartować — `rapira serve app/worker.php` dobierze wartość domyślną do wszystkiego. `rapira.toml` dodajesz wtedy, gdy te domyślne wartości przestają wystarczać: inny adres nasłuchu, ustalona liczba workerów, polityka recyklingu, pidfile, który odczyta twój system init, bardziej szczegółowy poziom logowania. Wskaż serwerowi plik, a serwer odczyta ustawienia właśnie z niego:
 
 ```bash
 rapira serve --config /etc/rapira/rapira.toml
 ```
 
-Plik ma cztery sekcje i każda z nich jest opcjonalna: `[http]` konfiguruje nasłuch, `[pool]` procesy workerów, `[supervisor]` proces nadrzędny, a `[log]` to, co trafia na stderr. Jedyna wartość, której Rapira nie wymyśli za ciebie, to skrypt wejściowy PHP — ustaw tutaj `pool.entrypoint` albo podaj skrypt jako argument pozycyjny w wierszu poleceń.
+Plik ma cztery sekcje i każda z nich jest opcjonalna: `[http]` konfiguruje nasłuch, `[pool]` procesy workerów, `[supervisor]` proces nadrzędny, a `[log]` to, co trafia na stderr. Jedyny klucz bez wartości domyślnej to skrypt wejściowy PHP — ustaw tutaj `pool.entrypoint` albo podaj skrypt jako argument pozycyjny w wierszu poleceń.
 
 ::: info
-Ustawienia układają się warstwami: flaga wiersza poleceń wygrywa z plikiem konfiguracyjnym, a plik z wbudowaną wartością domyślną. `--processes 8` bierze więc górę nad `processes = 4` z pliku, dzięki czemu konfigurację trzymaną w repozytorium wciąż da się nagiąć na jedno uruchomienie. Same flagi opisuje [Wiersz poleceń](/pl/docs/cli).
+Ustawienia układają się warstwami: flaga wiersza poleceń wygrywa z plikiem konfiguracyjnym, a plik z wbudowaną wartością domyślną. `--processes 8` bierze więc górę nad `processes = 4` z pliku, dzięki czemu konfigurację trzymaną w repozytorium wciąż da się nadpisać na jedno uruchomienie. Same flagi opisuje [Wiersz poleceń](/pl/docs/cli).
 :::
 
 ## Kompletny rapira.toml
 
-Wszystkie klucze, które Rapira rozumie, w jednym pliku. Nic poniżej nie jest obowiązkowe — skasuj dowolną linię, a wejdzie jej wartość domyślna. Wyjątki są dwa: `pool.entrypoint` nie ma domyślnej wartości, do której mógłby się cofnąć, a `min_spare`/`max_spare` są wymagane tak długo, jak w pliku stoi `mode = "dynamic"`.
+Wszystkie klucze, które Rapira rozumie, w jednym pliku. Nic poniżej nie jest obowiązkowe — skasuj dowolną linię, a wejdzie jej wartość domyślna. Wyjątki są dwa: `pool.entrypoint` nie ma domyślnej wartości, do której mógłby się cofnąć, a `min_spare`/`max_spare` są wymagane tak długo, jak w pliku ustawione jest `mode = "dynamic"`.
 
 ```toml
 [http]
@@ -57,7 +57,7 @@ Reszta tej strony to ten sam plik, klucz po kluczu.
 
 ## Sekcja `[http]`
 
-Drzwi wejściowe: gdzie Rapira nasłuchuje, co środowisko żądania mówi PHP o serwerze, pod którym działa, i ile treści żądania serwer zgodzi się wczytać.
+Ta sekcja opisuje, gdzie Rapira nasłuchuje, co środowisko żądania mówi PHP o serwerze, pod którym działa, i ile treści żądania serwer wczyta.
 
 | Klucz | Typ | Domyślnie | Znaczenie |
 | --- | --- | --- | --- |
@@ -96,7 +96,7 @@ Zasady dla procesu nadrzędnego — tego, który trzyma gniazdo nasłuchu, pilnu
 
 ## Sekcja `[log]`
 
-Rapira pisze wszystko na stderr, jednym zapisem na rekord, dzięki czemu wyjście procesu nadrzędnego i workerów nigdy nie miesza się w połowie linii. Ta sekcja decyduje, jak głośny jest ten strumień i jaki kształt ma pojedynczy rekord; poszczególne cele, formaty i to, jak diagnostyka PHP mapuje się na poziomy, opisują [Logi](/pl/docs/logging).
+Rapira pisze wszystko na stderr, jednym zapisem na rekord, dzięki czemu wyjście procesu nadrzędnego i workerów nigdy nie miesza się w połowie linii. Ta sekcja decyduje, jak szczegółowy jest ten strumień i jaki kształt ma pojedynczy rekord; poszczególne cele, formaty i to, jak diagnostyka PHP mapuje się na poziomy, opisują [Logi](/pl/docs/logging).
 
 | Klucz | Typ | Domyślnie | Znaczenie |
 | --- | --- | --- | --- |
@@ -110,7 +110,7 @@ Klucz w `[log.targets]` musi wyglądać jak ścieżka modułu: litery, cyfry ora
 
 Rapira parsuje `rapira.toml` rygorystycznie. Każda tabela i każdy klucz w środku muszą być serwerowi znane, więc `[htttp]` albo `lissten = ":8000"` przerywa start i wprost nazywa to, czego nie rozpoznał, zamiast po cichu pominąć linię. Każdy klucz ma też dokładnie jedno miejsce: `max_requests` należy do `[pool]` i do niczego innego, `pidfile` do `[supervisor]` i do niczego innego, a wstawienie któregoś pod niewłaściwą tabelę kończy się tak samo jak literówka.
 
-Wartości sprawdzane są tak samo. `level = "verbose"`, `format = "pretty"` i `unsafe_field_names = "allow"` to twarde błędy, a nie ciche zejście do wartości domyślnej — filtr bezpieczeństwa, który przeżyje literówkę, jest gorszy niż taki, który odmawia startu na twoich oczach. Liczby też mają granice: `pool.processes` i `http.max_body_size_mb` muszą wynosić co najmniej 1, a każdy klucz `*_secs` kończy się na `86400`, czyli jednej dobie.
+Wartości sprawdzane są tak samo. `level = "verbose"`, `format = "pretty"` i `unsafe_field_names = "allow"` to twarde błędy, a nie ciche zejście do wartości domyślnej — literówka, która po cichu osłabia ustawienie bezpieczeństwa, jest gorsza niż taka, która przerywa start. Liczby też mają granice: `pool.processes` i `http.max_body_size_mb` muszą wynosić co najmniej 1, a każdy klucz `*_secs` kończy się na `86400`, czyli jednej dobie.
 
 ::: warning
 Walidacja odbywa się, zanim cokolwiek wystartuje, więc nierozpoznany klucz przerywa uruchamianie, zamiast po cichu pogarszać pracę serwera. Warto o tym pamiętać, edytując `rapira.toml` na maszynie, która akurat obsługuje ruch: działającego procesu to nie rusza, ale następne uruchomienie musi się udać.
@@ -131,7 +131,7 @@ Nie. `rapira serve` ze skryptem i jedną czy dwiema flagami wystarcza w typowym 
 :::
 
 ::: question Czy Rapirę da się skonfigurować zmiennymi środowiskowymi?
-Nie — ustawienia biorą się z pliku konfiguracyjnego i z flag wiersza poleceń, i znikąd indziej. Wyjątkiem są dwie zmienne dotyczące wyłącznie logów: `RUST_LOG`, czyli debugowe nadpisanie, które zastępuje cały filtr logów, dzięki czemu gadatliwa sesja nie wymaga zmian w konfiguracji, oraz `NO_COLOR`, które odbiera kolory formatowi `plain` — wyłącza je dowolna niepusta wartość, nawet na terminalu. Obie opisują [Logi](/pl/docs/logging).
+Nie — ustawienia biorą się z pliku konfiguracyjnego i z flag wiersza poleceń, i znikąd indziej. Wyjątkiem są dwie zmienne dotyczące wyłącznie logów: `RUST_LOG`, czyli debugowe nadpisanie, które zastępuje cały filtr logów, dzięki czemu bardziej szczegółowe logowanie nie wymaga zmian w konfiguracji, oraz `NO_COLOR`, które odbiera kolory formatowi `plain` — wyłącza je dowolna niepusta wartość, nawet na terminalu. Obie opisują [Logi](/pl/docs/logging).
 :::
 
 ::: question Dlaczego serwer nie chce wystartować z `mode = "dynamic"`?

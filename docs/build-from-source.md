@@ -5,13 +5,13 @@ description: When and how to compile Rapira yourself — the Rust and C toolchai
 
 # Build from source
 
-Most people never need this page: take a prebuilt binary from [Installation](/docs/installation) and you are done. Compiling Rapira yourself is for the cases the released artifacts don't cover, and it is not hard — the only genuinely new ingredient is a PHP that Rapira can embed. Rapira builds on Linux and macOS.
+Most people never need this page: take a prebuilt binary from [Installation](/docs/installation) and you are done. Compiling Rapira yourself is for the cases the released artifacts don't cover, and it is not hard — the only new requirement is a PHP that Rapira can embed. Rapira builds on Linux and macOS.
 
 ## When you need this
 
 - **There is no prebuilt binary for your platform** — an unusual CPU architecture, or a musl-based distro such as Alpine.
 - **Your distribution is older than the packages support.** The releases are built against glibc 2.34 — Debian 12, Ubuntu 22.04 and RHEL 9 are the oldest they install on (see [Installation](/docs/installation)).
-- **You need a different set of PHP extensions.** The release builds bundle a PHP compiled from the flag list in [`ci/php-configure-flags.txt`](https://github.com/rapira-rs/rapira/blob/main/ci/php-configure-flags.txt), which is deliberately small: session, mbstring, OPcache, OpenSSL, curl, the XML family, PDO with SQLite. If your application wants `pdo_mysql`, `intl` or `gd`, build Rapira against a PHP that has them.
+- **You need a different set of PHP extensions.** The release builds bundle a PHP compiled from the flag list in [`ci/php-configure-flags.txt`](https://github.com/rapira-rs/rapira/blob/main/ci/php-configure-flags.txt), which is deliberately small: session, mbstring, OPcache, OpenSSL, curl, the XML family, PDO with SQLite. If your application needs `pdo_mysql`, `intl` or `gd`, build Rapira against a PHP that has them.
 - **You are working on Rapira itself**, or want something that hasn't been released yet.
 
 ## The toolchain
@@ -92,7 +92,7 @@ PHP_CONFIG=$HOME/.local/php-nts/bin/php-config cargo build --release
 ```
 
 ::: tip
-`make test` runs the test suites and does the library-path juggling for you: it finds the embed library under the `php-config` prefix (`lib`, `lib64`, `lib/phpXX`, plain or versioned name) and normalizes it into the plain name the linker wants. A good way to confirm the whole setup works before you trust your build.
+`make test` runs the test suites and resolves the library paths for you: it finds the embed library under the `php-config` prefix (`lib`, `lib64`, `lib/phpXX`, plain or versioned name) and normalizes it into the plain name the linker wants. A good way to confirm the whole setup works before you trust your build.
 :::
 
 ## Running the binary you built

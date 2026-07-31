@@ -5,13 +5,13 @@ description: Una unidad de systemd, un sitio para la configuración, un proxy in
 
 # En producción
 
-En tu portátil, con `rapira serve app/worker.php` ya está todo dicho. En un servidor quieres unas cuantas cosas más: que arranque solo al encender la máquina, que vuelva después de una caída, que recoja el código nuevo sin tirar ni una petición y que deje los registros en algún sitio donde de verdad puedas leerlos. Esta página es la mitad operativa de todo eso: una unidad de systemd, un sitio para la configuración, un proxy delante y el puñado de ajustes que mantienen sanos a unos workers que viven mucho tiempo.
+En tu portátil te basta con `rapira serve app/worker.php`. En un servidor quieres unas cuantas cosas más: que arranque solo al encender la máquina, que vuelva después de una caída, que recoja el código nuevo sin tirar ni una petición y que deje los registros en algún sitio donde de verdad puedas leerlos. Esta página es la mitad operativa de todo eso: una unidad de systemd, un sitio para la configuración, un proxy delante y el puñado de ajustes que mantienen sanos a unos workers que viven mucho tiempo.
 
-Casi nada de lo que viene aquí está grabado en el binario. A Rapira le da igual dónde tengas la configuración y quién la supervise, así que la disposición de más abajo es una convención que establece esta página y que el resto de la documentación da por buena. Antes de nada, mete el binario en la máquina: de eso se encarga [Instalación](/es/docs/installation).
+Casi nada de lo que viene aquí está grabado en el binario. Nada en Rapira depende de dónde tengas la configuración ni de qué supervise el proceso, así que la disposición de más abajo es una convención que establece esta página y que el resto de la documentación da por buena. Antes de nada, mete el binario en la máquina: de eso se encarga [Instalación](/es/docs/installation).
 
 ## Una unidad de systemd
 
-Los paquetes `.deb` y `.rpm` instalan el binario y el runtime de PHP que lleva incrustado, y nada más: **ni unidad de servicio ni `php.ini`** (en [Instalación](/es/docs/installation) tienes la lista exacta de archivos). Es a propósito: las dos cosas son decisiones tuyas, y un paquete que las trajera se dedicaría a pisarte los cambios en cada actualización.
+Los paquetes `.deb` y `.rpm` instalan el binario y el runtime de PHP que lleva incrustado, y nada más: **ni unidad de servicio ni `php.ini`** (en [Instalación](/es/docs/installation) tienes la lista exacta de archivos). Es a propósito: las dos cosas son decisiones tuyas, y un paquete que las trajera te pisaría los cambios en cada actualización.
 
 Así que escríbela tú. Copia esto en `/etc/systemd/system/rapira.service`:
 
@@ -41,7 +41,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now rapira
 ```
 
-Seis de esas líneas merecen un comentario:
+Seis de esas líneas merecen una explicación:
 
 - `Type=exec` — Rapira se ejecuta en **primer plano** y nunca hace fork para pasar a segundo plano. No hay modo demonio ni hace falta: el proceso que arranca systemd *es* el maestro, así que `$MAINPID` es justo el pid al que quieres mandar señales.
 - `ExecReload` — convierte `systemctl reload rapira` en un `SIGUSR2` al maestro, que es la recarga sin cortes de la que se habla más abajo.
@@ -62,7 +62,7 @@ Antes de escribir ese archivo conviene saber una cosa: un `pool.entrypoint` rela
 
 ## Detrás de un proxy inverso
 
-El listener de Rapira habla HTTP en claro: en la configuración no hay ninguna sección de TLS, y es a propósito. Termina el TLS en el proxy que ya tienes montado —nginx, Caddy, HAProxy, un balanceador de tu nube— y deja que llegue a Rapira por loopback o por un socket Unix. Escuchar en una interfaz pública se puede hacer, pero sin TLS en ese listener rara vez es lo que quieres.
+El listener de Rapira habla HTTP en claro: en la configuración no hay ninguna sección de TLS, y es a propósito. Termina el TLS en el proxy que ya tienes montado —nginx, Caddy, HAProxy, un balanceador de tu nube— y deja que llegue a Rapira por loopback o por un socket Unix. Puedes escuchar en una interfaz pública, pero sin TLS en ese listener rara vez es lo que quieres.
 
 ```toml
 [http]
@@ -70,7 +70,7 @@ listen = "127.0.0.1:8000"
 # listen = "unix:/run/rapira/rapira.sock"
 ```
 
-El socket Unix se crea con permisos `0666`, así que cualquier cosa que alcance esa ruta puede conectarse. Rapira no tiene ningún ajuste para esos permisos. Si eso te importa, restringe el directorio: en la unidad de arriba, `RuntimeDirectoryMode=0750` y un `Group=` al que pertenezca el usuario del proxy dejan `/run/rapira` fuera del alcance de los demás.
+El socket Unix se crea con permisos `0666`, así que cualquier proceso con acceso a esa ruta puede conectarse. Rapira no tiene ningún ajuste para esos permisos. Si eso te importa, restringe el directorio: en la unidad de arriba, `RuntimeDirectoryMode=0750` y un `Group=` al que pertenezca el usuario del proxy dejan `/run/rapira` fuera del alcance de los demás.
 
 Tu proxy tiene una sola obligación a la entrada: los campos que reenvíe deben ir con la grafía normal, la del guion —`X-Forwarded-For`, nunca `X_Forwarded_For`—. Las variantes con guion bajo o con punto caen en la misma clave de `$_SERVER` que la buena, que es justo por donde un cliente sobrescribiría lo que tu proxy acaba de poner, así que Rapira las descarta antes de que PHP las vea. La [página de HTTP](/es/docs/http) explica la correspondencia y el ajuste `http.unsafe_field_names` que la gobierna.
 
@@ -82,7 +82,7 @@ Despliega el código nuevo y luego:
 sudo systemctl reload rapira
 ```
 
-Eso es un `SIGUSR2` al maestro, que responde con una **recarga progresiva**: el pool se reemplaza de worker en worker y las peticiones en curso llegan hasta el final; no se pierde nada mientras ningún worker se pase de `process_control_timeout_secs`. Al que se pasa se le escala a `SIGTERM` y luego a `SIGKILL`, y se lleva su petición por delante (lo tienes más abajo). Cómo solapa el relevo al worker nuevo con el viejo lo tienes en [Modelo de procesos](/es/docs/process-model).
+Eso es un `SIGUSR2` al maestro, que responde con una **recarga progresiva**: el pool se reemplaza de worker en worker y las peticiones en curso llegan hasta el final; no se pierde nada mientras ningún worker se pase de `process_control_timeout_secs`. Al que se pasa se le escala a `SIGTERM` y luego a `SIGKILL`, y su petición en curso se pierde (lo tienes más abajo). Cómo solapa el relevo al worker nuevo con el viejo lo tienes en [Modelo de procesos](/es/docs/process-model).
 
 Sin systemd —un entrypoint de contenedor, un script de despliegue— mándale la señal al maestro tú mismo. Define `supervisor.pidfile` y tendrás el pid a mano; eso sí, fuera de systemd nadie crea `/run/rapira`, así que crea antes el directorio o elige una ruta que exista: el maestro se niega a arrancar si no puede escribir ese archivo.
 
@@ -98,10 +98,10 @@ kill -USR2 "$(cat /run/rapira/rapira.pid)"
 
 Ese archivo lo escribe solo el maestro —los workers no lo pueden tocar— y el maestro lo borra en todos los caminos de salida que controla, así que uno que se queda ahí significa que el maestro murió sin ejecutar su propio apagado: un `SIGKILL`, una caída dura o la máquina apagándose.
 
-`process_control_timeout_secs` es la paciencia que le da el maestro a un worker para que termine antes de subir de tono, y también limita cada paso de una recarga progresiva, para que un worker atascado no pare el relevo entero; los pasos de la escalada y la tabla completa de señales están en [Modelo de procesos](/es/docs/process-model). Mantenlo holgadamente por debajo del `TimeoutStopSec` de systemd, o será la paciencia de systemd la que se agote primero y mate al maestro a media escalada.
+`process_control_timeout_secs` es el tiempo que le da el maestro a un worker para que termine antes de escalar, y también limita cada paso de una recarga progresiva, para que un worker atascado no pare el relevo entero; la secuencia de escalada y la tabla completa de señales están en [Modelo de procesos](/es/docs/process-model). Mantenlo holgadamente por debajo del `TimeoutStopSec` de systemd, o será el tiempo de espera de systemd el que se agote primero y mate al maestro a media escalada.
 
 ::: warning Una recarga renueva los workers, no relee nada
-El maestro se queda con los ajustes con los que arrancó, y la memoria compartida de OPcache también es suya, así que sobrevive a todas las generaciones de workers. Para cambiar `rapira.toml` hace falta `systemctl restart rapira`. Y si has puesto `opcache.validate_timestamps = 0`, una recarga te seguirá sirviendo tan tranquila los opcodes viejos: ahí toca reiniciar.
+El maestro se queda con los ajustes con los que arrancó, y la memoria compartida de OPcache también es suya, así que sobrevive a todas las generaciones de workers. Para cambiar `rapira.toml` hace falta `systemctl restart rapira`. Y si has puesto `opcache.validate_timestamps = 0`, una recarga seguirá sirviendo los opcodes viejos: ahí toca reiniciar.
 :::
 
 ## Registros
@@ -114,7 +114,7 @@ level = "info"
 format = "json"
 ```
 
-Un objeto por línea, con `timestamp` en RFC 3339 UTC más `level`, `message` y `target`; los saltos de línea dentro de un mensaje se escapan, así que un registro siempre ocupa exactamente una línea. Es la forma que quiere cualquier colector de registros y aguanta intacta el viaje por journald.
+Un objeto por línea, con `timestamp` en RFC 3339 UTC más `level`, `message` y `target`; los saltos de línea dentro de un mensaje se escapan, así que un registro siempre ocupa exactamente una línea. Es la forma que espera cualquier colector de registros, y journald la deja pasar sin cambios.
 
 ```bash
 journalctl -u rapira -f
@@ -124,7 +124,7 @@ Para sacarlos de la máquina, apunta tu colector al journal de la unidad o ejecu
 
 ## Higiene del worker
 
-Un proceso residente es toda la gracia de los [peldaños de worker](/es/docs/execution-modes), y también la razón de que de pronto importe una fuga lenta que con php-fpm no habrías notado nunca. La red de seguridad son dos ajustes:
+Un proceso residente es el sentido de los [peldaños de worker](/es/docs/execution-modes), y también la razón de que de pronto importe una fuga lenta que con php-fpm no habrías notado nunca. De eso te protegen dos ajustes:
 
 ```toml
 [pool]
@@ -132,7 +132,7 @@ max_requests = 500
 request_terminate_timeout_secs = 30
 ```
 
-`max_requests` jubila al worker tras ese número de peticiones y crea otro nuevo con fork, con algo de jitter para que el pool entero no se recicle a la vez. No arregla ninguna fuga; lo que hace es evitar que una fuga que nadie ha encontrado acabe en un incidente a las tres de la mañana. `request_terminate_timeout_secs` es un techo de tiempo real para una sola petición: al worker que se lo salte se le mata y se le vuelve a crear, y así una petición atascada deja de costarte un worker para siempre. Los dos vienen desactivados de fábrica y los dos merecen activarse antes de salir a producción.
+`max_requests` jubila al worker tras ese número de peticiones y crea otro nuevo con fork, con algo de jitter para que el pool entero no se recicle a la vez. No arregla ninguna fuga; lo que hace es evitar que una fuga que nadie ha encontrado acabe en una caída del servicio. `request_terminate_timeout_secs` es un techo de tiempo real para una sola petición: al worker que se lo salte se le mata y se le vuelve a crear, y así una petición atascada deja de costarte un worker para siempre. Los dos vienen desactivados de fábrica y los dos merecen activarse antes de salir a producción.
 
 El resto del pool —el dimensionado static, dynamic y ondemand, el backoff al recrear procesos y qué hace el maestro cuando muere un worker— está en [Modelo de procesos](/es/docs/process-model).
 

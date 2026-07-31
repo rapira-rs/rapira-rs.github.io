@@ -5,7 +5,7 @@ description: 什么时候需要自己编译 Rapira，具体又该怎么做：Rus
 
 # 从源码构建
 
-大多数人用不到这一页：照[安装](/zh/docs/installation)里说的取一个预编译好的二进制文件，事情就结束了。自己编译 Rapira，是为了官方产物覆盖不到的那些场景；这件事并不难，真正新鲜的只有一样东西——一个能被 Rapira 嵌入的 PHP。Rapira 可以在 Linux 和 macOS 上构建。
+大多数人用不到这一页：照[安装](/zh/docs/installation)里说的取一个预编译好的二进制文件，事情就结束了。自己编译 Rapira，是为了官方产物覆盖不到的那些场景；这件事并不难，唯一新增的要求就是一个能被 Rapira 嵌入的 PHP。Rapira 可以在 Linux 和 macOS 上构建。
 
 ## 什么时候需要自己编译
 
@@ -57,7 +57,7 @@ make install
 
 ### 不带版本号的 `libphp.so`
 
-构建时链接的是 `-lphp`，搜索范围只有 PHP 安装前缀下的 `lib` 和 `lib64`，所以这两个目录里必须有一个文件严格叫 `libphp.so`（或 `libphp.dylib`）。Debian 和 Ubuntu 只提供带版本号的 `libphp8.4.so`；Alpine 那份名字倒是干净的，却躺在不会被搜索的 `lib/phpXX` 里。两种情况下链接都会失败，除非你在前缀的 `lib` 或 `lib64` 里放一个不带版本号的符号链接：
+构建时链接的是 `-lphp`，搜索范围只有 PHP 安装前缀下的 `lib` 和 `lib64`，所以这两个目录里必须有一个文件严格叫 `libphp.so`（或 `libphp.dylib`）。Debian 和 Ubuntu 只提供带版本号的 `libphp8.4.so`；Alpine 那份的名字虽然不带版本号，但文件放在不会被搜索的 `lib/phpXX` 里。两种情况下链接都会失败，除非你在前缀的 `lib` 或 `lib64` 里放一个不带版本号的符号链接：
 
 ```bash
 sudo ln -sf /usr/lib/libphp8.4.so /usr/lib/libphp.so        # Debian/Ubuntu
@@ -92,19 +92,19 @@ PHP_CONFIG=$HOME/.local/php-nts/bin/php-config cargo build --release
 ```
 
 ::: tip
-`make test` 会跑测试套件，顺带把库路径的杂活替你干了：它在 `php-config` 的前缀下找到 embed 库（`lib`、`lib64`、`lib/phpXX`，带不带版本号都行），再把它规整成链接器要的那个干净名字。在真正信任自己的构建之前，用它确认一遍整套环境是否可用最合适。
+`make test` 会跑测试套件，并替你处理库路径：它在 `php-config` 的前缀下找到 embed 库（`lib`、`lib64`、`lib/phpXX`，带不带版本号都行），再把它规整成链接器需要的那个不带版本号的名字。在真正信任自己的构建之前，用它确认一遍整套环境是否可用最合适。
 :::
 
 ## 运行你构建出的二进制
 
-运行时 Rapira 会动态加载 `libphp.so`（macOS 上是 `libphp.dylib`）。它要是待在标准位置，你什么都不用做；否则就给加载器指条路：
+运行时 Rapira 会动态加载 `libphp.so`（macOS 上是 `libphp.dylib`）。如果它在标准位置，你什么都不用做；否则就把加载器指向它：
 
 ```bash
 LD_LIBRARY_PATH=$HOME/.local/php-nts/lib ./target/release/rapira serve worker.php     # Linux
 DYLD_LIBRARY_PATH=$HOME/.local/php-nts/lib ./target/release/rapira serve worker.php   # macOS
 ```
 
-从这里开始，它和软件包装出来的服务器毫无二致：[快速开始](/zh/docs/quickstart)带你写第一个脚本，[命令行](/zh/docs/cli)列出了 `serve` 接受的全部参数，[配置](/zh/docs/configuration)讲的是 `rapira.toml`。
+从这里开始，它和软件包安装的服务器完全一样：[快速开始](/zh/docs/quickstart)带你写第一个脚本，[命令行](/zh/docs/cli)列出了 `serve` 接受的全部参数，[配置](/zh/docs/configuration)讲的是 `rapira.toml`。
 
 ::: question 我是不是也得从源码编译 PHP？
 只有三种情况需要：你的发行版没有 embed 包、你在 macOS 上，或者你要的扩展现成的构建里没有。其余时候，发行版的 `php-embed` / `libphpX.Y-embed` 包就够了——在 Debian 和 Ubuntu 上再补一个不带版本号的 `libphp.so` 符号链接。

@@ -11,7 +11,7 @@ This shape is the same whether you run [Classic](/docs/classic) or the [SAPI Wor
 
 ## One master, many workers
 
-Booting happens in a fixed order, and the order is the whole point:
+Booting happens in a fixed order, and that order matters:
 
 1. **Bind the listen socket(s).** The master binds before anything else, so a port that is already in use fails the boot immediately — before PHP is even started.
 2. **Start PHP once.** The engine goes through `MINIT` in the still-single-threaded master. OPcache's shared memory is created here, which means every worker forked afterwards inherits the same OPcache SHM segment, so the first worker to compile a file fills the cache for all of them instead of every process compiling its own copy.
@@ -50,7 +50,7 @@ Once the pool is up, the master runs a maintenance tick roughly once a second an
 - **Recycling.** With `pool.max_requests` set, a worker retires after that many requests and is replaced right away. Each worker gets its own random extra on top of the quota (up to half of it), so a pool started together does not recycle in lockstep and leave you with no warm workers for a moment.
 - **A watchdog on single requests.** With `pool.request_terminate_timeout_secs` set, a worker still on the same request past that wall-clock limit gets `SIGTERM`, and `SIGKILL` if it is somehow still there a tick later. The kill is logged at `warn`, its queued connections close, and the slot is refilled immediately.
 - **Scaling.** Under `dynamic` the same tick decides whether to fork more workers or retire idle ones; under `ondemand` it only retires workers idle past their timeout — there a fork is triggered by an arriving connection. See below.
-- **A lifeline in the other direction.** Every worker holds the read end of a pipe the master never writes to. If the master dies, the pipe hits EOF and each worker drains itself, so a `kill -9` on the master cannot leave orphans squatting on your port.
+- **A pipe in the other direction.** Every worker holds the read end of a pipe the master never writes to. If the master dies, the pipe hits EOF and each worker drains itself, so a `kill -9` on the master cannot leave orphaned workers holding your port.
 
 ## Pool modes
 
@@ -76,7 +76,7 @@ max_spare = 3
 
 The bounds must satisfy `1 <= min_spare <= max_spare <= processes`, and they are required under `dynamic` and rejected under the other modes — setting them elsewhere is a config error rather than a silently ignored key.
 
-**`ondemand`** forks nothing at startup. Here the master watches the listen socket itself, and when a connection arrives with no idle worker to take it, it forks one and lets the child accept. A worker idle for longer than `pool.process_idle_timeout_secs` is retired again. That makes the pool cost nothing while it sleeps, at the price of paying a fork on the first request after a quiet period — a good trade for staging environments and rarely-hit sites, a bad one under steady traffic.
+**`ondemand`** forks nothing at startup. Here the master watches the listen socket itself, and when a connection arrives with no idle worker to take it, it forks one and lets the child accept. A worker idle for longer than `pool.process_idle_timeout_secs` is retired again. That makes an idle pool cost nothing, at the price of a fork on the first request after a quiet period — a good trade for staging environments and rarely-hit sites, a bad one under steady traffic.
 
 The full key reference lives on the [configuration](/docs/configuration) page.
 
@@ -106,7 +106,7 @@ Send signals to the master, never to an individual worker. Workers ignore `SIGUS
 
 ### Stopping
 
-Every stop begins gracefully, whichever of the three signals asked for it: the master sends `SIGQUIT` to each worker, which stops taking new work and finishes what it is holding. From there it escalates on a budget — `supervisor.process_control_timeout_secs` (30 seconds by default) is the grace period, after which the remaining workers get `SIGTERM`, and then `SIGKILL` if even that does not land. A worker that does not answer the graceful `SIGQUIT` is TERMed and then KILLed rather than waited on forever.
+Every stop begins gracefully, whichever of the three signals asked for it: the master sends `SIGQUIT` to each worker, which stops taking new work and finishes what it is holding. From there it escalates on a timer — `supervisor.process_control_timeout_secs` (30 seconds by default) is the grace period, after which the remaining workers get `SIGTERM`, and then `SIGKILL` if even that does not land. A worker that does not answer the graceful `SIGQUIT` is TERMed and then KILLed rather than waited on forever.
 
 If you are impatient, the second `SIGTERM`/`SIGINT` skips the wait and forces the exit immediately.
 
@@ -114,11 +114,11 @@ If you are impatient, the second `SIGTERM`/`SIGINT` skips the wait and forces th
 
 `SIGUSR2` (or `SIGHUP`) replaces the whole pool with fresh workers — which is how a resident worker's booted application gets thrown away and built again from the deployed code.
 
-The reload never dips below your serving capacity, because it overlaps rather than restarts: the master starts one fresh worker, waits until that worker is actually accepting, and only then drains one old worker. When the old one is gone, its slot gets the next fresh worker, and so on down the generation. Each drain is the same graceful `SIGQUIT` → `SIGTERM` → `SIGKILL` ladder as a stop, bounded by the same control timeout, applied to that one worker.
+The reload never dips below your serving capacity, because it overlaps rather than restarts: the master starts one fresh worker, waits until that worker is actually accepting, and only then drains one old worker. When the old one is gone, its slot gets the next fresh worker, and so on down the generation. Each drain is the same graceful `SIGQUIT` → `SIGTERM` → `SIGKILL` escalation as a stop, bounded by the same control timeout, applied to that one worker.
 
 A replacement that never starts serving does not stall the reload either: once the control timeout elapses the master logs a warning and moves on to the next worker anyway. Under `ondemand` no replacement is pre-forked at all — old workers are drained one at a time and demand forks the new ones.
 
-A reload while a stop is already under way is ignored: stopping always wins.
+A reload while a stop is already under way is ignored: stopping takes priority.
 
 ::: info
 A reload replaces workers, not the master. The new workers are forked from the same master process, with the same engine image it booted at startup — so `rapira.toml`, `php.ini` and the binary itself only change on a full restart.
@@ -140,7 +140,7 @@ The same target carries every supervision event: forks, reaps, respawns, reloads
 :::
 
 ::: question Do I need to reload to pick up new code?
-On the Classic rung the entry script is executed from scratch on every request, so there is nothing resident to replace. On the SAPI Worker rung your application is booted once and stays in memory, so deployed code only takes effect after a rolling reload — `kill -USR2` on the master pid. Making that a step of your deploy is the whole trick; see [deployment](/docs/deployment).
+On the Classic rung the entry script is executed from scratch on every request, so there is nothing resident to replace. On the SAPI Worker rung your application is booted once and stays in memory, so deployed code only takes effect after a rolling reload — `kill -USR2` on the master pid. Make it a step of your deploy; see [deployment](/docs/deployment).
 :::
 
 ::: question How many workers should I run?
@@ -148,5 +148,5 @@ The default is one per CPU, which is the right starting point for `static`. PHP 
 :::
 
 ::: question What happens to requests already in flight when I stop or reload?
-They finish. Both a stop and a reload begin by telling a worker to stop accepting and drain what it holds; the worker exits on its own once the last response is written. The only thing that cuts a request short is the escalation ladder after `supervisor.process_control_timeout_secs`, or a second `SIGTERM`/`SIGINT`, which TERMs every worker at once. The `pool.request_terminate_timeout_secs` watchdog is suspended while a stop or reload is in progress.
+They finish. Both a stop and a reload begin by telling a worker to stop accepting and drain what it holds; the worker exits on its own once the last response is written. The only thing that cuts a request short is the escalation after `supervisor.process_control_timeout_secs`, or a second `SIGTERM`/`SIGINT`, which TERMs every worker at once. The `pool.request_terminate_timeout_secs` watchdog is suspended while a stop or reload is in progress.
 :::

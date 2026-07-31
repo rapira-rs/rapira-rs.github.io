@@ -1,11 +1,11 @@
 ---
 title: Laravel
-description: Laravel sobre Rapira — una aplicación nueva en cada petición dentro de un worker residente, el comportamiento de memoria que eso trae consigo y la verdad sobre la compatibilidad con Octane.
+description: Laravel sobre Rapira — una aplicación nueva en cada petición dentro de un worker residente, el comportamiento de memoria que eso trae consigo y el estado actual de la compatibilidad con Octane.
 ---
 
 # Laravel
 
-Rapira ejecuta Laravel, y lo hace **construyendo una aplicación nueva en cada petición dentro de un proceso de PHP que se queda residente entre peticiones**. Es una afirmación deliberadamente modesta, y conviene decirla de entrada en lugar de esconderla: lo que se queda residente es el worker, no el framework.
+Rapira ejecuta Laravel, y lo hace **construyendo una aplicación nueva en cada petición dentro de un proceso de PHP que se queda residente entre peticiones**. Es una afirmación deliberadamente limitada: lo que se queda residente es el worker, no el framework.
 
 ::: info Verificado con
 - **PHP 8.5.8** — NTS, SAPI embed
@@ -17,7 +17,7 @@ Todo lo que cuenta esta página se ejecutó sobre un esqueleto `laravel/laravel`
 
 ## Por qué la aplicación se reconstruye en cada petición
 
-El contenedor de Laravel no está pensado para sobrevivir a una segunda petición sin ayuda. Los bindings se resuelven, los singletons se quedan con la petición actual, las estáticas del propio framework se van llenando mientras la petición avanza, y alguien tiene que deshacer todo eso antes de que llegue la siguiente. Ese alguien tiene nombre: **Octane**. Hoy Rapira no tiene driver de Octane, así que esta guía no pretende hacer de uno. Lo que te da es el patrón que sí se ha verificado que funciona: arrancar el framework dentro del handler, responder a la petición y tirar la aplicación a la basura.
+El contenedor de Laravel no está pensado para sobrevivir a una segunda petición sin ayuda. Los bindings se resuelven, los singletons se quedan con la petición actual, las estáticas del propio framework se van llenando mientras la petición avanza, y alguien tiene que deshacer todo eso antes de que llegue la siguiente. De eso se encarga **Octane**. Hoy Rapira no tiene driver de Octane, y esta guía no lo sustituye. Lo que te da es el patrón que sí se ha verificado que funciona: arrancar el framework dentro del handler, responder a la petición y tirar la aplicación a la basura.
 
 Aun así sales ganando frente a php-fpm, solo que no tanto como si el contenedor se quedara residente:
 
@@ -25,7 +25,7 @@ Aun así sales ganando frente a php-fpm, solo que no tanto como si el contenedor
 - **El proceso no muere.** Tu script de worker se ejecuta una vez. El autoloader de Composer y su classmap se registran una sola vez, al arrancar, y no se vuelven a registrar en cada petición como hace un front controller.
 - **OPcache está caliente y se comparte.** PHP arranca una sola vez en el maestro, antes de hacer fork de ningún worker, así que todos los workers heredan la misma caché de scripts compilados: tu código y tu árbol de `vendor/`. Los archivos de `config:cache` y `route:cache` también se compilan una sola vez, de modo que volver a ejecutarlos en cada petición no cuesta ningún parseo. Los dos comandos de caché de artisan se han verificado con este patrón.
 
-Si el trato no te convence, la [salida de emergencia al modo clásico](#la-salida-de-emergencia-el-modo-clasico) del final de esta página no necesita ningún script de worker.
+Si el trato no te convence, la [alternativa del modo clásico](#la-alternativa-el-modo-clasico) del final de esta página no necesita ningún script de worker.
 
 ## Antes de empezar
 
@@ -87,7 +87,7 @@ Esta es la línea que no puedes equivocar. A partir de la segunda petición, `re
 
 Reconstruir la aplicación en cada petición significa tirar una a la basura en cada petición, y el perfil de memoria que sale de ahí —dientes de sierra, no una fuga, y unos dientes que `gc_collect_cycles()` no puede aplanar— está contado al detalle en la [guía general de frameworks](/es/docs/frameworks/). La llamada sigue en el bucle de esta página porque es buena higiene para el resto de tu basura, no porque arregle eso.
 
-Con Laravel hay dos consecuencias que no son opcionales. Dale margen de verdad a `memory_limit`, porque lo que tiene que caber es el pico del diente de sierra y el valor por defecto de PHP se queda corto para este patrón. Y pon `pool.max_requests = 100`: el reciclaje es lo que le pone techo a la subida, se ha verificado que no se nota a lo largo de cientos de peticiones seguidas repartidas en varios reciclajes, y para Laravel sobre Rapira es el ajuste de producción recomendado, no una optimización que dejar para más adelante.
+Con Laravel hay dos consecuencias que no son opcionales. Dale margen de verdad a `memory_limit`, porque lo que tiene que caber es el pico del diente de sierra y el valor por defecto de PHP se queda corto para este patrón. Y pon `pool.max_requests = 100`: el reciclaje es lo que limita ese crecimiento, se ha verificado que no se nota a lo largo de cientos de peticiones seguidas repartidas en varios reciclajes, y para Laravel sobre Rapira es el ajuste de producción recomendado, no una optimización que dejar para más adelante.
 
 ::: warning No llames a `HandleExceptions::flushState()`
 Parece la llamada de limpieza evidente y, con Rapira, se lleva por delante a tu worker. `Illuminate\Foundation\Bootstrap\HandleExceptions::flushState()` trata como caso especial el manejador de errores de PHPUnit y, con `phpunit` instalado —o sea, en cualquier esqueleto, porque es una dependencia de desarrollo por defecto—, lanza una excepción (`PHPUnit\TextUI\Configuration\Registry::get(): … null returned`). Si la pones en el cuerpo del bucle, entre peticiones, que es donde la colocan las recetas de otros servidores, la excepción se escapa del bucle, el script del worker muere, Rapira marca al worker como no sano y a los clientes les llegan `503`. Comprobado por las malas. Déjala fuera.
@@ -128,7 +128,7 @@ Esos archivos se leen en cada petición, igual que el resto del arranque: lo que
 
 ## Rutas y URLs
 
-Rapira ejecuta un único script de entrada para todas las URL, así que con este worker `$_SERVER['SCRIPT_NAME']` vale `/worker.php` y no `/index.php`. A Laravel le da igual: el enrutado resuelve bien las rutas, las que no encajan con ninguna acaban en la página 404 del propio Laravel y `url()` genera URLs absolutas limpias —esquema, host y ruta— sin rastro de `worker.php` por ninguna parte. **No hace falta sobrescribir nada de `$_SERVER` ni tocar la configuración de rutas o de URLs**; se comprobó a propósito, porque es lo primero que se rompe en los servidores que mapean URLs sobre archivos.
+Rapira ejecuta un único script de entrada para todas las URL, así que con este worker `$_SERVER['SCRIPT_NAME']` vale `/worker.php` y no `/index.php`. A Laravel eso no le afecta: el enrutado resuelve bien las rutas, las que no encajan con ninguna acaban en la página 404 del propio Laravel y `url()` genera URLs absolutas limpias —esquema, host y ruta— sin rastro de `worker.php` por ninguna parte. **No hace falta sobrescribir nada de `$_SERVER` ni tocar la configuración de rutas o de URLs**; se comprobó a propósito, porque es lo primero que se rompe en los servidores que mapean URLs sobre archivos.
 
 La ruta de salud `/up` que trae el esqueleto responde `200` como siempre, lo que la convierte en el destino natural para el health check de un balanceador de carga o de un contenedor.
 
@@ -140,7 +140,7 @@ Las sesiones funcionan petición a petición, verificado con el driver de archiv
 
 Los envíos de formularios, los cuerpos de petición en JSON y las subidas de archivos se verificaron todos con ese mismo worker. Y cuando una ruta lanza una excepción, el manejador de excepciones de Laravel pinta su `500` de siempre: el fallo se queda dentro de la petición y el worker sigue atendiendo la siguiente.
 
-## La salida de emergencia: el modo clásico
+## La alternativa: el modo clásico
 
 Si prefieres no mantener ningún script de worker, no lo mantengas:
 
@@ -148,14 +148,14 @@ Si prefieres no mantener ningún script de worker, no lo mantengas:
 rapira serve --classic public/index.php
 ```
 
-Ese es el camino sin tocar nada. Rapira ejecuta desde cero tu front controller de siempre en cada petición, al estilo de php-fpm, y tu aplicación no nota la diferencia. Renuncias al proceso residente —el autoloader se vuelve a registrar en cada petición, igual que hoy— y te quedas con el reemplazo directo de php-fpm y con OPcache compartida. En [Modo clásico](/es/docs/classic) está la historia entera, y en [Modos de ejecución](/es/docs/execution-modes) tienes dónde cae cada uno de los dos peldaños en la escalera.
+Esa es la opción sin tocar nada. Rapira ejecuta desde cero tu front controller de siempre en cada petición, al estilo de php-fpm, y tu aplicación no nota la diferencia. Renuncias al proceso residente —el autoloader se vuelve a registrar en cada petición, igual que hoy— y te quedas con el reemplazo directo de php-fpm y con OPcache compartida. En [Modo clásico](/es/docs/classic) está la historia entera, y en [Modos de ejecución](/es/docs/execution-modes) tienes dónde cae cada uno de los dos peldaños en la escalera.
 
 ::: question ¿Cuándo será Rapira compatible con Octane?
-Hoy no hay driver de Octane, y esta guía prefiere decirlo claro antes que publicar uno a medio funcionar. El peldaño no tiene nada que ver: Symfony y Yii3 mantienen su aplicación residente en el mismo peldaño SAPI Worker en el que aquí corre Laravel (en [Modos de ejecución](/es/docs/execution-modes) tienes qué significa cada peldaño). Lo que a Laravel le hace falta es el desmontaje de estado entre peticiones que hace Octane, y eso es un driver que alguien tiene que escribir. Mientras tanto, lo que sí está verificado que funciona es una aplicación nueva en cada petición dentro de un worker residente, y es lo que documenta esta página.
+Hoy no hay driver de Octane, y tampoco se publica en su lugar uno a medio funcionar. El peldaño no tiene nada que ver: Symfony y Yii3 mantienen su aplicación residente en el mismo peldaño SAPI Worker en el que aquí corre Laravel (en [Modos de ejecución](/es/docs/execution-modes) tienes qué significa cada peldaño). Lo que a Laravel le hace falta es el desmontaje de estado entre peticiones que hace Octane, y eso es un driver que alguien tiene que escribir. Mientras tanto, lo que sí está verificado que funciona es una aplicación nueva en cada petición dentro de un worker residente, y es lo que documenta esta página.
 :::
 
 ::: question ¿Por qué no mantener yo mismo `$app` residente?
-Porque estarías reconstruyendo a mano el sandbox de Octane. El estado que hay que deshacer entre peticiones está repartido entre el contenedor, los singletons ya resueltos, la pila de petición/sesión/autenticación y las estáticas del propio framework; Octane existe precisamente porque recogerlo todo es un trabajo delicado, y los fallos que aparecen cuando se te escapa uno son sutiles: un objeto de petición caducado, la sesión de un usuario visible para el siguiente, una configuración que una petición cambió y nadie restauró. Una versión a medias de eso no la vamos a documentar. La única trampa que sí hemos perseguido hasta el final está en la sección de memoria de más arriba: `HandleExceptions::flushState()` parece parte de la solución y lo que hace es matar al worker.
+Porque estarías reconstruyendo a mano el sandbox de Octane. El estado que hay que deshacer entre peticiones está repartido entre el contenedor, los singletons ya resueltos, la pila de petición/sesión/autenticación y las estáticas del propio framework; Octane existe precisamente porque recogerlo todo es un trabajo delicado, y los fallos que aparecen cuando se te escapa uno son sutiles: un objeto de petición caducado, la sesión de un usuario visible para el siguiente, una configuración que una petición cambió y nadie restauró. Una versión a medias de eso no la vamos a documentar. El único caso que sí hemos analizado a fondo está en la sección de memoria de más arriba: `HandleExceptions::flushState()` parece parte de la solución y lo que hace es matar al worker.
 :::
 
 ::: question ¿Tengo que ajustar `memory_limit`?

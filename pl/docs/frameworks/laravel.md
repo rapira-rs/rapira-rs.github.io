@@ -1,11 +1,11 @@
 ---
 title: Laravel
-description: Laravel na Rapirze — świeża aplikacja przy każdym żądaniu wewnątrz rezydentnego workera, wynikające z tego zachowanie pamięci i uczciwa odpowiedź w sprawie Octane.
+description: Laravel na Rapirze — świeża aplikacja przy każdym żądaniu wewnątrz rezydentnego workera, wynikające z tego zachowanie pamięci i aktualny stan wsparcia dla Octane.
 ---
 
 # Laravel
 
-Rapira uruchamia Laravela, a robi to tak, że **przy każdym żądaniu buduje świeżą aplikację wewnątrz procesu PHP, który żyje dalej między żądaniami**. To celowo skromna obietnica i lepiej powiedzieć ją od razu, niż chować gdzieś na dole strony: rezydentny zostaje worker, nie framework.
+Rapira uruchamia Laravela, a robi to tak, że **przy każdym żądaniu buduje świeżą aplikację wewnątrz procesu PHP, który żyje dalej między żądaniami**. To celowo wąska obietnica: rezydentny zostaje worker, nie framework.
 
 ::: info Zweryfikowano na
 - **PHP 8.5.8** — NTS, SAPI embed
@@ -17,7 +17,7 @@ Wszystko, co jest na tej stronie, sprawdziliśmy na szkielecie `laravel/laravel`
 
 ## Dlaczego aplikacja powstaje od nowa przy każdym żądaniu
 
-Kontener Laravela nie jest zaprojektowany tak, żeby bez pomocy przetrwać drugie żądanie. Powiązania zostają rozwiązane, singletony zapamiętują bieżące żądanie, statyczne pola samego frameworka zapełniają się w trakcie obsługi — i ktoś musi to wszystko rozplątać, zanim przyjdzie kolejne żądanie. Ten ktoś ma nazwę: **Octane**. Rapira nie ma dziś sterownika dla Octane, więc ten przewodnik nie udaje, że go zastępuje. Daje ci za to wzorzec, który naprawdę został sprawdzony: podnieś framework w handlerze, odpowiedz na żądanie, wyrzuć aplikację.
+Kontener Laravela nie jest zaprojektowany tak, żeby bez pomocy przetrwać drugie żądanie. Powiązania zostają rozwiązane, singletony zapamiętują bieżące żądanie, statyczne pola samego frameworka zapełniają się w trakcie obsługi — i ktoś musi to wszystko rozplątać, zanim przyjdzie kolejne żądanie. Robi to **Octane**. Rapira nie ma dziś sterownika dla Octane, a ten przewodnik go nie zastępuje. Daje ci za to wzorzec, który naprawdę został sprawdzony: podnieś framework w handlerze, odpowiedz na żądanie, wyrzuć aplikację.
 
 I tak wychodzisz na tym lepiej niż na php-fpm — po prostu mniej, niż dałby ci rezydentny kontener:
 
@@ -25,7 +25,7 @@ I tak wychodzisz na tym lepiej niż na php-fpm — po prostu mniej, niż dałby 
 - **Proces żyje długo.** Twój skrypt workera wykonuje się raz. Autoloader Composera i jego mapa klas rejestrują się raz, przy starcie, a nie od nowa przy każdym żądaniu, jak to robi front controller.
 - **OPcache jest rozgrzany i wspólny.** PHP startuje raz, w procesie nadrzędnym, jeszcze zanim powstanie pierwszy worker, więc wszystkie workery dziedziczą ten sam cache skompilowanych skryptów — twój kod i całe drzewo `vendor/`. Pliki z `config:cache` i `route:cache` też kompilują się tylko raz, więc wykonywanie ich przy każdym żądaniu nie kosztuje ponownego parsowania. Obie komendy cache'ujące artisana sprawdziliśmy w tym wzorcu — działają.
 
-Jeśli taki układ ci nie odpowiada, [wyjście awaryjne w postaci trybu klasycznego](#wyjscie-awaryjne-tryb-klasyczny) z dołu tej strony nie wymaga skryptu workera w ogóle.
+Jeśli taki układ ci nie odpowiada, [alternatywa w postaci trybu klasycznego](#alternatywa-tryb-klasyczny) z dołu tej strony nie wymaga skryptu workera w ogóle.
 
 ## Zanim zaczniesz
 
@@ -83,11 +83,11 @@ Czytany od góry to `public/index.php` przecięty na pół: to, co da się zrobi
 To jedyna linia, której nie wolno pomylić. `require_once` od drugiego żądania zwraca `true` zamiast instancji `Application`, więc każde żądanie po pierwszym się sypie. Fabryczny `public/index.php` używa `require_once` i słusznie — tam ten kod i tak wykonuje się raz na proces. W workerze `bootstrap/app.php` musi wykonać się na nowo przy każdym żądaniu.
 :::
 
-## Pamięć i skąd bierze się piła
+## Pamięć i przebieg piłokształtny
 
-Skoro przy każdym żądaniu budujesz aplikację od nowa, to przy każdym żądaniu jedną wyrzucasz — a wykres pamięci, który z tego wychodzi (piła, a nie wyciek, i to piła, której `gc_collect_cycles()` nie spłaszczy), opisuje w całości [przegląd frameworków](/pl/docs/frameworks/). To wywołanie zostaje w pętli na tej stronie dlatego, że dobrze robi reszcie twoich śmieci, a nie dlatego, że cokolwiek tu naprawia.
+Skoro przy każdym żądaniu budujesz aplikację od nowa, to przy każdym żądaniu jedną wyrzucasz — a wykres pamięci, który z tego wychodzi (przebieg piłokształtny, a nie wyciek, i to taki, którego `gc_collect_cycles()` nie spłaszczy), opisuje w całości [przegląd frameworków](/pl/docs/frameworks/). To wywołanie zostaje w pętli na tej stronie dlatego, że dobrze robi reszcie twoich śmieci, a nie dlatego, że cokolwiek tu naprawia.
 
-Dwie rzeczy nie są w przypadku Laravela opcjonalne. Daj `memory_limit` porządny zapas, bo zmieścić musi się szczyt piły, a domyślna wartość PHP jest na ten wzorzec za ciasna. I ustaw `pool.max_requests = 100`. To recykling nakłada sufit na ten wzrost; przy kilkuset kolejnych żądaniach obejmujących kilka wymian workera przebiegał zupełnie niezauważalnie, więc dla Laravela na Rapirze traktuj ten klucz jako zalecane ustawienie produkcyjne, a nie optymalizację na później.
+Dwie rzeczy nie są w przypadku Laravela opcjonalne. Daj `memory_limit` porządny zapas, bo zmieścić musi się szczyt tego przebiegu, a domyślna wartość PHP jest na ten wzorzec za ciasna. I ustaw `pool.max_requests = 100`. To recykling ogranicza ten wzrost; przy kilkuset kolejnych żądaniach obejmujących kilka wymian workera przebiegał zupełnie niezauważalnie, więc dla Laravela na Rapirze traktuj ten klucz jako zalecane ustawienie produkcyjne, a nie optymalizację na później.
 
 ::: warning Nie wywołuj `HandleExceptions::flushState()`
 Wygląda na oczywiste wywołanie sprzątające, a pod Rapirą kładzie ci workera. `Illuminate\Foundation\Bootstrap\HandleExceptions::flushState()` traktuje osobno handler błędów PHPUnita i przy zainstalowanym `phpunit` — czyli w każdym szkielecie, bo to domyślna zależność deweloperska — rzuca wyjątkiem (`PHPUnit\TextUI\Configuration\Registry::get(): … null returned`). Wywołane w ciele pętli, między żądaniami — czyli tam, gdzie każą je wstawiać przepisy na inne serwery — wylatuje poza pętlę: skrypt workera umiera, Rapira uznaje workera za niesprawnego, a klienci dostają `503`. Sprawdzone na własnej skórze. Po prostu tego nie wywołuj.
@@ -128,7 +128,7 @@ Te pliki i tak czytane są przy każdym żądaniu, jak reszta rozruchu — OPcac
 
 ## Trasy i adresy URL
 
-Rapira dla każdego adresu uruchamia ten sam skrypt wejściowy, więc pod tym workerem `$_SERVER['SCRIPT_NAME']` to `/worker.php`, a nie `/index.php`. Laravelowi to nie przeszkadza: trasowanie rozwiązuje ścieżki poprawnie, niedopasowane ścieżki dostają własną stronę 404 Laravela, a `url()` generuje czyste adresy bezwzględne — schemat, host i ścieżka, bez śladu `worker.php`. **Nie musisz nadpisywać niczego w `$_SERVER` ani zmieniać konfiguracji tras czy adresów**; sprawdziliśmy to osobno, bo to pierwsza rzecz, która psuje się na serwerach mapujących adresy na pliki.
+Rapira dla każdego adresu uruchamia ten sam skrypt wejściowy, więc pod tym workerem `$_SERVER['SCRIPT_NAME']` to `/worker.php`, a nie `/index.php`. Nie ma to wpływu na Laravela: trasowanie rozwiązuje ścieżki poprawnie, niedopasowane ścieżki dostają własną stronę 404 Laravela, a `url()` generuje czyste adresy bezwzględne — schemat, host i ścieżka, bez śladu `worker.php`. **Nie musisz nadpisywać niczego w `$_SERVER` ani zmieniać konfiguracji tras czy adresów**; sprawdziliśmy to osobno, bo to pierwsza rzecz, która psuje się na serwerach mapujących adresy na pliki.
 
 Wbudowana w szkielet trasa `/up` odpowiada jak zwykle kodem `200`, więc naturalnie nadaje się na health check dla load balancera albo kontenera.
 
@@ -140,7 +140,7 @@ Sesje działają w obrębie żądania — sprawdzone na sterowniku plikowym: cia
 
 Wysyłkę formularzy, treści żądań w JSON-ie i przesyłanie plików sprawdziliśmy przez tego samego workera. A kiedy trasa rzuci wyjątkiem, handler wyjątków Laravela renderuje swoją zwykłą `500` — awaria zostaje w obrębie żądania, a worker obsługuje kolejne.
 
-## Wyjście awaryjne: tryb klasyczny
+## Alternatywa: tryb klasyczny
 
 Wolisz w ogóle nie utrzymywać skryptu workera? Nie utrzymuj:
 
@@ -148,16 +148,16 @@ Wolisz w ogóle nie utrzymywać skryptu workera? Nie utrzymuj:
 rapira serve --classic public/index.php
 ```
 
-To ścieżka bez żadnych zmian. Rapira wykonuje twój dotychczasowy front controller od zera przy każdym żądaniu, w stylu php-fpm, a aplikacja nie ma jak zauważyć różnicy. Rezygnujesz z rezydentnego procesu — autoloader rejestruje się od nowa przy każdym żądaniu, dokładnie jak dziś — a zostaje ci zamiennik php-fpm bez zmian w kodzie i wspólny OPcache. Całą rzecz opisuje [Tryb klasyczny](/pl/docs/classic), a o tym, gdzie oba szczeble stoją na drabinie, mówią [Tryby wykonania](/pl/docs/execution-modes).
+To wariant bez żadnych zmian. Rapira wykonuje twój dotychczasowy front controller od zera przy każdym żądaniu, w stylu php-fpm, a aplikacja nie ma jak zauważyć różnicy. Rezygnujesz z rezydentnego procesu — autoloader rejestruje się od nowa przy każdym żądaniu, dokładnie jak dziś — a zostaje ci zamiennik php-fpm bez zmian w kodzie i wspólny OPcache. Całą rzecz opisuje [Tryb klasyczny](/pl/docs/classic), a o tym, gdzie oba szczeble stoją na drabinie, mówią [Tryby wykonania](/pl/docs/execution-modes).
 
 ::: question Kiedy Rapira będzie wspierać Octane?
-Sterownika dla Octane dziś nie ma i ten przewodnik woli powiedzieć to wprost, niż wypuścić coś półdziałającego. Blokadą nie jest szczebel — Symfony i Yii3 trzymają aplikację rezydentnie na tym samym szczeblu SAPI Worker, na którym działa tutaj Laravel (co znaczą poszczególne szczeble, tłumaczą [Tryby wykonania](/pl/docs/execution-modes)). Laravelowi brakuje tego, co robi Octane: rozplątywania stanu między żądaniami — a to sterownik, który ktoś musi napisać. Do tego czasu sprawdzonym rozwiązaniem jest świeża aplikacja przy każdym żądaniu wewnątrz rezydentnego workera i to właśnie opisuje ta strona.
+Sterownika dla Octane dziś nie ma i nie ma też w zamian nic półdziałającego. Blokadą nie jest szczebel — Symfony i Yii3 trzymają aplikację rezydentnie na tym samym szczeblu SAPI Worker, na którym działa tutaj Laravel (co znaczą poszczególne szczeble, tłumaczą [Tryby wykonania](/pl/docs/execution-modes)). Laravelowi brakuje tego, co robi Octane: rozplątywania stanu między żądaniami — a to sterownik, który ktoś musi napisać. Do tego czasu sprawdzonym rozwiązaniem jest świeża aplikacja przy każdym żądaniu wewnątrz rezydentnego workera i to właśnie opisuje ta strona.
 :::
 
 ::: question Czemu po prostu sam nie zostawię `$app` rezydentnie?
-Bo odtwarzałbyś ręcznie sandbox Octane. Stan do rozplątania między żądaniami siedzi w kontenerze, w rozwiązanych singletonach, w stosie żądania, sesji i uwierzytelniania oraz w statycznych polach samego frameworka — Octane istnieje właśnie dlatego, że pozbieranie tego wszystkiego jest dłubaniną, a pominięcie jednego elementu daje subtelne awarie: nieaktualny obiekt żądania, sesja jednego użytkownika widoczna dla następnego, konfiguracja zmieniona przez jedno żądanie i nigdy nieprzywrócona. Połowicznej wersji tego nie będziemy dokumentować. Jedyną pułapkę, którą rozgryźliśmy do końca, opisuje sekcja o pamięci powyżej: `HandleExceptions::flushState()` wygląda na część odpowiedzi, a w praktyce zabija workera.
+Bo odtwarzałbyś ręcznie sandbox Octane. Stan do rozplątania między żądaniami siedzi w kontenerze, w rozwiązanych singletonach, w stosie żądania, sesji i uwierzytelniania oraz w statycznych polach samego frameworka — Octane istnieje właśnie dlatego, że pozbieranie tego wszystkiego jest dłubaniną, a pominięcie jednego elementu daje subtelne awarie: nieaktualny obiekt żądania, sesja jednego użytkownika widoczna dla następnego, konfiguracja zmieniona przez jedno żądanie i nigdy nieprzywrócona. Połowicznej wersji tego nie będziemy dokumentować. Jedyny przypadek, który zbadaliśmy do końca, opisuje sekcja o pamięci powyżej: `HandleExceptions::flushState()` wygląda na część odpowiedzi, a w praktyce zabija workera.
 :::
 
 ::: question Czy muszę podkręcić `memory_limit`?
-Tak — daj mu większy zapas niż w php-fpm i połącz to z `pool.max_requests`. Jedno i drugie opisuje [sekcja o pamięci](#pamiec-i-skad-bierze-sie-piła) powyżej, a mechanizm pod spodem — [przegląd frameworków](/pl/docs/frameworks/).
+Tak — daj mu większy zapas niż w php-fpm i połącz to z `pool.max_requests`. Jedno i drugie opisuje [sekcja o pamięci](#pamiec-i-przebieg-piłokształtny) powyżej, a mechanizm pod spodem — [przegląd frameworków](/pl/docs/frameworks/).
 :::

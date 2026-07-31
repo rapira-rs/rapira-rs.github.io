@@ -15,11 +15,11 @@ Cada descarga viene etiquetada como `php8.4` o `php8.5`, y esa etiqueta describe
 
 Así que la única decisión que tomas es sobre qué versión menor quieres que corra tu aplicación: **8.4** u **8.5**. Elige 8.5 salvo que algo de tu stack todavía te ate a 8.4.
 
-Los paquetes deb y rpm se lo toman al pie de la letra. `rapira-php8.4` y `rapira-php8.5` instalan exactamente las mismas rutas, así que ambos declaran `provides`, `conflicts` y `replaces` sobre un paquete virtual `rapira`: se excluyen mutuamente, y al instalar uno ocupa el lugar del otro en vez de acabar a su lado. Así es también como cambias de versión de PHP: instala el otro paquete y el gestor de paquetes hace el relevo.
+Los paquetes deb y rpm imponen esa restricción. `rapira-php8.4` y `rapira-php8.5` instalan exactamente las mismas rutas, así que ambos declaran `provides`, `conflicts` y `replaces` sobre un paquete virtual `rapira`: se excluyen mutuamente, y al instalar uno ocupa el lugar del otro en vez de acabar a su lado. Así es también como cambias de versión de PHP: instala el otro paquete y el gestor de paquetes hace el cambio.
 
 ## Qué archivo descargar
 
-Todo está en la [página de releases de GitHub](https://github.com/rapira-rs/rapira/releases). La versión `v0.6.0` publica estos archivos, y cada nombre con `php8.5` de la lista tiene su gemelo con `php8.4`:
+Todo está en la [página de releases de GitHub](https://github.com/rapira-rs/rapira/releases). La versión `v0.6.0` publica estos archivos, y cada nombre con `php8.5` de la lista tiene su equivalente con `php8.4`:
 
 | Plataforma                           | Artefacto                                    |
 | ------------------------------------ | -------------------------------------------- |
@@ -136,7 +136,7 @@ Cada versión toma el último parche de la rama que compila. El tarball deja con
 En PHP 8.4 el SAPI se registra como `fastcgi`, porque en esa versión OPcache solo arranca para una lista fija de nombres de SAPI, y quedarse fuera de ella significa quedarse sin caché compartida de opcodes. PHP 8.5 eliminó esa lista, así que ahí `PHP_SAPI` y `php_sapi_name()` devuelven `rapira`. La fila *Server API* de `phpinfo()` muestra `Rapira` en ambos casos. Si tu código se bifurca según `PHP_SAPI`, haz que reconozca los dos valores.
 :::
 
-Lo que *no* viene en la caja: `pdo_mysql`, `pgsql`, redis, apcu, imagick y toda esa familia. Si tu aplicación necesita alguna, los artefactos publicados no te sirven: tendrás que compilar PHP con las extensiones que quieras y compilar Rapira contra ese PHP, un camino que [Compilar desde el código](/es/docs/build-from-source) recorre de principio a fin.
+Lo que *no* se incluye: `pdo_mysql`, `pgsql`, redis, apcu, imagick y toda esa familia. Si tu aplicación necesita alguna, los artefactos publicados no te sirven: tendrás que compilar PHP con las extensiones que quieras y compilar Rapira contra ese PHP, y [Compilar desde el código](/es/docs/build-from-source) lo explica de principio a fin.
 
 ## No se incluye ningún php.ini
 
@@ -154,7 +154,7 @@ Hay un detalle que conviene tener presente al escribir ese archivo: PHP busca `p
 
 De GitHub Releases, y solo de ahí: todavía no hay repositorio de apt ni de yum, así que actualizar consiste en descargar el artefacto nuevo e instalarlo encima del anterior, en lugar de ejecutar `apt upgrade`.
 
-La compilación de macOS es **solo para Apple Silicon**, apunta a **macOS 14 o superior** y va firmada ad hoc: sin Developer ID y sin notarización, así que puede que macOS te pida confirmar la primera ejecución. No hay compilación para Intel. Tampoco la hay para Windows: Rapira es Linux y macOS.
+La compilación de macOS es **solo para Apple Silicon**, apunta a **macOS 14 o superior** y va firmada ad hoc: sin Developer ID y sin notarización, así que puede que macOS te pida confirmar la primera ejecución. No hay compilación para Intel. Tampoco la hay para Windows: Rapira solo funciona en Linux y macOS.
 
 Con el binario ya en su sitio, [Inicio rápido](/es/docs/quickstart) sirve tu primera petición en apenas un minuto.
 

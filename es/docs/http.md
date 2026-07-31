@@ -26,7 +26,7 @@ Y PHP, al registrar la variable, añade encima una segunda reescritura propia: e
 | `X.Forwarded.For` | `$_SERVER['HTTP_X_FORWARDED_FOR']`  |
 
 ::: warning
-Esto no es una curiosidad: es el problema entero. Si un proxy de confianza delante de Rapira pone `X-Forwarded-For`, un cliente que mande `X_Forwarded_For` llega a esa misma clave de `$_SERVER`, y el filtro de cabeceras del propio proxy, que borra la grafía con guiones, ni se entera de la del guion bajo. El cliente acaba escribiendo un valor que tu aplicación se cree venido del proxy.
+Esta colisión de nombres es un problema de seguridad. Si un proxy de confianza delante de Rapira pone `X-Forwarded-For`, un cliente que mande `X_Forwarded_For` llega a esa misma clave de `$_SERVER`, y el filtro de cabeceras del propio proxy, que borra la grafía con guiones, ni se entera de la del guion bajo. El cliente puede escribir un valor que tu aplicación da por puesto por el proxy.
 :::
 
 ## Nombres que colisionan con una variable CGI
@@ -46,7 +46,7 @@ No hay una tercera opción que apague el filtro, y es a propósito. Los servidor
 Si tus clientes mandan legítimamente un nombre con guion bajo, la solución es renombrarlo a la grafía con `-`. Un proxy delante de Rapira hace esa reescritura con una línea de su propia configuración, y a partir de ahí el nombre es de lo más corriente y pasa intacto.
 
 ::: tip
-`drop` registra cada eliminación con nivel `warn`, pero el nivel por defecto es `error`, así que esas líneas no se ven hasta que lo subes. Si a `$_SERVER` le falta misteriosamente una cabecera, sube el nivel y mira primero el target `http`: en [Registros](/es/docs/logging) tienes cómo hacerlo.
+`drop` registra cada eliminación con nivel `warn`, pero el nivel por defecto es `error`, así que esas líneas no se ven hasta que lo subes. Si a `$_SERVER` le falta inesperadamente una cabecera, sube el nivel y mira primero el target `http`: en [Registros](/es/docs/logging) tienes cómo hacerlo.
 :::
 
 ## Campos que llegan más de una vez
@@ -58,18 +58,18 @@ HTTP permite que un cliente repita un campo, y en CGI solo cabe un valor por var
 - **Campos de valor único** — `Authorization`, `Proxy-Authorization`, `Content-Type`, `Content-Length`, `Referer` y `From` conservan solo la **primera** línea; las demás se descartan con un `warn`. Unirlas las estropearía: un segundo `Authorization` combinado con el primero acaba dentro de la credencial que PHP está a punto de decodificar en base64, y un login que funcionaba se convierte en basura.
 - **`Host`** — a más de una línea `Host` se le responde `400`; nunca se combinan. La [RFC 9112 §3.2](https://www.rfc-editor.org/rfc/rfc9112#section-3.2) lo marca como obligatorio, y la capa que termina la conexión es la única que puede dar la respuesta correcta.
 
-Los valores de los campos llegan a PHP como bytes en crudo, siempre. Una cookie en latin1 o una cabecera firmada conservan cada octeto que mandó el cliente, porque una conversión a UTF-8 con la mejor intención por el camino estropearía justo los valores que no pueden cambiar.
+Los valores de los campos llegan a PHP como bytes en crudo, siempre. Una cookie en latin1 o una cabecera firmada conservan cada octeto que mandó el cliente, porque una conversión a UTF-8 por el camino estropearía justo los valores que no pueden cambiar.
 
 ## Cuerpos de petición
 
-El cuerpo de una petición se lee entero en memoria antes de que PHP se ejecute, y `http.max_body_size_mb` pone el tope de cuánto está dispuesta a guardar Rapira. Por defecto son 8 MiB, la misma cifra que el `post_max_size` de PHP. A un cuerpo que pase del tope se le responde `413` y, como el resto sigue llegando por la red, esa respuesta además cierra la conexión en lugar de intentar reutilizarla.
+El cuerpo de una petición se lee entero en memoria antes de que PHP se ejecute, y `http.max_body_size_mb` pone el tope de cuánto guarda Rapira. Por defecto son 8 MiB, la misma cifra que el `post_max_size` de PHP. A un cuerpo que pase del tope se le responde `413` y, como el resto sigue llegando por la red, esa respuesta además cierra la conexión en lugar de intentar reutilizarla.
 
-El límite se comprueba dos veces, y eso importa más de lo que parece:
+El límite se comprueba dos veces:
 
 - Contra el `Content-Length` declarado, antes de leer un solo byte del cuerpo.
-- Y otra vez mientras el cuerpo va llegando, trozo a trozo. Una petición chunked no declara ninguna longitud de antemano, así que esa segunda comprobación es lo único que la separa de un consumo de memoria sin límite.
+- Y otra vez mientras el cuerpo va llegando, trozo a trozo. Una petición chunked no declara ninguna longitud de antemano, así que esa segunda comprobación es la que acota su consumo de memoria.
 
-`Expect: 100-continue` se respeta en las peticiones HTTP/1.1: Rapira escribe la respuesta provisional `100 Continue` y entonces el cliente manda el cuerpo que tenía retenido. Lo que le da valor es el orden: la comprobación del `Content-Length` va *primero*, así que a un cliente que anuncia un cuerpo demasiado grande se le responde `413` antes de que suba nada. En una petición HTTP/1.0 la expectativa se ignora, tal y como exige la [RFC 9110 §10.1.1](https://www.rfc-editor.org/rfc/rfc9110#section-10.1.1).
+`Expect: 100-continue` se respeta en las peticiones HTTP/1.1: Rapira escribe la respuesta provisional `100 Continue` y entonces el cliente manda el cuerpo que tenía retenido. El orden importa: la comprobación del `Content-Length` va *primero*, así que a un cliente que anuncia un cuerpo demasiado grande se le responde `413` antes de que suba nada. En una petición HTTP/1.0 la expectativa se ignora, tal y como exige la [RFC 9110 §10.1.1](https://www.rfc-editor.org/rfc/rfc9110#section-10.1.1).
 
 ```toml
 [http]
@@ -78,7 +78,7 @@ max_body_size_mb = 8
 
 ## Cómo sale la respuesta
 
-Todo lo que escribe PHP se acumula en un búfer hasta que termina la petición, y solo entonces sale la cabecera de la respuesta por la red. Eso compra una cosa que compensa el búfer: el servidor sabe la longitud exacta del cuerpo, así que puede mandar un `Content-Length` de verdad. Sin un cuerpo delimitado, HTTP/1.1 tiene que recurrir a delimitar por cierre de conexión —la respuesta acaba cuando acaba la conexión—, lo que significa una conexión nueva por cada petición. Con un `Content-Length`, el keep-alive funciona y la conexión se mantiene viva.
+Todo lo que escribe PHP se acumula en un búfer hasta que termina la petición, y solo entonces sale la cabecera de la respuesta por la red. Para eso está el búfer: el servidor sabe la longitud exacta del cuerpo, así que puede mandar un `Content-Length` de verdad. Sin un cuerpo delimitado, HTTP/1.1 tiene que recurrir a delimitar por cierre de conexión —la respuesta acaba cuando acaba la conexión—, lo que significa una conexión nueva por cada petición. Con un `Content-Length`, el keep-alive funciona y la conexión se mantiene viva.
 
 Delimitar el cuerpo es, por tanto, tarea del servidor y no de PHP. Un `Content-Length` o un `Transfer-Encoding` que ponga tu código se descarta y se sustituye por lo que mida de verdad el cuerpo acumulado, de modo que una longitud caducada nunca pueda desincronizar la conexión. Las respuestas que por definición no llevan cuerpo —`204` y `304`— no reciben ningún `Content-Length`.
 
@@ -86,15 +86,15 @@ Los campos salto a salto pertenecen a una conexión concreta y no a la respuesta
 
 `Connection`, `Keep-Alive`, `Upgrade`, `Trailer`, `TE`, `Proxy-Connection` y, además, los dos campos de delimitación, `Content-Length` y `Transfer-Encoding`.
 
-Y si PHP manda una cabecera `Connection`, también se eliminan los campos que nombra —para eso está el valor de `Connection`—, y esa limpieza ocurre antes de que Rapira inserte su propio `Content-Length`, así que un `Connection: content-length` no puede dejar al cuerpo sin delimitar.
+Y si PHP manda una cabecera `Connection`, también se eliminan los campos que nombra —para eso está el valor de `Connection`—, y esa limpieza ocurre antes de que Rapira inserte su propio `Content-Length`, así que un `Connection: content-length` no puede eliminar de la respuesta los campos de delimitación.
 
-Todo lo demás pasa tal y como lo escribió PHP, repeticiones incluidas: `Set-Cookie`, `Vary` y `Link` pueden aparecer legítimamente varias veces y se mandan todas. Una cabecera que no hay forma de representar en la red se descarta con una línea de registro en lugar de tumbar la respuesta: un campo malo no puede costarte el cuerpo entero.
+Todo lo demás pasa tal y como lo escribió PHP, repeticiones incluidas: `Set-Cookie`, `Vary` y `Link` pueden aparecer legítimamente varias veces y se mandan todas. Una cabecera que no hay forma de representar en la red se descarta con una línea de registro en lugar de tumbar la respuesta, así que el resto de la respuesta se envía igualmente.
 
 ## Terminar la respuesta antes de tiempo
 
-A veces la parte del trabajo que le importa al cliente está lista mucho antes que la petición. La respuesta ya está, pero queda un webhook que disparar, una entrada de cola que escribir, una caché que calentar. Hacer que el navegador espere a todo eso es latencia pura y sin nada a cambio.
+A veces la parte del trabajo que le importa al cliente está lista mucho antes que la petición. La respuesta ya está, pero queda un webhook que disparar, una entrada de cola que escribir, una caché que calentar. Hacer que el navegador espere a todo eso solo añade latencia.
 
-`rapira_finish_request()` cierra la respuesta ahí mismo. Se vacía la salida acumulada, la respuesta pasa al frontal y sale hacia el cliente, y tu handler sigue ejecutándose con el cliente ya con la respuesta entera en la mano. Es el mismo contrato que `fastcgi_finish_request()`, así que el código escrito para php-fpm se comporta como siempre:
+`rapira_finish_request()` cierra la respuesta en ese punto. Se vacía la salida acumulada, la respuesta pasa al frontal y sale hacia el cliente, y tu handler sigue ejecutándose con el cliente ya con la respuesta entera en la mano. Es el mismo contrato que `fastcgi_finish_request()`, así que el código escrito para php-fpm se comporta como siempre:
 
 ```php
 <?php
@@ -113,7 +113,7 @@ La firma es `rapira_finish_request(): bool`. Está declarada, junto con todo lo 
 
 Dos cosas que conviene tener presentes:
 
-- **Lo que imprimas después de la llamada no se manda.** La respuesta queda cerrada, así que un `echo` posterior no va a ninguna parte: no se guarda para vaciarlo luego, simplemente se descarta. Todo lo que el cliente tenga que ver hay que escribirlo antes de la llamada.
+- **Lo que imprimas después de la llamada no se manda.** La respuesta queda cerrada, así que un `echo` posterior se descarta: no se guarda para vaciarlo más tarde. Todo lo que el cliente tenga que ver hay que escribirlo antes de la llamada.
 - **El worker sigue ocupado.** Terminar la respuesta libera al *cliente*, no al proceso. Este worker no coge la siguiente petición hasta que tu handler devuelve de verdad, así que el trabajo que has movido después de la llamada es trabajo que la siguiente petición sigue esperando; en [Modelo de procesos](/es/docs/process-model) tienes cuántos workers hay para repartir esa espera. Es una herramienta de latencia, no de concurrencia: si el trabajo es pesado, su sitio es una cola.
 
 ::: question Mi proxy pone `X_Forwarded_For` y de repente PHP no lo ve. ¿Qué ha pasado?
@@ -129,5 +129,5 @@ Porque delimitar el cuerpo es cosa del servidor. Rapira guarda el cuerpo entero 
 :::
 
 ::: question ¿Funciona `rapira_finish_request()` en modo clásico?
-Sí. La función se registra para todo el proceso y actúa sobre la petición que se está atendiendo, así que se comporta igual tanto si el script es residente como si se vuelve a ejecutar en cada petición. En [Modos de ejecución](/es/docs/execution-modes) tienes qué más cambia según subes por la escalera.
+Sí. La función se registra para todo el proceso y actúa sobre la petición que se está atendiendo, así que se comporta igual tanto si el script es residente como si se vuelve a ejecutar en cada petición. En [Modos de ejecución](/es/docs/execution-modes) tienes qué más cambia de un modo a otro.
 :::

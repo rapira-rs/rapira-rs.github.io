@@ -5,21 +5,21 @@ description: "La referencia completa de rapira.toml: todas las claves de [http],
 
 # Configuración
 
-Rapira arranca sin ningún archivo de configuración: `rapira serve app/worker.php` elige un valor por defecto para todo. El `rapira.toml` aparece cuando esos valores se te quedan cortos — otra dirección de escucha, un número fijo de workers, una política de reciclaje, un pidfile que tu sistema de init pueda leer, un nivel de registro que de verdad te cuente algo. Apunta el servidor al archivo y el archivo toma el mando:
+Rapira arranca sin ningún archivo de configuración: `rapira serve app/worker.php` elige un valor por defecto para todo. Añades un `rapira.toml` cuando esos valores se te quedan cortos — otra dirección de escucha, un número fijo de workers, una política de reciclaje, un pidfile que tu sistema de init pueda leer, un nivel de registro más detallado. Apunta el servidor al archivo y el servidor lee de ahí sus ajustes:
 
 ```bash
 rapira serve --config /etc/rapira/rapira.toml
 ```
 
-El archivo tiene cuatro secciones y todas son opcionales: `[http]` configura la escucha, `[pool]` los procesos worker, `[supervisor]` el proceso maestro y `[log]` lo que se escribe en stderr. Lo único que Rapira no puede inventarse por ti es el script de entrada de PHP: o lo pones aquí en `pool.entrypoint`, o lo pasas como argumento posicional en la línea de comandos.
+El archivo tiene cuatro secciones y todas son opcionales: `[http]` configura la escucha, `[pool]` los procesos worker, `[supervisor]` el proceso maestro y `[log]` lo que se escribe en stderr. La única clave sin valor por defecto es el script de entrada de PHP: o lo pones aquí en `pool.entrypoint`, o lo pasas como argumento posicional en la línea de comandos.
 
 ::: info
-Los ajustes van por capas: una opción de la línea de comandos gana al archivo de configuración, y el archivo gana al valor por defecto. Por eso `--processes 8` se impone a un `processes = 4` del archivo, y una configuración que tienes en el control de versiones se puede torcer para una ejecución suelta. Las opciones en sí están documentadas en la [página de la línea de comandos](/es/docs/cli).
+Los ajustes van por capas: una opción de la línea de comandos gana al archivo de configuración, y el archivo gana al valor por defecto. Por eso `--processes 8` se impone a un `processes = 4` del archivo, y una configuración que tienes en el control de versiones se puede sobrescribir para una ejecución suelta. Las opciones en sí están documentadas en la [página de la línea de comandos](/es/docs/cli).
 :::
 
 ## Un rapira.toml completo
 
-Todas las claves que Rapira entiende, en un solo archivo. Nada de lo que hay abajo es obligatorio: borra cualquier línea y entra su valor por defecto. Con dos excepciones — `pool.entrypoint` no tiene ningún valor por defecto al que recurrir, y `min_spare`/`max_spare` son obligatorias mientras se mantenga `mode = "dynamic"`.
+Todas las claves que Rapira entiende, en un solo archivo. Nada de lo que hay abajo es obligatorio: borra cualquier línea y entra su valor por defecto. Con dos excepciones — `pool.entrypoint` no tiene ningún valor por defecto al que recurrir, y `min_spare`/`max_spare` son obligatorias mientras esté puesto `mode = "dynamic"`.
 
 ```toml
 [http]
@@ -57,7 +57,7 @@ El resto de la página es ese mismo archivo, clave por clave.
 
 ## La sección `[http]`
 
-La puerta de entrada: dónde escucha Rapira, qué le cuenta el entorno de la petición a PHP sobre el servidor en el que corre y cuánto cuerpo de petición está dispuesto a leer.
+Esta sección cubre dónde escucha Rapira, qué le dice a PHP el entorno de la petición sobre el servidor en el que corre y cuánto cuerpo de petición lee.
 
 | Clave | Tipo | Por defecto | Significado |
 | --- | --- | --- | --- |
@@ -71,7 +71,7 @@ La puerta de entrada: dónde escucha Rapira, qué le cuenta el entorno de la pet
 
 ## La sección `[pool]`
 
-Los workers son los procesos que ejecutan PHP de verdad, y esta sección dice qué ejecutan, cuántos hay y cuándo el maestro se lleva a uno por delante. Qué hace el maestro con estos números lo explica el [modelo de procesos](/es/docs/process-model); aquí son solo claves.
+Los workers son los procesos que ejecutan PHP de verdad, y esta sección dice qué ejecutan, cuántos hay y cuándo el maestro retira a alguno. Qué hace el maestro con estos números lo explica el [modelo de procesos](/es/docs/process-model); aquí son solo claves.
 
 | Clave | Tipo | Por defecto | Significado |
 | --- | --- | --- | --- |
@@ -82,7 +82,7 @@ Los workers son los procesos que ejecutan PHP de verdad, y esta sección dice qu
 | `min_spare` | entero | ninguno | Solo para `dynamic`, y ahí obligatoria: mantén al menos este número de workers ociosos y listos. |
 | `max_spare` | entero | ninguno | Solo para `dynamic`, y ahí obligatoria: recorta hasta dejar como mucho este número de workers ociosos. El par tiene que cumplir `1 <= min_spare <= max_spare <= processes`; ponerlas bajo otro modo es un error de verdad, no un detalle que Rapira se salte. |
 | `max_requests` | entero | `0` | Recicla el worker cuando haya atendido este número de peticiones, más un pequeño margen aleatorio para que el pool entero no se renueve de golpe. `0` significa nunca. |
-| `process_idle_timeout_secs` | entero | `10` | La lee `ondemand`: cuánto puede estar un worker de brazos cruzados antes de que el maestro lo retire. |
+| `process_idle_timeout_secs` | entero | `10` | La lee `ondemand`: cuánto tiempo puede estar un worker ocioso antes de que el maestro lo retire. |
 | `request_terminate_timeout_secs` | entero | `0` | El tiempo real máximo para una sola petición. Al worker que siga con ella pasado ese límite se le mata y se le sustituye. Con `0` no se comprueba nada. |
 
 ## La sección `[supervisor]`
@@ -96,7 +96,7 @@ Las reglas del proceso maestro: el que es dueño del socket de escucha, supervis
 
 ## La sección `[log]`
 
-Rapira lo escribe todo en stderr, con una escritura por entrada, para que la salida del maestro y la de los workers nunca se mezclen a mitad de línea. Esta sección decide cuánto habla ese flujo y qué forma tiene cada entrada; en [Registros](/es/docs/logging) están los targets uno a uno, los formatos y cómo se corresponden los diagnósticos de PHP con los niveles.
+Rapira lo escribe todo en stderr, con una escritura por entrada, para que la salida del maestro y la de los workers nunca se mezclen a mitad de línea. Esta sección decide cuánto detalle tiene ese flujo y qué forma tiene cada entrada; en [Registros](/es/docs/logging) están los targets uno a uno, los formatos y cómo se corresponden los diagnósticos de PHP con los niveles.
 
 | Clave | Tipo | Por defecto | Significado |
 | --- | --- | --- | --- |
@@ -108,9 +108,9 @@ Una clave de `[log.targets]` tiene que parecerse a una ruta de módulo: letras, 
 
 ## Las claves desconocidas se rechazan
 
-Rapira analiza `rapira.toml` de forma estricta. Cada tabla y cada clave dentro de ella tiene que ser una que el servidor conozca, así que un `[htttp]` o un `lissten = ":8000"` tumban el arranque con un mensaje que dice qué no ha reconocido, en lugar de quedarse en una línea ignorada sin avisar. Cada clave tiene además una única casa: `max_requests` es de `[pool]` y de ningún otro sitio, `pidfile` de `[supervisor]` y de ningún otro sitio, y colocar una bajo la tabla equivocada falla igual que una errata.
+Rapira analiza `rapira.toml` de forma estricta. Cada tabla y cada clave dentro de ella tiene que ser una que el servidor conozca, así que un `[htttp]` o un `lissten = ":8000"` tumban el arranque con un mensaje que dice qué no ha reconocido, en lugar de quedarse en una línea ignorada sin avisar. Cada clave tiene además una única tabla: `max_requests` es de `[pool]` y de ningún otro sitio, `pidfile` de `[supervisor]` y de ningún otro sitio, y colocar una bajo la tabla equivocada falla igual que una errata.
 
-Los valores se comprueban igual. `level = "verbose"`, `format = "pretty"` y `unsafe_field_names = "allow"` son errores que impiden arrancar, no una vuelta silenciosa al valor por defecto: un filtro de seguridad que sobrevive a una errata es peor que uno que se niega a arrancar mientras tú estás delante mirando. Los números también tienen límites: `pool.processes` y `http.max_body_size_mb` tienen que ser 1 como mínimo, y toda clave `*_secs` topa en `86400`, un día.
+Los valores se comprueban igual. `level = "verbose"`, `format = "pretty"` y `unsafe_field_names = "allow"` son errores que impiden arrancar, no una vuelta silenciosa al valor por defecto: una errata que rebaja en silencio un ajuste de seguridad es peor que una que corta el arranque. Los números también tienen límites: `pool.processes` y `http.max_body_size_mb` tienen que ser 1 como mínimo, y toda clave `*_secs` topa en `86400`, un día.
 
 ::: warning
 La validación ocurre antes de que arranque nada, así que una clave que no se reconoce corta el arranque en vez de degradar la ejecución en silencio. Tenlo presente cuando edites `rapira.toml` en una máquina que está sirviendo ahora mismo: al proceso en marcha no le pasa nada, pero el siguiente arranque es el que tiene que salir bien.

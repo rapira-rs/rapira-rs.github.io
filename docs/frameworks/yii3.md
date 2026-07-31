@@ -76,7 +76,7 @@ while ($http->handleRequest($handler)) {
 
 Walking through it:
 
-**`src/bootstrap.php` is the template's own bootstrap.** It loads Composer's autoloader, reads `.env` when it is there, and calls `Environment::prepare()`, exactly what `public/index.php` does before it touches the runner. The explicit `vendor/autoload.php` line above it is belt-and-braces (`require_once`, so it costs nothing) and keeps the worker readable as a standalone entry point.
+**`src/bootstrap.php` is the template's own bootstrap.** It loads Composer's autoloader, reads `.env` when it is there, and calls `Environment::prepare()`, exactly what `public/index.php` does before it touches the runner. The explicit `vendor/autoload.php` line above it is deliberately redundant (`require_once`, so it costs nothing) and keeps the worker readable as a standalone entry point.
 
 **The runner is constructed once, with the arguments from `public/index.php`.** `rootPath`, `debug`, `checkEvents` and `environment` come from `App\Environment` exactly as the front controller passes them, so the worker boots the same application the web entry point does. The template's `public/index.php` passes one more argument — a `temporaryErrorHandler` wired to a `StreamTarget` logger — and requires `c3.php` when `APP_C3` is on. The verified worker omits both. The temporary handler only covers errors raised while the configuration and container are being built; without one the runner falls back to an `ErrorHandler` with a `NullLogger` (`HttpApplicationRunner::createTemporaryErrorHandler()`), so pass it here too if you want container-build failures logged.
 
@@ -84,7 +84,7 @@ Walking through it:
 
 **Per request: `run()`, then `reset()`.** `run()` is the same call the front controller makes; `reset()` walks the container's registered reset callbacks and puts the stateful services back to their initial state before the next request arrives.
 
-**A resident runner still sees each new request.** That trips people up, so it is worth being explicit: `run()` does not capture the request at construction time. Every call asks the container for `RequestFactory` and builds a fresh PSR-7 `ServerRequest` from `$_SERVER`, `$_GET`, `$_POST`, `$_COOKIE`, `$_FILES` and `php://input` — and Rapira refills those superglobals before each turn of the loop ([Worker mode](/docs/worker) covers that contract). Resident objects, fresh request, every time.
+**A resident runner still sees each new request.** That trips people up, so it is worth being explicit: `run()` does not capture the request at construction time. Every call asks the container for `RequestFactory` and builds a fresh PSR-7 `ServerRequest` from `$_SERVER`, `$_GET`, `$_POST`, `$_COOKIE`, `$_FILES` and `php://input` — and Rapira refills those superglobals before each iteration of the loop ([Worker mode](/docs/worker) covers that contract). Resident objects, fresh request, every time.
 
 **Memory stays flat.** Across 200 sequential requests the worker's resident set did not grow in any meaningful way — the application is built once and the reset is cheap, so there is no per-request boot to garbage-collect. That is the practical payoff of this pattern over the next one.
 
@@ -126,9 +126,9 @@ while ($http->handleRequest($handler)) {
 
 Fewer moving parts, no reset to get wrong, and no chance of state leaking from one request into the next — the container is rebuilt every time. This also passed the full battery.
 
-The cost is honest and it is the reason this is the *second* pattern on the page: you are booting the container on every request, so you pay that boot each time and you generate a container's worth of garbage each time. The worker's memory grows as those containers pile up before PHP reclaims them in bulk, which is the ordinary profile of a per-request boot rather than a leak — but it is a profile worth bounding. Pair this pattern with `pool.max_requests` so a worker is retired and replaced periodically; the [frameworks overview](/docs/frameworks/) explains the memory shapes and [Configuration](/docs/configuration) documents the key.
+This pattern has a cost, and that is why it comes *second* on the page: you are booting the container on every request, so you pay that boot each time and you generate a container's worth of garbage each time. The worker's memory grows as those containers pile up before PHP reclaims them in bulk, which is the ordinary profile of a per-request boot rather than a leak — but it is a profile worth bounding. Pair this pattern with `pool.max_requests` so a worker is retired and replaced periodically; the [frameworks overview](/docs/frameworks/) explains the memory shapes and [Configuration](/docs/configuration) documents the key.
 
-The autoloader and the template's bootstrap still stay resident and the loop is still yours, so this is a worker that chooses to throw its application away between requests — not [classic mode](/docs/classic).
+The autoloader and the template's bootstrap still stay resident and the loop is still yours, so this is still a worker, one that discards its application between requests — not [classic mode](/docs/classic).
 
 ## Running it
 
@@ -175,7 +175,7 @@ Both patterns were run through the same battery against the `yiisoft/app` templa
 
 The app template puts `CsrfTokenMiddleware` in its default middleware chain, and the token lives in the session — the one piece of state the battery did exercise, per request and isolated per client. Nothing in the worker loop touches the token flow, so a POST needs its token here as anywhere else. If your posts start coming back rejected after the move to a worker, the token is the first thing to check — and the fix is the usual one (render the token into the form, send it back), not a change to the worker script.
 
-## The escape hatch: classic mode
+## Classic mode as a fallback
 
 If a worker is not what you want right now, Yii3 runs perfectly well as an ordinary front controller:
 
@@ -188,7 +188,7 @@ Same code, no worker script, fresh state per request — see [Classic mode](/doc
 One curiosity if you read that file: the template's `public/index.php` contains a `PHP_SAPI === 'cli-server'` branch that serves static files and rewrites `SCRIPT_NAME`. It exists for PHP's built-in development server and simply never triggers under Rapira, where `PHP_SAPI` is `rapira` (`fastcgi` on PHP 8.4 — see [Installation](/docs/installation)). Leave it alone; it is inert here.
 
 ::: question Which pattern should I pick?
-The resident one, unless you have a reason not to. It is the framework's own long-running design, it keeps memory flat, and the reset is one call. Reach for the per-request runner when your bootstrap has ordering constraints you would rather not reason about — code that must run before the container is built, or per-request bootstrap work that a `StateResetter` callback cannot undo. You can start there and move up later; only the worker script changes.
+The resident one, unless you have a reason not to. It is the framework's own long-running design, it keeps memory flat, and the reset is one call. Use the per-request runner when your bootstrap has ordering constraints you would rather not reason about — code that must run before the container is built, or per-request bootstrap work that a `StateResetter` callback cannot undo. You can start with it and switch later; only the worker script changes.
 :::
 
 ::: question Do `checkEvents` and the rest of the bootstrap re-run on every request in the resident pattern?

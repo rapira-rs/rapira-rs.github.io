@@ -5,11 +5,11 @@ description: Przewodnik po rezydentnym workerze Rapiry — podnieś aplikację r
 
 # Tryb workera
 
-W [trybie klasycznym](/pl/docs/classic) PHP robi to, co robił od zawsze: skrypt wejściowy wykonuje się od zera, odpowiedź wychodzi, a wszystko, co skrypt zbudował, ląduje w koszu. Rozruch nowoczesnego frameworka — autoloader, kontener, konfiguracja, trasy, połączenia z bazą — kosztuje przy milionowym żądaniu dokładnie tyle samo, co przy pierwszym.
+W [trybie klasycznym](/pl/docs/classic) PHP robi to, co robił od zawsze: skrypt wejściowy wykonuje się od zera, odpowiedź wychodzi, a wszystko, co skrypt zbudował, zostaje wyrzucone. Rozruch nowoczesnego frameworka — autoloader, kontener, konfiguracja, trasy, połączenia z bazą — kosztuje przy milionowym żądaniu dokładnie tyle samo, co przy pierwszym.
 
 Tryb workera to alternatywa. Proces zostaje przy życiu: twój skrypt raz podnosi aplikację, a potem kręci się w pętli i prosi Rapirę o kolejne żądanie. Za rozruch płacisz raz, przy starcie, a każde następne żądanie zastaje aplikację już rozgrzaną w pamięci. W zamian musisz zacząć myśleć o stanie — bo teraz przeżywa on żądanie.
 
-To szczebel **SAPI Worker** na drabinie trybów wykonania Rapiry, razem z trybem Classic jedyny gotowy dzisiaj. Całą drabinę i sposób na rozpoznanie, jak wysoko wejdzie twoja aplikacja, opisują [Tryby wykonania](/pl/docs/execution-modes); ta strona jest przewodnikiem po szczeblu, z którego skorzystasz od razu.
+To szczebel **SAPI Worker** na drabinie trybów wykonania Rapiry, razem z trybem Classic jedyny gotowy dzisiaj. Całą drabinę i sposób na rozpoznanie, którego szczebla może użyć twoja aplikacja, opisują [Tryby wykonania](/pl/docs/execution-modes); ta strona jest przewodnikiem po szczeblu, z którego skorzystasz od razu.
 
 ## Pętla rezydentna
 
@@ -47,7 +47,7 @@ Pozostałe flagi znajdziesz w [Wierszu poleceń](/pl/docs/cli), a ich odpowiedni
 
 ## Co robi `handleRequest()`
 
-`handleRequest(callable $handler)` to cała umowa między tobą a serwerem i warto przeczytać ją powoli:
+`handleRequest(callable $handler)` to cała umowa między tobą a serwerem:
 
 - **Blokuje wykonanie**, dopóki do tego workera nie trafi żądanie. Worker zaparkowany na `handleRequest()` nie zjada procesora podczas czekania, a mimo to trzyma w pamięci swój interpreter i twoją podniesioną aplikację.
 - **Wypełnia zmienne superglobalne** — `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE` i resztę — danymi tego żądania, od nowa, zanim ruszy twój handler. Zwykły kod PHP, który je czyta, działa dokładnie tak samo jak pod php-fpm.
@@ -81,12 +81,12 @@ Wszystko, co tworzysz **wewnątrz** handlera, to zwykła praca na potrzeby jedne
 Granica między jednym a drugim to decyzja projektowa, którą tryb workera każe ci podjąć. Stan przeznaczony do współdzielenia ląduje na górze; stan należący do jednego żądania zostaje w handlerze — albo zostaje wyzerowany przed następnym.
 
 ::: warning
-Współdzielone jest też wszystko, co globalne, czy tego chcesz, czy nie: statyczne właściwości, singletony, rejestry wypełniane leniwie przez biblioteki, `ini_set()`, którego nigdy nie cofnąłeś. Pod php-fpm żyły one w obrębie jednego żądania tylko dlatego, że zamykanie żądania w PHP zerowało je wszystkie — statyczne pola, zmienne globalne i `ini_set()` tak samo. Worker Rapiry celowo pomija to zerowanie między kolejnymi zadaniami, więc tutaj nic nie posprząta się samo.
+Współdzielone jest też wszystko, co globalne, czy tego chcesz, czy nie: statyczne właściwości, singletony, rejestry wypełniane leniwie przez biblioteki, `ini_set()`, którego nigdy nie cofnąłeś. Pod php-fpm żyły one w obrębie jednego żądania tylko dlatego, że zamykanie żądania w PHP zerowało je wszystkie — statyczne pola, zmienne globalne i `ini_set()` tak samo. Worker Rapiry celowo pomija to zerowanie między kolejnymi zadaniami, więc teraz już tak nie jest.
 :::
 
 ## Wybór wtyczki
 
-`create_plugin_handler()` przyjmuje obiekt konfiguracji, a o wyborze wtyczki decyduje *klasa* tego obiektu. `HttpHandlerConfig` mówi „ten worker obsługuje HTTP” i w zamian dostajesz `HttpHandler`.
+`create_plugin_handler()` przyjmuje obiekt konfiguracji, a o wyborze wtyczki decyduje *klasa* tego obiektu. `HttpHandlerConfig` oznacza, że ten worker obsługuje HTTP, i w zamian dostajesz `HttpHandler`.
 
 Wyjątek `Rapira\RapiraException` poleci w dwóch sytuacjach: gdy do przekazanej klasy konfiguracji nie pasuje żadna wtyczka oraz gdy skrypt w ogóle nie działa w trybie workera — w trybie klasycznym nie ma pętli rezydentnej, więc handler nie mógłby tam zrobić nic poza zgłoszeniem zamknięcia.
 

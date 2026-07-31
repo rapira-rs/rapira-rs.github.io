@@ -11,7 +11,7 @@ description: Rapira 是怎么跑 PHP 的——单线程的 master 绑定套接�
 
 ## 一个 master，多个 worker
 
-启动按固定的顺序进行，而这个顺序正是关键所在：
+启动按固定的顺序进行，而这个顺序很重要：
 
 1. **先绑定监听套接字。** master 在做任何别的事之前先绑定，所以端口被占用会立刻让启动失败——那时候 PHP 还没来得及启动。
 2. **PHP 只启动一次。** 引擎在还是单线程的 master 里走完 `MINIT`。OPcache 的共享内存就在这时创建，于是之后 fork 出来的每个 worker 都继承同一个 OPcache SHM 段——哪个 worker 先编译了某个文件，缓存就为所有 worker 填好了，不用每个进程各编译一份。
@@ -46,11 +46,11 @@ master 还在整个生命周期里持有 PHP 模块，也只有它会去关闭�
 进程池起来之后，master 大约每秒跑一次维护 tick，同时随时对子进程的退出做出反应。
 
 - **清理并补位。** 干净退出的 worker（排空了请求，或者用满配额被回收）会立刻被换上新的（`ondemand` 下则干脆把槽位空着，等下一条连接来填）。而*崩溃*退出的 worker 要等一段退避时间才补：起步 100 ms，每连着快速崩溃一次就翻倍，上限约 25 秒——于是段错误循环会自己降下速来，而不是把 CPU 空转满。活够十秒就把这个连崩计数清零。
-- **启动失败绝不闷声吞掉。** 如果进程池连一个成功的请求都还没服务过，第一代里就有 worker 报告自己不健康，master 会认定这是不可恢复的启动失败并退出，而不是没完没了地重启一个坏掉的入口脚本。等进程池服务过东西以后，同样的退出就只是一次带退避的补位——一次糟糕的重载绝不会把健康的进程池拖垮。
+- **启动失败不会被悄悄忽略。** 如果进程池连一个成功的请求都还没服务过，第一代里就有 worker 报告自己不健康，master 会认定这是不可恢复的启动失败并退出，而不是没完没了地重启一个坏掉的入口脚本。等进程池服务过东西以后，同样的退出就只是一次带退避的补位——一次糟糕的重载绝不会把健康的进程池拖垮。
 - **worker 回收。** 设了 `pool.max_requests`，worker 处理够这么多请求就退役，并马上被换掉。每个 worker 还会在配额之上拿到一个各自随机的增量（最多为配额的一半），这样一批同时起来的 worker 就不会齐刷刷一起回收，害你有那么一瞬间连一个热 worker 都没有。
-- **盯住单个请求的看门狗。** 设了 `pool.request_terminate_timeout_secs`，某个 worker 在同一个请求上耗过这个墙钟上限，就会收到 `SIGTERM`；万一下一个 tick 它居然还在，再补一发 `SIGKILL`。这次击杀会以 `warn` 级别记进日志，它排队的连接随之关闭，槽位立刻补上新的 worker。
+- **盯住单个请求的看门狗。** 设了 `pool.request_terminate_timeout_secs`，某个 worker 在同一个请求上耗过这个墙钟上限，就会收到 `SIGTERM`；万一下一个 tick 它居然还在，再补一发 `SIGKILL`。这次强制终止会以 `warn` 级别记进日志，它排队的连接随之关闭，槽位立刻补上新的 worker。
 - **伸缩。** `dynamic` 下，同一个 tick 还负责决定是多 fork 几个 worker 还是退掉几个空闲的；`ondemand` 下它只退掉空闲超时的 worker——那里 fork 是由到来的连接触发的。详见下文。
-- **反方向的一条命脉。** 每个 worker 都握着一根管道的读端，而 master 永远不往里写。master 一死，管道就 EOF，每个 worker 随即自行排空退出——所以对 master 来一发 `kill -9`，也不会留下一群孤儿进程霸占你的端口。
+- **反方向的一根管道。** 每个 worker 都握着一根管道的读端，而 master 永远不往里写。master 一死，管道就 EOF，每个 worker 随即自行排空退出——所以对 master 来一发 `kill -9`，也不会留下孤儿 worker 占着你的端口。
 
 ## 进程池模式
 
@@ -76,7 +76,7 @@ max_spare = 3
 
 这几个边界必须满足 `1 <= min_spare <= max_spare <= processes`；它们在 `dynamic` 下是必填的，在另外两种模式下则会被拒绝——写错地方是配置错误，而不是一个被悄悄忽略的键。
 
-**`ondemand`** 启动时什么都不 fork。这时改由 master 自己盯着监听套接字：连接来了却没有空闲 worker 接手，它就 fork 一个，让子进程去 accept。空闲时间超过 `pool.process_idle_timeout_secs` 的 worker 会被再次退掉。这样一来，进程池睡着的时候不花一分钱，代价是安静一阵之后的第一个请求要现付一次 fork——对预发布环境和访问稀少的站点是笔划算的买卖，在稳定流量下就很不划算。
+**`ondemand`** 启动时什么都不 fork。这时改由 master 自己盯着监听套接字：连接来了却没有空闲 worker 接手，它就 fork 一个，让子进程去 accept。空闲时间超过 `pool.process_idle_timeout_secs` 的 worker 会被再次退掉。这样一来，空闲的进程池不占用任何资源，代价是安静一阵之后的第一个请求要现付一次 fork——对预发布环境和访问稀少的站点是划算的取舍，在稳定流量下就很不划算。
 
 完整的键参考在[配置](/zh/docs/configuration)那一页。
 
@@ -101,12 +101,12 @@ kill -TERM $(cat /run/rapira.pid)   # graceful stop
 ```
 
 ::: warning
-信号只发给 master，永远别发给某一个 worker。worker 会直接无视 `SIGUSR1` 和 `SIGUSR2`，而且把 `SIGTERM` 当成立即击杀——请求看门狗要让一个请求*马上*死掉时，用的就是它。手动给 worker 发信号，会把本页所有的保证统统绕开。
+信号只发给 master，永远别发给某一个 worker。worker 会直接无视 `SIGUSR1` 和 `SIGUSR2`，而且把 `SIGTERM` 当成立即终止——请求看门狗要让一个请求*马上*结束时，用的就是它。手动给 worker 发信号，会把本页所有的保证统统绕开。
 :::
 
 ### 停止
 
-不管由三个信号里的哪一个发起，停止都从优雅开始：master 给每个 worker 发 `SIGQUIT`，worker 随即不再接新活，把手上的做完。之后的升级是有预算的——`supervisor.process_control_timeout_secs`（默认 30 秒）就是这段宽限期，过了之后还剩下的 worker 会收到 `SIGTERM`，要是连这个都不管用，再补 `SIGKILL`。对优雅的 `SIGQUIT` 没有反应的 worker，会先挨 TERM 再挨 KILL，而不是被无休止地等下去。
+不管由三个信号里的哪一个发起，停止都从优雅开始：master 给每个 worker 发 `SIGQUIT`，worker 随即不再接新活，把手上的做完。之后的升级按计时进行——`supervisor.process_control_timeout_secs`（默认 30 秒）就是这段宽限期，过了之后还剩下的 worker 会收到 `SIGTERM`，要是连这个都不管用，再补 `SIGKILL`。对优雅的 `SIGQUIT` 没有反应的 worker，会先收到 TERM 再收到 KILL，而不是被无休止地等下去。
 
 要是你等不及，第二个 `SIGTERM`/`SIGINT` 会跳过等待，立刻强制退出。
 
@@ -114,7 +114,7 @@ kill -TERM $(cat /run/rapira.pid)   # graceful stop
 
 `SIGUSR2`（或者 `SIGHUP`）会把整个进程池换成一批全新的 worker——常驻 worker 里那个已经启动好的应用，就是这样被丢掉、再照着部署上去的代码重新搭起来的。
 
-重载期间服务能力一刻也不会掉下去，因为它是叠着来的，而不是先停后起：master 先起一个新 worker，等它真的开始 accept 了，才去排空一个旧 worker。旧的走掉之后，它的槽位交给下一个新 worker，就这样一路把这一代换完。每次排空走的都是和停止时一样的 `SIGQUIT` → `SIGTERM` → `SIGKILL` 阶梯，受同一个控制超时约束，只不过作用在那一个 worker 身上。
+重载期间服务能力一刻也不会掉下去，因为它是叠着来的，而不是先停后起：master 先起一个新 worker，等它真的开始 accept 了，才去排空一个旧 worker。旧的走掉之后，它的槽位交给下一个新 worker，就这样一路把这一代换完。每次排空走的都是和停止时一样的 `SIGQUIT` → `SIGTERM` → `SIGKILL` 升级流程，受同一个控制超时约束，只不过作用在那一个 worker 身上。
 
 就算某个顶上来的 worker 迟迟不开始服务，重载也不会卡住：控制超时一到，master 记一条告警，照样接着换下一个。`ondemand` 下则根本不会预先 fork 顶替者——旧 worker 一个个排空，新的交给需求去 fork。
 
@@ -140,7 +140,7 @@ master = "info"
 :::
 
 ::: question 要拿到新代码，必须重载吗？
-在 Classic 这一级，入口脚本每个请求都从头跑一遍，没有什么常驻的东西需要替换。在 SAPI Worker 这一级，应用只启动一次、之后一直待在内存里，所以部署上去的代码要等一次滚动重载才生效——对着 master 的 pid 来一发 `kill -USR2`。把这一步写进部署流程，事情就成了；见[部署](/zh/docs/deployment)。
+在 Classic 这一级，入口脚本每个请求都从头跑一遍，没有什么常驻的东西需要替换。在 SAPI Worker 这一级，应用只启动一次、之后一直待在内存里，所以部署上去的代码要等一次滚动重载才生效——对着 master 的 pid 来一发 `kill -USR2`。把这一步写进部署流程即可；见[部署](/zh/docs/deployment)。
 :::
 
 ::: question 该开多少个 worker？
@@ -148,5 +148,5 @@ master = "info"
 :::
 
 ::: question 停止或者重载的时候，已经在处理的请求会怎样？
-会跑完。停止和重载都是先让 worker 不再接活、把手上的排空；最后一个响应写完之后，worker 自己退出。只有两样东西会把请求拦腰截断：`supervisor.process_control_timeout_secs` 之后的升级阶梯，以及第二个 `SIGTERM`/`SIGINT`（它会一次性 TERM 掉所有 worker）。`pool.request_terminate_timeout_secs` 这个看门狗在停止或重载期间是挂起的。
+会跑完。停止和重载都是先让 worker 不再接活、把手上的排空；最后一个响应写完之后，worker 自己退出。只有两样东西会把请求中途切断：`supervisor.process_control_timeout_secs` 之后的升级流程，以及第二个 `SIGTERM`/`SIGINT`（它会一次性 TERM 掉所有 worker）。`pool.request_terminate_timeout_secs` 这个看门狗在停止或重载期间是挂起的。
 :::

@@ -13,7 +13,7 @@ Del HTTP se encarga un frontal construido sobre [Pingora](https://github.com/clo
 
 ## Qué necesitas
 
-Antes de seguir, conviene conocer unas cuantas restricciones, porque no son negociables:
+Antes de seguir, conviene conocer unas cuantas restricciones, porque no hay forma de esquivarlas:
 
 - **Solo Linux y macOS.** No existe una compilación para Windows.
 - **PHP 8.4 u 8.5.** Los archivos comprimidos de cada release y los paquetes `rapira-php8.4` / `rapira-php8.5` incluyen el runtime embed de PHP en NTS que les corresponde, así que la versión que ejecutas es la del artefacto que elijas: no hay nada más que instalar.
@@ -25,14 +25,14 @@ Antes de seguir, conviene conocer unas cuantas restricciones, porque no son nego
 
 Hoy Rapira trae dos formas de ejecutar una aplicación PHP. Por defecto obtienes un worker; Classic hay que pedirlo, con un flag en la línea de comandos o con una sola clave en el archivo de configuración.
 
-**[Classic](/es/docs/classic)** es el de toda la vida. Tu front controller se ejecuta desde cero en cada petición, exactamente igual que bajo php-fpm: la aplicación arranca, atiende la petición y todo lo que ha construido se tira a la basura. No tienes que cambiar nada en tu código, y por eso es el punto de partida honesto para una aplicación que ya existe, y el plan B siempre que algo de tu stack no sobreviva a una segunda petición.
+**[Classic](/es/docs/classic)** es el de toda la vida. Tu front controller se ejecuta desde cero en cada petición, exactamente igual que bajo php-fpm: la aplicación arranca, atiende la petición y todo lo que ha construido se tira a la basura. No tienes que cambiar nada en tu código, y por eso es el punto de partida más sencillo para una aplicación que ya existe, y el plan B siempre que algo de tu stack no sobreviva a una segunda petición.
 
 **[SAPI Worker](/es/docs/worker)** mantiene el proceso vivo. Un script residente arranca tu aplicación una sola vez —autoloader, contenedor, conexiones— y a partir de ahí entra en un bucle: atiende una petición tras otra, rellenando de nuevo las superglobales cada vez. El coste del arranque se paga al principio y no en cada petición, pero ahora el estado sobrevive a la petición, y eso cambia de verdad la forma en que tienes que pensar tu código.
 
-Son los dos primeros peldaños de una escalera más larga —`Classic → SAPI Worker → PSR Worker → Async`— en la que cada escalón le da a PHP más control sobre el ciclo de vida de la petición. Por ahora solo están disponibles los dos primeros; [Modos de ejecución](/es/docs/execution-modes) explica la escalera entera y cómo saber hasta qué peldaño llega de verdad tu aplicación.
+Son los dos primeros peldaños de una escalera más larga —`Classic → SAPI Worker → PSR Worker → Async`— en la que cada escalón le da a PHP más control sobre el ciclo de vida de la petición. Por ahora solo están disponibles los dos primeros; [Modos de ejecución](/es/docs/execution-modes) explica la escalera entera y cómo saber qué peldaño puede usar tu aplicación.
 
 ::: tip
-Hasta dónde sube una aplicación depende de la propia aplicación, no de un límite que imponga Rapira. Si tienes estado global que no sobrevive a una segunda petición, te quedas en Classic: eso lo dice tu código, y tiene arreglo.
+El peldaño que puede usar una aplicación depende de la propia aplicación, no de un límite que imponga Rapira. Si tienes estado global que no sobrevive a una segunda petición, te quedas en Classic: es una limitación de tu código, y tiene arreglo.
 :::
 
 ## Por dónde seguir

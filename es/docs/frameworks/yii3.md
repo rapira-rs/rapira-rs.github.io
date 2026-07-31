@@ -84,7 +84,7 @@ Vamos por partes:
 
 **En cada petición: `run()` y después `reset()`.** `run()` es la misma llamada que hace el front controller; `reset()` recorre los callbacks de reinicio registrados en el contenedor y devuelve los servicios con estado a su punto de partida antes de que llegue la petición siguiente.
 
-**Un runner residente sigue viendo cada petición nueva.** Esto despista a mucha gente, así que mejor decirlo claro: `run()` no captura la petición al construirse. En cada llamada le pide al contenedor un `RequestFactory` y construye un `ServerRequest` PSR-7 nuevo a partir de `$_SERVER`, `$_GET`, `$_POST`, `$_COOKIE`, `$_FILES` y `php://input`, y Rapira vuelve a rellenar esas superglobales antes de cada vuelta del bucle (ese contrato lo cubre [Modo worker](/es/docs/worker)). Objetos residentes, petición nueva, siempre.
+**Un runner residente sigue viendo cada petición nueva.** Esto despista a mucha gente, así que mejor decirlo claro: `run()` no captura la petición al construirse. En cada llamada le pide al contenedor un `RequestFactory` y construye un `ServerRequest` PSR-7 nuevo a partir de `$_SERVER`, `$_GET`, `$_POST`, `$_COOKIE`, `$_FILES` y `php://input`, y Rapira vuelve a rellenar esas superglobales antes de cada iteración del bucle (ese contrato lo cubre [Modo worker](/es/docs/worker)). Objetos residentes, petición nueva, siempre.
 
 **La memoria se mantiene plana.** A lo largo de 200 peticiones seguidas, el conjunto residente del worker no creció de forma apreciable: la aplicación se construye una vez y el reinicio es barato, así que no hay ningún arranque por petición que después haya que recoger. Esa es la ventaja práctica de este patrón frente al siguiente.
 
@@ -126,9 +126,9 @@ while ($http->handleRequest($handler)) {
 
 Menos piezas móviles, ningún reinicio que puedas hacer mal y ninguna posibilidad de que el estado se filtre de una petición a la siguiente: el contenedor se reconstruye cada vez. Esta variante también pasó la batería completa.
 
-El precio es el que es, y por eso este es el *segundo* patrón de la página: arrancas el contenedor en cada petición, así que pagas ese arranque cada vez y generas la basura de un contenedor entero cada vez. La memoria del worker va creciendo según se acumulan esos contenedores hasta que PHP los libera de golpe, que es el perfil normal de un arranque por petición y no una fuga, pero es un perfil al que conviene ponerle un tope. Combina este patrón con `pool.max_requests` para que cada worker se jubile y lo reemplacen cada cierto tiempo; los perfiles de memoria están en la [guía general de frameworks](/es/docs/frameworks/) y la clave, documentada en [Configuración](/es/docs/configuration).
+Este patrón tiene un coste, y por eso va el *segundo* en la página: arrancas el contenedor en cada petición, así que pagas ese arranque cada vez y generas la basura de un contenedor entero cada vez. La memoria del worker va creciendo según se acumulan esos contenedores hasta que PHP los libera de golpe, que es el perfil normal de un arranque por petición y no una fuga, pero es un perfil al que conviene ponerle un tope. Combina este patrón con `pool.max_requests` para que cada worker termine y sea reemplazado cada cierto tiempo; los perfiles de memoria están en la [guía general de frameworks](/es/docs/frameworks/) y la clave, documentada en [Configuración](/es/docs/configuration).
 
-El autoloader y el arranque de la plantilla siguen siendo residentes, y el bucle sigue siendo tuyo: esto es un worker que decide tirar su aplicación entre peticiones, no [modo clásico](/es/docs/classic).
+El autoloader y el arranque de la plantilla siguen siendo residentes, y el bucle sigue siendo tuyo: esto sigue siendo un worker, solo que descarta su aplicación entre peticiones, no [modo clásico](/es/docs/classic).
 
 ## Cómo ejecutarlo
 
@@ -165,17 +165,17 @@ Los dos patrones pasaron la misma batería de pruebas contra la plantilla `yiiso
 
 **Las URL generadas salen limpias.** `UrlGeneratorInterface::generate()` produjo rutas normales de la aplicación: el nombre del script de worker no se cuela en ellas.
 
-**Las sesiones son de cada petición y están bien aisladas.** Un cliente que guardaba sus cookies vio su contador pasar de 1 a 2 entre peticiones; otro cliente recién llegado al mismo endpoint justo después estrenó sesión y volvió a empezar en 1. Eso se cumple también en el patrón residente, donde el contenedor sobrevive.
+**Las sesiones son de cada petición y están bien aisladas.** Un cliente que guardaba sus cookies vio su contador pasar de 1 a 2 entre peticiones; otro cliente que llegó justo después al mismo endpoint obtuvo una sesión nueva que volvía a empezar en 1. Eso se cumple también en el patrón residente, donde el contenedor sobrevive.
 
 **Llegan los envíos de formulario, los cuerpos JSON y las subidas de archivos.** Campos en `$_POST`, un payload JSON leído de `php://input` y una subida multipart con su archivo temporal legible durante la petición: el `ServerRequest` PSR-7 que yii-runner-http construye a partir de las superglobales lo lleva todo.
 
-**Una excepción lanzada es un 500, y el worker sigue sirviendo.** A una acción que lanza la recoge `ErrorCatcher`, que renderiza la respuesta de error igual que lo haría en cualquier otro sitio; la excepción queda registrada y la petición siguiente la atiende con normalidad ese mismo proceso worker. En Rapira una excepción sin capturar es un fallo de la petición, no del worker: en [Modo worker](/es/docs/worker) tienes qué se lleva por delante a un worker y qué no.
+**Una excepción lanzada es un 500, y el worker sigue sirviendo.** A una acción que lanza la recoge `ErrorCatcher`, que renderiza la respuesta de error igual que lo haría en cualquier otro sitio; la excepción queda registrada y la petición siguiente la atiende con normalidad ese mismo proceso worker. En Rapira una excepción sin capturar es un fallo de la petición, no del worker: en [Modo worker](/es/docs/worker) tienes qué provoca la caída de un worker y qué no.
 
 ## El CSRF sigue activo
 
-La plantilla de la aplicación mete `CsrfTokenMiddleware` en su cadena de middleware por defecto, y el token vive en la sesión, que es justo el estado que sí ejercitó la batería: por petición y aislado por cliente. Nada del bucle del worker toca el flujo del token, así que aquí un POST necesita el suyo igual que en cualquier otro sitio. Si tus envíos empiezan a rebotar después de pasarte a un worker, lo primero que hay que mirar es el token, y el arreglo es el de siempre —renderizar el token en el formulario y devolverlo—, no un cambio en el script de worker.
+La plantilla de la aplicación mete `CsrfTokenMiddleware` en su cadena de middleware por defecto, y el token vive en la sesión, que es justo el estado que sí ejercitó la batería: por petición y aislado por cliente. Nada del bucle del worker toca el flujo del token, así que aquí un POST necesita el suyo igual que en cualquier otro sitio. Si tus POST empiezan a ser rechazados después de pasarte a un worker, lo primero que hay que mirar es el token, y el arreglo es el de siempre —renderizar el token en el formulario y devolverlo—, no un cambio en el script de worker.
 
-## La salida de emergencia: el modo clásico
+## El modo clásico como alternativa
 
 Si ahora mismo un worker no es lo que quieres, Yii3 funciona perfectamente como front controller de toda la vida:
 
@@ -188,11 +188,11 @@ El mismo código, sin script de worker y con estado limpio en cada petición: en
 Una curiosidad por si abres ese archivo: el `public/index.php` de la plantilla tiene una rama `PHP_SAPI === 'cli-server'` que sirve archivos estáticos y reescribe `SCRIPT_NAME`. Está ahí por el servidor de desarrollo que trae PHP y bajo Rapira sencillamente no se activa nunca, porque `PHP_SAPI` vale `rapira` (`fastcgi` en PHP 8.4 — ver [Instalación](/es/docs/installation)). Déjala como está: aquí no hace nada.
 
 ::: question ¿Qué patrón elijo?
-El residente, salvo que tengas un motivo para no hacerlo. Es el diseño de larga vida que propone el propio framework, mantiene la memoria plana y el reinicio es una sola llamada. Tira del runner por petición cuando tu arranque tenga restricciones de orden sobre las que prefieras no pensar: código que debe ejecutarse antes de que se construya el contenedor, o trabajo de arranque por petición que un callback de `StateResetter` no puede deshacer. Puedes empezar ahí y subir más adelante; lo único que cambia es el script de worker.
+El residente, salvo que tengas un motivo para no hacerlo. Es el diseño de larga vida que propone el propio framework, mantiene la memoria plana y el reinicio es una sola llamada. Usa el runner por petición cuando tu arranque tenga restricciones de orden sobre las que prefieras no pensar: código que debe ejecutarse antes de que se construya el contenedor, o trabajo de arranque por petición que un callback de `StateResetter` no puede deshacer. Puedes empezar por ahí y cambiar más adelante; lo único que cambia es el script de worker.
 :::
 
 ::: question En el patrón residente, ¿`checkEvents` y el resto del arranque se vuelven a ejecutar en cada petición?
-Sí: `run()` repite su secuencia interna en cada llamada — registrar el manejador de errores, `runBootstrap()`, `checkEvents()` y, por fin, atender la petición. Se comprobó que es inofensivo durante 200 llamadas seguidas; el runner es reentrante por diseño. La comprobación de eventos, en concreto, solo hace algo cuando su flag está activo, y en la plantilla ese flag es `Environment::appDebug()`: con el modo debug apagado, no hace nada en ninguna llamada.
+Sí: `run()` repite su secuencia interna en cada llamada — registrar el manejador de errores, `runBootstrap()`, `checkEvents()` y, por último, atender la petición. Se comprobó que es inofensivo durante 200 llamadas seguidas; el runner es reentrante por diseño. La comprobación de eventos, en concreto, solo hace algo cuando su flag está activo, y en la plantilla ese flag es `Environment::appDebug()`: con el modo debug apagado, no hace nada en ninguna llamada.
 :::
 
 ::: question ¿Sigo necesitando `public/index.php`?

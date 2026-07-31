@@ -5,13 +5,13 @@ description: Cuándo y cómo compilar Rapira tú mismo — las herramientas de R
 
 # Compilar desde el código
 
-Casi nadie necesita esta página: coges un binario ya compilado de [Instalación](/es/docs/installation) y listo. Compilar Rapira por tu cuenta es para los casos que no cubren los artefactos publicados, y no tiene mucho misterio: el único ingrediente realmente nuevo es un PHP que Rapira pueda incrustar. Rapira se compila en Linux y macOS.
+Casi nadie necesita esta página: coges un binario ya compilado de [Instalación](/es/docs/installation) y listo. Compilar Rapira por tu cuenta es para los casos que no cubren los artefactos publicados, y no es complicado: el único requisito nuevo es un PHP que Rapira pueda incrustar. Rapira se compila en Linux y macOS.
 
 ## Cuándo lo necesitas
 
 - **No hay binario para tu plataforma**: una arquitectura de CPU poco habitual, o una distro basada en musl como Alpine.
 - **Tu distribución es más antigua de lo que admiten los paquetes.** Las releases se compilan contra glibc 2.34, así que Debian 12, Ubuntu 22.04 y RHEL 9 son las versiones más antiguas donde llegan a instalarse (lo tienes en [Instalación](/es/docs/installation)).
-- **Necesitas otro conjunto de extensiones de PHP.** Las compilaciones de release incluyen un PHP construido con la lista de flags de [`ci/php-configure-flags.txt`](https://github.com/rapira-rs/rapira/blob/main/ci/php-configure-flags.txt), que es corta a propósito: session, mbstring, OPcache, OpenSSL, curl, la familia XML y PDO con SQLite. Si tu aplicación quiere `pdo_mysql`, `intl` o `gd`, compila Rapira contra un PHP que las traiga.
+- **Necesitas otro conjunto de extensiones de PHP.** Las compilaciones de release incluyen un PHP construido con la lista de flags de [`ci/php-configure-flags.txt`](https://github.com/rapira-rs/rapira/blob/main/ci/php-configure-flags.txt), que es corta a propósito: session, mbstring, OPcache, OpenSSL, curl, la familia XML y PDO con SQLite. Si tu aplicación necesita `pdo_mysql`, `intl` o `gd`, compila Rapira contra un PHP que las traiga.
 - **Estás trabajando en el propio Rapira**, o quieres algo que todavía no se ha publicado.
 
 ## Las herramientas
@@ -92,7 +92,7 @@ PHP_CONFIG=$HOME/.local/php-nts/bin/php-config cargo build --release
 ```
 
 ::: tip
-`make test` ejecuta las suites de tests y se encarga por ti del baile de rutas de bibliotecas: busca la biblioteca embed bajo el prefijo de `php-config` (`lib`, `lib64`, `lib/phpXX`, con el nombre a secas o con versión) y la normaliza al nombre a secas que quiere el enlazador. Es una buena forma de comprobar que todo el montaje funciona antes de fiarte de tu compilación.
+`make test` ejecuta las suites de tests y resuelve por ti las rutas de las bibliotecas: busca la biblioteca embed bajo el prefijo de `php-config` (`lib`, `lib64`, `lib/phpXX`, con el nombre a secas o con versión) y la normaliza al nombre a secas que quiere el enlazador. Es una buena forma de comprobar que todo el montaje funciona antes de fiarte de tu compilación.
 :::
 
 ## Ejecutar el binario que has compilado
@@ -104,7 +104,7 @@ LD_LIBRARY_PATH=$HOME/.local/php-nts/lib ./target/release/rapira serve worker.ph
 DYLD_LIBRARY_PATH=$HOME/.local/php-nts/lib ./target/release/rapira serve worker.php   # macOS
 ```
 
-A partir de aquí es el mismo servidor que instalan los paquetes: [Inicio rápido](/es/docs/quickstart) te lleva de la mano por un primer script, [CLI](/es/docs/cli) enumera lo que acepta `serve` y [Configuración](/es/docs/configuration) cubre `rapira.toml`.
+A partir de aquí es el mismo servidor que instalan los paquetes: [Inicio rápido](/es/docs/quickstart) te guía por un primer script, [CLI](/es/docs/cli) enumera lo que acepta `serve` y [Configuración](/es/docs/configuration) cubre `rapira.toml`.
 
 ::: question ¿Tengo que compilar también PHP desde el código?
 Solo si tu distribución no tiene paquete embed, si estás en macOS o si necesitas extensiones que la compilación empaquetada no trae. En los demás casos basta con el paquete `php-embed` / `libphpX.Y-embed` de la distro, más el symlink `libphp.so` a secas en Debian y Ubuntu.

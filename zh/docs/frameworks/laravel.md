@@ -1,11 +1,11 @@
 ---
 title: Laravel
-description: 在 Rapira 上跑 Laravel——常驻 worker 里每个请求重建一个全新的应用、随之而来的内存表现，以及 Octane 支持的真实状况。
+description: 在 Rapira 上跑 Laravel——常驻 worker 里每个请求重建一个全新的应用、随之而来的内存表现，以及 Octane 支持的现状。
 ---
 
 # Laravel
 
-Rapira 能跑 Laravel，跑法是**在一个跨请求常驻的 PHP 进程里，为每个请求重建一个全新的应用**。这个说法有意收着讲，也值得摆在最前面而不是藏起来：常驻的是 worker，不是框架。
+Rapira 能跑 Laravel，跑法是**在一个跨请求常驻的 PHP 进程里，为每个请求重建一个全新的应用**。这个说法是有意收窄的：常驻的是 worker，不是框架。
 
 ::: info 验证环境
 - **PHP 8.5.8**——NTS，embed SAPI
@@ -17,15 +17,15 @@ Rapira 能跑 Laravel，跑法是**在一个跨请求常驻的 PHP 进程里，�
 
 ## 为什么每个请求都要重建应用
 
-Laravel 的容器天生就没打算在没人帮忙的情况下活过第二个请求。绑定被解析出来，单例攥住了当前请求，框架自己的静态属性随着请求跑起来越积越多——这一切都得在下一个请求到来之前拆干净。干这件事的东西有个名字：**Octane**。Rapira 今天还没有 Octane driver，本指南也不打算冒充一个。它给你的，是那个真正验证过能跑的写法：在 handler 里启动框架，应答请求，然后把应用扔掉。
+Laravel 的容器在设计上就没考虑在没人帮忙的情况下活过第二个请求。绑定被解析出来，单例捕获了当前请求，框架自己的静态属性随着请求跑起来越积越多——这一切都得在下一个请求到来之前拆干净。做这件事的是 **Octane**。Rapira 今天还没有 Octane driver，本指南也不是它的替代品。它给你的，是那个真正验证过能跑的写法：在 handler 里启动框架，应答请求，然后把应用扔掉。
 
 比起 php-fpm 你还是赚的，只是没有常驻容器赚得那么多：
 
-- **没有 FastCGI 这一跳。**PHP 嵌在 Rapira 进程里，服务器直接调用解释器——没有 socket，没有协议，也没有第二个守护进程等着接手请求；应答你的那个 worker，就是攥着解释器的那个进程。
-- **进程是长命的。**你的 worker 脚本只跑一次。Composer 自动加载器和它的 classmap 在启动时注册一次，不像前端控制器那样每个请求都重新注册一遍。
+- **没有 FastCGI 这一跳。**PHP 嵌在 Rapira 进程里，服务器直接调用解释器——没有 socket，没有协议，也没有第二个守护进程等着接手请求；应答你的那个 worker，就是持有解释器的那个进程。
+- **进程是长期存活的。**你的 worker 脚本只跑一次。Composer 自动加载器和它的 classmap 在启动时注册一次，不像前端控制器那样每个请求都重新注册一遍。
 - **OPcache 是热的，而且共享。**PHP 只在 master 里启动一次，早于任何 worker 被 fork 出来，所以每个 worker 继承的都是同一份编译后脚本缓存——你的代码和你的 `vendor/` 树都在里面。`config:cache` / `route:cache` 生成的文件同样只编译一次，每个请求重新执行它们并不会重新解析。这两条 artisan 缓存命令在这个写法下都验证过可用。
 
-要是这笔交易你不想做，本页末尾的[经典模式这条退路](#退路-经典模式)压根不需要 worker 脚本。
+要是这笔交易你不想做，本页末尾的[经典模式这个替代方案](#经典模式作为替代方案)压根不需要 worker 脚本。
 
 ## 开始之前
 
@@ -85,9 +85,9 @@ while ($http->handleRequest($handler)) {
 
 ## 内存，以及它为什么呈锯齿状
 
-每个请求重建一个应用，也就意味着每个请求扔掉一个，随之而来的那条内存曲线——是锯齿，不是泄漏，而且 `gc_collect_cycles()` 抹不平它——[框架集成总览](/zh/docs/frameworks/)里讲得很完整。这行调用之所以留在本页的循环里，是因为它对付其余的垃圾是个好习惯，不是因为它能治锯齿。
+每个请求重建一个应用，也就意味着每个请求扔掉一个，随之而来的那条内存曲线——是锯齿，不是泄漏，而且 `gc_collect_cycles()` 无法消除它——[框架集成总览](/zh/docs/frameworks/)里讲得很完整。这行调用之所以留在本页的循环里，是因为它对其余的垃圾回收有效，不是因为它能消除锯齿。
 
-由此带来的两条后果，在 Laravel 上不是可选项。第一，给 `memory_limit` 留出真正的余量——要装下的是锯齿的峰值，而 PHP 的默认值对这个写法来说并不宽裕。第二，设上 `pool.max_requests = 100`——给这条上升曲线封顶的正是回收，它在横跨若干次回收、几百个顺序请求里验证过，交接毫无破绽；这是 Laravel 跑在 Rapira 上的推荐生产配置，不是留着以后再考虑的优化项。
+由此带来的两条后果，在 Laravel 上不是可选项。第一，给 `memory_limit` 留出真正的余量——要装下的是锯齿的峰值，而 PHP 的默认值对这个写法来说并不宽裕。第二，设上 `pool.max_requests = 100`——限制这一增长的正是回收，它在横跨若干次回收、几百个顺序请求里验证过，交接毫无破绽；这是 Laravel 跑在 Rapira 上的推荐生产配置，不是留着以后再考虑的优化项。
 
 ::: warning 不要调用 `HandleExceptions::flushState()`
 它看上去正是那个该调的清理函数，而在 Rapira 下它会把你的 worker 干掉。`Illuminate\Foundation\Bootstrap\HandleExceptions::flushState()` 对 PHPUnit 的错误处理器做了特殊处理，只要装了 `phpunit`——每个骨架都装了，它是默认的开发依赖——它就会抛异常（`PHPUnit\TextUI\Configuration\Registry::get(): … null returned`）。要是按别的服务器那些教程说的，把它放进循环体、在两次请求之间调用，异常就会冲出循环，worker 脚本当场死掉，Rapira 把这个 worker 标记为不健康，客户端拿到一串 `503`。这是踩过坑验证出来的。别写它。
@@ -128,7 +128,7 @@ php artisan route:cache
 
 ## 路由与 URL
 
-所有 URL 都由 Rapira 跑同一个入口脚本，所以在这个 worker 下 `$_SERVER['SCRIPT_NAME']` 是 `/worker.php` 而不是 `/index.php`。Laravel 完全不在意：路径照样正确解析，没匹配上的路径拿到的是 Laravel 自己的 404 页面，`url()` 生成的绝对 URL 也很干净——协议、主机、路径，里面哪儿都没有 `worker.php`。**不需要覆盖 `$_SERVER`，也不需要改任何路由或 URL 配置**；这一点是专门验过的，因为在那些把 URL 映射成文件的服务器上，这是最先坏掉的地方。
+所有 URL 都由 Rapira 跑同一个入口脚本，所以在这个 worker 下 `$_SERVER['SCRIPT_NAME']` 是 `/worker.php` 而不是 `/index.php`。这对 Laravel 没有影响：路径照样正确解析，没匹配上的路径拿到的是 Laravel 自己的 404 页面，`url()` 生成的绝对 URL 也很干净——协议、主机、路径，里面哪儿都没有 `worker.php`。**不需要覆盖 `$_SERVER`，也不需要改任何路由或 URL 配置**；这一点是专门验过的，因为在那些把 URL 映射成文件的服务器上，这是最先坏掉的地方。
 
 骨架自带的 `/up` 健康检查路由照常返回 `200`，拿它给负载均衡器或者容器健康检查当探测目标，最合适不过。
 
@@ -140,7 +140,7 @@ Session 是按请求走的，用文件驱动验证过：session cookie 发得出
 
 表单提交、JSON 请求体和文件上传，都是在同一个 worker 上验证的。而当某条路由抛出异常时，Laravel 的异常处理器照常渲染 `500`——失败被圈在这个请求里，worker 接着服务下一个。
 
-## 退路：经典模式
+## 经典模式作为替代方案
 
 要是你压根不想维护一个 worker 脚本，那就别维护：
 
@@ -148,14 +148,14 @@ Session 是按请求走的，用文件驱动验证过：session cookie 发得出
 rapira serve --classic public/index.php
 ```
 
-这是零改动的那条路。Rapira 会像 php-fpm 那样，每个请求都把你现成的前端控制器从头跑一遍，应用根本察觉不到区别。你放弃的是常驻进程——自动加载器又变成每个请求注册一次，和今天一样——换来的是可以直接顶替 php-fpm，外加共享的 OPcache。完整的说法见[经典模式](/zh/docs/classic)，这两级在阶梯上各处什么位置，见[执行模式](/zh/docs/execution-modes)。
+这是零改动的方案。Rapira 会像 php-fpm 那样，每个请求都把你现成的前端控制器从头跑一遍，应用根本察觉不到区别。你放弃的是常驻进程——自动加载器又变成每个请求注册一次，和今天一样——换来的是可以直接顶替 php-fpm，外加共享的 OPcache。完整的说法见[经典模式](/zh/docs/classic)，这两级在阶梯上各处什么位置，见[执行模式](/zh/docs/execution-modes)。
 
 ::: question Rapira 什么时候支持 Octane？
-今天还没有 Octane driver，本指南宁愿把这话说明白，也不想端出一个半成品。卡住的不是执行级别——Symfony 和 Yii3 就在 Laravel 这里所在的同一级 SAPI Worker 上把应用常驻着（各级分别是什么意思，见[执行模式](/zh/docs/execution-modes)）。Laravel 缺的是 Octane 那套两次请求之间的状态拆解，而那是一个得有人去写的 driver。在此之前，常驻 worker 里每个请求一个全新应用，才是真正验证过能跑的做法，本页写的也就是它。
+今天还没有 Octane driver，也不会拿一个半成品来顶替。卡住的不是执行级别——Symfony 和 Yii3 就在 Laravel 这里所在的同一级 SAPI Worker 上把应用常驻着（各级分别是什么意思，见[执行模式](/zh/docs/execution-modes)）。Laravel 缺的是 Octane 那套两次请求之间的状态拆解，而那是一个得有人去写的 driver。在此之前，常驻 worker 里每个请求一个全新应用，才是真正验证过能跑的做法，本页写的也就是它。
 :::
 
 ::: question 我自己把 `$app` 留着常驻不行吗？
-因为那等于要你手搓一遍 Octane 的沙箱。两次请求之间要拆掉的状态，散落在容器、已解析的单例、request/session/auth 这一整条链路，以及框架自己的静态属性里——Octane 之所以存在，正是因为把它们收齐很麻烦，而漏掉一个之后的故障又都很隐蔽：一个过期的 request 对象、上一个用户的 session 被下一个人看见、被某个请求改掉却再没还原的配置。这件事我们不会只写个半成品出来。真正被我们追到底的那个坑，就在上面的内存那一节：`HandleExceptions::flushState()` 看着像是答案的一部分，实际上会把 worker 弄死。
+因为那等于要你手工重建一遍 Octane 的沙箱。两次请求之间要拆掉的状态，散落在容器、已解析的单例、request/session/auth 这一整条链路，以及框架自己的静态属性里——Octane 之所以存在，正是因为把它们收齐很麻烦，而漏掉一个之后的故障又都很隐蔽：一个过期的 request 对象、上一个用户的 session 被下一个人看见、被某个请求改掉却再没还原的配置。这件事我们不会只写个半成品出来。我们唯一彻底查清的那个问题，就在上面的内存那一节：`HandleExceptions::flushState()` 看着像是答案的一部分，实际上会导致 worker 崩溃。
 :::
 
 ::: question 一定要调 `memory_limit` 吗？

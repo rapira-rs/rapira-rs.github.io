@@ -15,11 +15,11 @@ Każdy plik do pobrania ma w nazwie `php8.4` albo `php8.5`, a ta etykieta opisuj
 
 Jedyny wybór, jaki przed Tobą stoi, to wersja, na której ma działać aplikacja: **8.4** albo **8.5**. Wybierz 8.5, chyba że coś w Twoim stosie wciąż trzyma Cię przy 8.4.
 
-Pakiety deb i rpm biorą to dosłownie. `rapira-php8.4` i `rapira-php8.5` instalują dokładnie te same ścieżki, więc oba deklarują `provides`, `conflicts` i `replaces` na wirtualnym pakiecie `rapira`: wykluczają się wzajemnie, a instalacja jednego zajmuje miejsce drugiego, zamiast dokładać się obok. Tak samo zmienia się wersję PHP — zainstaluj ten drugi pakiet, a menedżer pakietów sam dokona podmiany.
+Pakiety deb i rpm to wymuszają. `rapira-php8.4` i `rapira-php8.5` instalują dokładnie te same ścieżki, więc oba deklarują `provides`, `conflicts` i `replaces` na wirtualnym pakiecie `rapira`: wykluczają się wzajemnie, a instalacja jednego zajmuje miejsce drugiego, zamiast dokładać się obok. Tak samo zmienia się wersję PHP — zainstaluj ten drugi pakiet, a menedżer pakietów sam dokona podmiany.
 
 ## Który plik pobrać
 
-Wszystko leży na [stronie wydań na GitHubie](https://github.com/rapira-rs/rapira/releases). Wydanie `v0.6.0` publikuje poniższe pliki, a każda nazwa z `php8.5` ma swojego bliźniaka z `php8.4`:
+Wszystko leży na [stronie wydań na GitHubie](https://github.com/rapira-rs/rapira/releases). Wydanie `v0.6.0` publikuje poniższe pliki, a każda nazwa z `php8.5` ma swój odpowiednik z `php8.4`:
 
 | Platforma                           | Artefakt                                     |
 | ----------------------------------- | -------------------------------------------- |
@@ -58,7 +58,7 @@ sudo dnf install ./rapira-php8.5-0.6.0-1.x86_64.rpm
 rapira --version
 ```
 
-Ten sam próg glibc 2.34 ustawia poprzeczkę na **RHEL 9** i jego pochodne — Rocky 9, AlmaLinux 9 — oraz dowolną aktualną Fedorę.
+Ten sam próg glibc 2.34 ustawia minimum na **RHEL 9** i jego pochodne — Rocky 9, AlmaLinux 9 — oraz dowolną aktualną Fedorę.
 
 ## Archiwa tar, na Linuksie i macOS
 
@@ -154,7 +154,7 @@ Pisząc ten plik, warto znać jeden szczegół: PHP szuka `php-<sapi-name>.ini` 
 
 Z GitHub Releases i tylko stamtąd — repozytorium apt ani yum jeszcze nie ma, więc aktualizacja polega na pobraniu nowego artefaktu i zainstalowaniu go na starym, a nie na uruchomieniu `apt upgrade`.
 
-Build dla macOS działa **wyłącznie na Apple Silicon**, celuje w **macOS 14 i nowsze** i jest podpisany doraźnie: bez Developer ID, bez notaryzacji, więc przy pierwszym uruchomieniu macOS może poprosić o potwierdzenie. Wersji na Intela nie ma. Wersji na Windows też nie — Rapira to Linux i macOS.
+Build dla macOS działa **wyłącznie na Apple Silicon**, celuje w **macOS 14 i nowsze** i jest podpisany doraźnie: bez Developer ID, bez notaryzacji, więc przy pierwszym uruchomieniu macOS może poprosić o potwierdzenie. Wersji na Intela nie ma. Wersji na Windows też nie — Rapira działa tylko na Linuksie i macOS.
 
 Gdy plik wykonywalny jest już na miejscu, [Szybki start](/pl/docs/quickstart) doprowadzi Cię do pierwszego obsłużonego żądania w jakąś minutę.
 

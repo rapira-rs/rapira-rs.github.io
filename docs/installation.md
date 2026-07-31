@@ -15,11 +15,11 @@ Every download is labelled `php8.4` or `php8.5`, and that label describes the PH
 
 So the only choice you make is which minor version you want your application to run on: **8.4** or **8.5**. Pick 8.5 unless something in your stack still holds you to 8.4.
 
-The deb and rpm packages take that literally. `rapira-php8.4` and `rapira-php8.5` install the exact same paths, so both declare `provides`, `conflicts` and `replaces` on a virtual `rapira` package: they are mutually exclusive, and installing one takes the place of the other instead of landing beside it. That is also how you switch PHP versions — install the other package, and the package manager does the swap.
+The deb and rpm packages enforce that. `rapira-php8.4` and `rapira-php8.5` install the exact same paths, so both declare `provides`, `conflicts` and `replaces` on a virtual `rapira` package: they are mutually exclusive, and installing one takes the place of the other instead of landing beside it. That is also how you switch PHP versions — install the other package, and the package manager does the swap.
 
 ## Which file to download
 
-Everything lives on the [GitHub releases page](https://github.com/rapira-rs/rapira/releases). Release `v0.6.0` publishes these, with a `php8.4` twin of every `php8.5` name below:
+Everything lives on the [GitHub releases page](https://github.com/rapira-rs/rapira/releases). Release `v0.6.0` publishes these, with a `php8.4` counterpart of every `php8.5` name below:
 
 | Platform                            | Artifact                                     |
 | ----------------------------------- | -------------------------------------------- |
@@ -136,7 +136,7 @@ Each release picks up the newest patch version of the branch it builds. The tarb
 On PHP 8.4 the SAPI registers itself as `fastcgi`, because OPcache on that version only starts for a fixed list of SAPI names and an unlisted one means no shared opcode cache at all. PHP 8.5 dropped that list, so there `PHP_SAPI` and `php_sapi_name()` report `rapira`. The *Server API* row in `phpinfo()` reads `Rapira` on both. Code that branches on `PHP_SAPI` should recognise either value.
 :::
 
-What is *not* in the box: `pdo_mysql`, `pgsql`, redis, apcu, imagick, and everything else in that family. If your application needs one, the release artifacts can't help — build PHP with the extensions you want and compile Rapira against it, which [Build from source](/docs/build-from-source) walks through end to end.
+What is *not* included: `pdo_mysql`, `pgsql`, redis, apcu, imagick, and everything else in that family. If your application needs one, the release artifacts can't help — build PHP with the extensions you want and compile Rapira against it, which [Build from source](/docs/build-from-source) walks through end to end.
 
 ## No php.ini is shipped
 
@@ -154,7 +154,7 @@ One detail is worth knowing when you write that file: PHP looks for `php-<sapi-n
 
 GitHub Releases, and only GitHub Releases — there is no apt or yum repository yet, so upgrading means downloading the new artifact and installing it over the old one rather than running `apt upgrade`.
 
-The macOS build is **Apple Silicon only**, targets **macOS 14 and newer**, and is ad-hoc signed: no Developer ID, no notarization, so macOS may want you to confirm the first run. There is no Intel build. There is no Windows build either — Rapira is Linux and macOS.
+The macOS build is **Apple Silicon only**, targets **macOS 14 and newer**, and is ad-hoc signed: no Developer ID, no notarization, so macOS may ask you to confirm the first run. There is no Intel build. There is no Windows build either — Rapira runs on Linux and macOS only.
 
 With the binary in place, [Quickstart](/docs/quickstart) gets a request served in about a minute.
 

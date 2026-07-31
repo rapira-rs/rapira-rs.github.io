@@ -13,7 +13,7 @@ rapira serve [OPTIONS] [SCRIPT]
 
 `serve` is what boots the server: it starts PHP, registers the built-in extensions and begins answering requests. Running bare `rapira` with no arguments prints the help and exits, and `rapira serve --help` lists the options below straight from the binary. `rapira --version` tells you which build you have.
 
-You never *have* to write a config file. A single command with a script path is a complete, working server — the config file is there for the day you outgrow flags.
+You never *have* to write a config file. A single command with a script path is a complete, working server — the config file is there for when the flags are not enough.
 
 ## How settings layer
 
@@ -43,10 +43,10 @@ Anything you don't set at all falls through to the defaults in the table below. 
 
 **`--processes`** defaults to the number of logical CPUs. Under the default static pool that is exactly how many worker processes get forked; when the config file switches the pool to `dynamic` or `ondemand`, the same number becomes the ceiling those modes scale up to. See [Process model](/docs/process-model) for what the workers and the master actually do.
 
-**`--classic`** picks the rung the app runs on. Without it the entry script is loaded once and stays resident, which is the [SAPI Worker](/docs/worker) rung; with it, the script is re-included per request exactly as it would be under php-fpm, which is the [Classic](/docs/classic) rung. If you are not sure which one your application can use, [Execution modes](/docs/execution-modes) walks through the ladder.
+**`--classic`** picks the rung the app runs on. Without it the entry script is loaded once and stays resident, which is the [SAPI Worker](/docs/worker) rung; with it, the script is re-included per request exactly as it would be under php-fpm, which is the [Classic](/docs/classic) rung. If you are not sure which one your application can use, [Execution modes](/docs/execution-modes) describes all four modes.
 
 ::: info
-`--classic` is a switch that only turns on. There is no `--no-classic`, so a config file with `classic = true` cannot be talked out of it from the command line — remove the key from the file instead.
+`--classic` is a switch that only turns on. There is no `--no-classic`, so `classic = true` in a config file cannot be turned off from the command line — remove the key from the file instead.
 :::
 
 ## Where the entry script comes from
@@ -56,14 +56,14 @@ The script can be given twice — as the positional `SCRIPT` argument or as `poo
 The two relative forms resolve against different bases, and that difference is deliberate:
 
 - A relative `SCRIPT` on the command line resolves against **the current directory** — you typed it in a shell that is already somewhere, so that is the base you mean.
-- A relative `pool.entrypoint` resolves against **the config file's own directory** — so a config file and the application next to it can be moved, copied or mounted anywhere as a unit and still find each other.
+- A relative `pool.entrypoint` resolves against **the config file's own directory** — so a config file and the application next to it can be moved, copied or mounted anywhere as a unit and the path still resolves.
 
 ```toml
 [pool]
 entrypoint = "public/index.php"
 ```
 
-With that in `/etc/rapira/rapira.toml`, the entry script is `/etc/rapira/public/index.php` — regardless of where you happened to be standing when you ran the command.
+With that in `/etc/rapira/rapira.toml`, the entry script is `/etc/rapira/public/index.php` — regardless of the current directory you ran the command from.
 
 ## Examples
 
@@ -78,7 +78,7 @@ rapira serve --config /etc/rapira/rapira.toml
 rapira serve --config /etc/rapira/rapira.toml --listen 127.0.0.1:9000
 ```
 
-The first one is essentially the whole [Quickstart](/docs/quickstart): with no `--listen` the server comes up on the default address, so knocking on it is one more line.
+The first one is essentially the whole [Quickstart](/docs/quickstart): with no `--listen` the server comes up on the default address, so one more line is enough to send it a request.
 
 ```bash
 curl http://127.0.0.1:8000/

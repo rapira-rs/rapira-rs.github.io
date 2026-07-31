@@ -84,9 +84,9 @@ Po kolei:
 
 **Na każde żądanie: `run()`, potem `reset()`.** `run()` to dokładnie to samo wywołanie, którego używa front controller; `reset()` przechodzi po zarejestrowanych w kontenerze callbackach i przywraca serwisom trzymającym stan ich pierwotną postać, zanim nadejdzie kolejne żądanie.
 
-**Rezydentny runner i tak widzi każde nowe żądanie.** To bywa zaskoczeniem, więc powiedzmy wprost: `run()` nie zapamiętuje żądania w chwili budowy obiektu. Przy każdym wywołaniu prosi kontener o `RequestFactory` i składa świeży `ServerRequest` w standardzie PSR-7 ze zmiennych `$_SERVER`, `$_GET`, `$_POST`, `$_COOKIE`, `$_FILES` i strumienia `php://input` — a te zmienne superglobalne Rapira wypełnia od nowa przed każdym obrotem pętli (umowę opisuje [Tryb workera](/pl/docs/worker)). Obiekty rezydentne, żądanie za każdym razem świeże.
+**Rezydentny runner i tak widzi każde nowe żądanie.** To bywa zaskoczeniem, więc powiedzmy wprost: `run()` nie zapamiętuje żądania w chwili budowy obiektu. Przy każdym wywołaniu prosi kontener o `RequestFactory` i składa świeży `ServerRequest` w standardzie PSR-7 ze zmiennych `$_SERVER`, `$_GET`, `$_POST`, `$_COOKIE`, `$_FILES` i strumienia `php://input` — a te zmienne superglobalne Rapira wypełnia od nowa przed każdą iteracją pętli (umowę opisuje [Tryb workera](/pl/docs/worker)). Obiekty rezydentne, żądanie za każdym razem świeże.
 
-**Pamięć trzyma płaski poziom.** Przez 200 kolejnych żądań pamięć rezydentna workera nie urosła w żaden istotny sposób — aplikacja powstaje raz, a zerowanie jest tanie, więc nie ma tu rozruchu na każde żądanie, po którym trzeba by sprzątać. To praktyczna przewaga tego wzorca nad następnym.
+**Zużycie pamięci pozostaje płaskie.** Przez 200 kolejnych żądań pamięć rezydentna workera nie urosła w żaden istotny sposób — aplikacja powstaje raz, a zerowanie jest tanie, więc nie ma tu rozruchu na każde żądanie, po którym trzeba by sprzątać. To praktyczna przewaga tego wzorca nad następnym.
 
 ## Prostsza alternatywa: nowy runner na każde żądanie
 
@@ -126,9 +126,9 @@ while ($http->handleRequest($handler)) {
 
 Mniej ruchomych części, żadnego zerowania, które można źle napisać, i zero szans na to, że stan przecieknie z jednego żądania do następnego — kontener powstaje za każdym razem od nowa. Ten wariant też przeszedł pełen zestaw testów.
 
-Cena jest uczciwa i właśnie dlatego ten wzorzec jest na stronie *drugi*: kontener podnosisz przy każdym żądaniu, więc za każdym razem płacisz za rozruch i za każdym razem produkujesz śmieci wielkości całego kontenera. Pamięć workera rośnie, bo te kontenery odkładają się, zanim PHP zwolni je hurtem — to zwykły profil rozruchu na żądanie, a nie wyciek, ale profil, któremu warto postawić granicę. Połącz ten wzorzec z `pool.max_requests`, żeby worker co jakiś czas kończył pracę i był podmieniany na świeżego; kształty zużycia pamięci opisuje [przegląd frameworków](/pl/docs/frameworks/), a sam klucz — [Konfiguracja](/pl/docs/configuration).
+Ten wzorzec ma swoją cenę i właśnie dlatego jest na stronie *drugi*: kontener podnosisz przy każdym żądaniu, więc za każdym razem płacisz za rozruch i za każdym razem produkujesz śmieci wielkości całego kontenera. Pamięć workera rośnie, bo te kontenery odkładają się, zanim PHP zwolni je hurtem — to zwykły profil rozruchu na żądanie, a nie wyciek, ale profil, któremu warto postawić granicę. Połącz ten wzorzec z `pool.max_requests`, żeby worker co jakiś czas kończył pracę i był podmieniany na świeżego; kształty zużycia pamięci opisuje [przegląd frameworków](/pl/docs/frameworks/), a sam klucz — [Konfiguracja](/pl/docs/configuration).
 
-Autoloader i bootstrap szablonu nadal zostają w pamięci, a pętla nadal należy do ciebie — to wciąż worker, tylko taki, który świadomie wyrzuca swoją aplikację między żądaniami, a nie [tryb klasyczny](/pl/docs/classic).
+Autoloader i bootstrap szablonu nadal zostają w pamięci, a pętla nadal należy do ciebie — to wciąż worker, tylko taki, który odrzuca aplikację między żądaniami, a nie [tryb klasyczny](/pl/docs/classic).
 
 ## Jak to uruchomić
 
@@ -169,13 +169,13 @@ Oba wzorce przeszły ten sam zestaw testów na szablonie `yiisoft/app`. Oto, co 
 
 **Dane z formularzy, ciała JSON i przesyłane pliki docierają na miejsce.** Pola w `$_POST`, ładunek JSON odczytany z `php://input` i plik wysłany jako multipart, z plikiem tymczasowym czytelnym w trakcie żądania — `ServerRequest` w standardzie PSR-7, który yii-runner-http składa ze zmiennych superglobalnych, niesie to wszystko.
 
-**Rzucony wyjątek to 500, a worker pracuje dalej.** Akcję, która rzuca wyjątek, przechwytuje `ErrorCatcher` i renderuje odpowiedź błędu tak samo jak wszędzie indziej; wyjątek trafia do logów, a kolejne żądanie ten sam proces workera obsługuje już normalnie. Nieprzechwycony wyjątek jest w Rapirze awarią żądania, a nie workera — co kładzie workera, a co nie, opisuje [Tryb workera](/pl/docs/worker).
+**Rzucony wyjątek to 500, a worker pracuje dalej.** Akcję, która rzuca wyjątek, przechwytuje `ErrorCatcher` i renderuje odpowiedź błędu tak samo jak wszędzie indziej; wyjątek trafia do logów, a kolejne żądanie ten sam proces workera obsługuje już normalnie. Nieprzechwycony wyjątek jest w Rapirze awarią żądania, a nie workera — co powoduje awarię workera, a co nie, opisuje [Tryb workera](/pl/docs/worker).
 
 ## Ochrona CSRF nadal działa
 
-Szablon aplikacji wstawia `CsrfTokenMiddleware` do domyślnego łańcucha middleware, a token siedzi w sesji — czyli w jedynym kawałku stanu, który testy naprawdę przećwiczyły: świeżym przy każdym żądaniu i odizolowanym per klient. Pętla workera w żaden sposób nie dotyka obiegu tokenu, więc POST potrzebuje go tutaj dokładnie tak samo jak wszędzie indziej. Jeśli po przesiadce na workera twoje POST-y zaczną wracać odrzucone, token sprawdź w pierwszej kolejności — a naprawa jest ta sama co zawsze (wyrenderuj token w formularzu, odeślij go z powrotem), nie polega na zmianie skryptu workera.
+Szablon aplikacji wstawia `CsrfTokenMiddleware` do domyślnego łańcucha middleware, a token jest trzymany w sesji — czyli w jedynym kawałku stanu, który testy naprawdę przećwiczyły: świeżym przy każdym żądaniu i odizolowanym per klient. Pętla workera w żaden sposób nie dotyka obiegu tokenu, więc POST potrzebuje go tutaj dokładnie tak samo jak wszędzie indziej. Jeśli po przejściu na workera twoje POST-y zaczną wracać odrzucone, token sprawdź w pierwszej kolejności — a naprawa jest ta sama co zawsze (wyrenderuj token w formularzu, odeślij go z powrotem), nie polega na zmianie skryptu workera.
 
-## Furtka awaryjna: tryb klasyczny
+## Tryb klasyczny jako rozwiązanie zapasowe
 
 Jeśli worker to na razie nie jest to, czego chcesz, Yii3 świetnie radzi sobie jako zwykły front controller:
 
@@ -188,11 +188,11 @@ Ten sam kod, żadnego skryptu workera, świeży stan przy każdym żądaniu — 
 Jedna ciekawostka, jeśli zajrzysz do tego pliku: `public/index.php` z szablonu ma gałąź `PHP_SAPI === 'cli-server'`, która serwuje pliki statyczne i przepisuje `SCRIPT_NAME`. Powstała z myślą o wbudowanym serwerze deweloperskim PHP i pod Rapirą po prostu nigdy się nie uruchamia, bo `PHP_SAPI` ma tu wartość `rapira` (`fastcgi` na PHP 8.4 — zobacz [Instalację](/pl/docs/installation)). Zostaw ją w spokoju; tutaj jest martwa.
 
 ::: question Który wzorzec wybrać?
-Rezydentny, chyba że masz powód, żeby tego nie robić. To rozwiązanie samego frameworka na długo żyjący proces, pamięć trzyma się płasko, a zerowanie to jedno wywołanie. Po runner tworzony na każde żądanie sięgnij wtedy, gdy twój bootstrap ma zależności kolejnościowe, nad którymi wolisz się nie zastanawiać — kod, który musi wykonać się przed zbudowaniem kontenera, albo rozruchową robotę na każde żądanie, której callback `StateResetter` nie cofnie. Możesz zacząć od niego i przesiąść się później; zmienia się wyłącznie skrypt workera.
+Rezydentny, chyba że masz powód, żeby tego nie robić. To rozwiązanie samego frameworka na długo żyjący proces, pamięć trzyma się płasko, a zerowanie to jedno wywołanie. Runnera tworzonego na każde żądanie użyj wtedy, gdy twój bootstrap ma zależności kolejnościowe, nad którymi wolisz się nie zastanawiać — kod, który musi wykonać się przed zbudowaniem kontenera, albo rozruchową robotę na każde żądanie, której callback `StateResetter` nie cofnie. Możesz zacząć od niego i zmienić to później; zmienia się wyłącznie skrypt workera.
 :::
 
 ::: question Czy we wzorcu rezydentnym `checkEvents` i reszta bootstrapu wykonują się przy każdym żądaniu?
-Tak — `run()` przy każdym wywołaniu przechodzi swoją wewnętrzną sekwencję od nowa: rejestracja handlera błędów, `runBootstrap()`, `checkEvents()`, a na końcu obsługa żądania. Przez 200 kolejnych wywołań sprawdziliśmy, że jest to nieszkodliwe — runner jest z założenia reentrantny. Sama kontrola zdarzeń robi cokolwiek tylko wtedy, gdy jej flaga jest prawdziwa, a w szablonie tą flagą jest `Environment::appDebug()` — z wyłączonym debugiem każde wywołanie schodzi na pusto.
+Tak — `run()` przy każdym wywołaniu przechodzi swoją wewnętrzną sekwencję od nowa: rejestracja handlera błędów, `runBootstrap()`, `checkEvents()`, a na końcu obsługa żądania. Przez 200 kolejnych wywołań sprawdziliśmy, że jest to nieszkodliwe — runner jest z założenia reentrantny. Sama kontrola zdarzeń robi cokolwiek tylko wtedy, gdy jej flaga jest prawdziwa, a w szablonie tą flagą jest `Environment::appDebug()` — z wyłączonym debugiem przy każdym wywołaniu nic nie robi.
 :::
 
 ::: question Czy `public/index.php` jest mi jeszcze potrzebny?

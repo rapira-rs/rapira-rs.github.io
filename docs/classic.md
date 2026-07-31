@@ -1,19 +1,19 @@
 ---
 title: Classic mode
-description: The php-fpm-shaped rung of Rapira — an ordinary front controller, executed from scratch on every request, with fresh state each time.
+description: The php-fpm-compatible rung of Rapira — an ordinary front controller, executed from scratch on every request, with fresh state each time.
 ---
 
 # Classic mode
 
 Classic mode is where most applications start, and for many of them it is the only rung they ever need. The entry script is an ordinary PHP front controller — the same `public/index.php` you already point php-fpm at — and Rapira executes it from scratch for every request that arrives. Nothing in your code has to know it is running inside a Rust server: the superglobals are filled in, the script runs top to bottom, and whatever it prints becomes the response.
 
-That is the whole promise of the first rung. Rapira takes php-fpm's place, and the application does not notice.
+That is what the first rung gives you: Rapira takes php-fpm's place, and the application needs no changes.
 
 ## Fresh state on every request
 
 Every request gets a complete PHP request cycle: request startup, your entry script, request shutdown. Everything the script built along the way — globals, static properties, the DI container, the ORM's identity map — is torn down before the next request begins, exactly as it would be under php-fpm.
 
-This is why classic mode is the safe drop-in. A leaked handle, a singleton poisoned halfway through a request, a library that stashes request data in a static — none of it can reach the next request, because nothing your script created survives the request it was created in. The same exceptions as php-fpm apply: persistent connections and extension-level state live in the worker process, not in the request. Code that was never written with a long-lived process in mind is fine here, and that includes a great deal of code that is in production right now.
+This is why classic mode is the safe drop-in. A leaked handle, a singleton poisoned halfway through a request, a library that stashes request data in a static — none of it affects the next request, because nothing your script created survives the request it was created in. The same exceptions as php-fpm apply: persistent connections and extension-level state live in the worker process, not in the request. Code that was never written with a long-lived process in mind is fine here, and that includes a great deal of code that is in production right now.
 
 The price is that the application boots again for every request: autoloader, config, container, routes. Whether that matters is exactly the question the [execution modes](/docs/execution-modes) page is about.
 
@@ -64,15 +64,15 @@ The CGI variables follow from that: `SCRIPT_FILENAME` is always the entry script
 
 "From scratch" describes your application's state, not the compiler's work. The master process starts PHP exactly once, at module startup, *before* it forks any worker — so OPcache creates its shared memory segment a single time and every forked worker inherits that same mapping. With OPcache enabled, compiled scripts stay cached across requests and across the whole pool, and re-executing your front controller does not mean re-parsing it.
 
-The fork story behind this — one master, N workers, who serves what — is on the [process model](/docs/process-model) page.
+How the forking works — one master, N workers, who serves what — is on the [process model](/docs/process-model) page.
 
 ::: info
 `Rapira\create_plugin_handler()` throws a `Rapira\RapiraException` in classic mode: *plugin handlers require worker mode*. There is no resident loop to hand a handler to, since the script ends when the request does. Worker scripts belong on the [SAPI Worker](/docs/worker) rung.
 :::
 
-## Staying here, or climbing
+## Choosing between Classic and SAPI Worker
 
-Stay on classic when the application's state cannot survive a second request — an old codebase, a framework that leaks into statics, a vendor library you do not control — or simply when you are migrating off php-fpm and want one thing to change at a time. Move up to the [SAPI Worker](/docs/worker) rung when the boot work is worth removing and the code can tolerate a process that keeps running; the [execution modes](/docs/execution-modes) page walks the whole ladder, of which Classic and SAPI Worker are the rungs that ship today.
+Stay on classic when the application's state cannot survive a second request — an old codebase, a framework that leaks into statics, a vendor library you do not control — or simply when you are migrating off php-fpm and want one thing to change at a time. Move to the [SAPI Worker](/docs/worker) rung when the boot work is worth removing and the code can tolerate a process that keeps running; the [execution modes](/docs/execution-modes) page describes all four rungs, of which Classic and SAPI Worker are the ones that ship today.
 
 ::: question My app calls `fastcgi_finish_request()`. Does that work?
 That function comes from the php-fpm binary and Rapira is not it, so no. Rapira exposes `rapira_finish_request()` with the same contract — flush the response to the client early, keep working after it — and it is documented on the [HTTP](/docs/http) page.

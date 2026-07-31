@@ -5,9 +5,9 @@ description: Jednostka systemd, miejsce na konfigurację, reverse proxy z przodu
 
 # Wdrożenie produkcyjne
 
-Na laptopie całą historią jest `rapira serve app/worker.php`. Na serwerze potrzebujesz kilku rzeczy więcej: startu przy rozruchu maszyny, powrotu po awarii, przeładowania nowego kodu bez zgubienia choćby jednego żądania i logów w miejscu, do którego naprawdę da się zajrzeć. Ta strona to operacyjna połowa tej roboty — jednostka systemd, miejsce na konfigurację, proxy z przodu i garść ustawień, które trzymają długowieczne workery w zdrowiu.
+Na laptopie wystarczy `rapira serve app/worker.php`. Na serwerze potrzebujesz kilku rzeczy więcej: startu przy rozruchu maszyny, powrotu po awarii, przeładowania nowego kodu bez zgubienia choćby jednego żądania i logów w miejscu, do którego naprawdę da się zajrzeć. Ta strona to operacyjna połowa tej roboty — jednostka systemd, miejsce na konfigurację, proxy z przodu i garść ustawień, które trzymają długowieczne workery w zdrowiu.
 
-Prawie nic z tego nie jest wkompilowane w binarkę. Rapirze jest wszystko jedno, gdzie leży twoja konfiguracja i kto pilnuje procesu, więc układ opisany niżej to konwencja, którą ustala ta strona, a reszta dokumentacji zwyczajnie z niej korzysta. Najpierw jednak wgraj binarkę na maszynę — tym zajmuje się [Instalacja](/pl/docs/installation).
+Prawie nic z tego nie jest wkompilowane w binarkę. Nic w Rapirze nie zależy od tego, gdzie leży twoja konfiguracja ani co pilnuje procesu, więc układ opisany niżej to konwencja, którą ustala ta strona, a reszta dokumentacji zwyczajnie z niej korzysta. Najpierw jednak wgraj binarkę na maszynę — tym zajmuje się [Instalacja](/pl/docs/installation).
 
 ## Jednostka systemd
 
@@ -41,9 +41,9 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now rapira
 ```
 
-Sześć linii zasługuje na słowo komentarza:
+Sześć linii warto objaśnić:
 
-- `Type=exec` — Rapira działa na **pierwszym planie** i nigdy nie forkuje się w tło. Trybu demona nie ma i nikt go tu nie chce: proces, który uruchamia systemd, *jest* procesem nadrzędnym, więc `$MAINPID` to dokładnie ten pid, do którego chcesz wysłać sygnał.
+- `Type=exec` — Rapira działa na **pierwszym planie** i nigdy nie forkuje się w tło. Trybu demona nie ma i nie jest potrzebny: proces, który uruchamia systemd, *jest* procesem nadrzędnym, więc `$MAINPID` to dokładnie ten pid, do którego chcesz wysłać sygnał.
 - `ExecReload` — zamienia `systemctl reload rapira` w `SIGUSR2` do procesu nadrzędnego, czyli w opisane niżej przeładowanie bez przestoju.
 - `KillMode=mixed` — domyślnie systemd wysyła sygnał zatrzymania do każdego procesu w cgrupie, a worker traktuje `SIGTERM` jak natychmiastowe ubicie. `mixed` kieruje go wyłącznie do procesu nadrzędnego, a ten przeprowadza łagodne wygaszanie przez `SIGQUIT`, opisane niżej; `SIGKILL` po `TimeoutStopSec` i tak obejmuje całą grupę. Bez tej linii `systemctl stop` i `systemctl restart` gubią żądania będące w toku.
 - `Restart=on-failure` — czyste wygaszenie kończy się kodem zero i serwer zostaje wyłączony, więc ta linia podnosi go z powrotem tylko po awarii albo nieudanym starcie.
@@ -62,7 +62,7 @@ Zanim napiszesz ten plik, warto wiedzieć jedno: względny `pool.entrypoint` lic
 
 ## Za reverse proxy
 
-Rapira nasłuchuje wyłącznie nieszyfrowanego HTTP: sekcji TLS w konfiguracji nie ma i to celowo. Zakończ TLS na proxy, które i tak już masz — nginx, Caddy, HAProxy, load balancer w chmurze — a do Rapiry pozwól mu sięgać przez pętlę zwrotną albo gniazdo uniksowe. Podpiąć się pod publiczny interfejs oczywiście możesz, ale skoro na tym nasłuchu nie ma TLS-a, rzadko kiedy naprawdę tego chcesz.
+Rapira nasłuchuje wyłącznie nieszyfrowanego HTTP: sekcji TLS w konfiguracji nie ma i to celowo. Zakończ TLS na proxy, które i tak już masz — nginx, Caddy, HAProxy, load balancer w chmurze — a do Rapiry niech łączy się przez pętlę zwrotną albo gniazdo uniksowe. Możesz podpiąć się pod publiczny interfejs, ale skoro na tym nasłuchu nie ma TLS-a, rzadko kiedy tego naprawdę chcesz.
 
 ```toml
 [http]
@@ -70,7 +70,7 @@ listen = "127.0.0.1:8000"
 # listen = "unix:/run/rapira/rapira.sock"
 ```
 
-Gniazdo uniksowe powstaje z prawami `0666`, więc połączy się z nim wszystko, co dosięgnie tej ścieżki. Rapira nie ma ustawienia, którym dałoby się te prawa zmienić. Jeśli to dla ciebie istotne, ogranicz sam katalog: w jednostce wyżej `RuntimeDirectoryMode=0750` i `Group=`, do której należy użytkownik proxy, zamykają `/run/rapira` przed wszystkimi innymi.
+Gniazdo uniksowe powstaje z prawami `0666`, więc połączy się z nim każdy proces, który ma dostęp do tej ścieżki. Rapira nie ma ustawienia, którym dałoby się te prawa zmienić. Jeśli to dla ciebie istotne, ogranicz sam katalog: w jednostce wyżej `RuntimeDirectoryMode=0750` i `Group=`, do której należy użytkownik proxy, zamykają `/run/rapira` przed wszystkimi innymi.
 
 Twoje proxy ma po drodze jeden obowiązek: pola przekazywane dalej muszą mieć zwyczajną pisownię z `-` — `X-Forwarded-For`, nigdy `X_Forwarded_For`. Wersje z podkreśleniem i z kropką lądują pod tym samym kluczem `$_SERVER` co ta prawidłowa, a to właśnie tędy klient mógłby nadpisać to, co przed chwilą ustawiło twoje proxy — dlatego Rapira wycina je, zanim PHP je zobaczy. Mapowanie nazw i sterujący nim klucz `http.unsafe_field_names` opisuje [strona o HTTP](/pl/docs/http).
 
@@ -82,7 +82,7 @@ Wgraj nowy kod, a potem:
 sudo systemctl reload rapira
 ```
 
-To `SIGUSR2` do procesu nadrzędnego, a ten odpowiada na niego **przeładowaniem kroczącym**: pula wymienia się worker po workerze, a żądania w toku dobiegają końca — nic nie ginie, dopóki worker mieści się w `process_control_timeout_secs`. Ten, który się nie zmieści, dostaje `SIGTERM`, potem `SIGKILL`, i zabiera ze sobą swoje żądanie (piszemy o tym niżej). Jak przy takiej wymianie świeży worker zachodzi na starego, opisuje [Model procesów](/pl/docs/process-model).
+To `SIGUSR2` do procesu nadrzędnego, a ten odpowiada na niego **przeładowaniem kroczącym**: pula wymienia się worker po workerze, a żądania w toku dobiegają końca — nic nie ginie, dopóki worker mieści się w `process_control_timeout_secs`. Ten, który się nie zmieści, dostaje `SIGTERM`, potem `SIGKILL`, a jego żądanie w toku przepada (piszemy o tym niżej). Jak przy takiej wymianie świeży worker zachodzi na starego, opisuje [Model procesów](/pl/docs/process-model).
 
 Bez systemd — w entrypoincie kontenera, w skrypcie wdrożeniowym — wyślij sygnał wprost do procesu nadrzędnego. Ustaw `supervisor.pidfile`, a pid będziesz miał pod ręką. Poza systemd nikt nie tworzy `/run/rapira`, więc najpierw załóż ten katalog albo wybierz ścieżkę, która istnieje: proces nadrzędny odmawia startu, gdy nie może zapisać tego pliku.
 
@@ -98,10 +98,10 @@ kill -USR2 "$(cat /run/rapira/rapira.pid)"
 
 Ten plik zapisuje wyłącznie proces nadrzędny — workery nie mają do niego dostępu — i sam go usuwa na każdej ścieżce wyjścia, którą kontroluje. Plik, który został po zgaszonym serwerze, znaczy więc, że proces nadrzędny zginął bez własnego zamykania: `SIGKILL`, twarda awaria albo padnięta maszyna.
 
-`process_control_timeout_secs` to budżet cierpliwości, jaki proces nadrzędny daje workerowi na dokończenie pracy, zanim zacznie eskalować; ten sam limit obejmuje każdy krok przeładowania kroczącego, więc jeden zakleszczony worker nie zatrzyma całej wymiany — drabinę eskalacji i pełną tabelę sygnałów znajdziesz w [Modelu procesów](/pl/docs/process-model). Trzymaj tę wartość z zapasem poniżej `TimeoutStopSec` z systemd, bo inaczej to systemd straci cierpliwość pierwszy i ubije proces nadrzędny w środku eskalacji.
+`process_control_timeout_secs` to czas, jaki proces nadrzędny daje workerowi na dokończenie pracy, zanim zacznie eskalować; ten sam limit obejmuje każdy krok przeładowania kroczącego, więc jeden zakleszczony worker nie zatrzyma całej wymiany — kolejność eskalacji i pełną tabelę sygnałów znajdziesz w [Modelu procesów](/pl/docs/process-model). Trzymaj tę wartość z zapasem poniżej `TimeoutStopSec` z systemd, bo inaczej limit systemd wygaśnie pierwszy i to systemd ubije proces nadrzędny w środku eskalacji.
 
 ::: warning Przeładowanie wymienia workery, a nie wczytuje niczego na nowo
-Proces nadrzędny zostaje przy ustawieniach, z którymi wystartował, a współdzielona pamięć OPcache też należy do niego, więc przeżywa każde pokolenie workerów. Zmiana w `rapira.toml` wymaga `systemctl restart rapira`. A jeśli ustawiłeś `opcache.validate_timestamps = 0`, przeładowanie z czystym sumieniem poda stare opcode'y — wtedy również restartuj.
+Proces nadrzędny zostaje przy ustawieniach, z którymi wystartował, a współdzielona pamięć OPcache też należy do niego, więc przeżywa każde pokolenie workerów. Zmiana w `rapira.toml` wymaga `systemctl restart rapira`. A jeśli ustawiłeś `opcache.validate_timestamps = 0`, przeładowanie nadal będzie podawać stare opcode'y — wtedy również restartuj.
 :::
 
 ## Logi
@@ -114,7 +114,7 @@ level = "info"
 format = "json"
 ```
 
-Jeden obiekt na linię, `timestamp` w RFC 3339 i w UTC, do tego `level`, `message` i `target`; znaki nowej linii wewnątrz komunikatu są ekranowane, więc wpis zawsze zajmuje dokładnie jedną linię. Dokładnie takiego kształtu oczekuje każdy kolektor logów, a podróż przez journald przechodzi on bez szwanku.
+Jeden obiekt na linię, `timestamp` w RFC 3339 i w UTC, do tego `level`, `message` i `target`; znaki nowej linii wewnątrz komunikatu są ekranowane, więc wpis zawsze zajmuje dokładnie jedną linię. Dokładnie takiego kształtu oczekuje każdy kolektor logów, a journald przepuszcza go bez zmian.
 
 ```bash
 journalctl -u rapira -f
@@ -124,7 +124,7 @@ journalctl -u rapira -f
 
 ## Higiena workerów
 
-Rezydentny proces to cały sens [szczebli z workerem](/pl/docs/execution-modes) — i zarazem powód, dla którego powolny wyciek, którego pod php-fpm nigdy byś nie zauważył, nagle zaczyna mieć znaczenie. Siatką bezpieczeństwa są dwa ustawienia:
+Rezydentny proces to cały sens [szczebli z workerem](/pl/docs/execution-modes) — i zarazem powód, dla którego powolny wyciek, którego pod php-fpm nigdy byś nie zauważył, nagle zaczyna mieć znaczenie. Chronią przed tym dwa ustawienia:
 
 ```toml
 [pool]
@@ -132,7 +132,7 @@ max_requests = 500
 request_terminate_timeout_secs = 30
 ```
 
-`max_requests` odsyła workera na emeryturę po tylu żądaniach i forkuje w jego miejsce świeżego, z odrobiną rozrzutu, żeby cała pula nie wymieniała się równym krokiem. To nie jest naprawa wycieku — to coś, co nie pozwala nieznalezionemu wyciekowi zamienić się w awarię o trzeciej w nocy. `request_terminate_timeout_secs` to sufit czasu rzeczywistego dla pojedynczego żądania: worker, który go przekroczy, zostaje ubity i postawiony od nowa, więc jedno zawieszone żądanie nie kosztuje cię workera na stałe. Oba są domyślnie wyłączone i oba warto włączyć, zanim ruszysz z produkcją.
+`max_requests` wycofuje workera po tylu żądaniach i forkuje w jego miejsce świeżego, z odrobiną rozrzutu, żeby cała pula nie wymieniała się równym krokiem. To nie jest naprawa wycieku — to coś, co nie pozwala nieznalezionemu wyciekowi zamienić się w awarię. `request_terminate_timeout_secs` to sufit czasu rzeczywistego dla pojedynczego żądania: worker, który go przekroczy, zostaje ubity i postawiony od nowa, więc jedno zawieszone żądanie nie kosztuje cię workera na stałe. Oba są domyślnie wyłączone i oba warto włączyć, zanim ruszysz z produkcją.
 
 Resztę spraw wokół puli — dobór rozmiaru w trybie static, dynamic i ondemand, odczekiwanie przed ponownym forkiem i to, co proces nadrzędny robi po śmierci workera — opisuje [Model procesów](/pl/docs/process-model).
 

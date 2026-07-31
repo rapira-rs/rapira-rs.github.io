@@ -5,9 +5,9 @@ description: How Rapira logs — levels, per-target overrides, PHP diagnostics, 
 
 # Logging
 
-Everything Rapira has to say goes to a single stream: the server's own lifecycle events, the master's supervision decisions, the HTTP front, and PHP's diagnostics — all of it on stderr, all of it shaped by the same filter. That last part is the one worth pausing on: a PHP warning is not something you go looking for in a separate `error_log` file, it is a record in the same log as everything else, and you can turn it up or down like any other record.
+Rapira writes everything to a single stream: the server's own lifecycle events, the master's supervision decisions, the HTTP front, and PHP's diagnostics — all of it on stderr, all of it shaped by the same filter. PHP is no exception: a PHP warning is not something you go looking for in a separate `error_log` file, it is a record in the same log as everything else, and you raise or lower it like any other record.
 
-The default is deliberately quiet. Out of the box only `error` gets through, because a server that chatters on a production box is a server nobody reads. Turning the volume up is one line of config, and if you don't want to touch config at all there is an environment variable for it.
+The default is deliberately quiet. Out of the box only `error` gets through, because a server that logs constantly on a production box produces a log nobody reads. Raising the level is one line of config, and if you don't want to touch config at all there is an environment variable for it.
 
 ## Levels and format
 
@@ -25,7 +25,7 @@ Both keys are optional, and so is the whole section. The rest of the file — li
 
 ## Per-target overrides
 
-One global level is a blunt instrument. When you are chasing a problem in PHP you want PHP's diagnostics at `debug` without also drowning in every internal detail of the HTTP stack. That is what `[log.targets]` is for:
+One global level is often too coarse. When you are chasing a problem in PHP you want PHP's diagnostics at `debug` without raising every internal detail of the HTTP stack along with them. That is what `[log.targets]` is for:
 
 ```toml
 [log]
@@ -48,15 +48,15 @@ The targets Rapira itself emits under:
 | `ext`    | extension task outcomes                                          |
 | `php`    | output and diagnostics coming from PHP itself                   |
 
-Dependencies log under their own module paths — `pingora_core`, `tokio`, and the rest — and are filtered exactly the same way. If a noisy library shows up in your log, its target name is right there in the record, ready to be pinned down in `[log.targets]`.
+Dependencies log under their own module paths — `pingora_core`, `tokio`, and the rest — and are filtered exactly the same way. If a noisy library shows up in your log, its target name is right there in the record, ready to use in `[log.targets]`.
 
 ::: tip
-`master` is the target to watch when you want to understand why the pool is behaving the way it is — respawns, reloads and pool scaling all narrate themselves there. See [process model](/docs/process-model) for what those events mean.
+`master` is the target to watch when you want to understand why the pool is behaving the way it is — respawns, reloads and pool scaling are all logged there. See [process model](/docs/process-model) for what those events mean.
 :::
 
 ## PHP diagnostics
 
-Everything PHP reports lands on the `php` target, and each diagnostic takes its level from its error type — so the same filter that controls the server controls how much of PHP you hear:
+Everything PHP reports lands on the `php` target, and each diagnostic takes its level from its error type — so the same filter that controls the server controls how much of PHP's output reaches the log:
 
 | Diagnostic                                                                                     | Level   |
 | ---------------------------------------------------------------------------------------------- | ------- |
@@ -65,7 +65,7 @@ Everything PHP reports lands on the `php` target, and each diagnostic takes its 
 | Notices — `E_NOTICE`, `E_USER_NOTICE`                                                          | `info`  |
 | Deprecations — `E_DEPRECATED`, `E_USER_DEPRECATED`                                             | `debug` |
 
-Deprecations sitting at `debug` is the point of the table: a codebase with a few thousand vendor deprecations does not bury the two warnings you actually needed to see.
+Deprecations sit at `debug` so that a codebase with a few thousand vendor deprecations does not bury the two warnings you actually needed to see.
 
 A diagnostic that the script's [`error_reporting`](https://www.php.net/manual/en/function.error-reporting.php) mask excludes does not vanish — it drops to `trace`. So the usual mask does what you expect:
 
@@ -117,7 +117,7 @@ When `RUST_LOG` is set to a non-blank value it **replaces** `level` and `[log.ta
 :::
 
 ::: question My log is empty — did something break?
-Almost certainly not: `level` defaults to `error`, so a healthy server says nothing. Start it with `RUST_LOG=info` and you'll see boot, the listener, and worker lifecycle.
+Almost certainly not: `level` defaults to `error`, so a healthy server logs nothing. Start it with `RUST_LOG=info` and you'll see boot, the listener, and worker lifecycle.
 :::
 
 ::: question How do I write the log to a file?

@@ -11,9 +11,9 @@ Rapira es un único binario con un solo subcomando:
 rapira serve [OPTIONS] [SCRIPT]
 ```
 
-`serve` es lo que arranca el servidor: pone en marcha PHP, registra las extensiones incorporadas y empieza a atender peticiones. Si ejecutas `rapira` a secas, sin argumentos, verás la ayuda y nada más; `rapira serve --help` te lista desde el propio binario las opciones que vienen a continuación, y `rapira --version` te dice qué versión tienes entre manos.
+`serve` es lo que arranca el servidor: pone en marcha PHP, registra las extensiones incorporadas y empieza a atender peticiones. Si ejecutas `rapira` a secas, sin argumentos, verás la ayuda y nada más; `rapira serve --help` te lista desde el propio binario las opciones que vienen a continuación, y `rapira --version` te dice qué versión tienes instalada.
 
-Nunca *tienes* que escribir un archivo de configuración. Un solo comando con la ruta de un script ya es un servidor completo y en marcha; el archivo está ahí para el día en que las opciones de línea de comandos se te queden cortas.
+Nunca *tienes* que escribir un archivo de configuración. Un solo comando con la ruta de un script ya es un servidor completo y en marcha; el archivo está ahí para cuando las opciones de línea de comandos no bastan.
 
 ## Cómo se superponen los ajustes
 
@@ -43,10 +43,10 @@ Todo lo que no toques por ninguna de las dos vías cae en los valores por defect
 
 **`--processes`** vale por defecto el número de CPU lógicas. Con el pool estático de fábrica, ese es exactamente el número de procesos worker que se crean con fork; si el archivo de configuración pasa el pool a `dynamic` o a `ondemand`, ese mismo número se convierte en el techo hasta el que escalan esos modos. Qué hacen en realidad los workers y el proceso maestro lo tienes en [Modelo de procesos](/es/docs/process-model).
 
-**`--classic`** elige el peldaño en el que corre la aplicación. Sin ella, el script de entrada se carga una vez y se queda residente: ese es el peldaño [SAPI Worker](/es/docs/worker). Con ella, el script se vuelve a incluir en cada petición, exactamente igual que haría php-fpm: ese es el peldaño [Classic](/es/docs/classic). Si no tienes claro cuál puede usar tu aplicación, [Modos de ejecución](/es/docs/execution-modes) recorre la escalera entera.
+**`--classic`** elige el peldaño en el que corre la aplicación. Sin ella, el script de entrada se carga una vez y se queda residente: ese es el peldaño [SAPI Worker](/es/docs/worker). Con ella, el script se vuelve a incluir en cada petición, exactamente igual que haría php-fpm: ese es el peldaño [Classic](/es/docs/classic). Si no tienes claro cuál puede usar tu aplicación, [Modos de ejecución](/es/docs/execution-modes) describe los cuatro modos.
 
 ::: info
-`--classic` es un interruptor que solo enciende. No existe ningún `--no-classic`, así que a un archivo de configuración con `classic = true` no hay forma de convencerlo desde la línea de comandos: quita la clave del archivo.
+`--classic` es un interruptor que solo enciende. No existe ningún `--no-classic`, así que un `classic = true` en el archivo de configuración no se puede desactivar desde la línea de comandos: quita la clave del archivo.
 :::
 
 ## De dónde sale el script de entrada
@@ -56,14 +56,14 @@ El script se puede indicar por dos vías —el argumento posicional `SCRIPT` o l
 Las dos formas relativas se resuelven contra bases distintas, y esa diferencia es deliberada:
 
 - Un `SCRIPT` relativo en la línea de comandos se resuelve respecto al **directorio actual**: lo has escrito en una shell que ya está en algún sitio, así que esa es la base que quieres decir.
-- Un `pool.entrypoint` relativo se resuelve respecto al **directorio del propio archivo de configuración**: así el archivo y la aplicación que tiene al lado se pueden mover, copiar o montar donde sea como un bloque y seguir encontrándose.
+- Un `pool.entrypoint` relativo se resuelve respecto al **directorio del propio archivo de configuración**: así el archivo y la aplicación que tiene al lado se pueden mover, copiar o montar donde sea como un bloque y la ruta se sigue resolviendo bien.
 
 ```toml
 [pool]
 entrypoint = "public/index.php"
 ```
 
-Con eso en `/etc/rapira/rapira.toml`, el script de entrada es `/etc/rapira/public/index.php`, sin importar dónde estuvieras plantado cuando lanzaste el comando.
+Con eso en `/etc/rapira/rapira.toml`, el script de entrada es `/etc/rapira/public/index.php`, sin importar desde qué directorio lanzaras el comando.
 
 ## Ejemplos
 
@@ -78,7 +78,7 @@ rapira serve --config /etc/rapira/rapira.toml
 rapira serve --config /etc/rapira/rapira.toml --listen 127.0.0.1:9000
 ```
 
-La primera es prácticamente todo el [Inicio rápido](/es/docs/quickstart): sin `--listen` el servidor levanta en la dirección por defecto, así que llamar a su puerta es una línea más.
+La primera es prácticamente todo el [Inicio rápido](/es/docs/quickstart): sin `--listen` el servidor levanta en la dirección por defecto, así que mandarle una petición es una línea más.
 
 ```bash
 curl http://127.0.0.1:8000/

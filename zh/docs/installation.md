@@ -13,9 +13,9 @@ Rapira 通过 embed SAPI 运行 PHP，这个接口让程序可以把解释器当
 
 每个下载文件都标着 `php8.4` 或 `php8.5`，这个标记说的是文件**里面**那个 PHP。没有“先装 PHP”这一步，不用指定 `php-config`，也没有版本需要保持同步。机器上已经有 PHP 也没关系——系统自带的 `php`、php-fpm 进程池、Homebrew 编译的版本——Rapira 既不会用它，也不会动它。它们只是碰巧运行同一门语言的两个不相干的程序。
 
-所以你唯一要做的选择，就是让应用跑在哪个次版本上：**8.4** 还是 **8.5**。除非技术栈里还有东西把你钉在 8.4，否则就选 8.5。
+所以你唯一要做的选择，就是让应用跑在哪个次版本上：**8.4** 还是 **8.5**。除非技术栈里还有东西把你限制在 8.4，否则就选 8.5。
 
-deb 和 rpm 包把这一点贯彻得很彻底。`rapira-php8.4` 和 `rapira-php8.5` 装到完全相同的路径，因此两者都对虚拟包 `rapira` 声明了 `provides`、`conflicts` 和 `replaces`：它们互斥，装上一个就顶替掉另一个，而不是并排放着。切换 PHP 版本也正是这么做——装上另一个包，剩下的交给包管理器。
+deb 和 rpm 包在打包层面强制了这一点。`rapira-php8.4` 和 `rapira-php8.5` 装到完全相同的路径，因此两者都对虚拟包 `rapira` 声明了 `provides`、`conflicts` 和 `replaces`：它们互斥，装上一个就顶替掉另一个，而不是并排放着。切换 PHP 版本也正是这么做——装上另一个包，剩下的交给包管理器。
 
 ## 该下载哪个文件
 
@@ -136,7 +136,7 @@ grep rapira-v0.6.0-php8.5-macos-aarch64.tar.gz rapira-v0.6.0-SHA256SUMS.txt | sh
 在 PHP 8.4 上，SAPI 会把自己注册成 `fastcgi`：那个版本的 OPcache 只对固定的一份 SAPI 名单启动，名字不在单子上就完全没有共享 opcode 缓存。PHP 8.5 去掉了这份名单，所以在那里 `PHP_SAPI` 和 `php_sapi_name()` 返回的是 `rapira`。而 `phpinfo()` 里的 *Server API* 一行，两个版本都显示 `Rapira`。根据 `PHP_SAPI` 做分支的代码，两个值都要认。
 :::
 
-盒子里**没有**的东西：`pdo_mysql`、`pgsql`、redis、apcu、imagick，以及这一类的其他所有扩展。如果你的应用需要其中之一，发布产物就帮不上忙了——自己编译一个带所需扩展的 PHP，再基于它编译 Rapira，[从源码构建](/zh/docs/build-from-source)把整个流程从头讲到尾。
+**没有**包含的扩展：`pdo_mysql`、`pgsql`、redis、apcu、imagick，以及这一类的其他所有扩展。如果你的应用需要其中之一，发布产物就帮不上忙了——自己编译一个带所需扩展的 PHP，再基于它编译 Rapira，[从源码构建](/zh/docs/build-from-source)把整个流程从头讲到尾。
 
 ## 不附带 php.ini
 
@@ -154,7 +154,7 @@ PHPRC=/etc/rapira/php.ini rapira serve --config /etc/rapira/rapira.toml
 
 只有 GitHub Releases，别无他处——目前还没有 apt 或 yum 仓库，所以升级就是下载新的产物、覆盖装到旧的上面，而不是执行 `apt upgrade`。
 
-macOS 版本**只支持 Apple Silicon**，面向 **macOS 14 及以上**，并且只做了 ad-hoc 签名：没有 Developer ID，也没有公证，所以首次运行时 macOS 可能会要你确认。没有 Intel 版本，也没有 Windows 版本——Rapira 只有 Linux 和 macOS。
+macOS 版本**只支持 Apple Silicon**，面向 **macOS 14 及以上**，并且只做了 ad-hoc 签名：没有 Developer ID，也没有公证，所以首次运行时 macOS 可能会要你确认。没有 Intel 版本，也没有 Windows 版本——Rapira 只支持 Linux 和 macOS。
 
 二进制文件就位之后，[快速开始](/zh/docs/quickstart)大约一分钟就能让服务器处理第一个请求。
 

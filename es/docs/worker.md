@@ -9,7 +9,7 @@ En [modo clásico](/es/docs/classic) PHP hace lo de siempre: el script de entrad
 
 El modo worker es la alternativa. El proceso sigue vivo: tu script arranca la aplicación una vez y se queda en un bucle pidiéndole a Rapira la siguiente petición. El arranque se paga al inicio y, a partir de ahí, cada petición empieza con la aplicación ya caliente en memoria. A cambio, te toca pensar en el estado, porque ahora sobrevive a la petición.
 
-Este es el peldaño **SAPI Worker** de la escalera de ejecución de Rapira y, junto con Classic, es lo que hay disponible hoy. En [Modos de ejecución](/es/docs/execution-modes) tienes la escalera entera y cómo saber hasta qué peldaño llega tu aplicación; esta página es la guía de programación del peldaño que ya puedes usar.
+Este es el peldaño **SAPI Worker** de la escalera de ejecución de Rapira y, junto con Classic, es lo que hay disponible hoy. En [Modos de ejecución](/es/docs/execution-modes) tienes la escalera entera y cómo saber qué peldaño puede usar tu aplicación; esta página es la guía de programación del peldaño que ya puedes usar.
 
 ## El bucle residente
 
@@ -47,7 +47,7 @@ El resto de las opciones están en [CLI](/es/docs/cli), y sus equivalentes de `r
 
 ## Qué hace `handleRequest()`
 
-`handleRequest(callable $handler)` es todo el contrato, y merece la pena leerlo con calma:
+`handleRequest(callable $handler)` es todo el contrato:
 
 - **Bloquea** hasta que le llega una petición a este worker. Un worker aparcado en `handleRequest()` no gasta CPU mientras espera, pero sigue teniendo en memoria su intérprete y tu aplicación ya arrancada.
 - **Rellena las superglobales** —`$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE` y compañía— con los datos de esa petición, recién puestos, antes de ejecutar tu handler. El código PHP de toda la vida que las lee sigue funcionando igual que con php-fpm.
@@ -86,7 +86,7 @@ Todo lo global también se comparte, lo hayas querido o no: propiedades estátic
 
 ## Elegir el plugin
 
-`create_plugin_handler()` recibe un objeto de configuración, y es la *clase* de ese objeto la que elige el plugin. `HttpHandlerConfig` viene a decir «este worker sirve HTTP» y te devuelve un `HttpHandler`.
+`create_plugin_handler()` recibe un objeto de configuración, y es la *clase* de ese objeto la que elige el plugin. `HttpHandlerConfig` significa que este worker sirve HTTP, y a cambio recibes un `HttpHandler`.
 
 Lanza una `Rapira\RapiraException` en dos casos: cuando ningún plugin coincide con la clase de configuración que le pasaste y cuando el script ni siquiera se está ejecutando en modo worker; el modo clásico no tiene bucle residente, así que allí un handler no podría hacer otra cosa que anunciar el apagado.
 
@@ -139,7 +139,7 @@ $handler = static function () use ($http): void {
 
 **Basura que no es de ninguna petición.** El conteo de referencias de PHP libera casi todo al instante, pero los ciclos solo se recogen cuando se ejecuta el recolector de ciclos. Llamar a `gc_collect_cycles()` una vez por vuelta del bucle —como hace el script canónico— los recoge en un punto predecible: entre peticiones y no en mitad de una.
 
-**Peticiones que no acaban nunca.** Un worker residente se queda tan tranquilo dentro de una petición colgada para siempre, y mientras tanto no atiende a nadie. `pool.request_terminate_timeout_secs` pone un límite de tiempo real a una sola petición y mata al worker que se lo salte. Las dos claves están en [Configuración](/es/docs/configuration), y lo que hace el proceso maestro cuando muere un worker, en [Modelo de procesos](/es/docs/process-model).
+**Peticiones que no acaban nunca.** Un worker residente se queda indefinidamente dentro de una petición colgada, y mientras tanto no atiende a nadie. `pool.request_terminate_timeout_secs` pone un límite de tiempo real a una sola petición y mata al worker que se lo salte. Las dos claves están en [Configuración](/es/docs/configuration), y lo que hace el proceso maestro cuando muere un worker, en [Modelo de procesos](/es/docs/process-model).
 
 **Una excepción sin capturar afecta a la petición, no al worker.** Una excepción que se escapa de tu handler suma en `errors` y se responde con un `500`, salvo que el handler ya hubiera fijado un estado antes de lanzarla. En cualquier caso el bucle sigue: la excepción no se lleva al worker por delante, así que el fallo que estás leyendo en los registros no tiene por qué haber parado nada. Un error fatal es otra cosa: desmonta el script residente, con lo que el worker vuelve a ejecutarlo desde arriba y arranca tu aplicación otra vez. Eso es justo lo que cuenta el contador `recycles`.
 

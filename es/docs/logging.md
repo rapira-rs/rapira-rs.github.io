@@ -5,9 +5,9 @@ description: Cómo registra Rapira — niveles, ajustes por target, diagnóstico
 
 # Registros
 
-Todo lo que Rapira tiene que contar sale por un único flujo: los eventos del ciclo de vida del servidor, las decisiones de supervisión del proceso maestro, el frontal HTTP y los diagnósticos de PHP. Todo por stderr y todo pasado por el mismo filtro. En eso último merece la pena detenerse: una advertencia de PHP no es algo que tengas que ir a buscar a un `error_log` aparte, es una entrada más del mismo registro que todo lo demás, y la subes o la bajas igual que cualquier otra.
+Rapira lo escribe todo en un único flujo: los eventos del ciclo de vida del servidor, las decisiones de supervisión del proceso maestro, el frontal HTTP y los diagnósticos de PHP. Todo por stderr y todo pasado por el mismo filtro. PHP no es una excepción: una advertencia de PHP no es algo que tengas que ir a buscar a un `error_log` aparte, es una entrada más del mismo registro que todo lo demás, y le subes o le bajas el nivel igual que a cualquier otra.
 
-El valor por defecto es callado a propósito. De fábrica solo pasa `error`, porque un servidor que no para de hablar en producción es un servidor que no lee nadie. Subir el volumen es una línea de configuración y, si no quieres tocar la configuración para nada, tienes una variable de entorno.
+El valor por defecto es callado a propósito. De fábrica solo pasa `error`, porque un servidor que escribe sin parar en producción produce un registro que no lee nadie. Subir el nivel es una línea de configuración y, si no quieres tocar la configuración para nada, tienes una variable de entorno.
 
 ## Niveles y formato
 
@@ -25,7 +25,7 @@ Las dos claves son opcionales, y la sección entera también. El resto del archi
 
 ## Ajustes por target
 
-Un único nivel global es un instrumento muy tosco. Cuando vas detrás de un problema en PHP quieres los diagnósticos de PHP en `debug`, pero sin ahogarte a la vez en cada detalle interno de la pila HTTP. Para eso está `[log.targets]`:
+Un único nivel global suele quedarse corto. Cuando vas detrás de un problema en PHP quieres los diagnósticos de PHP en `debug`, pero sin subir a la vez cada detalle interno de la pila HTTP. Para eso está `[log.targets]`:
 
 ```toml
 [log]
@@ -48,15 +48,15 @@ Estos son los targets bajo los que emite el propio Rapira:
 | `ext`    | cómo acaban las tareas de las extensiones                       |
 | `php`    | la salida y los diagnósticos que vienen del propio PHP          |
 
-Las dependencias registran bajo su propia ruta de módulo —`pingora_core`, `tokio` y las demás— y se filtran exactamente igual. Si en tus registros asoma una biblioteca ruidosa, el nombre de su target está ahí mismo, en la propia entrada, listo para ponerle freno desde `[log.targets]`.
+Las dependencias registran bajo su propia ruta de módulo —`pingora_core`, `tokio` y las demás— y se filtran exactamente igual. Si en tus registros asoma una biblioteca ruidosa, el nombre de su target está ahí mismo, en la propia entrada, listo para usarlo en `[log.targets]`.
 
 ::: tip
-`master` es el target que hay que mirar cuando quieres entender por qué el pool se comporta como se comporta: los reinicios, las recargas y el escalado se cuentan todos ahí. Qué significa cada uno de esos eventos lo tienes en [Modelo de procesos](/es/docs/process-model).
+`master` es el target que hay que mirar cuando quieres entender por qué el pool se comporta como se comporta: los reinicios, las recargas y el escalado se registran todos ahí. Qué significa cada uno de esos eventos lo tienes en [Modelo de procesos](/es/docs/process-model).
 :::
 
 ## Diagnósticos de PHP
 
-Todo lo que informa PHP acaba en el target `php`, y cada diagnóstico saca su nivel del tipo de error: el mismo filtro que controla al servidor decide cuánto oyes de PHP.
+Todo lo que informa PHP acaba en el target `php`, y cada diagnóstico saca su nivel del tipo de error: el mismo filtro que controla al servidor decide cuánta salida de PHP llega al registro.
 
 | Diagnóstico                                                                                    | Nivel   |
 | ---------------------------------------------------------------------------------------------- | ------- |
@@ -65,7 +65,7 @@ Todo lo que informa PHP acaba en el target `php`, y cada diagnóstico saca su ni
 | Avisos — `E_NOTICE`, `E_USER_NOTICE`                                                           | `info`  |
 | Obsolescencias — `E_DEPRECATED`, `E_USER_DEPRECATED`                                           | `debug` |
 
-Que las obsolescencias se queden en `debug` es la gracia de toda la tabla: un proyecto con unos cuantos miles de obsolescencias en `vendor` no entierra las dos advertencias que de verdad necesitabas ver.
+Las obsolescencias se quedan en `debug` para que un proyecto con unos cuantos miles de obsolescencias en `vendor` no entierre las dos advertencias que de verdad necesitabas ver.
 
 Un diagnóstico que la máscara de [`error_reporting`](https://www.php.net/manual/en/function.error-reporting.php) del script deja fuera no desaparece: baja a `trace`. Así que la máscara de siempre hace justo lo que esperas:
 
@@ -117,7 +117,7 @@ Cuando `RUST_LOG` trae un valor no vacío, **reemplaza** por completo a `level` 
 :::
 
 ::: question Mis registros están vacíos, ¿se ha roto algo?
-Casi seguro que no: `level` vale `error` por defecto, así que un servidor sano no dice nada. Arráncalo con `RUST_LOG=info` y verás el arranque, la escucha y la vida de los workers.
+Casi seguro que no: `level` vale `error` por defecto, así que un servidor sano no registra nada. Arráncalo con `RUST_LOG=info` y verás el arranque, la escucha y la vida de los workers.
 :::
 
 ::: question ¿Cómo escribo los registros en un archivo?

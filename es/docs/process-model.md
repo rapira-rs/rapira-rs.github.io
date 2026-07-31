@@ -11,7 +11,7 @@ El esquema es el mismo tanto si ejecutas el peldaño [Classic](/es/docs/classic)
 
 ## Un maestro, muchos workers
 
-El arranque sigue un orden fijo, y ese orden es justo lo importante:
+El arranque sigue un orden fijo, y ese orden importa:
 
 1. **Abrir los sockets de escucha.** El maestro los reserva antes que nada, así que un puerto que ya esté ocupado tumba el arranque al momento, antes siquiera de poner PHP en marcha.
 2. **Arrancar PHP una sola vez.** El motor pasa por `MINIT` dentro del maestro, que todavía es de un único hilo. Aquí se crea la memoria compartida de OPcache, y por eso todos los workers que se forkeen después heredan ese mismo segmento SHM: el primer worker que compile un archivo llena la caché para todos los demás, en lugar de que cada proceso compile su propia copia.
@@ -38,7 +38,7 @@ Cada worker ejecuta un intérprete de PHP NTS detrás de su propio runtime HTTP 
 El maestro no atiende ni una petición. No tiene pila HTTP en absoluto: es un único hilo sentado en `poll(2)` sobre un self-pipe, esperando señales, muertes de sus hijos y sus propios temporizadores. Y es a propósito: el proceso que tiene que sobrevivir para reiniciar todo lo demás hace lo mínimo imprescindible.
 
 ::: info
-El maestro también mantiene cargado el módulo de PHP mientras vive y es el único proceso que lo cierra. Un worker sale sin desmontar nada, así que un worker que se cae o que se recicla nunca se lleva por delante la imagen del motor que están usando sus hermanos.
+El maestro también mantiene cargado el módulo de PHP mientras vive y es el único proceso que lo cierra. Un worker sale sin desmontar nada, así que un worker que se cae o que se recicla nunca destruye la imagen del motor que siguen usando los demás.
 :::
 
 ## Qué vigila el maestro
@@ -48,9 +48,9 @@ Con el pool ya en marcha, el maestro ejecuta un tick de mantenimiento más o men
 - **Recoger y reponer.** Un worker que sale limpiamente (drenado, o reciclado al agotar su cuota) se sustituye al momento; con `ondemand` la plaza simplemente se queda libre para que la vuelva a llenar la siguiente conexión. A un worker que *se cae* se le sustituye tras una espera que empieza en 100 ms y se duplica con cada caída rápida seguida, con un tope de unos 25 segundos: así un bucle de segfaults se frena solo en lugar de quemar la CPU. Aguantar vivo diez segundos reinicia esa racha.
 - **Un arranque fallido se hace notar.** Si un worker de la primera generación se declara enfermo antes de que el pool haya atendido una sola petición con éxito, el maestro lo toma por un fallo de arranque sin remedio y sale, en vez de reponer eternamente un punto de entrada roto. Cuando el pool ya ha servido algo, esa misma salida no es más que una reposición con espera: una recarga mala nunca puede tumbar un pool sano.
 - **Reciclaje.** Con `pool.max_requests` definido, un worker se jubila al llegar a ese número de peticiones y se sustituye enseguida. Cada worker suma a la cuota un extra aleatorio propio (de hasta la mitad de la cuota), así que un pool arrancado a la vez no se recicla en bloque y te deja un momento sin ningún worker caliente.
-- **Un vigilante para cada petición.** Con `pool.request_terminate_timeout_secs` definido, el worker que siga con la misma petición pasado ese límite de tiempo real recibe un `SIGTERM`, y un `SIGKILL` si por lo que sea sigue ahí un tick después. La muerte se registra en `warn`, sus conexiones en cola se cierran y la plaza se vuelve a llenar de inmediato.
+- **Un vigilante para cada petición.** Con `pool.request_terminate_timeout_secs` definido, el worker que siga con la misma petición pasado ese límite de tiempo real recibe un `SIGTERM`, y un `SIGKILL` si por lo que sea sigue ahí un tick después. El cierre forzado se registra en `warn`, sus conexiones en cola se cierran y la plaza se vuelve a llenar de inmediato.
 - **Escalado.** Con `dynamic`, ese mismo tick decide si hace fork de más workers o si jubila a los que están ociosos; con `ondemand` solo jubila a los que llevan ociosos más tiempo del permitido, porque ahí el fork lo dispara una conexión que llega. Lo tienes más abajo.
-- **Un cordón de seguridad en el otro sentido.** Cada worker se queda con el extremo de lectura de un pipe en el que el maestro no escribe nunca. Si el maestro muere, el pipe da EOF y cada worker se drena solo, así que un `kill -9` al maestro no puede dejarte huérfanos ocupando el puerto.
+- **Un pipe en el otro sentido.** Cada worker se queda con el extremo de lectura de un pipe en el que el maestro no escribe nunca. Si el maestro muere, el pipe da EOF y cada worker se drena solo, así que un `kill -9` al maestro no puede dejar workers huérfanos ocupando el puerto.
 
 ## Modos del pool
 
@@ -76,7 +76,7 @@ max_spare = 3
 
 Los límites tienen que cumplir `1 <= min_spare <= max_spare <= processes`; son obligatorios con `dynamic` y se rechazan en los demás modos, porque ponerlos donde no van es un error de configuración y no una clave que se ignora en silencio.
 
-**`ondemand`** no forkea nada al arrancar. Aquí es el propio maestro quien vigila el socket de escucha y, cuando llega una conexión y no hay ningún worker ocioso que la coja, forkea uno y deja que el hijo la acepte. Un worker que lleve ocioso más de `pool.process_idle_timeout_secs` vuelve a jubilarse. Con eso el pool no cuesta nada mientras duerme, a cambio de pagar un fork en la primera petición después de un rato de calma: un buen trato para entornos de pruebas y sitios con muy pocas visitas, y malo con tráfico constante.
+**`ondemand`** no forkea nada al arrancar. Aquí es el propio maestro quien vigila el socket de escucha y, cuando llega una conexión y no hay ningún worker ocioso que la coja, forkea uno y deja que el hijo la acepte. Un worker que lleve ocioso más de `pool.process_idle_timeout_secs` vuelve a jubilarse. Con eso un pool ocioso no cuesta nada, a cambio de pagar un fork en la primera petición tras un rato sin tráfico: un buen trato para entornos de pruebas y sitios con muy pocas visitas, y malo con tráfico constante.
 
 La referencia completa de claves está en la página de [configuración](/es/docs/configuration).
 
@@ -106,19 +106,19 @@ Manda las señales al maestro, nunca a un worker suelto. Los workers ignoran `SI
 
 ### Parar el servidor
 
-Toda parada empieza por las buenas, la haya pedido cualquiera de las tres señales: el maestro le manda `SIGQUIT` a cada worker, que deja de coger trabajo nuevo y termina lo que tiene entre manos. A partir de ahí escala con un presupuesto: `supervisor.process_control_timeout_secs` (30 segundos por defecto) es el margen de cortesía y, cuando se agota, los workers que sigan ahí reciben `SIGTERM` y, si ni por esas, `SIGKILL`. Al worker que no responde al `SIGQUIT` amable se le manda TERM y luego KILL, en lugar de esperarlo eternamente.
+Toda parada empieza por las buenas, la haya pedido cualquiera de las tres señales: el maestro le manda `SIGQUIT` a cada worker, que deja de coger trabajo nuevo y termina lo que tiene entre manos. A partir de ahí la escalada va por temporizador: `supervisor.process_control_timeout_secs` (30 segundos por defecto) es el periodo de gracia y, cuando se agota, los workers que sigan ahí reciben `SIGTERM` y, si ni por esas, `SIGKILL`. Al worker que no responde al `SIGQUIT` amable se le manda TERM y luego KILL, en lugar de esperarlo eternamente.
 
 Y si no tienes paciencia, el segundo `SIGTERM`/`SIGINT` se salta la espera y fuerza la salida al instante.
 
 ### Recarga progresiva
 
-`SIGUSR2` (o `SIGHUP`) sustituye el pool entero por workers recién nacidos, que es la forma de tirar la aplicación ya arrancada de un worker residente y volver a construirla con el código que has desplegado.
+`SIGUSR2` (o `SIGHUP`) sustituye el pool entero por workers nuevos, que es la forma de tirar la aplicación ya arrancada de un worker residente y volver a construirla con el código que has desplegado.
 
-La recarga nunca te baja de la capacidad con la que estabas sirviendo, porque solapa en vez de reiniciar: el maestro levanta un worker nuevo, espera a que ese worker esté aceptando de verdad y solo entonces drena uno viejo. Cuando el viejo se ha ido, su plaza pasa al siguiente worker nuevo, y así hasta el final de la generación. Cada drenaje es la misma escalera ordenada de `SIGQUIT` → `SIGTERM` → `SIGKILL` que una parada, acotada por el mismo tiempo de control, aplicada a ese único worker.
+La recarga nunca te baja de la capacidad con la que estabas sirviendo, porque solapa en vez de reiniciar: el maestro levanta un worker nuevo, espera a que ese worker esté aceptando de verdad y solo entonces drena uno viejo. Cuando el viejo se ha ido, su plaza pasa al siguiente worker nuevo, y así hasta el final de la generación. Cada drenaje es la misma escalada ordenada de `SIGQUIT` → `SIGTERM` → `SIGKILL` que una parada, acotada por el mismo tiempo de control, aplicada a ese único worker.
 
 Un sustituto que nunca llega a servir tampoco atasca la recarga: en cuanto vence el tiempo de control, el maestro escribe un aviso y pasa al siguiente worker de todas formas. Con `ondemand` no se forkea ningún sustituto por adelantado: los workers viejos se drenan de uno en uno y a los nuevos los crea la demanda.
 
-Una recarga que llega con una parada ya en marcha se ignora: parar siempre gana.
+Una recarga que llega con una parada ya en marcha se ignora: la parada tiene prioridad.
 
 ::: info
 Una recarga sustituye los workers, no el maestro. Los nuevos salen por fork del mismo proceso maestro y con la misma imagen del motor que este arrancó al principio, así que `rapira.toml`, `php.ini` y el propio binario solo cambian con un reinicio completo.
@@ -140,7 +140,7 @@ Por ese mismo target pasan todos los eventos de supervisión: forks, recogidas, 
 :::
 
 ::: question ¿Hace falta recargar para que entre el código nuevo?
-En el peldaño Classic el script de entrada se ejecuta desde cero en cada petición, así que no hay nada residente que sustituir. En el peldaño SAPI Worker tu aplicación arranca una vez y se queda en memoria, con lo que el código que despliegues no entra en juego hasta que haya una recarga progresiva: un `kill -USR2` al pid del maestro. Todo el truco está en convertir eso en un paso más de tu despliegue; lo tienes en [En producción](/es/docs/deployment).
+En el peldaño Classic el script de entrada se ejecuta desde cero en cada petición, así que no hay nada residente que sustituir. En el peldaño SAPI Worker tu aplicación arranca una vez y se queda en memoria, con lo que el código que despliegues no entra en juego hasta que haya una recarga progresiva: un `kill -USR2` al pid del maestro. Conviértelo en un paso más de tu despliegue; lo tienes en [En producción](/es/docs/deployment).
 :::
 
 ::: question ¿Cuántos workers debería ejecutar?
@@ -148,5 +148,5 @@ Por defecto va uno por CPU, que es el punto de partida correcto para `static`. P
 :::
 
 ::: question ¿Qué pasa con las peticiones que ya están en curso cuando paro o recargo?
-Terminan. Tanto una parada como una recarga empiezan diciéndole al worker que deje de aceptar y termine lo que tiene entre manos; el worker sale por su cuenta en cuanto escribe la última respuesta. Lo único que corta una petición por la mitad es la escalera que arranca al agotarse `supervisor.process_control_timeout_secs`, o un segundo `SIGTERM`/`SIGINT`, que manda TERM a todos los workers a la vez. El vigilante de `pool.request_terminate_timeout_secs` queda suspendido mientras hay una parada o una recarga en curso.
+Terminan. Tanto una parada como una recarga empiezan diciéndole al worker que deje de aceptar y termine lo que tiene entre manos; el worker sale por su cuenta en cuanto escribe la última respuesta. Lo único que corta una petición por la mitad es la escalada que arranca al agotarse `supervisor.process_control_timeout_secs`, o un segundo `SIGTERM`/`SIGINT`, que manda TERM a todos los workers a la vez. El vigilante de `pool.request_terminate_timeout_secs` queda suspendido mientras hay una parada o una recarga en curso.
 :::

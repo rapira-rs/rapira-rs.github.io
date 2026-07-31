@@ -5,21 +5,21 @@ description: "rapira.toml 完整参考：[http]、[pool]、[supervisor] 和 [log
 
 # 配置
 
-Rapira 不需要配置文件也能启动——`rapira serve app/worker.php` 会替每一项设置挑好默认值。等默认值不够用了，才轮到 `rapira.toml` 出场：换一个监听地址、把 worker 数量固定下来、定一套回收策略、写一个 init 系统读得到的 pidfile、把日志级别调到真能说明问题的档位。把服务器指向这个文件，它就接管一切：
+Rapira 不需要配置文件也能启动——`rapira serve app/worker.php` 会替每一项设置挑好默认值。等默认值不够用了，就该加一个 `rapira.toml`：换一个监听地址、把 worker 数量固定下来、定一套回收策略、写一个 init 系统读得到的 pidfile、把日志级别调得更详细。把服务器指向这个文件，它就从这个文件读取设置：
 
 ```bash
 rapira serve --config /etc/rapira/rapira.toml
 ```
 
-文件由四个小节组成，每一节都可以不写：`[http]` 管监听器，`[pool]` 管 worker 进程，`[supervisor]` 管 master 进程，`[log]` 管往 stderr 写什么。唯一一个 Rapira 没法替你猜出来的值是 PHP 入口脚本——要么在这里设 `pool.entrypoint`，要么在命令行上把脚本作为位置参数传进去。
+文件由四个小节组成，每一节都可以不写：`[http]` 管监听器，`[pool]` 管 worker 进程，`[supervisor]` 管 master 进程，`[log]` 管往 stderr 写什么。唯一没有默认值的是 PHP 入口脚本——要么在这里设 `pool.entrypoint`，要么在命令行上把脚本作为位置参数传进去。
 
 ::: info
-设置是分层的：命令行参数压过配置文件，配置文件压过内置默认值。所以 `--processes 8` 会盖掉文件里的 `processes = 4`——纳入版本控制的配置，照样能为某一次运行临时改口。参数本身见[命令行](/zh/docs/cli)那一页。
+设置是分层的：命令行参数压过配置文件，配置文件压过内置默认值。所以 `--processes 8` 会盖掉文件里的 `processes = 4`——纳入版本控制的配置，照样能为某一次运行临时覆盖。参数本身见[命令行](/zh/docs/cli)那一页。
 :::
 
 ## 一份完整的 rapira.toml
 
-Rapira 认识的每一个键，都在这一个文件里。下面没有一行是必填的——删掉哪一行，哪一行的默认值就接手；只有两个例外：`pool.entrypoint` 没有默认值可退，而只要 `mode = "dynamic"` 还写在那里，`min_spare` 和 `max_spare` 就必须给。
+Rapira 认识的每一个键，都在这一个文件里。下面没有一行是必填的——删掉哪一行，就用哪一行的默认值；只有两个例外：`pool.entrypoint` 没有默认值可退，而只要设了 `mode = "dynamic"`，`min_spare` 和 `max_spare` 就必须给。
 
 ```toml
 [http]
@@ -57,7 +57,7 @@ pingora_core = "warn"
 
 ## `[http]` 小节
 
-这是大门口：Rapira 在哪里监听、请求环境告诉 PHP 它跑在什么样的服务器下、以及愿意读进多大的请求体。
+这一节讲的是：Rapira 在哪里监听、请求环境告诉 PHP 它跑在什么样的服务器下，以及能读进多大的请求体。
 
 | 键 | 类型 | 默认值 | 含义 |
 | --- | --- | --- | --- |
@@ -81,7 +81,7 @@ pingora_core = "warn"
 | `mode` | `"static"` \| `"dynamic"` \| `"ondemand"` | `"static"` | 进程池怎么决定自己的规模。`static` 始终保持 `processes` 个 worker 存活；`dynamic` 在两个空闲阈值之间伸缩，上限是 `processes`；`ondemand` 只在有活干的时候才 fork，空闲的 worker 会被淘汰。 |
 | `min_spare` | 整数 | 无 | 仅用于 `dynamic`，并且在那里是必填：至少保留这么多个空闲待命的 worker。 |
 | `max_spare` | 整数 | 无 | 仅用于 `dynamic`，并且在那里是必填：空闲 worker 最多留这么多，多的裁掉。两者必须满足 `1 <= min_spare <= max_spare <= processes`；在别的模式下写任何一个都是错误，而不是被当成建议。 |
-| `max_requests` | 整数 | `0` | 一个 worker 处理够这么多请求就回收掉，另外加一点抖动，免得整个进程池同时换血。`0` 表示永不回收。 |
+| `max_requests` | 整数 | `0` | 一个 worker 处理够这么多请求就回收掉，另外加一点抖动，免得整个进程池同时被回收。`0` 表示永不回收。 |
 | `process_idle_timeout_secs` | 整数 | `10` | 只有 `ondemand` 会读它：一个 worker 最多能空闲多久，超过就被 master 收走。 |
 | `request_terminate_timeout_secs` | 整数 | `0` | 单个请求的墙钟时间预算。超时还没处理完的 worker 会被杀掉并换新。`0` 表示关掉这项检查。 |
 
@@ -96,7 +96,7 @@ master 进程的策略——监听 socket 归它掌管，worker 由它照看，�
 
 ## `[log]` 小节
 
-Rapira 把所有日志都写到 stderr，一条记录一次写入，所以 master 和 worker 的输出绝不会在一行中间串到一起。这一节决定这股流有多吵、每条记录长什么样；具体有哪些 target、有哪些格式，以及 PHP 的诊断信息怎么对应到级别，都在[日志](/zh/docs/logging)那一页。
+Rapira 把所有日志都写到 stderr，一条记录一次写入，所以 master 和 worker 的输出绝不会在一行中间串到一起。这一节决定这股流有多详细、每条记录长什么样；具体有哪些 target、有哪些格式，以及 PHP 的诊断信息怎么对应到级别，都在[日志](/zh/docs/logging)那一页。
 
 | 键 | 类型 | 默认值 | 含义 |
 | --- | --- | --- | --- |
@@ -110,7 +110,7 @@ Rapira 把所有日志都写到 stderr，一条记录一次写入，所以 maste
 
 Rapira 解析 `rapira.toml` 时非常严格。每一个表、以及表里的每一个键，都必须是服务器认识的，所以 `[htttp]` 或者 `lissten = ":8000"` 会让启动失败，并明确报出它不认识的是什么，而不是默默跳过这一行。每个键也都只有一个归属：`max_requests` 只属于 `[pool]`，`pidfile` 只属于 `[supervisor]`，放错表和拼错字母一样通不过。
 
-值也一样要过检查。`level = "verbose"`、`format = "pretty"`、`unsafe_field_names = "allow"` 全是硬错误，而不是悄悄退回默认值——一道带着拼写错误照样上线的安全过滤，比一道当着你的面拒绝启动的糟得多。数字也有范围：`pool.processes` 和 `http.max_body_size_mb` 至少为 1，所有 `*_secs` 键的上限是 `86400`，也就是一天。
+值也一样要过检查。`level = "verbose"`、`format = "pretty"`、`unsafe_field_names = "allow"` 全是硬错误，而不是悄悄退回默认值——拼写错误悄悄削弱安全设置，比它直接挡下启动要糟糕得多。数字也有范围：`pool.processes` 和 `http.max_body_size_mb` 至少为 1，所有 `*_secs` 键的上限是 `86400`，也就是一天。
 
 ::: warning
 校验发生在一切启动之前，所以不认识的键会挡下启动，而不是让这次运行悄悄降级。在正对外服务的机器上改 `rapira.toml` 时，这一点值得记住：正在跑的进程不受影响，但下一次启动必须成功。
@@ -131,7 +131,7 @@ Rapira 解析 `rapira.toml` 时非常严格。每一个表、以及表里的每�
 :::
 
 ::: question 能用环境变量配置 Rapira 吗？
-不能——设置只来自配置文件和命令行参数，没有第三个来源。例外是两个只管日志的变量：`RUST_LOG` 是调试用的覆盖开关，它整体替换掉日志过滤器，想让某次会话话多一点，不必改配置；`NO_COLOR` 则去掉 `plain` 格式里的颜色——只要值非空就关掉，哪怕输出的是终端。两者在[日志](/zh/docs/logging)那一页都有说明。
+不能——设置只来自配置文件和命令行参数，没有第三个来源。例外是两个只管日志的变量：`RUST_LOG` 是调试用的覆盖开关，它整体替换掉日志过滤器，想让某次会话的日志更详细，不必改配置；`NO_COLOR` 则去掉 `plain` 格式里的颜色——只要值非空就关掉，哪怕输出的是终端。两者在[日志](/zh/docs/logging)那一页都有说明。
 :::
 
 ::: question 为什么写了 `mode = "dynamic"` 服务器就起不来？

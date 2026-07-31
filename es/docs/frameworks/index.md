@@ -5,7 +5,7 @@ description: Qué cambia cuando una aplicación de Symfony, Laravel o Yii3 corre
 
 # Integración con frameworks
 
-Poner una aplicación de framework a correr sobre Rapira no es migrarla. En modo clásico ni siquiera es un cambio: apuntas el servidor al front controller que ya tienes y funciona. Lo interesante viene con el worker, donde el proceso de PHP sigue vivo entre una petición y la siguiente — y ahí es donde el framework empieza a tener opinión. Esta página es la mitad común de la historia: la mecánica que es igual para todos. Las tres guías de cada framework dan por hecho que ya la has leído y solo cuentan lo suyo.
+Poner una aplicación de framework a correr sobre Rapira no es migrarla. En modo clásico ni siquiera es un cambio: apuntas el servidor al front controller que ya tienes y funciona. Lo interesante viene con el worker, donde el proceso de PHP sigue vivo entre una petición y la siguiente — y ahí es donde el diseño del framework empieza a importar. Esta página cubre la parte común: la mecánica que es igual para todos. Las tres guías de cada framework dan por hecho que ya la has leído y solo cuentan lo suyo.
 
 ::: info Verificado con
 
@@ -13,14 +13,14 @@ Poner una aplicación de framework a correr sobre Rapira no es migrarla. En modo
 - **Rapira 0.6.0**
 - **Symfony 7.4.15** y **8.1.2**, **Laravel 13.23.0**, plantilla de aplicación de **Yii3** 1.4 (yii-runner-http 3.2.1)
 
-Todo lo que cuenta esta página se observó ejecutando esas aplicaciones en Linux, con un único proceso worker. Si alguna afirmación resulta incómoda, está aquí porque se midió, no porque sonara bien.
+Todo lo que cuenta esta página se observó ejecutando esas aplicaciones en Linux, con un único proceso worker. Cada afirmación de aquí en adelante sale de esas mediciones.
 :::
 
 ## Qué significa ejecutar un framework sobre Rapira
 
 **En modo clásico no cambia nada.** Tu front controller es el script de entrada, Rapira lo ejecuta desde cero en cada petición y aquí funciona cualquier framework que funcione con php-fpm, incluidos aquellos cuyo estado jamás sobreviviría a una segunda petición. Si es ahí donde empiezas, la página que necesitas es [modo clásico](/es/docs/classic); de aquí en adelante solo te conciernen las secciones sobre archivos estáticos, TLS y OPcache.
 
-**En el peldaño SAPI Worker el proceso sigue vivo.** Tu script arranca la aplicación una vez y entra en un bucle pidiéndole a Rapira la siguiente petición. El framework ya no se desmonta entre petición y petición, y en esa frase caben enteras la ventaja y el riesgo — el resto de la página va de lo que eso implica. [Modos de ejecución](/es/docs/execution-modes) sitúa este peldaño en la escalera; [modo worker](/es/docs/worker) es su referencia de API.
+**En el peldaño SAPI Worker el proceso sigue vivo.** Tu script arranca la aplicación una vez y entra en un bucle pidiéndole a Rapira la siguiente petición. El framework ya no se desmonta entre petición y petición: ahí está la ventaja y ahí está el riesgo, y el resto de la página va de lo que eso implica. [Modos de ejecución](/es/docs/execution-modes) sitúa este peldaño en la escalera; [modo worker](/es/docs/worker) es su referencia de API.
 
 ## El bucle, línea a línea
 
@@ -50,7 +50,7 @@ while ($http->handleRequest($handler)) {
 
 De arriba abajo:
 
-- **`require .../vendor/autoload.php`** — el autoloader se registra una sola vez para toda la vida del worker, y cada clase que resuelve se queda cargada. Con esto solo ya te llevas casi todo lo que vienes a buscar.
+- **`require .../vendor/autoload.php`** — el autoloader se registra una sola vez para toda la vida del worker, y cada clase que resuelve se queda cargada. Solo con eso ya tienes la mayor parte de la ganancia.
 - **`create_plugin_handler(new HttpHandlerConfig())`** — le pide un handler a Rapira; el plugin lo elige la *clase* del objeto de configuración. En modo clásico lanza una excepción, porque no hay ningún bucle residente al que entregarle un handler.
 - **`$app = new App();`** — tu arranque, que se paga una sola vez al inicio. Esta línea es donde empiezan a separarse las tres guías de frameworks: aquí va un kernel residente; una aplicación que se construye en cada petición se construye dentro del handler — y cada guía añade su propio arranque encima del bucle y su propia limpieza dentro del handler.
 - **`$handler = static function () use ($app): void`** — el handler no recibe argumentos. La petición está en las superglobales; lo demás que necesite lo captura con `use`.
@@ -62,7 +62,7 @@ Una cosa que conviene saber antes de escribir el archivo: tu script de entrada e
 
 ## Qué se renueva y qué sobrevive
 
-Esta es la tabla que conviene tener en la cabeza. Columna izquierda: Rapira lo reconstruye en cada petición, así que el código PHP de toda la vida que lo lee sigue funcionando. Columna derecha: a partir de ahora lo gestionas tú.
+Conviene recordar este reparto. Columna izquierda: Rapira lo reconstruye en cada petición, así que el código PHP de toda la vida que lo lee sigue funcionando. Columna derecha: a partir de ahora lo gestionas tú.
 
 | Nuevo en cada petición | Sobrevive a cada petición |
 | ---------------------- | ------------------------- |
@@ -76,13 +76,13 @@ Esta es la tabla que conviene tener en la cabeza. Columna izquierda: Rapira lo r
 
 La fila de `max_execution_time` tiene un detalle que merece explicarse. En Linux (y FreeBSD), donde existe el temporizador por petición de Zend, el reloj se rearma en cada petición y el rato que el worker pasa aparcado esperando la siguiente nunca le cuenta: en el reloj solo está la petición en sí. En el resto de sistemas, macOS incluido, no se arma ningún límite por petición.
 
-Hay tres comportamientos que pillan a mucha gente por sorpresa. Los tres están verificados, los tres muerden en el arranque y los tres son propiedades de un PHP residente, no de Rapira.
+Hay tres comportamientos que pillan a mucha gente por sorpresa. Los tres están verificados, los tres aparecen en el arranque y los tres son propiedades de un PHP residente, no de Rapira.
 
 ::: warning El destructor de un objeto residente se ejecuta al final de la primera petición
 
 Dale un `__destruct` de userland a un objeto creado *fuera* del bucle y se ejecutará — una vez, al final de la **primera** petición, cuando PHP recorre el almacén de objetos al cerrar la petición. El objeto en sí queda perfectamente después: sigue siendo un objeto, sus métodos siguen siendo llamables y el destructor no vuelve a ejecutarse jamás, ni en las peticiones siguientes ni al apagarse el worker.
 
-Así que una clase que cierra un descriptor, vacía un búfer o escribe una línea de despedida en el registro desde su destructor lo hace una vez, pronto y a tus espaldas — y ya no lo vuelve a hacer en toda la vida del proceso. En cualquier cosa que mantengas residente, saca el desmontaje de los destructores.
+Así que una clase que cierra un descriptor, vacía un búfer o escribe una línea de despedida en el registro desde su destructor lo hace una vez, pronto y en silencio — y ya no lo vuelve a hacer en toda la vida del proceso. En cualquier cosa que mantengas residente, saca el desmontaje de los destructores.
 :::
 
 ::: warning `register_shutdown_function()` en el arranque se ejecuta una vez y nunca más
@@ -96,7 +96,7 @@ Si tu arranque instala un handler de shutdown —para volcar métricas, para caz
 
 Con los ajustes de ini de fábrica (`variables_order = "GPCS"`, `auto_globals_jit = On`), PHP rearma en cada petición el flag JIT de `$_ENV`. El primer archivo que se compile durante esa petición y mencione `$_ENV` hace que PHP reconstruya la superglobal — y como en `variables_order` no hay ninguna `E`, no hay nada que importar: `$_ENV` vuelve **vacía** y todo lo que un arranque tipo Dotenv escribió en ella al levantar el worker desaparece a mitad de petición, sin ningún aviso y sin ningún error.
 
-Lo malo es que depende de *cuándo* se compila cada archivo. La configuración que un framework resuelve de golpe durante el arranque ya está cacheada y tiene una pinta estupenda; lo que se resuelve de forma perezosa, en la primera petición, lee un `$_ENV` que se vació un instante antes. Por eso exactamente la misma aplicación puede ir como la seda en un entorno y devolver un 500 en cada petición en otro.
+Lo difícil de detectar es que depende de *cuándo* se compila cada archivo. La configuración que un framework resuelve de golpe durante el arranque ya está cacheada y funciona bien; lo que se resuelve de forma perezosa, en la primera petición, lee un `$_ENV` que se vació un instante antes. Por eso exactamente la misma aplicación puede funcionar en un entorno y devolver un 500 en cada petición en otro.
 
 Hay dos salidas. La primera está verificada: que el arranque escriba también los valores en el entorno de verdad — `putenv()` sobrevive a la reimportación, y un framework que tire de `getenv()` como plan B los encuentra ahí. La segunda es, de todas formas, la mejor respuesta en producción: define variables de entorno reales en tu archivo de unidad o en tu contenedor y deja de parsear un `.env` en tiempo de ejecución. Ninguna de las dos devuelve nada a `$_ENV`: bajo `GPCS` se queda vacía por mucho que llenes el entorno, y quien ve los valores es `getenv()`. La [guía de Symfony](/es/docs/frameworks/symfony) recorre el fallo concreto y el arreglo de una línea.
 
@@ -111,7 +111,7 @@ Tres formas de fallo, todas observadas contra un único worker y siguiéndole el
 - **Una excepción sin capturar** — un `500`. En la práctica la caza antes el manejador de errores de tu framework y pinta su propia página de error; si no la caza nadie, Rapira responde un `500` con el cuerpo vacío. En cualquier caso el worker sigue atendiendo.
 - **Un `Error` sin capturar** — llamar a una función que no existe, por ejemplo. PHP lo registra como `Uncaught Error` y sigue el mismo camino que cualquier otro throwable sin capturar: un `500`, y el worker sigue atendiendo con el mismo pid.
 
-El contador `errors` del worker sube con las dos formas de error; la petición del `exit` es un `200` normal y solo mueve `handled`. En los tres casos, `recycles` y `restarts` se quedan a cero: un throwable sin capturar no se lleva al worker por delante ni toca la petición siguiente. Conviene saberlo antes de ponerte a leer un registro de errores con el corazón en un puño. La única forma que hace algo más es un error fatal de los que provocan un bailout: desmonta el script residente, así que el worker vuelve a ejecutarlo desde arriba y arranca tu aplicación otra vez, que es justo lo que cuenta `recycles`. Para leer esos contadores desde PHP tienes `getInfo()`, en la página de [modo worker](/es/docs/worker).
+El contador `errors` del worker sube con las dos formas de error; la petición del `exit` es un `200` normal y solo mueve `handled`. En los tres casos, `recycles` y `restarts` se quedan a cero: un throwable sin capturar no se lleva al worker por delante ni toca la petición siguiente. Conviene saberlo antes de ponerte a leer el registro de errores. La única forma que hace algo más es un error fatal de los que provocan un bailout: desmonta el script residente, así que el worker vuelve a ejecutarlo desde arriba y arranca tu aplicación otra vez, que es justo lo que cuenta `recycles`. Para leer esos contadores desde PHP tienes `getInfo()`, en la página de [modo worker](/es/docs/worker).
 
 ## Rapira no sirve nada del disco
 
@@ -134,9 +134,9 @@ Llamar tú mismo a `gc_collect_cycles()` no lo aplana — verificado, tanto en e
 max_requests = 100
 ```
 
-El worker se jubila al llegar a ese número de peticiones (más un poco de jitter, para que el pool no rote todo a la vez) y el maestro hace fork de un sustituto que empieza con el heap limpio. Verificado a lo largo de cientos de peticiones seguidas y varios reciclajes: los workers rotan, la memoria se reinicia en cada ciclo y no se cayó ni una sola petición ni hubo ninguna respuesta que no fuera un `200`. Es la red determinista que hay debajo de un patrón cuyo perfil de memoria, si no, es cosa del recolector.
+El worker termina al llegar a ese número de peticiones (más un poco de jitter, para que el pool no rote todo a la vez) y el maestro hace fork de un sustituto que empieza con el heap limpio. Verificado a lo largo de cientos de peticiones seguidas y varios reciclajes: los workers rotan, la memoria se reinicia en cada ciclo y no se cayó ni una sola petición ni hubo ninguna respuesta que no fuera un `200`. Es el respaldo determinista para un patrón cuyo perfil de memoria, si no, lo decide por completo el recolector.
 
-Las formas residentes —el kernel de Symfony, el contenedor de Yii3 detrás de `StateResetter`— son planas en comparación: en las mismas pruebas la memoria se mantuvo estable. Aun así, el reciclaje merece la pena como red. La clave está en [Configuración](/es/docs/configuration); lo que el reciclaje le hace al pool, en [Modelo de procesos](/es/docs/process-model).
+Las formas residentes —el kernel de Symfony, el contenedor de Yii3 detrás de `StateResetter`— son planas en comparación: en las mismas pruebas la memoria se mantuvo estable. Aun así, el reciclaje merece la pena como salvaguarda. La clave está en [Configuración](/es/docs/configuration); lo que el reciclaje le hace al pool, en [Modelo de procesos](/es/docs/process-model).
 
 ## OPcache y el código que cambia
 
@@ -149,7 +149,7 @@ Mientras desarrollas, espera el mismo resultado por otro motivo. Un arranque res
 ## Elige tu framework
 
 - **[Symfony](/es/docs/frameworks/symfony)** — el kernel arranca una vez y se queda residente, y el propio `services_resetter` del framework deja entre peticiones los servicios con estado tal y como los encontró. Un único archivo de worker vale para 7.4 y 8.1, byte a byte.
-- **[Laravel](/es/docs/frameworks/laravel)** — una aplicación nueva en cada petición, porque hoy por hoy esa es la respuesta honesta: Octane es la propuesta de aplicación residente del propio Laravel y Rapira no tiene driver de Octane. Te quedas con el autoloader caliente y con OPcache caliente; con el contenedor, no.
+- **[Laravel](/es/docs/frameworks/laravel)** — una aplicación nueva en cada petición, porque hoy por hoy es lo que funciona: Octane es la solución de aplicación residente del propio Laravel y Rapira no tiene driver de Octane. Te quedas con el autoloader caliente y con OPcache caliente; con el contenedor, no.
 - **[Yii3](/es/docs/frameworks/yii3)** — un contenedor residente que se reinicia en cada petición mediante `StateResetter`, que es el diseño del propio Yii3 para procesos de larga vida (su runner de RoadRunner tiene la misma forma), o un runner nuevo por petición, más sencillo, si prefieres empezar por ahí.
 
 ::: question Mi framework no es ninguno de esos tres. ¿Puedo ejecutarlo igualmente?
@@ -161,7 +161,7 @@ A ninguno de los tres. `SCRIPT_NAME` vale `/worker.php` mientras que `REQUEST_UR
 :::
 
 ::: question ¿De verdad arrancar en cada petición es mejor que el modo clásico?
-Sí, aunque no de forma tan espectacular como una aplicación residente. El autoloader y todas las clases ya cargadas se quedan en memoria en lugar de reconstruirse desde la nada cada vez, y el bucle es tuyo: puedes ir sacando trabajo del handler poco a poco, según vayas descubriendo qué sobrevive. Lo que no te llevas es el premio gordo: un contenedor ya construido cuando llega la petición.
+Sí, aunque no de forma tan espectacular como una aplicación residente. El autoloader y todas las clases ya cargadas se quedan en memoria en lugar de reconstruirse desde la nada cada vez, y el bucle es tuyo: puedes ir sacando trabajo del handler poco a poco, según vayas descubriendo qué sobrevive. Lo que no te llevas es un contenedor ya construido cuando llega la petición.
 :::
 
 ::: question ¿Puede el mismo código correr en los dos modos?

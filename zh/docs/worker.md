@@ -7,13 +7,13 @@ description: Rapira 常驻 worker 的编程指南：应用只启动一次，随�
 
 在[经典模式](/zh/docs/classic)下，PHP 干的还是它一直干的那件事：入口脚本从头跑一遍，把请求应答掉，脚本搭起来的一切随即统统丢弃。启动一个现代框架——自动加载器、容器、配置、路由、数据库连接——第一个请求要付多少，第一百万个请求还是照付。
 
-Worker 模式是另一条路。进程不会退出：脚本把应用启动一次，然后待在循环里，一遍遍向 Rapira 要下一个请求。启动开销只在起步时付一次，之后每个请求一上来，内存里就已经躺着一个热好的应用。代价是你得开始操心状态——因为它现在比请求活得更久。
+Worker 模式是另一种选择。进程不会退出：脚本把应用启动一次，然后待在循环里，一遍遍向 Rapira 要下一个请求。启动开销只在起步时付一次，之后每个请求一上来，内存里已经有一个预热好的应用。代价是你得开始操心状态——因为它现在比请求活得更久。
 
-这就是 Rapira 执行阶梯上的 **SAPI Worker** 那一级，它和 Classic 一起构成了今天已经发布的部分。整架阶梯是什么样、怎么判断自己的应用能爬到哪一级，见[执行模式](/zh/docs/execution-modes)；本页则是你现在就能用的这一级的编程指南。
+这就是 Rapira 执行阶梯上的 **SAPI Worker** 那一级，它和 Classic 一起构成了今天已经发布的部分。整架阶梯是什么样、怎么判断自己的应用能用哪一级，见[执行模式](/zh/docs/execution-modes)；本页则是你现在就能用的这一级的编程指南。
 
 ## 常驻循环
 
-一个 worker 脚本分三块：开头启动起来的那些东西、负责应答单个请求的 handler，以及不断调用它、直到服务器关闭才罢休的循环。循环写在 PHP 这一侧——Rapira 把一个 handler 对象交给你，方向盘握在你手里。
+一个 worker 脚本分三块：开头启动起来的那些东西、负责应答单个请求的 handler，以及不断调用它、直到服务器关闭才罢休的循环。循环写在 PHP 这一侧——Rapira 把一个 handler 对象交给你，由你来驱动它。
 
 ```php
 <?php
@@ -47,7 +47,7 @@ rapira serve app/worker.php
 
 ## `handleRequest()` 到底做了什么
 
-`handleRequest(callable $handler)` 就是全部的契约，值得慢慢读一遍：
+`handleRequest(callable $handler)` 就是全部的契约：
 
 - **它会阻塞**，直到有请求派给这个 worker。停在 `handleRequest()` 上的 worker 等待期间不烧 CPU，解释器和你启动好的应用仍然留在内存里。
 - **它会填好超全局变量**——`$_GET`、`$_POST`、`$_SERVER`、`$_COOKIE` 这一家子——在你的 handler 跑起来之前，用这次请求的数据重新填一遍。读这些变量的普通 PHP 代码，行为和在 php-fpm 下一模一样。
@@ -86,7 +86,7 @@ while ($http->handleRequest($web)) {
 
 ## 选择插件
 
-`create_plugin_handler()` 接收一个配置对象，而真正决定选用哪个插件的，是这个配置的*类*。`HttpHandlerConfig` 表示“这个 worker 提供 HTTP 服务”，换回来的就是一个 `HttpHandler`。
+`create_plugin_handler()` 接收一个配置对象，而真正决定选用哪个插件的，是这个配置的*类*。`HttpHandlerConfig` 表示这个 worker 提供 HTTP 服务，换回来的就是一个 `HttpHandler`。
 
 它在两种情况下会抛出 `Rapira\RapiraException`：没有插件匹配你传进来的配置类，以及脚本压根不在 worker 模式下运行——经典模式没有常驻循环，那里的 handler 除了报告“正在关闭”之外什么也做不了。
 
@@ -139,7 +139,7 @@ $handler = static function () use ($http): void {
 
 **没人认领的垃圾。**PHP 的引用计数会立刻释放掉大部分对象，但循环引用只有等循环回收器跑起来才清得掉。像上面那个标准脚本那样，每转一圈循环就调用一次 `gc_collect_cycles()`，这件事就固定在了一个可预期的时刻——发生在两次请求之间，而不是某个请求处理到一半的时候。
 
-**永远结束不了的请求。**常驻 worker 会心安理得地卡在一个挂死的请求里出不来，而卡着的这段时间它谁也服务不了。`pool.request_terminate_timeout_secs` 给单个请求设了一个墙钟时间上限，超出就把这个 worker 杀掉。这两个键见[配置](/zh/docs/configuration)，worker 死掉之后 master 会怎么做，见[进程模型](/zh/docs/process-model)。
+**永远结束不了的请求。**常驻 worker 会一直卡在挂死的请求里出不来，而卡着的这段时间它谁也服务不了。`pool.request_terminate_timeout_secs` 给单个请求设了一个墙钟时间上限，超出就把这个 worker 杀掉。这两个键见[配置](/zh/docs/configuration)，worker 死掉之后 master 会怎么做，见[进程模型](/zh/docs/process-model)。
 
 **未捕获的异常只影响单个请求，不影响整个 worker。**handler 里未捕获的异常会计入 `errors` 并以 `500` 应答，除非抛出之前 handler 已经把状态码提交出去了。无论哪种情况循环都照转不误：异常不会把 worker 一起带走，所以你在日志里读到的那次失败，未必真的中断了什么。致命错误则是另一回事：它会让常驻脚本直接终止，于是 worker 从头把它重新跑一遍，你的应用也随之重新启动——`recycles` 数的就是这件事。
 

@@ -1,11 +1,11 @@
 ---
 title: Symfony
-description: Run a Symfony application on Rapira's SAPI Worker rung — a kernel booted once, the services resetter between requests, and the $_ENV trap that only bites in prod.
+description: Run a Symfony application on Rapira's SAPI Worker rung — a kernel booted once, the services resetter between requests, and the $_ENV trap that only shows up in prod.
 ---
 
 # Symfony
 
-Symfony already has the shape a resident worker wants: a kernel you boot, a `Request` you hand it, a `Response` it hands back. Under Rapira the kernel boots once when the worker starts, and every request after that is a `handle()` call on a container that is already warm. Almost nothing in the application changes — what changes is the twenty lines that replace `public/index.php`, and this page is the exact file that was verified, plus the two details that make it work: the reset between requests, and how `.env` values reach the container.
+Symfony's structure already fits a resident worker: a kernel you boot, a `Request` you hand it, a `Response` it hands back. Under Rapira the kernel boots once when the worker starts, and every request after that is a `handle()` call on a container that is already warm. Almost nothing in the application changes — what changes is the twenty lines that replace `public/index.php`, and this page is the exact file that was verified, plus the two details that make it work: the reset between requests, and how `.env` values reach the container.
 
 ::: info Verified with
 - **PHP 8.5.8** — NTS, embed SAPI
@@ -100,7 +100,7 @@ Most of it is ordinary Symfony bootstrapping. The lines worth explaining are the
 
 **The loop and `gc_collect_cycles()`.** `handleRequest()` blocks until a request arrives, runs your handler, and returns `true` — or `false` when the server is shutting down, which is what ends the loop. Collecting cycles once per turn keeps that work between requests instead of in the middle of one. [Worker mode](/docs/worker) is the full contract.
 
-If the resetter is not enough — and it usually is — there are two bigger hammers: `$container->reset()` wipes every service that has been instantiated, and `$kernel->reboot(null)` throws the container away and builds a new one — after which the `$container` the handler captured is stale, so re-fetch it with `$kernel->getContainer()` if you go that route. Both cost you exactly the warm state you came for, so reach for them while you are hunting a leak, not as a default.
+If the resetter is not enough — and it usually is — there are two heavier options: `$container->reset()` wipes every service that has been instantiated, and `$kernel->reboot(null)` throws the container away and builds a new one — after which the `$container` the handler captured is stale, so re-fetch it with `$kernel->getContainer()` if you go that route. Both cost you exactly the warm state the worker mode gives you, so use them while you are tracking down a leak, not as a default.
 
 ## The `$_ENV` trap
 
@@ -110,7 +110,7 @@ With a plain `bootEnv()` — no `usePutenv()` — a Symfony app in `APP_ENV=prod
 
 The cause is not Symfony and not Rapira, but PHP itself. Under the ini defaults the verification ran with (`variables_order = "GPCS"`, `auto_globals_jit = On`), PHP re-arms the JIT flag for `$_ENV` on **every** request. The first file compiled during that request which mentions `$_ENV` triggers `php_auto_globals_create_env`, and that re-imports the superglobal from the real process environment — wiping everything `Dotenv->bootEnv()` put there at worker bootstrap. In the probe, `$_ENV` went from a populated array to empty in the middle of a request.
 
-Why only `prod`: in `prod` the first request is what lazily compiles the container and service files, so the wipe lands *before* `RequestContext` resolves `%env(DEFAULT_URI)%` — and by then there is nothing left to resolve. In `dev` the debug container resolves env lookups eagerly during `$kernel->boot()`, at bootstrap, and caches the values, so the wipe happens after the answer was already recorded. The bug is there in `dev` too; it simply has nothing left to break.
+Why only `prod`: in `prod` the first request is what lazily compiles the container and service files, so the wipe lands *before* `RequestContext` resolves `%env(DEFAULT_URI)%` — and by then there is nothing left to resolve. In `dev` the debug container resolves env lookups eagerly during `$kernel->boot()`, at bootstrap, and caches the values, so the wipe happens after the answer was already recorded. The bug is there in `dev` too; it simply has no effect there.
 
 The fix is the one line in the script above:
 
@@ -133,7 +133,7 @@ curl -i http://127.0.0.1:8000/
 
 That is the whole command — worker mode is the default, and `127.0.0.1:8000` is the default listen address. `rapira serve` stays in the foreground and `Ctrl-C` drains it.
 
-One thing that usually needs fixing on other setups and does **not** here: the entry script is `worker.php` rather than `index.php`, so `$_SERVER['SCRIPT_NAME']` is `/worker.php`. Symfony's `Request` looks for that name at the start of the URI, does not find it, and degrades the base URL to `""` — which is exactly right. `getPathInfo()` returns the real path, routing matches, and `generateUrl()` produces clean paths with no `/worker.php` prefix anywhere in them. No `$_SERVER` overrides, no `Request::setTrustedProxies()` gymnastics for this, nothing.
+One thing that usually needs fixing on other setups and does **not** here: the entry script is `worker.php` rather than `index.php`, so `$_SERVER['SCRIPT_NAME']` is `/worker.php`. Symfony's `Request` looks for that name at the start of the URI, does not find it, and degrades the base URL to `""` — which is exactly right. `getPathInfo()` returns the real path, routing matches, and `generateUrl()` produces clean paths with no `/worker.php` prefix anywhere in them. No `$_SERVER` overrides and no `Request::setTrustedProxies()` workarounds are needed for this.
 
 ## Going to production
 
@@ -159,7 +159,7 @@ max_requests = 500
 request_terminate_timeout_secs = 30
 ```
 
-`max_requests` is hygiene rather than a fix: it recycles a worker after that many requests so a slow leak somewhere in your dependency tree can never grow without bound. `request_terminate_timeout_secs` puts a wall-clock ceiling on a single request, because a resident worker will otherwise sit inside a hung one forever. Run it with `rapira serve --config rapira.toml`. Every key, and the rest of them, is on the [Configuration](/docs/configuration) page; a relative `entrypoint` resolves against the config file's own directory.
+`max_requests` is hygiene rather than a fix: it recycles a worker after that many requests so a slow leak somewhere in your dependency tree can never grow without bound. `request_terminate_timeout_secs` puts a wall-clock ceiling on a single request, because a resident worker would otherwise stay blocked in a hung request indefinitely. Run it with `rapira serve --config rapira.toml`. Every key, and the rest of them, is on the [Configuration](/docs/configuration) page; a relative `entrypoint` resolves against the config file's own directory.
 
 ## What resets between requests
 
@@ -167,7 +167,7 @@ request_terminate_timeout_secs = 30
 
 What it does not cover is state you keep yourself: static properties, memoized globals, a registry some library fills lazily, an `ini_set()` you never undid. Those survive the request under any resident worker, and resetting them is your job. The [Frameworks](/docs/frameworks/) page has the table of what survives and what does not.
 
-With the resetter in place the verification saw resident memory stay flat across 200 sequential requests, in `dev` and in `prod` alike — the kernel holds a constant working set rather than growing per request. That is what "flat" should look like for you too; if yours climbs, something in your own code or a bundle is holding on to requests.
+With the resetter in place the verification saw resident memory stay flat across 200 sequential requests, in `dev` and in `prod` alike — the kernel holds a constant working set rather than growing per request. That is what "flat" should look like for you too; if yours grows, something in your own code or a bundle is holding on to requests.
 
 ## Work after the response
 
@@ -183,7 +183,7 @@ rapira serve --classic public/index.php
 
 That is the same application, one rung down the ladder — it just pays the boot cost per request, which is exactly what you want while iterating and exactly what you do not want in production. For a running production server, a rolling reload (`SIGUSR2` on the master) is how deployed code takes over without dropping connections — unless you run `opcache.validate_timestamps = 0`, where the master's OPcache segment outlives the pool and a deploy needs a full restart instead; see [Process model](/docs/process-model) and [running in production](/docs/deployment).
 
-An uncaught exception never leaves Symfony: the framework answers it with its own `500` — the full exception page in `dev`, a generic error page in `prod` — and the worker keeps serving. Where the trace ends up is your logger's business; a stock skeleton ships none. What does reach Rapira's log on stderr is anything that escapes PHP itself, like the `EnvNotFoundException` above — [Logging](/docs/logging) shows how to turn the level up.
+An uncaught exception never leaves Symfony: the framework answers it with its own `500` — the full exception page in `dev`, a generic error page in `prod` — and the worker keeps serving. Where the trace ends up depends on your logger; a stock skeleton ships none. What does reach Rapira's log on stderr is anything that escapes PHP itself, like the `EnvNotFoundException` above — [Logging](/docs/logging) shows how to turn the level up.
 
 ::: question Do I need `symfony/runtime`?
 Not for the worker. Its job in a normal app is to bootstrap `.env` and construct the kernel from `public/index.php`, and `worker.php` does both itself, explicitly. Keep the package installed anyway — `bin/console` and `public/index.php` still go through it, and you want both of those working.

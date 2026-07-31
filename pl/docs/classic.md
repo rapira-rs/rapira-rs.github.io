@@ -1,21 +1,21 @@
 ---
 title: Tryb klasyczny
-description: Szczebel Rapiry skrojony na miarę php-fpm — zwykły front controller wykonywany od zera przy każdym żądaniu, za każdym razem od czystego stanu.
+description: Szczebel Rapiry zgodny z php-fpm — zwykły front controller wykonywany od zera przy każdym żądaniu, za każdym razem od czystego stanu.
 ---
 
 # Tryb klasyczny
 
 Od trybu klasycznego zaczyna większość aplikacji, a wielu z nich żaden inny szczebel nigdy nie będzie potrzebny. Skryptem wejściowym jest zwykły front controller w PHP — ten sam `public/index.php`, na który dziś kierujesz php-fpm — a Rapira wykonuje go od zera przy każdym przychodzącym żądaniu. Twój kod w ogóle nie musi wiedzieć, że działa w serwerze napisanym w Ruście: zmienne superglobalne są wypełnione, skrypt wykonuje się od góry do dołu, a to, co wypisze, staje się odpowiedzią.
 
-Na tym polega cała obietnica pierwszego szczebla: Rapira wchodzi na miejsce php-fpm, a aplikacja tego nie zauważa.
+To właśnie daje pierwszy szczebel: Rapira wchodzi na miejsce php-fpm, a aplikacja nie wymaga żadnych zmian.
 
 ## Świeży stan przy każdym żądaniu
 
 Każde żądanie dostaje pełny cykl żądania PHP: inicjalizacja żądania, twój skrypt wejściowy, zamknięcie żądania. Wszystko, co skrypt zbudował po drodze — zmienne globalne, statyczne właściwości, kontener DI, identity map ORM-a — zostaje sprzątnięte, zanim zacznie się następne żądanie, dokładnie tak jak pod php-fpm.
 
-Dlatego właśnie tryb klasyczny można bezpiecznie podstawić pod istniejącą aplikację. Wyciekły uchwyt, singleton zepsuty w połowie żądania, biblioteka chowająca dane żądania w statycznym polu — nic z tego nie dotrze do następnego żądania, bo nic, co utworzył twój skrypt, nie przeżywa żądania, w którym powstało. Wyjątki są te same co w php-fpm: trwałe połączenia i stan trzymany przez rozszerzenia żyją w procesie workera, a nie w żądaniu. Kod, którego nikt nie pisał z myślą o długo żyjącym procesie, czuje się tu dobrze — a takiego kodu jest dziś na produkcji naprawdę dużo.
+Dlatego właśnie tryb klasyczny można bezpiecznie podstawić pod istniejącą aplikację. Wyciekły uchwyt, singleton zepsuty w połowie żądania, biblioteka chowająca dane żądania w statycznym polu — nic z tego nie wpłynie na następne żądanie, bo nic, co utworzył twój skrypt, nie przeżywa żądania, w którym zostało utworzone. Wyjątki są te same co w php-fpm: trwałe połączenia i stan trzymany przez rozszerzenia żyją w procesie workera, a nie w żądaniu. Kod, którego nikt nie pisał z myślą o długo żyjącym procesie, działa tu bez zmian — a takiego kodu jest dziś na produkcji naprawdę dużo.
 
-Cena jest jedna: aplikacja startuje od nowa przy każdym żądaniu — autoloader, konfiguracja, kontener, trasy. Czy to boli, to dokładnie pytanie, wokół którego kręcą się [Tryby wykonania](/pl/docs/execution-modes).
+Cena jest jedna: aplikacja startuje od nowa przy każdym żądaniu — autoloader, konfiguracja, kontener, trasy. Czy w twoim przypadku ma to znaczenie — właśnie temu pytaniu poświęcone są [Tryby wykonania](/pl/docs/execution-modes).
 
 ## Jak go włączyć
 
@@ -70,9 +70,9 @@ Co dokładnie dzieje się przy forkowaniu — jeden proces nadrzędny, N worker�
 W trybie klasycznym `Rapira\create_plugin_handler()` rzuca wyjątek `Rapira\RapiraException`: *plugin handlers require worker mode*. Nie ma tu rezydentnej pętli, której można by oddać handler, bo skrypt kończy się razem z żądaniem. Skrypty workera należą do szczebla [SAPI Worker](/pl/docs/worker).
 :::
 
-## Zostać tu czy wspinać się wyżej
+## Wybór między Classic a SAPI Worker
 
-Zostań w trybie klasycznym, gdy stan aplikacji nie przetrwa drugiego żądania — stary kod, framework wyciekający do statycznych pól, biblioteka z `vendor/`, na którą nie masz wpływu — albo po prostu dlatego, że przesiadasz się z php-fpm i wolisz zmieniać po jednej rzeczy naraz. Wejdź na szczebel [SAPI Worker](/pl/docs/worker), gdy pozbycie się pracy startowej zacznie się opłacać, a kod zniesie proces, który nie umiera. Całą drabinę przechodzą [Tryby wykonania](/pl/docs/execution-modes) — z jej szczebli działają dziś Classic i SAPI Worker.
+Zostań w trybie klasycznym, gdy stan aplikacji nie przetrwa drugiego żądania — stary kod, framework wyciekający do statycznych pól, biblioteka z `vendor/`, na którą nie masz wpływu — albo po prostu dlatego, że przesiadasz się z php-fpm i wolisz zmieniać po jednej rzeczy naraz. Przejdź na szczebel [SAPI Worker](/pl/docs/worker), gdy pozbycie się pracy startowej zacznie się opłacać, a kod zniesie proces, który nie umiera. Wszystkie cztery szczeble opisują [Tryby wykonania](/pl/docs/execution-modes) — dziś dostępne są Classic i SAPI Worker.
 
 ::: question Moja aplikacja wywołuje `fastcgi_finish_request()`. Czy to zadziała?
 Nie — ta funkcja pochodzi z binarki php-fpm, a Rapira nią nie jest. Rapira udostępnia za to `rapira_finish_request()` z tą samą umową: odsyła odpowiedź do klienta wcześniej i pozwala pracować dalej. Opisuje ją strona [HTTP](/pl/docs/http).

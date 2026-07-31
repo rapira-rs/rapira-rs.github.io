@@ -66,6 +66,8 @@ The docs sidebar (five per-locale blocks in `.vitepress/config.mts`) has six gro
 
 **Tone:** Informal but technically accurate. Write for newcomers — use full sentences, explain concepts before showing code. Avoid telegraphic style ("Register plugin. Call it.") — context and motivation matter.
 
+**Technical language only** — in English and in every translation. No figurative imagery, no invented metaphors, no anthropomorphized code ("the framework has opinions", "your code talking"), no rhetorical flourishes or dramatic constructions. State the fact plainly. The only sanctioned metaphor is the established ladder/rung vocabulary for execution modes — use it as a fixed term, without decorative extensions ("climb", "reach for", "дотянется"). Standard technical colloquialisms (boot, spin up, warm cache) are fine; literary vocabulary is not, and translators must not "improve" plain English into literary prose.
+
 **Code examples:**
 - List the options first, then a single code block with all examples (easier to read than many small blocks).
 - Keep examples compact — show structure, not implementation, when the implementation doesn't matter.

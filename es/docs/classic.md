@@ -1,19 +1,19 @@
 ---
 title: Modo clásico
-description: "El peldaño de Rapira con forma de php-fpm: un front controller de toda la vida, ejecutado desde cero en cada petición y con el estado limpio cada vez."
+description: "El peldaño de Rapira compatible con php-fpm: un front controller normal, ejecutado desde cero en cada petición y con el estado limpio cada vez."
 ---
 
 # Modo clásico
 
 El modo clásico es por donde empieza casi todo el mundo y, para muchas aplicaciones, es el único peldaño que van a necesitar. El script de entrada es un front controller de PHP normal y corriente —el mismo `public/index.php` al que ya apuntas con php-fpm— y Rapira lo ejecuta desde cero en cada petición que llega. Tu código no tiene por qué enterarse de que corre dentro de un servidor escrito en Rust: las superglobales se rellenan, el script se ejecuta de arriba abajo y lo que imprima se convierte en la respuesta.
 
-Esa es toda la promesa del primer peldaño. Rapira ocupa el lugar de php-fpm y la aplicación ni se entera.
+Eso es lo que te da el primer peldaño: Rapira ocupa el lugar de php-fpm y la aplicación no necesita ningún cambio.
 
 ## Estado limpio en cada petición
 
 Cada petición pasa por un ciclo de PHP completo: arranque de la petición, tu script de entrada y cierre de la petición. Todo lo que el script haya construido por el camino —variables globales, propiedades estáticas, el contenedor de DI, el mapa de identidad del ORM— se destruye antes de que empiece la siguiente, exactamente igual que bajo php-fpm.
 
-Por eso el modo clásico es el reemplazo seguro. Un descriptor que se escapa, un singleton que se corrompe a mitad de petición, una biblioteca que se guarda datos de la petición en una propiedad estática: nada de eso llega a la petición siguiente, porque nada de lo que crea tu script sobrevive a la petición en la que nació. Valen las mismas excepciones que con php-fpm: las conexiones persistentes y el estado que vive dentro de una extensión están en el proceso worker, no en la petición. Aquí funciona sin problemas el código que nunca se escribió pensando en un proceso de larga vida, y de ese hay muchísimo en producción ahora mismo.
+Por eso el modo clásico es el reemplazo seguro. Un descriptor que se escapa, un singleton que se corrompe a mitad de petición, una biblioteca que se guarda datos de la petición en una propiedad estática: nada de eso afecta a la petición siguiente, porque nada de lo que crea tu script sobrevive a la petición en la que se creó. Valen las mismas excepciones que con php-fpm: las conexiones persistentes y el estado que vive dentro de una extensión están en el proceso worker, no en la petición. Aquí funciona sin problemas el código que nunca se escribió pensando en un proceso de larga vida, y de ese hay muchísimo en producción ahora mismo.
 
 El precio es que la aplicación vuelve a arrancar en cada petición: autoloader, configuración, contenedor, rutas. Si eso te importa o no es justo la pregunta de la que trata la página de [modos de ejecución](/es/docs/execution-modes).
 
@@ -64,15 +64,15 @@ De ahí salen las variables CGI: `SCRIPT_FILENAME` es siempre el script de entra
 
 Lo de «desde cero» va por el estado de tu aplicación, no por el trabajo del compilador. El proceso maestro arranca PHP una sola vez, al iniciar el módulo y *antes* de hacer fork de ningún worker, así que OPcache crea su segmento de memoria compartida una única vez y todos los workers heredan ese mismo mapeo. Con OPcache activado, los scripts compilados siguen en caché de una petición a otra y en todo el pool: volver a ejecutar tu front controller no significa volver a parsearlo.
 
-Cómo funciona ese fork por debajo —un maestro, N workers y quién atiende qué— lo tienes en la página de [modelo de procesos](/es/docs/process-model).
+Cómo funciona el fork —un maestro, N workers y quién atiende qué— lo tienes en la página de [modelo de procesos](/es/docs/process-model).
 
 ::: info
 `Rapira\create_plugin_handler()` lanza una `Rapira\RapiraException` en modo clásico: *plugin handlers require worker mode*. No hay ningún bucle residente al que entregarle un handler, porque el script termina cuando termina la petición. Los scripts de worker son cosa del peldaño [SAPI Worker](/es/docs/worker).
 :::
 
-## Quedarte aquí o subir
+## Elegir entre Classic y SAPI Worker
 
-Quédate en clásico cuando el estado de tu aplicación no sobreviva a una segunda petición —código antiguo, un framework que se filtra en propiedades estáticas, una biblioteca de terceros que no controlas— o simplemente cuando estés migrando desde php-fpm y prefieras cambiar una cosa cada vez. Sube al peldaño [SAPI Worker](/es/docs/worker) cuando quitar de en medio el arranque compense y tu código aguante un proceso que no muere; la página de [modos de ejecución](/es/docs/execution-modes) recorre la escalera entera, de la que Classic y SAPI Worker son los peldaños disponibles hoy.
+Quédate en clásico cuando el estado de tu aplicación no sobreviva a una segunda petición —código antiguo, un framework que se filtra en propiedades estáticas, una biblioteca de terceros que no controlas— o simplemente cuando estés migrando desde php-fpm y prefieras cambiar una cosa cada vez. Pasa al peldaño [SAPI Worker](/es/docs/worker) cuando quitar de en medio el arranque compense y tu código aguante un proceso que no muere; la página de [modos de ejecución](/es/docs/execution-modes) describe los cuatro peldaños, de los que Classic y SAPI Worker son los disponibles hoy.
 
 ::: question Mi aplicación llama a `fastcgi_finish_request()`. ¿Funciona?
 No: esa función la trae el binario de php-fpm y Rapira no es php-fpm. Lo que sí tienes es `rapira_finish_request()`, con el mismo contrato —enviar la respuesta al cliente cuanto antes y seguir trabajando después—, documentada en la página de [HTTP](/es/docs/http).

@@ -9,7 +9,7 @@ description: 用 Rapira 跑起你的第一个 PHP 应用：经典模式下的前
 
 ## 用经典模式跑通 Hello world
 
-经典模式是任何应用都站得上去的一级台阶：每来一个请求，Rapira 就重新 include 一次入口脚本，跟 php-fpm 跑前端控制器完全一样。代码一行都不用改，所以从这里起步最合适。
+经典模式是任何应用都可以使用的一级台阶：每来一个请求，Rapira 就重新 include 一次入口脚本，跟 php-fpm 跑前端控制器完全一样。代码一行都不用改，所以从这里起步最合适。
 
 新建 `public/index.php`：
 
@@ -37,7 +37,7 @@ Hello, world!
 Method: GET
 ```
 
-请求之间进程并没有被丢掉——Rapira 只 fork 一次 worker，每个 worker 里都常驻着一个启动好的 PHP 解释器。被丢掉的是脚本自己的状态：变量、自动加载器、框架搭起来的那一整套。这就是经典模式做出的取舍，也正是下一级台阶存在的理由。
+请求之间进程并没有被丢掉——Rapira 只 fork 一次 worker，每个 worker 里都常驻着一个启动好的 PHP 解释器。被丢掉的是脚本自己的状态：变量、自动加载器、框架搭起来的那一整套。这就是经典模式的取舍，也正是下一级台阶存在的理由。
 
 ## 把同一个应用变成常驻 worker
 
@@ -79,19 +79,19 @@ rapira serve worker.php
 curl '127.0.0.1:8000/?name=world'
 ```
 
-多跑几次这条 `curl`，看着计数一路往上涨——这正是重点。默认情况下 Rapira 会按 CPU 核数每核 fork 一个 worker，请求落到哪个 worker 上由内核决定，而每个 worker 各记各的数；输出里的 pid 会告诉你这次是谁应答的。想看一串干净连贯的计数，就改用 `rapira serve --processes 1 worker.php` 启动。进程池是怎么被管起来的，见[进程模型](/zh/docs/process-model)。
+多跑几次这条 `curl`，计数会不断增加：请求始终由同一个进程处理。默认情况下 Rapira 会按 CPU 核数每核 fork 一个 worker，请求落到哪个 worker 上由内核决定，而每个 worker 各记各的数；输出里的 pid 会告诉你这次是谁应答的。想看一串干净连贯的计数，就改用 `rapira serve --processes 1 worker.php` 启动。进程池是怎么被管起来的，见[进程模型](/zh/docs/process-model)。
 
 在 `while` 循环之前搭好的一切，都会在 worker 的整个生命周期里留在内存中：Composer 自动加载器、DI 容器、数据库和缓存连接、编译好的路由和模板——这些开销只在启动时付一次，而不是每个请求都付一遍。每轮循环真正重新产生的，只有属于单个请求的那部分状态。
 
 ::: warning
-状态能活下来，也就意味着它归你管了。上一个请求留下的静态属性、全局变量、没结束的事务，下一个请求照样看得见。该盯住哪些地方、怎么让 worker 保持干净，都在 [Worker 模式](/zh/docs/worker)里。
+在请求之间存活下来的状态，现在由你负责。上一个请求留下的静态属性、全局变量、没结束的事务，下一个请求照样看得见。该盯住哪些地方、怎么让 worker 保持干净，都在 [Worker 模式](/zh/docs/worker)里。
 :::
 
 处理函数里能用的还是那套熟悉的工具：`header()`、`http_response_code()`、`echo`，再加上 `rapira_finish_request()`——它能提前把响应刷出去，然后接着干剩下的活。这些在 [HTTP](/zh/docs/http) 页里都有完整说明。
 
 ## 把设置搬进配置文件
 
-来回试的时候用命令行参数没什么问题；但要部署的应用，通常还是希望把设置写下来。在代码旁边放一个 `rapira.toml`，起步已经够用：
+来回试的时候用命令行参数没什么问题；但部署的应用通常会把设置写进配置文件。在代码旁边放一个 `rapira.toml`，起步已经够用：
 
 ```toml
 [http]
@@ -114,7 +114,7 @@ rapira serve --config rapira.toml
 
 ## 停止服务器
 
-按下 `Ctrl-C`，Rapira 会开始收尾：不再接新的活，让已经在处理的请求跑完，关掉扩展，然后退出。再按一次 `Ctrl-C` 就不等了，直接强制退出——某个请求卡住、你又不想干等的时候很好用。`SIGTERM` 的行为完全一样，服务管理器发起的重启因此天然就是优雅的。完整的信号对照表，包括如何在不断开连接的前提下重载，都在[进程模型](/zh/docs/process-model)里。
+按下 `Ctrl-C`，Rapira 会开始收尾：不再接新的活，让已经在处理的请求跑完，关掉扩展，然后退出。再按一次 `Ctrl-C` 会跳过等待，直接强制退出——某个请求卡住、你不想再等它结束的时候很好用。`SIGTERM` 的行为完全一样，服务管理器发起的重启因此天然就是优雅的。完整的信号对照表，包括如何在不断开连接的前提下重载，都在[进程模型](/zh/docs/process-model)里。
 
 ## 下一步
 
@@ -127,5 +127,5 @@ rapira serve --config rapira.toml
 :::
 
 ::: question 一个脚本能同时跑经典模式和 Worker 模式吗？
-不能，而且它会明确告诉你：在 Worker 模式之外调用 `create_plugin_handler()` 会抛出 `Rapira\RapiraException`，因为经典模式根本没有常驻循环可以交给你。经典模式就用普通的前端控制器，worker 那一级另写一个 `worker.php`；各框架具体怎么接线，见[框架集成指南](/zh/docs/frameworks/)。
+不能，而且报错很明确：在 Worker 模式之外调用 `create_plugin_handler()` 会抛出 `Rapira\RapiraException`，因为经典模式根本没有常驻循环可以交给你。经典模式就用普通的前端控制器，worker 那一级另写一个 `worker.php`；各框架具体怎么接线，见[框架集成指南](/zh/docs/frameworks/)。
 :::

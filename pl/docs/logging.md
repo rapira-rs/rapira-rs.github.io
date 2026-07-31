@@ -5,9 +5,9 @@ description: Jak Rapira loguje — poziomy, nadpisania dla poszczególnych celó
 
 # Logi
 
-Wszystko, co Rapira ma do powiedzenia, płynie jednym strumieniem: zdarzenia z cyklu życia samego serwera, decyzje nadzorcze procesu nadrzędnego, warstwa HTTP i diagnostyka z PHP — wszystko na stderr i wszystko przepuszczone przez ten sam filtr. Przy tym ostatnim warto się zatrzymać: ostrzeżenia z PHP nie szukasz w osobnym pliku `error_log`, bo to zwykły wpis w tym samym logu co reszta — i tak samo jak każdy inny wpis możesz go podgłośnić albo wyciszyć.
+Rapira zapisuje wszystko do jednego strumienia: zdarzenia z cyklu życia samego serwera, decyzje nadzorcze procesu nadrzędnego, warstwa HTTP i diagnostyka z PHP — wszystko na stderr i wszystko przepuszczone przez ten sam filtr. PHP nie jest tu wyjątkiem: ostrzeżenia z PHP nie szukasz w osobnym pliku `error_log`, bo to zwykły wpis w tym samym logu co reszta — i tak samo jak każdemu innemu wpisowi możesz podnieść albo obniżyć poziom.
 
-Domyślnie jest cicho i jest to zamierzone. Bez żadnych ustawień przechodzi tylko `error`, bo logu serwera, który gada bez przerwy na produkcji, i tak nikt nie czyta. Podgłośnienie to jedna linijka w konfiguracji, a jeśli w ogóle nie chcesz jej ruszać — jest od tego zmienna środowiskowa.
+Domyślnie jest cicho i jest to zamierzone. Bez żadnych ustawień przechodzi tylko `error`, bo logu serwera, który na produkcji pisze bez przerwy, i tak nikt nie czyta. Podniesienie poziomu to jedna linijka w konfiguracji, a jeśli w ogóle nie chcesz jej ruszać — jest od tego zmienna środowiskowa.
 
 ## Poziomy i format
 
@@ -25,7 +25,7 @@ Oba klucze są opcjonalne, tak samo jak cała sekcja. Resztę pliku — nasłuch
 
 ## Nadpisania dla poszczególnych celów
 
-Jeden globalny poziom to narzędzie mało precyzyjne. Kiedy tropisz problem w PHP, chcesz mieć diagnostykę PHP na `debug`, a nie utonąć przy okazji w każdym szczególe wnętrza stosu HTTP. Od tego jest `[log.targets]`:
+Jeden globalny poziom bywa zbyt zgrubny. Kiedy tropisz problem w PHP, chcesz mieć diagnostykę PHP na `debug`, a nie podnosić przy okazji każdego szczegółu z wnętrza stosu HTTP. Od tego jest `[log.targets]`:
 
 ```toml
 [log]
@@ -48,15 +48,15 @@ Cele, pod którymi loguje sama Rapira:
 | `ext`    | wyniki zadań rozszerzeń                                                        |
 | `php`    | wyjście i diagnostyka prosto z PHP                                             |
 
-Zależności logują pod własnymi ścieżkami modułów — `pingora_core`, `tokio` i reszta — i podlegają dokładnie temu samemu filtrowi. Jeśli w logu rozgada się jakaś biblioteka, nazwę jej celu masz od razu we wpisie, gotową do przypięcia w `[log.targets]`.
+Zależności logują pod własnymi ścieżkami modułów — `pingora_core`, `tokio` i reszta — i podlegają dokładnie temu samemu filtrowi. Jeśli jakaś biblioteka pisze w logu za dużo, nazwę jej celu masz od razu we wpisie, gotową do użycia w `[log.targets]`.
 
 ::: tip
-Gdy chcesz zrozumieć, dlaczego pula zachowuje się tak, a nie inaczej, obserwuj cel `master` — podstawianie workerów, przeładowania i skalowanie puli same się tam opowiadają. Co znaczą te zdarzenia, wyjaśnia [Model procesów](/pl/docs/process-model).
+Gdy chcesz zrozumieć, dlaczego pula zachowuje się tak, a nie inaczej, obserwuj cel `master` — podstawianie workerów, przeładowania i skalowanie puli trafiają właśnie tam. Co znaczą te zdarzenia, wyjaśnia [Model procesów](/pl/docs/process-model).
 :::
 
 ## Diagnostyka PHP
 
-Wszystko, co zgłasza PHP, trafia do celu `php`, a poziom każdej diagnostyki wynika z typu błędu — więc ten sam filtr, który steruje serwerem, decyduje też, ile słychać z PHP:
+Wszystko, co zgłasza PHP, trafia do celu `php`, a poziom każdej diagnostyki wynika z typu błędu — więc ten sam filtr, który steruje serwerem, decyduje też, ile wyjścia z PHP trafia do logu:
 
 | Diagnostyka                                                                                                       | Poziom  |
 | ------------------------------------------------------------------------------------------------------------------ | ------- |
@@ -65,7 +65,7 @@ Wszystko, co zgłasza PHP, trafia do celu `php`, a poziom każdej diagnostyki wy
 | Powiadomienia — `E_NOTICE`, `E_USER_NOTICE`                                                                       | `info`  |
 | Ostrzeżenia o wycofaniu — `E_DEPRECATED`, `E_USER_DEPRECATED`                                                     | `debug` |
 
-Cała sól tej tabeli tkwi w tym, że ostrzeżenia o wycofaniu siedzą na `debug`: kilka tysięcy takich komunikatów z zależności nie przykryje dwóch ostrzeżeń, które naprawdę chciałeś zobaczyć.
+Ostrzeżenia o wycofaniu siedzą na `debug` po to, żeby kilka tysięcy takich komunikatów z zależności nie przykryło dwóch ostrzeżeń, które naprawdę chciałeś zobaczyć.
 
 Diagnostyka, którą skrypt odfiltrował maską [`error_reporting`](https://www.php.net/manual/en/function.error-reporting.php), nie znika — spada do `trace`. Zwykła maska działa więc tak, jak się spodziewasz:
 
@@ -82,7 +82,7 @@ Diagnostyka idzie do logu, a nie do odpowiedzi. Rapira domyślnie ustawia [`disp
 
 ## Formaty
 
-Oba formaty lecą na stderr, jeden zapis na wpis. Właśnie ta zasada jednego zapisu sprawia, że proces nadrzędny i kilkanaście workerów piszących do tego samego deskryptora pliku nie wchodzą sobie w słowo w środku wpisu — każdy wpis idzie w całości, zamiast być składanym z kawałków.
+Oba formaty lecą na stderr, jeden zapis na wpis. Właśnie ta zasada jednego zapisu sprawia, że proces nadrzędny i kilkanaście workerów piszących do tego samego deskryptora pliku nie mieszają się nawzajem w środku wpisu — każdy wpis idzie w całości, zamiast być składanym z kawałków.
 
 **`plain`** wybierzesz do terminala — znacznik czasu, poziom, cel, komunikat:
 
@@ -117,7 +117,7 @@ Gdy `RUST_LOG` jest ustawiona na niepustą wartość, **zastępuje** `level` i `
 :::
 
 ::: question Mam pusty log — coś się zepsuło?
-Prawie na pewno nie: `level` domyślnie stoi na `error`, więc zdrowy serwer po prostu milczy. Uruchom go z `RUST_LOG=info`, a zobaczysz start, nasłuch i cykl życia workerów.
+Prawie na pewno nie: `level` domyślnie stoi na `error`, więc zdrowy serwer po prostu nic nie zapisuje. Uruchom go z `RUST_LOG=info`, a zobaczysz start, nasłuch i cykl życia workerów.
 :::
 
 ::: question Jak zapisać log do pliku?

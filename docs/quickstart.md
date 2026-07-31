@@ -9,7 +9,7 @@ This page picks up where [Installation](/docs/installation) leaves off: you have
 
 ## Hello world in Classic mode
 
-Classic mode is the rung every application can stand on: Rapira re-includes your entry script for every request, exactly the way php-fpm would run a front controller. Nothing about the code has to change, which makes it the right place to start.
+Classic mode is the rung available to every application: Rapira re-includes your entry script for every request, exactly the way php-fpm would run a front controller. Nothing about the code has to change, which makes it the right place to start.
 
 Create `public/index.php`:
 
@@ -37,7 +37,7 @@ Hello, world!
 Method: GET
 ```
 
-The process is not thrown away between requests — Rapira forks its workers once and keeps a PHP interpreter booted inside each of them. What gets discarded is your script's own state: variables, the autoloader, whatever the framework built. That is the deal classic mode makes, and it is why the next rung exists.
+The process is not thrown away between requests — Rapira forks its workers once and keeps a PHP interpreter booted inside each of them. What gets discarded is your script's own state: variables, the autoloader, whatever the framework built. That is the tradeoff of classic mode, and it is why the next rung exists.
 
 ## The same app as a resident worker
 
@@ -79,19 +79,19 @@ rapira serve worker.php
 curl '127.0.0.1:8000/?name=world'
 ```
 
-Run that `curl` a few times and watch the counter climb — that is the whole point. By default Rapira forks one worker per CPU, so a request can land on any of them — the kernel picks which worker accepts it — and each worker keeps its own count; the pid in the output tells you which one answered. Start with `rapira serve --processes 1 worker.php` if you want a single, tidy sequence. The [process model](/docs/process-model) explains how the pool is supervised.
+Run that `curl` a few times and the counter goes up: the same process keeps serving requests. By default Rapira forks one worker per CPU, so a request can land on any of them — the kernel picks which worker accepts it — and each worker keeps its own count; the pid in the output tells you which one answered. Start with `rapira serve --processes 1 worker.php` if you want a single, tidy sequence. The [process model](/docs/process-model) explains how the pool is supervised.
 
 Everything you build before the `while` loop stays in memory for the life of the worker: the Composer autoloader, a DI container, database and cache connections, compiled routes and templates — all of it paid for once, at boot, instead of on every request. Only the per-request state is new each time round.
 
 ::: warning
-State that survives is state you now own. A static property, a global, an open transaction left behind by one request is still there for the next one. [Worker mode](/docs/worker) covers what to watch for and how to keep a worker clean.
+State that survives between requests is now your responsibility. A static property, a global, an open transaction left behind by one request is still there for the next one. [Worker mode](/docs/worker) covers what to watch for and how to keep a worker clean.
 :::
 
 Inside the handler you have the usual toolkit — `header()`, `http_response_code()`, `echo`, and `rapira_finish_request()` to flush the response early and keep working afterwards. [HTTP](/docs/http) documents all of it.
 
 ## Move the settings into a config file
 
-Flags are fine while you experiment; a deployed app usually wants its settings written down. A `rapira.toml` next to your code is enough to start:
+Flags are fine while you experiment; a deployed app usually keeps its settings in a file. A `rapira.toml` next to your code is enough to start:
 
 ```toml
 [http]
@@ -114,7 +114,7 @@ Those five lines are a fraction of what the file accepts: pool scaling modes, wo
 
 ## Stopping the server
 
-Press `Ctrl-C` and Rapira drains: it stops taking new work, lets the requests already in flight finish, shuts the extensions down and exits. A second `Ctrl-C` gives up on waiting and forces the exit — useful when a request is wedged and you would rather not wait it out. `SIGTERM` behaves the same way, which is what makes a service manager's restart graceful. [Process model](/docs/process-model) has the full signal table, including reload without dropping connections.
+Press `Ctrl-C` and Rapira drains: it stops taking new work, lets the requests already in flight finish, shuts the extensions down and exits. A second `Ctrl-C` skips the wait and forces the exit — useful when a request is stuck and you would rather not wait for it. `SIGTERM` behaves the same way, which is what makes a service manager's restart graceful. [Process model](/docs/process-model) has the full signal table, including reload without dropping connections.
 
 ## Next steps
 
@@ -127,5 +127,5 @@ No. `create_plugin_handler()`, `HttpHandlerConfig` and the handler classes come 
 :::
 
 ::: question Can one script serve both classic and worker mode?
-No, and it will tell you: `create_plugin_handler()` throws a `Rapira\RapiraException` outside worker mode, because classic mode has no resident loop to hand you. Keep the plain front controller for classic mode and a separate `worker.php` for the worker rung; the [framework guides](/docs/frameworks/) cover the per-framework wiring.
+No, and the error is explicit: `create_plugin_handler()` throws a `Rapira\RapiraException` outside worker mode, because classic mode has no resident loop to hand you. Keep the plain front controller for classic mode and a separate `worker.php` for the worker rung; the [framework guides](/docs/frameworks/) cover the per-framework wiring.
 :::

@@ -5,21 +5,21 @@ description: "The complete rapira.toml reference: every key in [http], [pool], [
 
 # Configuration
 
-Rapira needs no configuration file to start — `rapira serve app/worker.php` picks a default for everything. You reach for a `rapira.toml` when those defaults stop being enough: a different bind address, a fixed number of workers, a recycling policy, a pidfile your init system can read, a log level that actually tells you something. Point the server at the file and it takes over:
+Rapira needs no configuration file to start — `rapira serve app/worker.php` picks a default for everything. You add a `rapira.toml` when those defaults stop being enough: a different bind address, a fixed number of workers, a recycling policy, a pidfile your init system can read, a more verbose log level. Point the server at the file and it reads its settings from there:
 
 ```bash
 rapira serve --config /etc/rapira/rapira.toml
 ```
 
-The file has four sections, and every one of them is optional: `[http]` configures the listener, `[pool]` the worker processes, `[supervisor]` the master process, `[log]` what gets written to stderr. The single value Rapira cannot invent for you is the PHP entry script — set `pool.entrypoint` here, or pass the script as a positional argument on the command line.
+The file has four sections, and every one of them is optional: `[http]` configures the listener, `[pool]` the worker processes, `[supervisor]` the master process, `[log]` what gets written to stderr. The one value Rapira has no default for is the PHP entry script — set `pool.entrypoint` here, or pass the script as a positional argument on the command line.
 
 ::: info
-Settings are layered: a CLI flag beats the config file, which beats the built-in default. `--processes 8` therefore wins over `processes = 4` in the file, so a config you keep in version control can still be bent for a single run. The flags themselves are documented on the [CLI page](/docs/cli).
+Settings are layered: a CLI flag beats the config file, which beats the built-in default. `--processes 8` therefore wins over `processes = 4` in the file, so a config you keep in version control can still be overridden for a single run. The flags themselves are documented on the [CLI page](/docs/cli).
 :::
 
 ## A complete rapira.toml
 
-Every key Rapira understands, in one file. Nothing below is mandatory — delete any line and its default takes over, with two exceptions: `pool.entrypoint` has no default to fall back on, and `min_spare`/`max_spare` are required for as long as `mode = "dynamic"` stands.
+Every key Rapira understands, in one file. Nothing below is mandatory — delete any line and its default applies, with two exceptions: `pool.entrypoint` has no default to fall back on, and `min_spare`/`max_spare` are required for as long as `mode = "dynamic"` is set.
 
 ```toml
 [http]
@@ -57,7 +57,7 @@ The rest of this page is the same file, key by key.
 
 ## The `[http]` section
 
-The front door: where Rapira listens, what the request environment tells PHP about the server it is running under, and how much of a request body it is willing to read.
+This section covers where Rapira listens, what the request environment tells PHP about the server it is running under, and how much of a request body it will read.
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
@@ -96,7 +96,7 @@ Policy for the master process — the one that owns the listen socket, supervise
 
 ## The `[log]` section
 
-Rapira writes everything to stderr, one write per record, so master and worker output never interleaves mid-line. This section decides how loud that stream is and what shape each record has; [logging](/docs/logging) covers the individual targets, the formats and how PHP diagnostics map onto levels.
+Rapira writes everything to stderr, one write per record, so master and worker output never interleaves mid-line. This section decides how verbose that stream is and what shape each record has; [logging](/docs/logging) covers the individual targets, the formats and how PHP diagnostics map onto levels.
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
@@ -108,9 +108,9 @@ A `[log.targets]` key has to look like a module path: letters, digits and `_` `:
 
 ## Unknown keys are rejected
 
-Rapira parses `rapira.toml` strictly. Every table and every key inside it has to be one the server knows, so `[htttp]` or `lissten = ":8000"` is a boot failure that names what it could not recognise, not a line silently ignored. Every key also has exactly one home: `max_requests` belongs to `[pool]` and nowhere else, `pidfile` to `[supervisor]` and nowhere else, and putting one under the wrong table fails just like a typo would.
+Rapira parses `rapira.toml` strictly. Every table and every key inside it has to be one the server knows, so `[htttp]` or `lissten = ":8000"` is a boot failure that names what it could not recognise, not a line silently ignored. Every key also has exactly one table: `max_requests` belongs to `[pool]` and nowhere else, `pidfile` to `[supervisor]` and nowhere else, and putting one under the wrong table fails just like a typo would.
 
-Values are checked the same way. `level = "verbose"`, `format = "pretty"` and `unsafe_field_names = "allow"` are all hard errors rather than a quiet fall back to the default — a security screen that survives a misspelling is worse than one that refuses to start while you are watching. Numbers have bounds too: `pool.processes` and `http.max_body_size_mb` must be at least 1, and every `*_secs` key caps at `86400`, one day.
+Values are checked the same way. `level = "verbose"`, `format = "pretty"` and `unsafe_field_names = "allow"` are all hard errors rather than a quiet fall back to the default — a misspelling that silently downgrades a security setting is worse than one that stops the boot. Numbers have bounds too: `pool.processes` and `http.max_body_size_mb` must be at least 1, and every `*_secs` key caps at `86400`, one day.
 
 ::: warning
 Validation happens before anything starts, so an unrecognised key stops the boot instead of quietly degrading the run. Worth remembering when you edit `rapira.toml` on a machine that is currently serving: the running process is untouched, but the next start is the one that has to succeed.

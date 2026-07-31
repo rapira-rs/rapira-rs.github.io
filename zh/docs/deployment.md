@@ -5,13 +5,13 @@ description: 一份 systemd unit、一套配置布局、前面挡一层反向代
 
 # 生产环境部署
 
-在自己的笔记本上，`rapira serve app/worker.php` 就是全部。到了服务器上，你还想要几件事：开机自启、崩溃之后能自己回来、上了新代码能重载而一个请求都不掉、日志落在你真能翻得动的地方。这一页讲的就是运维那一半——一份 systemd unit、一个放配置的位置、前面挡一层代理，以及那几项让常驻 worker 保持健康的设置。
+在自己的笔记本上，一条 `rapira serve app/worker.php` 就够了。到了服务器上，你还想要几件事：开机自启、崩溃之后能自己回来、上了新代码能重载而一个请求都不掉、日志落在你真能翻得动的地方。这一页讲的就是运维那一半——一份 systemd unit、一个放配置的位置、前面挡一层代理，以及那几项让常驻 worker 保持健康的设置。
 
-这里几乎没有一样东西是写死在二进制里的。配置放在哪、由谁来看着它，Rapira 都没有意见，所以下面这套布局只是本页立的一个约定，文档其余部分恰好也照着它写。先把二进制装到机器上——这一步见[安装](/zh/docs/installation)。
+这里几乎没有一样东西是写死在二进制里的。Rapira 不依赖配置放在哪里，也不依赖由什么来监管进程，所以下面这套布局只是本页立的一个约定，文档其余部分恰好也照着它写。先把二进制装到机器上——这一步见[安装](/zh/docs/installation)。
 
 ## 一份 systemd unit
 
-`.deb` 和 `.rpm` 包只装两样东西：二进制，以及它内置的 PHP 运行时——**既没有 service unit，也没有 `php.ini`**（具体落地哪些文件，[安装](/zh/docs/installation)那一页列得很清楚）。这是有意为之：这两样都属于策略，该由你说了算；包里要是带上它们，就等于每次升级都来覆盖一遍你的改动。
+`.deb` 和 `.rpm` 包只装两样东西：二进制，以及它内置的 PHP 运行时——**既没有 service unit，也没有 `php.ini`**（具体落地哪些文件，[安装](/zh/docs/installation)那一页列得很清楚）。这是有意为之：这两样都属于策略，该由你说了算；包里要是带上它们，每次升级都会覆盖掉你的改动。
 
 所以自己写一份。把下面这段放进 `/etc/systemd/system/rapira.service`：
 
@@ -41,7 +41,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now rapira
 ```
 
-里面有六行值得各说一句：
+里面有六行值得解释一下：
 
 - `Type=exec`——Rapira 跑在**前台**，绝不会把自己 fork 到后台。没有守护进程模式，也不需要有：systemd 启起来的那个进程*就是* master，所以 `$MAINPID` 正好是你要发信号的那个 pid。
 - `ExecReload`——把 `systemctl reload rapira` 变成发给 master 的一个 `SIGUSR2`，也就是下文那套不中断服务的重载。
@@ -62,7 +62,7 @@ sudo systemctl enable --now rapira
 
 ## 挡在反向代理后面
 
-Rapira 的监听器只讲明文 HTTP：配置里没有 TLS 那一节，而且是故意没有。TLS 就在你本来就在跑的代理上终结——nginx、Caddy、HAProxy，或者云上的负载均衡器——再让它走回环地址或者 Unix socket 连到 Rapira。绑到公网网卡当然做得到，只是那个监听器上没有 TLS，所以你多半并不想这么做。
+Rapira 的监听器只讲明文 HTTP：配置里没有 TLS 那一节，而且是故意没有。TLS 就在你本来就在跑的代理上终结——nginx、Caddy、HAProxy，或者云上的负载均衡器——再让它走回环地址或者 Unix socket 连到 Rapira。你可以绑到公网网卡，只是那个监听器上没有 TLS，所以这多半不是你想要的。
 
 ```toml
 [http]
@@ -70,7 +70,7 @@ listen = "127.0.0.1:8000"
 # listen = "unix:/run/rapira/rapira.sock"
 ```
 
-Unix socket 建出来是 `0666`，也就是说只要够得着这个路径，谁都能连上去。这个权限 Rapira 没有开关可调。如果这一点要紧，那就去限制目录：在上面那份 unit 里加上 `RuntimeDirectoryMode=0750`，再配一个代理用户所属的 `Group=`，`/run/rapira` 就把其他人挡在了外面。
+Unix socket 建出来是 `0666`，也就是说任何能访问这个路径的进程都可以连上去。这个权限 Rapira 没有开关可调。如果这一点要紧，那就去限制目录：在上面那份 unit 里加上 `RuntimeDirectoryMode=0750`，再配一个代理用户所属的 `Group=`，`/run/rapira` 就把其他人挡在了外面。
 
 进来这一侧，你的代理只有一项义务：转发用的字段名必须用普通的 `-` 写法——`X-Forwarded-For`，绝不能写成 `X_Forwarded_For`。下划线和点号的写法会压到和正规写法同一个 `$_SERVER` 键上，客户端正是借这一手覆盖掉代理刚设好的值，所以 Rapira 会在 PHP 看到之前把它们摘掉。这套映射，以及管着它的 `http.unsafe_field_names` 开关，都在 [HTTP](/zh/docs/http) 那一页。
 
@@ -82,7 +82,7 @@ Unix socket 建出来是 `0666`，也就是说只要够得着这个路径，谁�
 sudo systemctl reload rapira
 ```
 
-这条命令发给 master 的是一个 `SIGUSR2`，master 用一次**滚动重载**来回应：进程池一次只换一个 worker，手上的请求会跑完；只有当某个 worker 超出 `process_control_timeout_secs`，才会被升级到 `SIGTERM`、随后 `SIGKILL`，连它手上那个请求一起断掉（见下文）。新旧 worker 在这一轮里怎么交叠，见[进程模型](/zh/docs/process-model)。
+这条命令发给 master 的是一个 `SIGUSR2`，master 用一次**滚动重载**来回应：进程池一次只换一个 worker，手上的请求会跑完；只有当某个 worker 超出 `process_control_timeout_secs`，才会被升级到 `SIGTERM`、随后 `SIGKILL`，它手上那个请求也随之丢失（见下文）。新旧 worker 在这一轮里怎么交叠，见[进程模型](/zh/docs/process-model)。
 
 没有 systemd 的场合——容器的 entrypoint、一个部署脚本——就直接给 master 发信号。设上 `supervisor.pidfile`，pid 就在那儿等着；离开 systemd 就没人会去建 `/run/rapira`，所以要么先把目录建出来，要么换一条已经存在的路径——文件写不进去，master 会拒绝启动。
 
@@ -98,10 +98,10 @@ kill -USR2 "$(cat /run/rapira/rapira.pid)"
 
 这个文件只有 master 会写，worker 碰不到；而且凡是 master 自己掌控的退出路径，它都会把文件删掉。所以看到一个残留的 pidfile，就说明 master 没走完自己的关停流程就死了——一记 `SIGKILL`、一次硬崩溃，或者整台机器掉了。
 
-`process_control_timeout_secs` 是 master 在升级手段之前留给 worker 收尾的那点耐心，滚动重载的每一步也受它约束，所以一个卡死的 worker 拖不垮整轮替换——逐级升级的顺序和完整的信号对照表都在[进程模型](/zh/docs/process-model)。把它留得比 systemd 的 `TimeoutStopSec` 宽裕地小一些，否则先耗尽耐心的是 systemd，它会在升级到一半时把 master 杀掉。
+`process_control_timeout_secs` 是 master 在升级手段之前留给 worker 收尾的时间，滚动重载的每一步也受它约束，所以一个卡死的 worker 拖不垮整轮替换——逐级升级的顺序和完整的信号对照表都在[进程模型](/zh/docs/process-model)。把它留得比 systemd 的 `TimeoutStopSec` 宽裕地小一些，否则先超时的是 systemd，它会在升级到一半时把 master 杀掉。
 
 ::: warning 重载只是滚动换 worker，不会重新读取任何东西
-master 一直用着启动时读到的那份设置，OPcache 的共享内存也归 master，所以它比任何一代 worker 都活得久。改了 `rapira.toml` 就得 `systemctl restart rapira`。另外，要是你设了 `opcache.validate_timestamps = 0`，重载会心安理得地继续吐旧的 opcode——这时候请用 restart。
+master 一直用着启动时读到的那份设置，OPcache 的共享内存也归 master，所以它比任何一代 worker 都活得久。改了 `rapira.toml` 就得 `systemctl restart rapira`。另外，要是你设了 `opcache.validate_timestamps = 0`，重载仍会继续返回旧的 opcode——这时候请用 restart。
 :::
 
 ## 日志
@@ -114,7 +114,7 @@ level = "info"
 format = "json"
 ```
 
-每行一个对象，`timestamp` 是 RFC 3339 的 UTC 时间，另外还有 `level`、`message` 和 `target`；消息里的换行会被转义，所以一条记录永远正好占一行。日志收集器要的就是这个形状，而且它经过 journald 一趟还能原样出来。
+每行一个对象，`timestamp` 是 RFC 3339 的 UTC 时间，另外还有 `level`、`message` 和 `target`；消息里的换行会被转义，所以一条记录永远正好占一行。日志收集器要的就是这个格式，而且经过 journald 之后内容不会有任何改动。
 
 ```bash
 journalctl -u rapira -f
@@ -124,7 +124,7 @@ journalctl -u rapira -f
 
 ## worker 的日常保养
 
-进程常驻正是 [worker 那几级](/zh/docs/execution-modes)的意义所在——同时也是为什么在 php-fpm 下根本不会被察觉的慢泄漏，到这里突然就要紧了。有两项设置是安全网：
+进程常驻正是 [worker 那几级](/zh/docs/execution-modes)的意义所在——同时也是为什么在 php-fpm 下根本不会被察觉的慢泄漏，到这里突然就要紧了。有两项设置可以防住这一点：
 
 ```toml
 [pool]
@@ -132,7 +132,7 @@ max_requests = 500
 request_terminate_timeout_secs = 30
 ```
 
-`max_requests` 让 worker 处理够这么多请求就退休，再 fork 一个新的顶上，另外加了一点抖动，免得整个进程池齐刷刷一起换血。它治不好泄漏，它管的是别让一个还没找出来的泄漏在凌晨三点变成一次线上故障。`request_terminate_timeout_secs` 是单个请求的墙钟时间上限：超过就把这个 worker 杀掉重开，免得一个卡住的请求永久占掉你一个 worker。两项默认都关着，上线之前都值得打开。
+`max_requests` 让 worker 处理够这么多请求就退休，再 fork 一个新的顶上，另外加了一点抖动，免得整个进程池同时替换。它治不好泄漏，它管的是别让一个还没找出来的泄漏变成线上故障。`request_terminate_timeout_secs` 是单个请求的墙钟时间上限：超过就把这个 worker 杀掉重开，免得一个卡住的请求永久占掉你一个 worker。两项默认都关着，上线之前都值得打开。
 
 进程池的其余部分——static、dynamic 和 ondemand 三种规模策略、重启退避，以及 worker 死掉时 master 会做什么——都在[进程模型](/zh/docs/process-model)。
 

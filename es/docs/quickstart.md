@@ -9,7 +9,7 @@ Esta página retoma donde lo dejó [Instalación](/es/docs/installation): ya tie
 
 ## Hola mundo en modo clásico
 
-El modo clásico es el peldaño en el que cabe cualquier aplicación: Rapira vuelve a incluir tu script de entrada en cada petición, exactamente igual que php-fpm ejecutaría un front controller. No hay que cambiar nada del código, y por eso es el mejor punto de partida.
+El modo clásico es el peldaño disponible para cualquier aplicación: Rapira vuelve a incluir tu script de entrada en cada petición, exactamente igual que php-fpm ejecutaría un front controller. No hay que cambiar nada del código, y por eso es el mejor punto de partida.
 
 Crea `public/index.php`:
 
@@ -37,7 +37,7 @@ Hello, world!
 Method: GET
 ```
 
-El proceso no se tira entre peticiones: Rapira hace fork de sus workers una sola vez y mantiene un intérprete de PHP arrancado dentro de cada uno. Lo que se descarta es el estado de tu script: las variables, el autoloader, todo lo que haya construido el framework. Ese es el trato que ofrece el modo clásico, y por eso existe el siguiente peldaño.
+El proceso no se tira entre peticiones: Rapira hace fork de sus workers una sola vez y mantiene un intérprete de PHP arrancado dentro de cada uno. Lo que se descarta es el estado de tu script: las variables, el autoloader, todo lo que haya construido el framework. Ese es el compromiso del modo clásico, y por eso existe el siguiente peldaño.
 
 ## La misma aplicación como worker residente
 
@@ -79,19 +79,19 @@ rapira serve worker.php
 curl '127.0.0.1:8000/?name=world'
 ```
 
-Lanza ese `curl` unas cuantas veces y verás subir el contador: de eso se trata. Por defecto Rapira arranca un worker por CPU, así que una petición puede caer en cualquiera de ellos —es el kernel quien decide qué worker la acepta— y cada worker lleva su propia cuenta; el pid de la salida te dice cuál respondió. Si prefieres una secuencia limpia y ordenada, arranca con `rapira serve --processes 1 worker.php`. El [modelo de procesos](/es/docs/process-model) explica cómo se supervisa el pool.
+Lanza ese `curl` unas cuantas veces y el contador sube: es el mismo proceso el que sigue atendiendo las peticiones. Por defecto Rapira arranca un worker por CPU, así que una petición puede caer en cualquiera de ellos —es el kernel quien decide qué worker la acepta— y cada worker lleva su propia cuenta; el pid de la salida te dice cuál respondió. Si prefieres una secuencia limpia y ordenada, arranca con `rapira serve --processes 1 worker.php`. El [modelo de procesos](/es/docs/process-model) explica cómo se supervisa el pool.
 
 Todo lo que construyas antes del bucle `while` se queda en memoria durante toda la vida del worker: el autoloader de Composer, un contenedor de dependencias, las conexiones a la base de datos y a la caché, las rutas y las plantillas compiladas; todo eso se paga una sola vez, al arrancar, y no en cada petición. Lo único que se rehace en cada vuelta es el estado propio de la petición.
 
 ::: warning
-El estado que sobrevive pasa a ser responsabilidad tuya. Una propiedad estática, una variable global o una transacción abierta que dejó una petición siguen ahí para la siguiente. [Modo worker](/es/docs/worker) explica a qué prestar atención y cómo mantener limpio un worker.
+El estado que sobrevive entre peticiones pasa a ser responsabilidad tuya. Una propiedad estática, una variable global o una transacción abierta que dejó una petición siguen ahí para la siguiente. [Modo worker](/es/docs/worker) explica a qué prestar atención y cómo mantener limpio un worker.
 :::
 
 Dentro del handler tienes las herramientas de siempre: `header()`, `http_response_code()`, `echo` y `rapira_finish_request()` para enviar la respuesta antes de tiempo y seguir trabajando después. [HTTP](/es/docs/http) lo documenta todo.
 
 ## Llevar los ajustes a un archivo de configuración
 
-Las opciones de línea de comandos van bien mientras experimentas, pero una aplicación desplegada suele querer sus ajustes por escrito. Para empezar basta con un `rapira.toml` junto a tu código:
+Las opciones de línea de comandos van bien mientras experimentas, pero una aplicación desplegada suele guardar sus ajustes en un archivo. Para empezar basta con un `rapira.toml` junto a tu código:
 
 ```toml
 [http]
@@ -114,7 +114,7 @@ Esas cinco líneas son una mínima parte de lo que admite el archivo: modos de e
 
 ## Parar el servidor
 
-Pulsa `Ctrl-C` y Rapira se apaga de forma ordenada: deja de aceptar trabajo nuevo, espera a que terminen las peticiones que ya estaban en curso, apaga las extensiones y sale. Un segundo `Ctrl-C` renuncia a esperar y fuerza la salida, algo muy útil cuando una petición se ha quedado atascada y no te apetece aguantarla. `SIGTERM` se comporta igual, y por eso el reinicio desde un gestor de servicios resulta igual de limpio. En [Modelo de procesos](/es/docs/process-model) tienes la tabla completa de señales, incluida la recarga sin perder conexiones.
+Pulsa `Ctrl-C` y Rapira se apaga de forma ordenada: deja de aceptar trabajo nuevo, espera a que terminen las peticiones que ya estaban en curso, apaga las extensiones y sale. Un segundo `Ctrl-C` se salta la espera y fuerza la salida, algo muy útil cuando una petición se ha quedado atascada y prefieres no esperar a que termine. `SIGTERM` se comporta igual, y por eso el reinicio desde un gestor de servicios resulta igual de limpio. En [Modelo de procesos](/es/docs/process-model) tienes la tabla completa de señales, incluida la recarga sin perder conexiones.
 
 ## Próximos pasos
 
@@ -127,5 +127,5 @@ No. `create_plugin_handler()`, `HttpHandlerConfig` y las clases del handler vien
 :::
 
 ::: question ¿Puede un mismo script servir en modo clásico y en modo worker?
-No, y te lo dirá bien claro: `create_plugin_handler()` lanza una `Rapira\RapiraException` fuera del modo worker, porque el modo clásico no tiene ningún bucle residente que entregarte. Deja el front controller de siempre para el modo clásico y un `worker.php` aparte para el peldaño worker; las [guías de frameworks](/es/docs/frameworks/) explican cómo conectar cada uno.
+No, y el error es explícito: `create_plugin_handler()` lanza una `Rapira\RapiraException` fuera del modo worker, porque el modo clásico no tiene ningún bucle residente que entregarte. Deja el front controller de siempre para el modo clásico y un `worker.php` aparte para el peldaño worker; las [guías de frameworks](/es/docs/frameworks/) explican cómo conectar cada uno.
 :::

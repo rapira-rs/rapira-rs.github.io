@@ -13,7 +13,7 @@ rapira serve [OPTIONS] [SCRIPT]
 
 To `serve` podnosi serwer: uruchamia PHP, rejestruje wbudowane rozszerzenia i zaczyna odpowiadać na żądania. Samo `rapira` bez argumentów wypisze pomoc i zakończy działanie, a `rapira serve --help` wylistuje poniższe opcje prosto z binarki. `rapira --version` powie ci, jaką wersję masz u siebie.
 
-Pliku konfiguracyjnego nie musisz pisać *nigdy*. Jedno polecenie ze ścieżką do skryptu to już kompletny, działający serwer — plik konfiguracyjny czeka na dzień, w którym flagi przestaną ci wystarczać.
+Pliku konfiguracyjnego nie musisz pisać *nigdy*. Jedno polecenie ze ścieżką do skryptu to już kompletny, działający serwer — plik konfiguracyjny jest potrzebny dopiero wtedy, gdy flagi przestają wystarczać.
 
 ## Jak nakładają się ustawienia
 
@@ -39,14 +39,14 @@ Czego nie ustawisz nigdzie, to spadnie do wartości domyślnych z poniższej tab
 
 \* Wymagany, o ile plik konfiguracyjny nie ustawia `pool.entrypoint`. Gdy nie ma ani jednego, ani drugiego, `serve` odmawia startu i mówi dlaczego.
 
-**`--listen`** przyjmuje trzy postacie. `127.0.0.1:8000` (domyślna) wiąże jeden interfejs — wyłącznie pętlę zwrotną, więc nic spoza maszyny się nie dobije. `:8080` to skrót od `0.0.0.0:8080`, czyli wszystkie interfejsy IPv4 — tego chcesz w kontenerze; dla IPv6 napisz `[::]:8080`. `unix:/run/rapira.sock` wiąże zamiast tego gniazdo uniksowe, pod reverse proxy na tej samej maszynie. Literały IPv6 zapisujesz w nawiasach kwadratowych: `[::1]:8000`. Sam numer portu *nie jest* adresem i zostanie odrzucony — `--listen 8080` to błąd, napisz `--listen :8080`. W części hostowej musi stać literał IP, bo nazwy hostów nigdy nie są rozwiązywane: `--listen localhost:8000` to błąd, napisz `--listen 127.0.0.1:8000`.
+**`--listen`** przyjmuje trzy postacie. `127.0.0.1:8000` (domyślna) wiąże jeden interfejs — wyłącznie pętlę zwrotną, więc nic spoza maszyny się nie połączy. `:8080` to skrót od `0.0.0.0:8080`, czyli wszystkie interfejsy IPv4 — tego chcesz w kontenerze; dla IPv6 napisz `[::]:8080`. `unix:/run/rapira.sock` wiąże zamiast tego gniazdo uniksowe, pod reverse proxy na tej samej maszynie. Literały IPv6 zapisujesz w nawiasach kwadratowych: `[::1]:8000`. Sam numer portu *nie jest* adresem i zostanie odrzucony — `--listen 8080` to błąd, napisz `--listen :8080`. W części hostowej musi stać literał IP, bo nazwy hostów nigdy nie są rozwiązywane: `--listen localhost:8000` to błąd, napisz `--listen 127.0.0.1:8000`.
 
 **`--processes`** domyślnie przyjmuje liczbę logicznych CPU. Przy domyślnej puli statycznej dokładnie tyle procesów workerów zostanie sforkowanych; jeśli plik konfiguracyjny przełączy pulę na `dynamic` albo `ondemand`, ta sama liczba staje się sufitem, do którego te tryby się skalują. Co właściwie robią workery, a co proces master, opisuje [Model procesów](/pl/docs/process-model).
 
-**`--classic`** wybiera szczebel, na którym pracuje aplikacja. Bez niej skrypt wejściowy ładuje się raz i zostaje w pamięci — to szczebel [SAPI Worker](/pl/docs/worker); z nią skrypt jest dołączany na nowo przy każdym żądaniu, dokładnie tak jak pod php-fpm — to szczebel [Classic](/pl/docs/classic). Jeśli nie masz pewności, który szczebel udźwignie twoja aplikacja, całą drabinę przechodzą [Tryby wykonania](/pl/docs/execution-modes).
+**`--classic`** wybiera szczebel, na którym pracuje aplikacja. Bez niej skrypt wejściowy ładuje się raz i zostaje w pamięci — to szczebel [SAPI Worker](/pl/docs/worker); z nią skrypt jest dołączany na nowo przy każdym żądaniu, dokładnie tak jak pod php-fpm — to szczebel [Classic](/pl/docs/classic). Jeśli nie masz pewności, którego szczebla może użyć twoja aplikacja, wszystkie cztery tryby opisują [Tryby wykonania](/pl/docs/execution-modes).
 
 ::: info
-`--classic` to przełącznik, który potrafi tylko włączać. Nie ma `--no-classic`, więc pliku konfiguracyjnego z `classic = true` nie przegadasz z wiersza poleceń — zamiast tego usuń ten klucz z pliku.
+`--classic` to przełącznik, który potrafi tylko włączać. Nie ma `--no-classic`, więc wpisu `classic = true` w pliku konfiguracyjnym nie wyłączysz z wiersza poleceń — zamiast tego usuń ten klucz z pliku.
 :::
 
 ## Skąd bierze się skrypt wejściowy
@@ -56,14 +56,14 @@ Skrypt można podać dwa razy — argumentem pozycyjnym `SCRIPT` albo kluczem `p
 Obie ścieżki względne liczą się od innej bazy i ta różnica jest zamierzona:
 
 - Względny `SCRIPT` z wiersza poleceń liczy się od **bieżącego katalogu** — wpisałeś go w powłoce, która już gdzieś stoi, więc to właśnie ten katalog masz na myśli.
-- Względny `pool.entrypoint` liczy się od **katalogu samego pliku konfiguracyjnego** — dzięki temu plik konfiguracyjny razem z leżącą obok aplikacją można przenieść, skopiować albo zamontować w dowolnym miejscu jako całość i nadal będą się odnajdywać.
+- Względny `pool.entrypoint` liczy się od **katalogu samego pliku konfiguracyjnego** — dzięki temu plik konfiguracyjny razem z leżącą obok aplikacją można przenieść, skopiować albo zamontować w dowolnym miejscu jako całość, a ścieżka nadal rozwiąże się poprawnie.
 
 ```toml
 [pool]
 entrypoint = "public/index.php"
 ```
 
-Gdy taki wpis leży w `/etc/rapira/rapira.toml`, skryptem wejściowym jest `/etc/rapira/public/index.php` — niezależnie od tego, w jakim katalogu akurat byłeś, uruchamiając polecenie.
+Gdy taki wpis leży w `/etc/rapira/rapira.toml`, skryptem wejściowym jest `/etc/rapira/public/index.php` — niezależnie od katalogu, z którego uruchomiłeś polecenie.
 
 ## Przykłady
 
@@ -78,7 +78,7 @@ rapira serve --config /etc/rapira/rapira.toml
 rapira serve --config /etc/rapira/rapira.toml --listen 127.0.0.1:9000
 ```
 
-Pierwsze z nich to w zasadzie cały [Szybki start](/pl/docs/quickstart): bez `--listen` serwer wstaje pod domyślnym adresem, więc do zapukania wystarczy jeszcze jedna linijka.
+Pierwsze z nich to w zasadzie cały [Szybki start](/pl/docs/quickstart): bez `--listen` serwer wstaje pod domyślnym adresem, więc do wysłania żądania wystarczy jeszcze jedna linijka.
 
 ```bash
 curl http://127.0.0.1:8000/

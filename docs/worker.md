@@ -9,7 +9,7 @@ In [classic mode](/docs/classic) PHP does what it has always done: the entry scr
 
 Worker mode is the alternative. The process stays alive: your script boots the application once, then sits in a loop asking Rapira for the next request. The boot cost is paid at startup, and every request after that starts with a warm application already in memory. In exchange, you have to think about state — because now it outlives the request.
 
-This is the **SAPI Worker** rung of Rapira's execution ladder, and together with Classic it is what ships today. [Execution modes](/docs/execution-modes) explains the whole ladder and how to tell which rung your app can reach; this page is the programming guide for the rung you can use right now.
+This is the **SAPI Worker** rung of Rapira's execution ladder, and together with Classic it is what ships today. [Execution modes](/docs/execution-modes) explains the whole ladder and how to tell which rung your app can use; this page is the programming guide for the rung you can use right now.
 
 ## The resident loop
 
@@ -47,7 +47,7 @@ See [CLI](/docs/cli) for the rest of the flags, and [Configuration](/docs/config
 
 ## What `handleRequest()` does
 
-`handleRequest(callable $handler)` is the whole contract, and it is worth reading slowly:
+`handleRequest(callable $handler)` is the whole contract:
 
 - **It blocks** until a request arrives for this worker. A worker parked on `handleRequest()` burns no CPU while it waits — it still holds its interpreter and your booted application in memory.
 - **It fills the superglobals** — `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE` and friends — with that request's data, freshly, before your handler runs. Ordinary PHP code that reads them keeps working exactly as it does under php-fpm.
@@ -86,7 +86,7 @@ Anything global is shared too, whether you meant it or not: static properties, s
 
 ## Picking the plugin
 
-`create_plugin_handler()` takes a config object, and the *class* of that config is what selects the plugin. `HttpHandlerConfig` says "this worker serves HTTP" and gets you an `HttpHandler` back.
+`create_plugin_handler()` takes a config object, and the *class* of that config is what selects the plugin. `HttpHandlerConfig` means this worker serves HTTP, and you get an `HttpHandler` back.
 
 It throws a `Rapira\RapiraException` in two cases: when no plugin matches the config class you passed, and when the script is not running in worker mode at all — classic mode has no resident loop, so a handler there could never do anything but report shutdown.
 
@@ -139,7 +139,7 @@ $handler = static function () use ($http): void {
 
 **Garbage that no request owns.** PHP's reference-counting frees most things immediately, but cycles are only collected when the cycle collector runs. Calling `gc_collect_cycles()` once per loop turn — as the canonical script does — collects them at a predictable point, between requests instead of in the middle of one.
 
-**Requests that never end.** A resident worker will happily sit inside a hung request forever, and while it does it serves nobody. `pool.request_terminate_timeout_secs` puts a wall-clock limit on a single request and kills the worker that blows through it. See [Configuration](/docs/configuration) for both keys and [Process model](/docs/process-model) for what the master does when a worker dies.
+**Requests that never end.** A resident worker will sit inside a hung request indefinitely, and while it does it serves nobody. `pool.request_terminate_timeout_secs` puts a wall-clock limit on a single request and kills the worker that exceeds it. See [Configuration](/docs/configuration) for both keys and [Process model](/docs/process-model) for what the master does when a worker dies.
 
 **An uncaught exception is per-request, not per-worker.** An uncaught exception in your handler is counted in `errors` and answered with a `500`, unless the handler already committed a status before it threw. Either way the loop keeps going: the exception does not take the worker down with it, so the failure you are reading about in the logs did not necessarily stop anything. A fatal error is different: it unwinds the resident script, so the worker re-runs it from the top and boots your application again. That is what the `recycles` counter counts.
 

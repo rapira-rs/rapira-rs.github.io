@@ -11,7 +11,7 @@ Ten układ wygląda tak samo niezależnie od tego, czy pracujesz na szczeblu [Cl
 
 ## Jeden proces nadrzędny, wiele workerów
 
-Rozruch przebiega w ustalonej kolejności i to właśnie ta kolejność jest tu najważniejsza:
+Rozruch przebiega w ustalonej kolejności i ta kolejność ma znaczenie:
 
 1. **Związanie gniazd nasłuchujących.** Proces nadrzędny robi to przed czymkolwiek innym, więc zajęty port przerywa rozruch natychmiast — jeszcze zanim wystartuje PHP.
 2. **Jednorazowy start PHP.** Silnik przechodzi przez `MINIT` w procesie nadrzędnym, wciąż jednowątkowym. To tutaj powstaje pamięć współdzielona OPcache, więc każdy worker sforkowany później dziedziczy ten sam segment SHM: pierwszy worker, który skompiluje plik, wypełnia cache dla wszystkich, zamiast żeby każdy proces kompilował własną kopię.
@@ -48,9 +48,9 @@ Gdy pula już stoi, proces nadrzędny mniej więcej raz na sekundę wykonuje cyk
 - **Sprzątanie i odtwarzanie.** Worker zakończony czysto (wygaszony albo wymieniony po wyczerpaniu limitu) dostaje następcę natychmiast (w trybie `ondemand` slot po prostu zostaje wolny i wypełni go kolejne połączenie). Worker, który *padł*, wraca dopiero po odczekaniu: zaczyna się od 100 ms i podwaja z każdą kolejną szybką awarią, aż do jakichś 25 sekund — więc pętla segfaultów sama się dławi, zamiast palić procesor. Dziesięć sekund przy życiu wystarczy, żeby wyzerować tę serię.
 - **Nieudany rozruch nie przechodzi po cichu.** Jeśli worker z pierwszego pokolenia zgłosi się jako niesprawny, zanim pula obsłużyła choć jedno udane żądanie, proces nadrzędny uznaje to za nieodwracalną awarię rozruchu i kończy pracę, zamiast w kółko odtwarzać zepsuty skrypt wejściowy. Gdy pula ma już coś obsłużone, dokładnie to samo wyjście jest tylko odtworzeniem z odczekaniem — nieudane przeładowanie nigdy nie położy zdrowej puli.
 - **Recykling.** Przy ustawionym `pool.max_requests` worker kończy pracę po tylu żądaniach i od razu dostaje następcę. Każdy dostaje przy tym własną losową nadwyżkę ponad limit (do połowy limitu), więc pula wystartowana naraz nie wymienia się równym krokiem i nie zostawia cię na moment bez rozgrzanych workerów.
-- **Nadzór nad pojedynczym żądaniem.** Przy ustawionym `pool.request_terminate_timeout_secs` worker, który po przekroczeniu tego limitu czasu rzeczywistego wciąż tkwi w tym samym żądaniu, dostaje `SIGTERM`, a jeśli cykl później jakimś cudem nadal żyje — `SIGKILL`. Ubicie trafia do logu na poziomie `warn`, zakolejkowane połączenia zostają zamknięte, a slot natychmiast dostaje nowego workera.
+- **Nadzór nad pojedynczym żądaniem.** Przy ustawionym `pool.request_terminate_timeout_secs` worker, który po przekroczeniu tego limitu czasu rzeczywistego wciąż tkwi w tym samym żądaniu, dostaje `SIGTERM`, a jeśli cykl później jakimś cudem nadal żyje — `SIGKILL`. Wymuszone zakończenie trafia do logu na poziomie `warn`, zakolejkowane połączenia zostają zamknięte, a slot natychmiast dostaje nowego workera.
 - **Skalowanie.** W trybie `dynamic` ten sam cykl decyduje, czy sforkować kolejne workery, czy wycofać bezczynne; w trybie `ondemand` wycofuje tylko te, które przekroczyły swój limit bezczynności — fork wyzwala tam dopiero przychodzące połączenie. Szczegóły niżej.
-- **Lina ratunkowa w drugą stronę.** Każdy worker trzyma koniec odczytu potoku, do którego proces nadrzędny nigdy nic nie pisze. Gdy nadrzędny umrze, potok dostaje EOF i każdy worker sam się wygasza — `kill -9` na procesie nadrzędnym nie zostawi więc sierot okupujących twój port.
+- **Potok w drugą stronę.** Każdy worker trzyma koniec odczytu potoku, do którego proces nadrzędny nigdy nic nie pisze. Gdy nadrzędny umrze, potok dostaje EOF i każdy worker sam się wygasza — `kill -9` na procesie nadrzędnym nie zostawi więc osieroconych workerów trzymających twój port.
 
 ## Tryby puli
 
@@ -76,7 +76,7 @@ max_spare = 3
 
 Granice muszą spełniać `1 <= min_spare <= max_spare <= processes`. W trybie `dynamic` są wymagane, a w pozostałych odrzucane — ustawienie ich gdzie indziej to błąd konfiguracji, a nie po cichu zignorowany klucz.
 
-**`ondemand`** nie forkuje przy starcie niczego. Tutaj proces nadrzędny sam pilnuje gniazda nasłuchującego: gdy przychodzi połączenie, a nie ma bezczynnego workera, który by je wziął, forkuje jednego i pozwala potomkowi je przyjąć. Worker bezczynny dłużej niż `pool.process_idle_timeout_secs` znowu zostaje wycofany. Śpiąca pula nic dzięki temu nie kosztuje, ale za pierwsze żądanie po ciszy płacisz forkiem — dobry układ dla środowisk stagingowych i rzadko odwiedzanych stron, kiepski przy stałym ruchu.
+**`ondemand`** nie forkuje przy starcie niczego. Tutaj proces nadrzędny sam pilnuje gniazda nasłuchującego: gdy przychodzi połączenie, a nie ma bezczynnego workera, który by je wziął, forkuje jednego i pozwala potomkowi je przyjąć. Worker bezczynny dłużej niż `pool.process_idle_timeout_secs` znowu zostaje wycofany. Bezczynna pula nic dzięki temu nie kosztuje, ale za pierwsze żądanie po przerwie w ruchu płacisz forkiem — dobry układ dla środowisk stagingowych i rzadko odwiedzanych stron, kiepski przy stałym ruchu.
 
 Pełny wykaz kluczy znajdziesz w [Konfiguracji](/pl/docs/configuration).
 
@@ -106,19 +106,19 @@ Sygnały wysyłaj do procesu nadrzędnego, nigdy do pojedynczego workera. Worker
 
 ### Zatrzymywanie
 
-Każde zatrzymanie zaczyna się łagodnie, którykolwiek z trzech sygnałów by o nie poprosił: proces nadrzędny wysyła do każdego workera `SIGQUIT`, a ten przestaje przyjmować nową pracę i kończy to, co trzyma. Dalsza eskalacja ma swój budżet — `supervisor.process_control_timeout_secs` (domyślnie 30 sekund) to okres karencji, po którym pozostałe workery dostają `SIGTERM`, a jeśli i to nie poskutkuje — `SIGKILL`. Worker, który nie odpowiada na łagodny `SIGQUIT`, dostaje TERM, a potem KILL; nikt nie będzie na niego czekał w nieskończoność.
+Każde zatrzymanie zaczyna się łagodnie, którykolwiek z trzech sygnałów by o nie poprosił: proces nadrzędny wysyła do każdego workera `SIGQUIT`, a ten przestaje przyjmować nową pracę i kończy to, co trzyma. Dalszą eskalacją steruje zegar — `supervisor.process_control_timeout_secs` (domyślnie 30 sekund) to okres karencji, po którym pozostałe workery dostają `SIGTERM`, a jeśli i to nie poskutkuje — `SIGKILL`. Worker, który nie odpowiada na łagodny `SIGQUIT`, dostaje TERM, a potem KILL; nikt nie będzie na niego czekał w nieskończoność.
 
 Jeśli nie masz cierpliwości, drugi `SIGTERM`/`SIGINT` pomija czekanie i wymusza natychmiastowe wyjście.
 
 ### Przeładowanie kroczące
 
-`SIGUSR2` (albo `SIGHUP`) wymienia całą pulę na świeże workery — i właśnie tak aplikacja podniesiona w rezydentnym workerze idzie do kosza i powstaje na nowo z wdrożonego kodu.
+`SIGUSR2` (albo `SIGHUP`) wymienia całą pulę na świeże workery — i właśnie tak aplikacja podniesiona w rezydentnym workerze zostaje odrzucona i powstaje na nowo z wdrożonego kodu.
 
-Przeładowanie w żadnym momencie nie zbija twojej mocy obsługującej żądania, bo nowe workery zachodzą na stare, zamiast je restartować: proces nadrzędny podnosi jednego świeżego workera, czeka, aż ten faktycznie zacznie przyjmować połączenia, i dopiero wtedy wygasza jednego starego. Gdy stary zniknie, jego slot dostaje kolejnego świeżego i tak dalej, przez całe pokolenie. Każde wygaszanie to ta sama drabina `SIGQUIT` → `SIGTERM` → `SIGKILL` co przy zatrzymaniu, ograniczona tym samym limitem czasu i zastosowana do tego jednego workera.
+Przeładowanie w żadnym momencie nie zbija twojej mocy obsługującej żądania, bo nowe workery zachodzą na stare, zamiast je restartować: proces nadrzędny podnosi jednego świeżego workera, czeka, aż ten faktycznie zacznie przyjmować połączenia, i dopiero wtedy wygasza jednego starego. Gdy stary zniknie, jego slot dostaje kolejnego świeżego i tak dalej, przez całe pokolenie. Każde wygaszanie to ta sama sekwencja `SIGQUIT` → `SIGTERM` → `SIGKILL` co przy zatrzymaniu, ograniczona tym samym limitem czasu i zastosowana do tego jednego workera.
 
 Następca, który nigdy nie zacznie obsługiwać żądań, też nie zablokuje przeładowania: po upływie limitu proces nadrzędny zapisuje ostrzeżenie i tak czy owak przechodzi do kolejnego workera. W trybie `ondemand` nikt następcy z góry nie forkuje — stare workery wygaszane są po kolei, a nowe forkuje dopiero ruch.
 
-Przeładowanie zgłoszone w trakcie zatrzymywania jest ignorowane: zatrzymanie zawsze wygrywa.
+Przeładowanie zgłoszone w trakcie zatrzymywania jest ignorowane: zatrzymanie ma zawsze pierwszeństwo.
 
 ::: info
 Przeładowanie wymienia workery, a nie proces nadrzędny. Nowe workery forkuje ten sam proces nadrzędny i dostają ten sam obraz silnika, który podniósł przy starcie — dlatego `rapira.toml`, `php.ini` i sama binarka zmieniają się dopiero przy pełnym restarcie.
@@ -140,7 +140,7 @@ Tym samym targetem idą wszystkie zdarzenia nadzoru: forki, sprzątanie po potom
 :::
 
 ::: question Czy żeby wczytać nowy kod, muszę przeładować serwer?
-Na szczeblu Classic skrypt wejściowy wykonuje się od zera przy każdym żądaniu, więc nie ma tam nic rezydentnego do wymiany. Na szczeblu SAPI Worker aplikacja podnosi się raz i zostaje w pamięci, więc wdrożony kod zaczyna działać dopiero po przeładowaniu kroczącym — `kill -USR2` na pid procesu nadrzędnego. Cała sztuka polega na tym, żeby zrobić z tego krok wdrożenia; zobacz [Wdrożenie](/pl/docs/deployment).
+Na szczeblu Classic skrypt wejściowy wykonuje się od zera przy każdym żądaniu, więc nie ma tam nic rezydentnego do wymiany. Na szczeblu SAPI Worker aplikacja podnosi się raz i zostaje w pamięci, więc wdrożony kod zaczyna działać dopiero po przeładowaniu kroczącym — `kill -USR2` na pid procesu nadrzędnego. Zrób z tego krok wdrożenia; zobacz [Wdrożenie](/pl/docs/deployment).
 :::
 
 ::: question Ile workerów uruchamiać?
@@ -148,5 +148,5 @@ Domyślnie jest to jeden na rdzeń CPU i dla `static` to dobry punkt wyjścia. P
 :::
 
 ::: question Co dzieje się z żądaniami będącymi już w toku, gdy zatrzymuję albo przeładowuję serwer?
-Zostają dokończone. Zarówno zatrzymanie, jak i przeładowanie zaczynają się od tego samego polecenia dla workera: przestań przyjmować i dokończ to, co trzymasz — a worker sam się kończy, gdy zapisze ostatnią odpowiedź. Żądanie przerwie tylko drabina eskalacji po `supervisor.process_control_timeout_secs` albo drugi `SIGTERM`/`SIGINT`, który TERM-uje wszystkie workery naraz. Nadzór z `pool.request_terminate_timeout_secs` jest na czas zatrzymania albo przeładowania zawieszony.
+Zostają dokończone. Zarówno zatrzymanie, jak i przeładowanie zaczynają się od tego samego polecenia dla workera: przestań przyjmować i dokończ to, co trzymasz — a worker sam się kończy, gdy zapisze ostatnią odpowiedź. Żądanie przerwie tylko eskalacja po `supervisor.process_control_timeout_secs` albo drugi `SIGTERM`/`SIGINT`, który TERM-uje wszystkie workery naraz. Nadzór z `pool.request_terminate_timeout_secs` jest na czas zatrzymania albo przeładowania zawieszony.
 :::

@@ -18,7 +18,7 @@ Wszystko, co znajdziesz na tej stronie, zostało zaobserwowane na tych aplikacja
 
 ## Co znaczy uruchomienie frameworka na Rapirze
 
-**W trybie klasycznym nie zmienia się nic.** Skryptem wejściowym jest twój front controller, Rapira wykonuje go od zera przy każdym żądaniu i działa tu każdy framework, który działa pod php-fpm — łącznie z tymi, których stan nigdy nie przeżyłby drugiego żądania. Jeśli właśnie stamtąd zaczynasz, twoją stroną jest [tryb klasyczny](/pl/docs/classic); z tej dotyczą cię już tylko trzy ostatnie sekcje — brak plików statycznych, TLS i OPcache.
+**W trybie klasycznym nie zmienia się nic.** Skryptem wejściowym jest twój front controller, Rapira wykonuje go od zera przy każdym żądaniu i działa tu każdy framework, który działa pod php-fpm — łącznie z tymi, których stan nigdy nie przeżyłby drugiego żądania. Jeśli właśnie stamtąd zaczynasz, twoją stroną jest [tryb klasyczny](/pl/docs/classic); z tej strony dotyczą cię już tylko sekcje o plikach statycznych, TLS i OPcache.
 
 **Na szczeblu SAPI Worker proces zostaje przy życiu.** Twój skrypt raz podnosi aplikację, a potem kręci się w pętli i prosi Rapirę o kolejne żądanie. Framework przestaje być rozbierany między żądaniami — to w jednym zdaniu cały zysk i całe ryzyko, a reszta tej strony mówi o tym, co z tego wynika. [Tryby wykonania](/pl/docs/execution-modes) umieszczają ten szczebel na drabinie, a [tryb workera](/pl/docs/worker) opisuje jego API.
 
@@ -52,7 +52,7 @@ Czytając od góry:
 
 - **`require .../vendor/autoload.php`** — autoloader rejestruje się raz na całe życie workera, a każda klasa, którą rozwiąże, zostaje potem załadowana. Już samo to jest większością tego, co tu kupujesz.
 - **`create_plugin_handler(new HttpHandlerConfig())`** — prosi Rapirę o handler; o wyborze wtyczki decyduje *klasa* obiektu konfiguracji. W trybie klasycznym rzuca wyjątek, bo nie ma tam rezydentnej pętli, której można by ten handler oddać.
-- **`$app = new App();`** — twój rozruch, opłacony raz przy starcie. To w tej linii trzy przewodniki po frameworkach różnią się między sobą — i w niczym więcej: rezydentny kernel ląduje tutaj, aplikacja budowana na każde żądanie już nie.
+- **`$app = new App();`** — twój rozruch, opłacony raz przy starcie. To w tej linii trzy przewodniki po frameworkach zaczynają się rozchodzić: rezydentny kernel ląduje tutaj, aplikacja budowana na każde żądanie powstaje w środku handlera — a każdy przewodnik dokłada własny rozruch nad pętlą i własne sprzątanie w handlerze.
 - **`$handler = static function () use ($app): void`** — handler nie przyjmuje żadnych argumentów. Żądanie siedzi w superglobalach, a wszystko inne, czego potrzebuje, przechwytuje przez `use`.
 - **`header()`, `http_response_code()`, `echo`** — odpowiedź tworzysz dokładnie tak samo jak w klasycznym skrypcie. Jak to zamienia się w bajty lecące po sieci, opisuje [HTTP](/pl/docs/http).
 - **`while ($http->handleRequest($handler))`** — `handleRequest()` blokuje wykonanie, dopóki nie przyjdzie żądanie, wypełnia nim superglobale, uruchamia twój handler, zamyka żądanie i zwraca `true`. Kiedy serwer się zamyka, zwraca `false` — i tak właśnie kończy się pętla.

@@ -18,7 +18,7 @@ Everything on this page was observed by running those applications on Linux, wit
 
 ## What running a framework on Rapira means
 
-**In classic mode, nothing changes.** Your front controller is the entry script, Rapira executes it from scratch for every request, and every framework that runs under php-fpm runs here — including the ones whose state could never survive a second request. If that is where you are starting, [classic mode](/docs/classic) is the page you need; from here on only the last three sections — no static files, TLS, and OPcache — still concern you.
+**In classic mode, nothing changes.** Your front controller is the entry script, Rapira executes it from scratch for every request, and every framework that runs under php-fpm runs here — including the ones whose state could never survive a second request. If that is where you are starting, [classic mode](/docs/classic) is the page you need; from here on only the sections on static files, TLS and OPcache still concern you.
 
 **On the SAPI Worker rung, the process stays alive.** Your script boots the application once and then loops, asking Rapira for the next request. The framework is no longer torn down between requests, which is the entire benefit and the entire risk in one sentence — and the rest of this page is about what it implies. [Execution modes](/docs/execution-modes) places this rung on the ladder; [worker mode](/docs/worker) is the API reference for it.
 
@@ -52,7 +52,7 @@ Read from the top:
 
 - **`require .../vendor/autoload.php`** — the autoloader is registered once for the life of the worker, and every class it resolves stays loaded afterwards. This alone is most of what you buy.
 - **`create_plugin_handler(new HttpHandlerConfig())`** — asks Rapira for a handler; the *class* of the config object is what picks the plugin. In classic mode it throws, because there is no resident loop to hand a handler to.
-- **`$app = new App();`** — your boot, paid once at startup. This line is where the three framework guides differ from each other and from nothing else: a resident kernel goes here, a per-request application does not.
+- **`$app = new App();`** — your boot, paid once at startup. This line is where the three framework guides diverge: a resident kernel goes here, a per-request application is built inside the handler instead — and each guide adds its own bootstrap above the loop and its own per-request cleanup inside the handler.
 - **`$handler = static function () use ($app): void`** — the handler takes no arguments. The request is in the superglobals; anything else it needs, it captures with `use`.
 - **`header()`, `http_response_code()`, `echo`** — you write the response exactly as a classic script does. See [HTTP](/docs/http) for how that becomes bytes on the wire.
 - **`while ($http->handleRequest($handler))`** — `handleRequest()` blocks until a request arrives, fills the superglobals for it, runs your handler, closes the request, and returns `true`. It returns `false` when the server is shutting down, which is how the loop ends.

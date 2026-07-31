@@ -33,7 +33,7 @@ Symfony 本来就长着常驻 worker 想要的那个样子：一个由你启动�
 
 ## 动手之前
 
-你需要[装好 Rapira](/zh/docs/installation)，再加一个 Symfony 应用——`composer create-project symfony/skeleton my-app` 新建一个，或者直接用手上那个。应用不必做任何特别准备：worker 脚本放在 `composer.json` 旁边，其他一切原地不动。
+你需要[装好 Rapira](/zh/docs/installation)，再加一个 Symfony 应用——`composer create-project symfony/skeleton my-app` 新建一个，或者直接用手上那个。应用不必做任何特别准备：worker 脚本放在 `composer.json` 旁边，其他一切原地不动。另外机器上还得有一个普通的 PHP CLI，Composer 和 `bin/console` 都要用它：Rapira 是把 PHP 以库（`libphp`）的形式带进来的，并不提供 `php` 命令，所以这些步骤跑的是你系统里的 PHP，Rapira 既不使用也不干涉它。
 
 有两个扩展要留意，因为 skeleton 在 `composer.json` 里把它们写成了硬依赖（`ext-ctype`、`ext-iconv`），*同时*还 `replace` 掉了对应的 polyfill——所以它们必须是真正的扩展，不能是 PHP 写的替身。每个 Rapira 发布版内嵌的 PHP 两个都带：`ctype` 和 `iconv` 就在构建的 configure 参数里，完整的扩展清单在[安装](/zh/docs/installation)页上。如果你改用自己的 PHP 来编译 Rapira，记得把这两个都打开——那份清单在哪里设置，见[从源码构建](/zh/docs/build-from-source)。
 
@@ -68,14 +68,20 @@ $http = create_plugin_handler(new HttpHandlerConfig());
 
 $handler = static function () use ($kernel, $container): void {
     $request = Request::createFromGlobals();
-    $response = $kernel->handle($request);
-    $response->send();
-    $kernel->terminate($request, $response);
 
-    // The same reset Symfony runs between Messenger messages: every service
-    // tagged kernel.reset drops the state it accumulated during the request.
-    if ($container->has('services_resetter')) {
-        $container->get('services_resetter')->reset();
+    try {
+        $response = $kernel->handle($request);
+        $response->send();
+        $kernel->terminate($request, $response);
+    } finally {
+        // The same reset Symfony runs between Messenger messages: every service
+        // tagged kernel.reset drops the state it accumulated during the request.
+        // In finally: handle() turns application exceptions into a response, but a
+        // failing send() or a throwing kernel.terminate listener escapes the handler,
+        // and the worker keeps serving — the reset has to run on that path too.
+        if ($container->has('services_resetter')) {
+            $container->get('services_resetter')->reset();
+        }
     }
 };
 

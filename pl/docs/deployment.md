@@ -58,7 +58,7 @@ Dodaj `User=` i `Group=` do bloku `[Service]` — systemd przepisze `RuntimeDire
 
 Konwencja to `/etc/rapira/rapira.toml` na ustawienia samej Rapiry i `php.ini` leżący obok, znajdowany dzięki `PHPRC=/etc/rapira`. Żadna z tych ścieżek nie jest wkompilowana. `--config` przyjmuje dowolną ścieżkę, a `PHPRC` w ogóle nie jest funkcją Rapiry — Rapira nie rusza wyszukiwania plików ini w PHP, więc PHP zagląda najpierw do `$PHPRC`, dokładnie tak jak pod każdym innym SAPI. Jeśli twoja dystrybucja albo twoja rola Ansible woli inne miejsce, wskaż jedno i drugie gdzie indziej.
 
-Zanim napiszesz ten plik, warto wiedzieć jedno: względny `pool.entrypoint` liczy się od katalogu **pliku konfiguracyjnego**, a nie od katalogu roboczego. Przy powyższym układzie `entrypoint = "index.php"` oznaczałby `/etc/rapira/index.php`, a tam twojej aplikacji nie ma. Na produkcji podaj skryptowi wejściowemu ścieżkę bezwzględną, a pytanie w ogóle nie powstanie. Wszystko *pozostałe*, co liczy się względnie, ląduje w katalogu roboczym, a Rapira nigdy nie zmienia katalogu — bez `WorkingDirectory=` systemd uruchamia usługę w `/`, i właśnie dlatego jednostka wyżej ten klucz ustawia (wyszukiwanie ini w samym PHP obejmuje też `.`, więc PHP również tam zajrzy). Każdy klucz razem z wartością domyślną opisuje [Konfiguracja](/pl/docs/configuration).
+Zanim napiszesz ten plik, warto wiedzieć jedno: względny `pool.entrypoint` liczy się od katalogu **pliku konfiguracyjnego**, a nie od katalogu roboczego. Przy powyższym układzie `entrypoint = "index.php"` oznaczałby `/etc/rapira/index.php`, a tam twojej aplikacji nie ma. Na produkcji podaj skryptowi wejściowemu ścieżkę bezwzględną, a pytanie w ogóle nie powstanie. `supervisor.pidfile` działa tak samo: obie ścieżki z konfiguracji liczą się od katalogu pliku konfiguracyjnego. Od katalogu roboczego liczą się natomiast argument pozycyjny `SCRIPT` i każda względna ścieżka, którą twój kod PHP otwiera już w trakcie działania, a sama Rapira nigdy nie zmienia katalogu — bez `WorkingDirectory=` systemd uruchamia usługę w `/`, i właśnie dlatego jednostka wyżej ten klucz ustawia (wyszukiwanie ini w samym PHP obejmuje też `.`, więc PHP również tam zajrzy). Każdy klucz razem z wartością domyślną opisuje [Konfiguracja](/pl/docs/configuration).
 
 ## Za reverse proxy
 
@@ -70,7 +70,7 @@ listen = "127.0.0.1:8000"
 # listen = "unix:/run/rapira/rapira.sock"
 ```
 
-Gniazdo uniksowe powstaje z prawami `0666`, więc połączy się z nim wszystko, co dosięgnie tej ścieżki. Jeśli to dla ciebie istotne, umieść gniazdo w katalogu, do którego wejść może tylko użytkownik proxy.
+Gniazdo uniksowe powstaje z prawami `0666`, więc połączy się z nim wszystko, co dosięgnie tej ścieżki. Rapira nie ma ustawienia, którym dałoby się te prawa zmienić. Jeśli to dla ciebie istotne, ogranicz sam katalog: w jednostce wyżej `RuntimeDirectoryMode=0750` i `Group=`, do której należy użytkownik proxy, zamykają `/run/rapira` przed wszystkimi innymi.
 
 Twoje proxy ma po drodze jeden obowiązek: pola przekazywane dalej muszą mieć zwyczajną pisownię z `-` — `X-Forwarded-For`, nigdy `X_Forwarded_For`. Wersje z podkreśleniem i z kropką lądują pod tym samym kluczem `$_SERVER` co ta prawidłowa, a to właśnie tędy klient mógłby nadpisać to, co przed chwilą ustawiło twoje proxy — dlatego Rapira wycina je, zanim PHP je zobaczy. Mapowanie nazw i sterujący nim klucz `http.unsafe_field_names` opisuje [strona o HTTP](/pl/docs/http).
 
@@ -82,7 +82,7 @@ Wgraj nowy kod, a potem:
 sudo systemctl reload rapira
 ```
 
-To `SIGUSR2` do procesu nadrzędnego, a ten odpowiada na niego **przeładowaniem kroczącym**: pula wymienia się worker po workerze, żądania w toku dobiegają końca i żadne połączenie nie ginie. Jak przy takiej wymianie świeży worker zachodzi na starego, opisuje [Model procesów](/pl/docs/process-model).
+To `SIGUSR2` do procesu nadrzędnego, a ten odpowiada na niego **przeładowaniem kroczącym**: pula wymienia się worker po workerze, a żądania w toku dobiegają końca — nic nie ginie, dopóki worker mieści się w `process_control_timeout_secs`. Ten, który się nie zmieści, dostaje `SIGTERM`, potem `SIGKILL`, i zabiera ze sobą swoje żądanie (piszemy o tym niżej). Jak przy takiej wymianie świeży worker zachodzi na starego, opisuje [Model procesów](/pl/docs/process-model).
 
 Bez systemd — w entrypoincie kontenera, w skrypcie wdrożeniowym — wyślij sygnał wprost do procesu nadrzędnego. Ustaw `supervisor.pidfile`, a pid będziesz miał pod ręką. Poza systemd nikt nie tworzy `/run/rapira`, więc najpierw załóż ten katalog albo wybierz ścieżkę, która istnieje: proces nadrzędny odmawia startu, gdy nie może zapisać tego pliku.
 

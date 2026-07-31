@@ -18,7 +18,7 @@ Todo lo que cuenta esta página se observó ejecutando esas aplicaciones en Linu
 
 ## Qué significa ejecutar un framework sobre Rapira
 
-**En modo clásico no cambia nada.** Tu front controller es el script de entrada, Rapira lo ejecuta desde cero en cada petición y aquí funciona cualquier framework que funcione con php-fpm, incluidos aquellos cuyo estado jamás sobreviviría a una segunda petición. Si es ahí donde empiezas, la página que necesitas es [modo clásico](/es/docs/classic); de aquí en adelante solo te conciernen las tres últimas secciones: los archivos estáticos, TLS y OPcache.
+**En modo clásico no cambia nada.** Tu front controller es el script de entrada, Rapira lo ejecuta desde cero en cada petición y aquí funciona cualquier framework que funcione con php-fpm, incluidos aquellos cuyo estado jamás sobreviviría a una segunda petición. Si es ahí donde empiezas, la página que necesitas es [modo clásico](/es/docs/classic); de aquí en adelante solo te conciernen las secciones sobre archivos estáticos, TLS y OPcache.
 
 **En el peldaño SAPI Worker el proceso sigue vivo.** Tu script arranca la aplicación una vez y entra en un bucle pidiéndole a Rapira la siguiente petición. El framework ya no se desmonta entre petición y petición, y en esa frase caben enteras la ventaja y el riesgo — el resto de la página va de lo que eso implica. [Modos de ejecución](/es/docs/execution-modes) sitúa este peldaño en la escalera; [modo worker](/es/docs/worker) es su referencia de API.
 
@@ -52,7 +52,7 @@ De arriba abajo:
 
 - **`require .../vendor/autoload.php`** — el autoloader se registra una sola vez para toda la vida del worker, y cada clase que resuelve se queda cargada. Con esto solo ya te llevas casi todo lo que vienes a buscar.
 - **`create_plugin_handler(new HttpHandlerConfig())`** — le pide un handler a Rapira; el plugin lo elige la *clase* del objeto de configuración. En modo clásico lanza una excepción, porque no hay ningún bucle residente al que entregarle un handler.
-- **`$app = new App();`** — tu arranque, que se paga una sola vez al inicio. Esta línea es lo único en lo que se diferencian entre sí las tres guías de frameworks: aquí va un kernel residente; una aplicación que se construye en cada petición, no.
+- **`$app = new App();`** — tu arranque, que se paga una sola vez al inicio. Esta línea es donde empiezan a separarse las tres guías de frameworks: aquí va un kernel residente; una aplicación que se construye en cada petición se construye dentro del handler — y cada guía añade su propio arranque encima del bucle y su propia limpieza dentro del handler.
 - **`$handler = static function () use ($app): void`** — el handler no recibe argumentos. La petición está en las superglobales; lo demás que necesite lo captura con `use`.
 - **`header()`, `http_response_code()`, `echo`** — escribes la respuesta exactamente igual que en un script clásico. En [HTTP](/es/docs/http) tienes cómo se convierte eso en bytes por la red.
 - **`while ($http->handleRequest($handler))`** — `handleRequest()` bloquea hasta que llega una petición, rellena las superglobales con ella, ejecuta tu handler, cierra la petición y devuelve `true`. Devuelve `false` cuando el servidor se está apagando, y así es como acaba el bucle.

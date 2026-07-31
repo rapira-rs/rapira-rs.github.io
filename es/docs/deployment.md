@@ -58,7 +58,7 @@ Añade `User=` y `Group=` al bloque `[Service]`: systemd le cambia el dueño del
 
 La convención es `/etc/rapira/rapira.toml` para los ajustes propios de Rapira y un `php.ini` al lado, que se encuentra gracias a `PHPRC=/etc/rapira`. Ninguna de las dos rutas está compilada en el binario. A `--config` le vale cualquier ruta que le des, y `PHPRC` ni siquiera es cosa de Rapira: la búsqueda de ini de PHP se queda tal cual, así que PHP mira primero en `$PHPRC` exactamente igual que bajo cualquier otro SAPI. Si tu distribución o tu rol de Ansible prefieren otro sitio, apunta las dos a donde quieras.
 
-Antes de escribir ese archivo conviene saber una cosa: un `pool.entrypoint` relativo se resuelve contra el directorio **del archivo de configuración**, no contra el directorio de trabajo. Con la disposición de arriba, `entrypoint = "index.php"` querría decir `/etc/rapira/index.php`, que no es donde está tu aplicación. En producción, dale al entrypoint una ruta absoluta y la duda no aparece nunca. Todo lo *demás* que se resuelva de forma relativa cae en el directorio de trabajo, y Rapira nunca hace `chdir`: systemd arranca el servicio en `/` salvo que pongas `WorkingDirectory=`, y por eso la unidad de arriba lo pone (la búsqueda de ini de PHP incluye `.`, así que también mira ahí). Cada clave, con su valor por defecto, está en [Configuración](/es/docs/configuration).
+Antes de escribir ese archivo conviene saber una cosa: un `pool.entrypoint` relativo se resuelve contra el directorio **del archivo de configuración**, no contra el directorio de trabajo. Con la disposición de arriba, `entrypoint = "index.php"` querría decir `/etc/rapira/index.php`, que no es donde está tu aplicación. En producción, dale al entrypoint una ruta absoluta y la duda no aparece nunca. `supervisor.pidfile` sigue la misma regla: las dos rutas de la configuración cuelgan del directorio del archivo de configuración. Lo que sí se resuelve contra el directorio de trabajo es el argumento posicional `SCRIPT` y cualquier ruta relativa que tu código PHP abra en tiempo de ejecución, y Rapira nunca hace `chdir`: systemd arranca el servicio en `/` salvo que pongas `WorkingDirectory=`, y por eso la unidad de arriba lo pone (la búsqueda de ini de PHP incluye `.`, así que también mira ahí). Cada clave, con su valor por defecto, está en [Configuración](/es/docs/configuration).
 
 ## Detrás de un proxy inverso
 
@@ -70,7 +70,7 @@ listen = "127.0.0.1:8000"
 # listen = "unix:/run/rapira/rapira.sock"
 ```
 
-El socket Unix se crea con permisos `0666`, así que cualquier cosa que alcance esa ruta puede conectarse. Si eso te importa, mete el socket en un directorio donde solo pueda entrar el usuario del proxy.
+El socket Unix se crea con permisos `0666`, así que cualquier cosa que alcance esa ruta puede conectarse. Rapira no tiene ningún ajuste para esos permisos. Si eso te importa, restringe el directorio: en la unidad de arriba, `RuntimeDirectoryMode=0750` y un `Group=` al que pertenezca el usuario del proxy dejan `/run/rapira` fuera del alcance de los demás.
 
 Tu proxy tiene una sola obligación a la entrada: los campos que reenvíe deben ir con la grafía normal, la del guion —`X-Forwarded-For`, nunca `X_Forwarded_For`—. Las variantes con guion bajo o con punto caen en la misma clave de `$_SERVER` que la buena, que es justo por donde un cliente sobrescribiría lo que tu proxy acaba de poner, así que Rapira las descarta antes de que PHP las vea. La [página de HTTP](/es/docs/http) explica la correspondencia y el ajuste `http.unsafe_field_names` que la gobierna.
 
@@ -82,7 +82,7 @@ Despliega el código nuevo y luego:
 sudo systemctl reload rapira
 ```
 
-Eso es un `SIGUSR2` al maestro, que responde con una **recarga progresiva**: el pool se reemplaza de worker en worker, las peticiones en curso llegan hasta el final y no se corta ninguna conexión. Cómo solapa el relevo al worker nuevo con el viejo lo tienes en [Modelo de procesos](/es/docs/process-model).
+Eso es un `SIGUSR2` al maestro, que responde con una **recarga progresiva**: el pool se reemplaza de worker en worker y las peticiones en curso llegan hasta el final; no se pierde nada mientras ningún worker se pase de `process_control_timeout_secs`. Al que se pasa se le escala a `SIGTERM` y luego a `SIGKILL`, y se lleva su petición por delante (lo tienes más abajo). Cómo solapa el relevo al worker nuevo con el viejo lo tienes en [Modelo de procesos](/es/docs/process-model).
 
 Sin systemd —un entrypoint de contenedor, un script de despliegue— mándale la señal al maestro tú mismo. Define `supervisor.pidfile` y tendrás el pid a mano; eso sí, fuera de systemd nadie crea `/run/rapira`, así que crea antes el directorio o elige una ruta que exista: el maestro se niega a arrancar si no puede escribir ese archivo.
 

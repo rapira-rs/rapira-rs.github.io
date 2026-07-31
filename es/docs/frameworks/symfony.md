@@ -33,7 +33,7 @@ Un kernel vive en un proceso worker, y los workers son procesos independientes d
 
 ## Antes de empezar
 
-Necesitas [Rapira instalado](/es/docs/installation) y una aplicación Symfony, ya sea un `composer create-project symfony/skeleton my-app` recién hecho o la que ya tengas. No hay que preparar nada especial: el script del worker se pone al lado de `composer.json` y todo lo demás se queda donde está.
+Necesitas [Rapira instalado](/es/docs/installation) y una aplicación Symfony, ya sea un `composer create-project symfony/skeleton my-app` recién hecho o la que ya tengas. No hay que preparar nada especial: el script del worker se pone al lado de `composer.json` y todo lo demás se queda donde está. También necesitas un PHP CLI normal en la máquina para Composer y `bin/console`: Rapira incluye PHP como biblioteca (`libphp`), no como comando `php`, así que esos pasos se ejecutan con el PHP de tu sistema, que Rapira ni usa ni toca.
 
 Hay dos extensiones que sí importan, porque el skeleton las exige a las bravas en `composer.json` (`ext-ctype`, `ext-iconv`) *y además* hace `replace` de los polyfills correspondientes, así que tienen que ser extensiones de verdad y no sustitutos escritos en PHP. El PHP que va dentro de cada release de Rapira trae las dos: `ctype` e `iconv` están en la línea de configure de la compilación, y la lista completa de extensiones está en la página de [Instalación](/es/docs/installation). Si en vez de eso compilas Rapira contra un PHP tuyo, deja las dos activadas; en [Compilar desde el código](/es/docs/build-from-source) se ve dónde se fija esa lista.
 
@@ -68,14 +68,20 @@ $http = create_plugin_handler(new HttpHandlerConfig());
 
 $handler = static function () use ($kernel, $container): void {
     $request = Request::createFromGlobals();
-    $response = $kernel->handle($request);
-    $response->send();
-    $kernel->terminate($request, $response);
 
-    // The same reset Symfony runs between Messenger messages: every service
-    // tagged kernel.reset drops the state it accumulated during the request.
-    if ($container->has('services_resetter')) {
-        $container->get('services_resetter')->reset();
+    try {
+        $response = $kernel->handle($request);
+        $response->send();
+        $kernel->terminate($request, $response);
+    } finally {
+        // The same reset Symfony runs between Messenger messages: every service
+        // tagged kernel.reset drops the state it accumulated during the request.
+        // In finally: handle() turns application exceptions into a response, but a
+        // failing send() or a throwing kernel.terminate listener escapes the handler,
+        // and the worker keeps serving — the reset has to run on that path too.
+        if ($container->has('services_resetter')) {
+            $container->get('services_resetter')->reset();
+        }
     }
 };
 

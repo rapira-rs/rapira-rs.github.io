@@ -29,7 +29,7 @@ Jeśli taki układ ci nie odpowiada, [wyjście awaryjne w postaci trybu klasyczn
 
 ## Zanim zaczniesz
 
-Potrzebujesz zainstalowanej Rapiry — patrz [Instalacja](/pl/docs/installation) — i aplikacji Laravel, którą już potrafisz uruchomić.
+Potrzebujesz zainstalowanej Rapiry — patrz [Instalacja](/pl/docs/installation) — i aplikacji Laravel, którą już potrafisz uruchomić. Potrzebujesz też zwykłego PHP CLI na maszynie: to przez niego uruchamiasz Composera i `artisan`. Rapira dostarcza PHP jako bibliotekę (`libphp`), a nie jako polecenie `php`, więc te kroki wykonują się na systemowym PHP, którego Rapira ani nie używa, ani nie rusza.
 
 Jedno warto sprawdzić przed pierwszym startem: świeży szkielet `laravel/laravel` domyślnie sięga po bazę SQLite oraz po sterowniki sesji, cache'u i kolejek oparte na bazie, a to znaczy, że potrzebuje `pdo_sqlite`. PHP dołączone do wydań Rapiry je ma: PDO, `pdo_sqlite` i `sqlite3` są w zestawie rozszerzeń wydanej binarki, wypisanym na stronie [Instalacja](/pl/docs/installation). Jeśli uruchamiasz Rapirę na własnoręcznie skompilowanym PHP, dopilnuj tych rozszerzeń w linii `configure` (opisuje to [Budowanie ze źródeł](/pl/docs/build-from-source)) albo pójdź ścieżką bez bazy i przestaw Laravela na sterowniki plikowe i synchroniczne — `SESSION_DRIVER=file`, `CACHE_STORE=file`, `QUEUE_CONNECTION=sync`. Właśnie na takim zestawie działała weryfikacja opisana na tej stronie.
 

@@ -86,7 +86,7 @@ Both formats are written to stderr, one write per record. That single-write rule
 
 **`plain`** is the one you want in a terminal — a timestamp, the level, the target, the message:
 
-```
+```text
 2026-07-30T09:12:34.567890Z ERROR php: …
 ```
 
@@ -94,7 +94,7 @@ It is colored when stderr is a terminal and never when it is redirected to a fil
 
 **`json`** is the one you want in front of a log collector — one object per line:
 
-```
+```text
 {"timestamp":…,"level":"ERROR","message":…,"target":…}
 ```
 
@@ -110,7 +110,7 @@ RUST_LOG=rapira=debug,php=info rapira serve worker.php
 RUST_LOG=warn,rapira=trace rapira serve worker.php
 ```
 
-The first turns everything up to `info`. The second is a targeted pair — the server at `debug`, PHP at `info`. The third quiets the dependencies to `warn` and raises Rapira's `rapira` target — boot, worker lifecycle, shutdown — to `trace`. The other targets match by their own names, so add them when the question is elsewhere: `RUST_LOG=warn,rapira=trace,master=trace`.
+The first turns everything up to `info`. The second is a targeted pair — the `rapira` target at `debug`, PHP at `info`. The third quiets the dependencies to `warn` and raises Rapira's `rapira` target — boot, worker lifecycle, shutdown — to `trace`. The other targets match by their own names, so add them when the question is elsewhere: `RUST_LOG=warn,rapira=trace,master=trace`.
 
 ::: warning
 When `RUST_LOG` is set to a non-blank value it **replaces** `level` and `[log.targets]` entirely — the whole filter, not a merge. Your `[log.targets]` entries are not layered underneath it; they are simply not consulted. Leave the variable unset (or blank) to go back to the config. It never affects `format`.

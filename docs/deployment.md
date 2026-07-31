@@ -58,7 +58,7 @@ Add `User=` and `Group=` to the `[Service]` block — systemd chowns the `Runtim
 
 The convention is `/etc/rapira/rapira.toml` for Rapira's own settings, and a `php.ini` sitting next to it, found through `PHPRC=/etc/rapira`. Neither path is compiled in. `--config` takes any path you like, and `PHPRC` isn't a Rapira feature at all — Rapira leaves PHP's ini search alone, so PHP looks in `$PHPRC` first exactly as it would under any other SAPI. Point both somewhere else if your distro or your Ansible role prefers it.
 
-One thing to know before you write that file: a relative `pool.entrypoint` resolves against the **config file's** directory, not the working directory. With the layout above, `entrypoint = "index.php"` would mean `/etc/rapira/index.php`, which is not where your app is. In production, give the entrypoint an absolute path and the question never comes up. Everything *else* that resolves relatively lands in the working directory, and Rapira never chdirs — systemd starts the service in `/` unless you set `WorkingDirectory=`, which is why the unit above does (PHP's own ini search includes `.`, so it looks there too). Every key, with its default, is on [Configuration](/docs/configuration).
+One thing to know before you write that file: a relative `pool.entrypoint` resolves against the **config file's** directory, not the working directory. With the layout above, `entrypoint = "index.php"` would mean `/etc/rapira/index.php`, which is not where your app is. In production, give the entrypoint an absolute path and the question never comes up. `supervisor.pidfile` follows the same rule — both config paths hang off the config file's directory. What *does* resolve against the working directory is the positional `SCRIPT` argument and any relative path your PHP code opens at runtime, and Rapira never chdirs — systemd starts the service in `/` unless you set `WorkingDirectory=`, which is why the unit above does (PHP's own ini search includes `.`, so it looks there too). Every key, with its default, is on [Configuration](/docs/configuration).
 
 ## Behind a reverse proxy
 
@@ -70,7 +70,7 @@ listen = "127.0.0.1:8000"
 # listen = "unix:/run/rapira/rapira.sock"
 ```
 
-The Unix socket is created with mode `0666`, so anything that can reach the path can connect to it. If that matters, put the socket in a directory only the proxy's user may enter.
+The Unix socket is created with mode `0666`, so anything that can reach the path can connect to it. Rapira has no knob for that mode. If it matters, restrict the directory instead: with the unit above, `RuntimeDirectoryMode=0750` plus a `Group=` the proxy's user belongs to keeps everyone else out of `/run/rapira`.
 
 Your proxy has one obligation on the way in: forwarded fields must use the ordinary `-` spelling — `X-Forwarded-For`, never `X_Forwarded_For`. Underscore and dot spellings fold onto the same `$_SERVER` key as the proper one, which is how a client would otherwise overwrite what your proxy just set, so Rapira drops them before PHP sees them. The [HTTP page](/docs/http) explains the mapping and the `http.unsafe_field_names` knob that governs it.
 
@@ -82,7 +82,7 @@ Deploy the new code, then:
 sudo systemctl reload rapira
 ```
 
-That's a `SIGUSR2` to the master, which answers it with a **rolling reload**: the pool is replaced one worker at a time, in-flight requests run to completion, and no connection is dropped. How the roll overlaps the fresh worker with the old one is on [Process model](/docs/process-model).
+That's a `SIGUSR2` to the master, which answers it with a **rolling reload**: the pool is replaced one worker at a time and in-flight requests run to completion — nothing is dropped unless a worker overruns `process_control_timeout_secs`, which escalates it to `SIGTERM` and then `SIGKILL` and takes its request with it (see below). How the roll overlaps the fresh worker with the old one is on [Process model](/docs/process-model).
 
 Without systemd — a container entrypoint, a deploy script — signal the master directly. Set `supervisor.pidfile` and the pid is right there — nothing creates `/run/rapira` outside systemd, so make the directory first or pick a path that exists; the master refuses to boot if it can't write the file.
 

@@ -32,7 +32,7 @@ Rapira выполняет PHP через embed SAPI — интерфейс, че
 | macOS, Apple Silicon                | `rapira-v0.6.0-php8.5-macos-aarch64.tar.gz`  |
 | Контрольные суммы для всего этого   | `rapira-v0.6.0-SHA256SUMS.txt`               |
 
-На Linux по умолчанию лучше брать пакет: он раскладывает файлы туда, где их ждёт дистрибутив, а `apt` или `dnf` заодно подтянут разделяемые библиотеки, которые нужны PHP. Архив пригодится, когда сервер должен целиком уместиться в одном самодостаточном каталоге: образ контейнера, артефакт деплоя, машина, где у вас нет root.
+На Linux по умолчанию лучше брать пакет: он раскладывает файлы туда, где их ждёт дистрибутив, а `apt` или `dnf` заодно подтянут разделяемые библиотеки, которые нужны PHP. Архив пригодится, когда сервер должен целиком уместиться в одном самодостаточном каталоге: образ контейнера, артефакт деплоя, машина, где у вас нет root. Что бы вы ни выбрали, сверьте скачанный файл с `rapira-v0.6.0-SHA256SUMS.txt` до установки: `.deb` и `.rpm` выполняют свои установочные скрипты от root, а в разделе [Проверьте, что вы скачали](#проверьте-что-вы-скачали) на это уходит две команды.
 
 ## Debian и Ubuntu
 
@@ -64,7 +64,7 @@ rapira --version
 
 Архив распаковывается в один каталог, где лежит весь сервер целиком:
 
-```
+```text
 rapira-v0.6.0-php8.5-linux-x86_64/
 ├── bin/rapira
 ├── lib/rapira/libphp.so
@@ -77,7 +77,9 @@ rapira-v0.6.0-php8.5-linux-x86_64/
 
 Положите каталог туда, где вы держите такие вещи, и добавьте бинарник в `PATH` через симлинк:
 
-```bash
+::: code-group
+
+```bash [Linux]
 curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-v0.6.0-php8.5-linux-x86_64.tar.gz
 tar xzf rapira-v0.6.0-php8.5-linux-x86_64.tar.gz
 sudo mv rapira-v0.6.0-php8.5-linux-x86_64 /opt/rapira
@@ -85,13 +87,23 @@ sudo ln -s /opt/rapira/bin/rapira /usr/local/bin/rapira
 rapira --version
 ```
 
+```bash [macOS]
+curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-v0.6.0-php8.5-macos-aarch64.tar.gz
+tar xzf rapira-v0.6.0-php8.5-macos-aarch64.tar.gz
+sudo mv rapira-v0.6.0-php8.5-macos-aarch64 /opt/rapira
+sudo ln -s /opt/rapira/bin/rapira /usr/local/bin/rapira
+rapira --version
+```
+
+:::
+
 ::: warning
 Бинарник находит свой интерпретатор по **относительному rpath** — `$ORIGIN/../lib/rapira` на Linux и `@loader_path/../lib/rapira` на macOS, — а точкой отсчёта служит реальное расположение самого бинарника. Каталог целиком можно перенести куда угодно, но вынимать из него бинарник нельзя: `cp bin/rapira /usr/local/bin/` ломает поиск, потому что рядом с `/usr/local/bin` нет никакого `lib/rapira`. Вместо этого делайте симлинк, как выше. Загрузчик сначала разрешает ссылку и только потом раскрывает rpath, поэтому симлинк может лежать где угодно, а настоящее дерево остаётся целым.
 :::
 
 ## Проверьте, что вы скачали
 
-В каждом релизе есть один файл с контрольными суммами сразу для всех его файлов. Флаг `--ignore-missing` как раз и позволяет проверить только те один-два файла, которые вы действительно скачали:
+В каждом релизе есть один файл с контрольными суммами сразу для всех его файлов, поэтому из него нужно выбрать только те один-два файла, которые вы действительно скачали. На Linux это делает флаг `--ignore-missing`, а на macOS `grep` передаёт `shasum` ровно одну нужную строку:
 
 ::: code-group
 
@@ -102,8 +114,7 @@ sha256sum -c --ignore-missing rapira-v0.6.0-SHA256SUMS.txt
 
 ```bash [macOS]
 curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-v0.6.0-SHA256SUMS.txt
-shasum -a 256 rapira-v0.6.0-php8.5-macos-aarch64.tar.gz
-grep macos-aarch64 rapira-v0.6.0-SHA256SUMS.txt
+grep rapira-v0.6.0-php8.5-macos-aarch64.tar.gz rapira-v0.6.0-SHA256SUMS.txt | shasum -a 256 -c
 ```
 
 :::
@@ -148,7 +159,7 @@ PHPRC=/etc/rapira/php.ini rapira serve --config /etc/rapira/rapira.toml
 Бинарник на месте, и теперь [Быстрый старт](/ru/docs/quickstart) поможет обработать первый запрос примерно за минуту.
 
 ::: question Нужно ли ставить PHP перед установкой Rapira?
-Нет. В каждом артефакте лежит собственный `libphp`, собранный с тем самым embed SAPI, который нужен Rapira. Системный PHP не используется и не изменяется: если у вас работает php-fpm, он продолжит работать как ни в чём не бывало.
+Нет. В каждом артефакте лежит собственный `libphp`, собранный с тем самым embed SAPI, который нужен Rapira. Системный PHP не используется и не изменяется: если у вас работает php-fpm, он продолжит работать как ни в чём не бывало. Чего в артефактах нет, так это команды `php`, поэтому инструментам вокруг приложения — Composer, `bin/console`, `artisan` — по-прежнему нужен свой PHP CLI.
 :::
 
 ::: question Можно ли держать PHP 8.4 и 8.5 рядом?

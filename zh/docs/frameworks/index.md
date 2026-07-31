@@ -18,7 +18,7 @@ description: Symfony、Laravel 或 Yii3 应用跑在 Rapira 上会有什么变�
 
 ## 把框架跑在 Rapira 上意味着什么
 
-**经典模式下，什么都不变。**你的前端控制器就是入口脚本，Rapira 每来一个请求就把它从头跑一遍，凡是能在 php-fpm 下跑的框架，在这里照样跑——包括那些状态根本撑不过第二个请求的。如果你打算从这儿起步，该看的是[经典模式](/zh/docs/classic)；本页接下来只有最后三节——不从磁盘提供静态文件、TLS、OPcache——还跟你有关。
+**经典模式下，什么都不变。**你的前端控制器就是入口脚本，Rapira 每来一个请求就把它从头跑一遍，凡是能在 php-fpm 下跑的框架，在这里照样跑——包括那些状态根本撑不过第二个请求的。如果你打算从这儿起步，该看的是[经典模式](/zh/docs/classic)；本页接下来只有静态文件、TLS 和 OPcache 这几节还跟你有关。
 
 **到了 SAPI Worker 这一级，进程不再退出。**脚本把应用启动一次，然后待在循环里，一遍遍向 Rapira 要下一个请求。框架不会在两次请求之间被拆掉——一句话说完了全部好处，也说完了全部风险，而本页余下的篇幅讲的就是它意味着什么。这一级在阶梯上处于什么位置，见[执行模式](/zh/docs/execution-modes)；它的 API 参考是 [Worker 模式](/zh/docs/worker)。
 
@@ -52,7 +52,7 @@ while ($http->handleRequest($handler)) {
 
 - **`require .../vendor/autoload.php`**——自动加载器在 worker 的一生里只注册一次，它解析过的每个类此后都留在内存里。光是这一条，就已经是你换来的大部分收益。
 - **`create_plugin_handler(new HttpHandlerConfig())`**——向 Rapira 要一个 handler；真正决定选用哪个插件的，是配置对象的*类*。在经典模式下它会抛异常，因为那里没有常驻循环，handler 交不出去。
-- **`$app = new App();`**——你的启动过程，只在起步时付一次。三份框架指南的分歧全都落在这一行上，别处并无二致：常驻的内核写在这里，每请求重建的应用不写在这里。
+- **`$app = new App();`**——你的启动过程，只在起步时付一次。三份框架指南的分歧从这一行开始：常驻的内核写在这里，每请求重建的应用则在 handler 内部构建——每份指南在循环之上还有各自的引导代码，handler 内部也有各自的清理。
 - **`$handler = static function () use ($app): void`**——handler 不接收任何参数。请求就在超全局变量里；它还需要别的什么，用 `use` 捕获进去。
 - **`header()`、`http_response_code()`、`echo`**——响应的写法和经典脚本一模一样。这些东西怎么变成网络上的字节，见 [HTTP](/zh/docs/http)。
 - **`while ($http->handleRequest($handler))`**——`handleRequest()` 会一直阻塞到请求到来，为它填好超全局变量，跑你的 handler，把请求收尾，然后返回 `true`。服务器开始关闭时它返回 `false`，循环也就是这样结束的。

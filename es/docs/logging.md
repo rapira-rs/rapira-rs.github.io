@@ -86,7 +86,7 @@ Los dos formatos se escriben en stderr, con una escritura por entrada. Esa regla
 
 **`plain`** es el que quieres en un terminal: marca de tiempo, nivel, target y mensaje:
 
-```
+```text
 2026-07-30T09:12:34.567890Z ERROR php: …
 ```
 
@@ -94,7 +94,7 @@ Sale coloreado cuando stderr es un terminal y nunca cuando lo rediriges a un arc
 
 **`json`** es el que quieres delante de un recolector de registros: un objeto por línea:
 
-```
+```text
 {"timestamp":…,"level":"ERROR","message":…,"target":…}
 ```
 
@@ -110,7 +110,7 @@ RUST_LOG=rapira=debug,php=info rapira serve worker.php
 RUST_LOG=warn,rapira=trace rapira serve worker.php
 ```
 
-La primera lo sube todo a `info`. La segunda apunta a dos sitios concretos: el servidor en `debug` y PHP en `info`. La tercera calla a las dependencias en `warn` y sube el target `rapira` —arranque, vida de los workers, apagado— hasta `trace`. Los demás targets se nombran igual, cada uno por el suyo, así que añádelos cuando la pregunta esté en otra parte: `RUST_LOG=warn,rapira=trace,master=trace`.
+La primera lo sube todo a `info`. La segunda apunta a dos sitios concretos: el target `rapira` en `debug` y PHP en `info`. La tercera calla a las dependencias en `warn` y sube el target `rapira` —arranque, vida de los workers, apagado— hasta `trace`. Los demás targets se nombran igual, cada uno por el suyo, así que añádelos cuando la pregunta esté en otra parte: `RUST_LOG=warn,rapira=trace,master=trace`.
 
 ::: warning
 Cuando `RUST_LOG` trae un valor no vacío, **reemplaza** por completo a `level` y a `[log.targets]`: el filtro entero, sin mezclas. Tus entradas de `[log.targets]` no quedan debajo como una capa de fondo; sencillamente no se consultan. Deja la variable sin definir (o vacía) para volver a lo que diga la configuración. A `format` no le afecta nunca.

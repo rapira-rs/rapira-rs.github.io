@@ -32,7 +32,7 @@ Todo está en la [página de releases de GitHub](https://github.com/rapira-rs/ra
 | macOS, Apple Silicon                 | `rapira-v0.6.0-php8.5-macos-aarch64.tar.gz`  |
 | Sumas de verificación de lo anterior | `rapira-v0.6.0-SHA256SUMS.txt`               |
 
-En Linux, la opción por defecto debería ser el paquete: coloca cada cosa donde tu distribución espera encontrarla y permite que `apt` o `dnf` traigan las bibliotecas compartidas que PHP necesita. Recurre al tarball cuando quieras que el servidor viva en un único directorio autocontenido: una imagen de contenedor, un artefacto de despliegue, una máquina donde no eres root.
+En Linux, la opción por defecto debería ser el paquete: coloca cada cosa donde tu distribución espera encontrarla y permite que `apt` o `dnf` traigan las bibliotecas compartidas que PHP necesita. Recurre al tarball cuando quieras que el servidor viva en un único directorio autocontenido: una imagen de contenedor, un artefacto de despliegue, una máquina donde no eres root. Elijas lo que elijas, compáralo con `rapira-v0.6.0-SHA256SUMS.txt` antes de instalarlo: un `.deb` o un `.rpm` ejecuta sus scripts de instalación como root, y [Comprueba lo que has descargado](#comprueba-lo-que-has-descargado) son dos comandos.
 
 ## Debian y Ubuntu
 
@@ -64,7 +64,7 @@ Ese mismo suelo de glibc 2.34 sitúa la base en **RHEL 9** y sus recompilaciones
 
 El archivo se descomprime en un único directorio que contiene el servidor entero:
 
-```
+```text
 rapira-v0.6.0-php8.5-linux-x86_64/
 ├── bin/rapira
 ├── lib/rapira/libphp.so
@@ -77,7 +77,9 @@ En macOS, `lib/rapira` guarda `libphp.dylib` junto con el resto de bibliotecas a
 
 Coloca el directorio donde guardes este tipo de cosas y enlaza el binario en tu `PATH`:
 
-```bash
+::: code-group
+
+```bash [Linux]
 curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-v0.6.0-php8.5-linux-x86_64.tar.gz
 tar xzf rapira-v0.6.0-php8.5-linux-x86_64.tar.gz
 sudo mv rapira-v0.6.0-php8.5-linux-x86_64 /opt/rapira
@@ -85,13 +87,23 @@ sudo ln -s /opt/rapira/bin/rapira /usr/local/bin/rapira
 rapira --version
 ```
 
+```bash [macOS]
+curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-v0.6.0-php8.5-macos-aarch64.tar.gz
+tar xzf rapira-v0.6.0-php8.5-macos-aarch64.tar.gz
+sudo mv rapira-v0.6.0-php8.5-macos-aarch64 /opt/rapira
+sudo ln -s /opt/rapira/bin/rapira /usr/local/bin/rapira
+rapira --version
+```
+
+:::
+
 ::: warning
 El binario localiza su intérprete mediante un **rpath relativo** —`$ORIGIN/../lib/rapira` en Linux, `@loader_path/../lib/rapira` en macOS—, cuya base es la ubicación real del propio binario. Mueve el directorio completo a donde quieras, pero nunca saques el binario de él: `cp bin/rapira /usr/local/bin/` rompe la búsqueda, porque al lado de `/usr/local/bin` no hay nada que se llame `lib/rapira`. Haz un enlace simbólico, como arriba. El cargador resuelve el enlace antes de expandir el rpath, así que el enlace puede vivir donde sea mientras el árbol real siga junto.
 :::
 
 ## Comprueba lo que has descargado
 
-Cada versión publica un único archivo de sumas de verificación que cubre todos sus artefactos. `--ignore-missing` es lo que te permite comprobar solo el archivo (o los dos) que realmente has descargado:
+Cada versión publica un único archivo de sumas de verificación que cubre todos sus artefactos, así que la comprobación tiene que quedarse solo con el archivo (o los dos) que realmente has descargado. En Linux de eso se encarga `--ignore-missing`; en macOS es el `grep` el que le pasa a `shasum` la única línea que necesita:
 
 ::: code-group
 
@@ -102,8 +114,7 @@ sha256sum -c --ignore-missing rapira-v0.6.0-SHA256SUMS.txt
 
 ```bash [macOS]
 curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-v0.6.0-SHA256SUMS.txt
-shasum -a 256 rapira-v0.6.0-php8.5-macos-aarch64.tar.gz
-grep macos-aarch64 rapira-v0.6.0-SHA256SUMS.txt
+grep rapira-v0.6.0-php8.5-macos-aarch64.tar.gz rapira-v0.6.0-SHA256SUMS.txt | shasum -a 256 -c
 ```
 
 :::
@@ -148,7 +159,7 @@ La compilación de macOS es **solo para Apple Silicon**, apunta a **macOS 14 o s
 Con el binario ya en su sitio, [Inicio rápido](/es/docs/quickstart) sirve tu primera petición en apenas un minuto.
 
 ::: question ¿Necesito tener PHP instalado antes de instalar Rapira?
-No. Cada artefacto lleva su propio `libphp`, compilado con el SAPI embed que Rapira necesita. El PHP del sistema ni se usa ni se modifica: si tienes php-fpm en marcha, seguirá funcionando igual que siempre.
+No. Cada artefacto lleva su propio `libphp`, compilado con el SAPI embed que Rapira necesita. El PHP del sistema ni se usa ni se modifica: si tienes php-fpm en marcha, seguirá funcionando igual que siempre. Lo que ningún artefacto trae es un comando `php`, así que las herramientas que rodean a tu aplicación —Composer, `bin/console`, `artisan`— siguen necesitando su propio PHP de línea de comandos.
 :::
 
 ::: question ¿Puedo tener PHP 8.4 y 8.5 a la vez?

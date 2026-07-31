@@ -58,7 +58,7 @@ sudo systemctl enable --now rapira
 
 约定是这样：Rapira 自己的设置放 `/etc/rapira/rapira.toml`，`php.ini` 就摆在它旁边，靠 `PHPRC=/etc/rapira` 找到。两条路径都不是编译进去的。`--config` 你给什么路径都行，而 `PHPRC` 根本不是 Rapira 的功能——Rapira 没动 PHP 找 ini 的那套逻辑，所以 PHP 会先看 `$PHPRC`，和在别的 SAPI 下一模一样。你的发行版或者 Ansible role 更中意别的位置，那就都指过去。
 
-动手写这个文件之前有一点要知道：相对的 `pool.entrypoint` 是按**配置文件**所在的目录解析的，不是按工作目录。照上面这套布局，`entrypoint = "index.php"` 指的是 `/etc/rapira/index.php`，而你的应用并不在那儿。生产环境里给入口脚本写绝对路径，这个问题就压根不会冒出来。*其余*按相对路径解析的东西都落在工作目录里，而 Rapira 从不 chdir——不设 `WorkingDirectory=` 的话，systemd 会在 `/` 里启动服务，上面那份 unit 之所以设了就是这个缘故（PHP 找 ini 时也会看 `.`，所以它同样会往那儿瞧一眼）。每个键连同默认值，都在[配置](/zh/docs/configuration)那一页。
+动手写这个文件之前有一点要知道：相对的 `pool.entrypoint` 是按**配置文件**所在的目录解析的，不是按工作目录。照上面这套布局，`entrypoint = "index.php"` 指的是 `/etc/rapira/index.php`，而你的应用并不在那儿。生产环境里给入口脚本写绝对路径，这个问题就压根不会冒出来。`supervisor.pidfile` 也是同一条规矩：配置里的这两条路径都挂在配置文件所在的目录下。真正按工作目录解析的，是位置参数 `SCRIPT`，以及你的 PHP 代码在运行时打开的那些相对路径；而 Rapira 从不 chdir——不设 `WorkingDirectory=` 的话，systemd 会在 `/` 里启动服务，上面那份 unit 之所以设了就是这个缘故（PHP 找 ini 时也会看 `.`，所以它同样会往那儿瞧一眼）。每个键连同默认值，都在[配置](/zh/docs/configuration)那一页。
 
 ## 挡在反向代理后面
 
@@ -70,7 +70,7 @@ listen = "127.0.0.1:8000"
 # listen = "unix:/run/rapira/rapira.sock"
 ```
 
-Unix socket 建出来是 `0666`，也就是说只要够得着这个路径，谁都能连上去。如果这一点要紧，就把 socket 放进一个只有代理那个用户能进的目录。
+Unix socket 建出来是 `0666`，也就是说只要够得着这个路径，谁都能连上去。这个权限 Rapira 没有开关可调。如果这一点要紧，那就去限制目录：在上面那份 unit 里加上 `RuntimeDirectoryMode=0750`，再配一个代理用户所属的 `Group=`，`/run/rapira` 就把其他人挡在了外面。
 
 进来这一侧，你的代理只有一项义务：转发用的字段名必须用普通的 `-` 写法——`X-Forwarded-For`，绝不能写成 `X_Forwarded_For`。下划线和点号的写法会压到和正规写法同一个 `$_SERVER` 键上，客户端正是借这一手覆盖掉代理刚设好的值，所以 Rapira 会在 PHP 看到之前把它们摘掉。这套映射，以及管着它的 `http.unsafe_field_names` 开关，都在 [HTTP](/zh/docs/http) 那一页。
 
@@ -82,7 +82,7 @@ Unix socket 建出来是 `0666`，也就是说只要够得着这个路径，谁�
 sudo systemctl reload rapira
 ```
 
-这条命令发给 master 的是一个 `SIGUSR2`，master 用一次**滚动重载**来回应：进程池一次只换一个 worker，手上的请求全部跑完，一条连接都不会断。新旧 worker 在这一轮里怎么交叠，见[进程模型](/zh/docs/process-model)。
+这条命令发给 master 的是一个 `SIGUSR2`，master 用一次**滚动重载**来回应：进程池一次只换一个 worker，手上的请求会跑完；只有当某个 worker 超出 `process_control_timeout_secs`，才会被升级到 `SIGTERM`、随后 `SIGKILL`，连它手上那个请求一起断掉（见下文）。新旧 worker 在这一轮里怎么交叠，见[进程模型](/zh/docs/process-model)。
 
 没有 systemd 的场合——容器的 entrypoint、一个部署脚本——就直接给 master 发信号。设上 `supervisor.pidfile`，pid 就在那儿等着；离开 systemd 就没人会去建 `/run/rapira`，所以要么先把目录建出来，要么换一条已经存在的路径——文件写不进去，master 会拒绝启动。
 

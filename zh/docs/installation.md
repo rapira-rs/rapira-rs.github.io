@@ -32,7 +32,7 @@ deb 和 rpm 包把这一点贯彻得很彻底。`rapira-php8.4` 和 `rapira-php8
 | macOS，Apple Silicon    | `rapira-v0.6.0-php8.5-macos-aarch64.tar.gz`  |
 | 以上全部文件的校验和    | `rapira-v0.6.0-SHA256SUMS.txt`               |
 
-在 Linux 上优先选安装包：它会把文件放到发行版预期的位置，还能让 `apt` 或 `dnf` 顺带装上 PHP 需要的共享库。如果你希望整个服务器待在一个自包含的目录里，那就用压缩包——容器镜像、部署产物，或者你没有 root 权限的机器。
+在 Linux 上优先选安装包：它会把文件放到发行版预期的位置，还能让 `apt` 或 `dnf` 顺带装上 PHP 需要的共享库。如果你希望整个服务器待在一个自包含的目录里，那就用压缩包——容器镜像、部署产物，或者你没有 root 权限的机器。不管选哪个，安装前都先拿 `rapira-v0.6.0-SHA256SUMS.txt` 对一遍：`.deb` 和 `.rpm` 会以 root 身份执行自己的安装脚本，而[校验下载的文件](#校验下载的文件)只要两条命令。
 
 ## Debian 与 Ubuntu
 
@@ -64,7 +64,7 @@ rapira --version
 
 压缩包解开后是一个目录，整个服务器都装在里面：
 
-```
+```text
 rapira-v0.6.0-php8.5-linux-x86_64/
 ├── bin/rapira
 ├── lib/rapira/libphp.so
@@ -77,7 +77,9 @@ rapira-v0.6.0-php8.5-linux-x86_64/
 
 把目录放到你习惯放这类东西的地方，再把二进制文件链接进 `PATH`：
 
-```bash
+::: code-group
+
+```bash [Linux]
 curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-v0.6.0-php8.5-linux-x86_64.tar.gz
 tar xzf rapira-v0.6.0-php8.5-linux-x86_64.tar.gz
 sudo mv rapira-v0.6.0-php8.5-linux-x86_64 /opt/rapira
@@ -85,13 +87,23 @@ sudo ln -s /opt/rapira/bin/rapira /usr/local/bin/rapira
 rapira --version
 ```
 
+```bash [macOS]
+curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-v0.6.0-php8.5-macos-aarch64.tar.gz
+tar xzf rapira-v0.6.0-php8.5-macos-aarch64.tar.gz
+sudo mv rapira-v0.6.0-php8.5-macos-aarch64 /opt/rapira
+sudo ln -s /opt/rapira/bin/rapira /usr/local/bin/rapira
+rapira --version
+```
+
+:::
+
 ::: warning
 二进制文件是靠**相对 rpath** 找到解释器的——Linux 上是 `$ORIGIN/../lib/rapira`，macOS 上是 `@loader_path/../lib/rapira`——基准点是二进制文件自身的真实位置。整个目录你想搬到哪儿都行，但千万别把二进制文件单独拎出来：`cp bin/rapira /usr/local/bin/` 会让查找失败，因为 `/usr/local/bin` 旁边根本没有叫 `lib/rapira` 的目录。请像上面那样做符号链接。加载器会先解析链接、再展开 rpath，所以链接可以放在任何地方，而真正的目录树保持完整。
 :::
 
 ## 校验下载的文件
 
-每个版本都会发布一个校验和文件，覆盖该版本的所有产物。加上 `--ignore-missing`，你就能只校验实际下载的那一两个文件：
+每个版本都会发布一个校验和文件，覆盖该版本的所有产物，所以校验时得从中挑出你实际下载的那一两个文件。在 Linux 上这由 `--ignore-missing` 完成；在 macOS 上则由 `grep` 把需要的那一行交给 `shasum`：
 
 ::: code-group
 
@@ -102,8 +114,7 @@ sha256sum -c --ignore-missing rapira-v0.6.0-SHA256SUMS.txt
 
 ```bash [macOS]
 curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-v0.6.0-SHA256SUMS.txt
-shasum -a 256 rapira-v0.6.0-php8.5-macos-aarch64.tar.gz
-grep macos-aarch64 rapira-v0.6.0-SHA256SUMS.txt
+grep rapira-v0.6.0-php8.5-macos-aarch64.tar.gz rapira-v0.6.0-SHA256SUMS.txt | shasum -a 256 -c
 ```
 
 :::
@@ -148,7 +159,7 @@ macOS 版本**只支持 Apple Silicon**，面向 **macOS 14 及以上**，并且
 二进制文件就位之后，[快速开始](/zh/docs/quickstart)大约一分钟就能让服务器处理第一个请求。
 
 ::: question 安装 Rapira 之前需要先装好 PHP 吗？
-不需要。每个产物都自带 `libphp`，而且是用 Rapira 所需的 embed SAPI 编译的。系统里的 PHP 既不会被用到，也不会被改动——php-fpm 在跑就继续跑，完全不受影响。
+不需要。每个产物都自带 `libphp`，而且是用 Rapira 所需的 embed SAPI 编译的。系统里的 PHP 既不会被用到，也不会被改动——php-fpm 在跑就继续跑，完全不受影响。产物里没有的是 `php` 命令，所以应用周边的工具——Composer、`bin/console`、`artisan`——仍然需要一套自己的 PHP CLI。
 :::
 
 ::: question PHP 8.4 和 8.5 可以并存吗？

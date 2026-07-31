@@ -60,8 +60,13 @@ $container = $runner->getContainer();
 $http = create_plugin_handler(new HttpHandlerConfig());
 
 $handler = static function () use ($runner, $container): void {
-    $runner->run();
-    $container->get(StateResetter::class)->reset();
+    try {
+        $runner->run();
+    } finally {
+        // The worker keeps serving after an escaped error; the reset has to
+        // run on that path too, or state leaks into the next request.
+        $container->get(StateResetter::class)->reset();
+    }
 };
 
 while ($http->handleRequest($handler)) {

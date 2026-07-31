@@ -86,7 +86,7 @@ error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
 
 **`plain`** 是你在终端里想要的那种——时间戳、级别、目标、消息：
 
-```
+```text
 2026-07-30T09:12:34.567890Z ERROR php: …
 ```
 
@@ -94,7 +94,7 @@ stderr 是终端时它带颜色，重定向到文件时绝不带，所以收集�
 
 **`json`** 是你摆在日志收集器前面想要的那种——一行一个对象：
 
-```
+```text
 {"timestamp":…,"level":"ERROR","message":…,"target":…}
 ```
 
@@ -110,7 +110,7 @@ RUST_LOG=rapira=debug,php=info rapira serve worker.php
 RUST_LOG=warn,rapira=trace rapira serve worker.php
 ```
 
-第一条把所有东西都调到 `info`。第二条是有针对性的一对——服务器开到 `debug`，PHP 开到 `info`。第三条把依赖库压到 `warn`，同时把 Rapira 的 `rapira` 目标——启动、worker 生命周期、关闭——拉到 `trace`。其他目标同样按各自的名字匹配，问题出在别处就把它们加上：`RUST_LOG=warn,rapira=trace,master=trace`。
+第一条把所有东西都调到 `info`。第二条是有针对性的一对——`rapira` 目标开到 `debug`，PHP 开到 `info`。第三条把依赖库压到 `warn`，同时把 Rapira 的 `rapira` 目标——启动、worker 生命周期、关闭——拉到 `trace`。其他目标同样按各自的名字匹配，问题出在别处就把它们加上：`RUST_LOG=warn,rapira=trace,master=trace`。
 
 ::: warning
 `RUST_LOG` 一旦设成非空值，就会把 `level` 和 `[log.targets]` 整个**替换**掉——换掉的是整套过滤规则，不是两边合并。你写的 `[log.targets]` 不会垫在它下面继续生效，而是压根不会被读取。想回到配置文件，把这个变量取消设置（或者留空）即可。它从不影响 `format`。

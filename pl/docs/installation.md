@@ -32,7 +32,7 @@ Wszystko leży na [stronie wydań na GitHubie](https://github.com/rapira-rs/rapi
 | macOS, Apple Silicon                | `rapira-v0.6.0-php8.5-macos-aarch64.tar.gz`  |
 | Sumy kontrolne wszystkich powyższych | `rapira-v0.6.0-SHA256SUMS.txt`               |
 
-Na Linuksie lepszym domyślnym wyborem jest pakiet: rozkłada pliki tam, gdzie spodziewa się ich dystrybucja, i pozwala `apt` albo `dnf` dociągnąć biblioteki współdzielone, których potrzebuje PHP. Po archiwum tar sięgnij wtedy, gdy serwer ma zmieścić się w jednym samowystarczalnym katalogu — obraz kontenera, artefakt wdrożeniowy, maszyna, na której nie masz roota.
+Na Linuksie lepszym domyślnym wyborem jest pakiet: rozkłada pliki tam, gdzie spodziewa się ich dystrybucja, i pozwala `apt` albo `dnf` dociągnąć biblioteki współdzielone, których potrzebuje PHP. Po archiwum tar sięgnij wtedy, gdy serwer ma zmieścić się w jednym samowystarczalnym katalogu — obraz kontenera, artefakt wdrożeniowy, maszyna, na której nie masz roota. Cokolwiek wybierzesz, przed instalacją porównaj pobrany plik z `rapira-v0.6.0-SHA256SUMS.txt`: `.deb` i `.rpm` uruchamiają swoje skrypty instalacyjne jako root, a [Sprawdź pobrane pliki](#sprawdz-pobrane-pliki) to dwa polecenia.
 
 ## Debian i Ubuntu
 
@@ -64,7 +64,7 @@ Ten sam próg glibc 2.34 ustawia poprzeczkę na **RHEL 9** i jego pochodne — R
 
 Archiwum rozpakowuje się do jednego katalogu, w którym mieści się cały serwer:
 
-```
+```text
 rapira-v0.6.0-php8.5-linux-x86_64/
 ├── bin/rapira
 ├── lib/rapira/libphp.so
@@ -77,7 +77,9 @@ Na macOS w `lib/rapira` leży `libphp.dylib` razem z całą resztą niesystemowy
 
 Umieść katalog tam, gdzie trzymasz takie rzeczy, i podlinkuj program do `PATH`:
 
-```bash
+::: code-group
+
+```bash [Linux]
 curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-v0.6.0-php8.5-linux-x86_64.tar.gz
 tar xzf rapira-v0.6.0-php8.5-linux-x86_64.tar.gz
 sudo mv rapira-v0.6.0-php8.5-linux-x86_64 /opt/rapira
@@ -85,13 +87,23 @@ sudo ln -s /opt/rapira/bin/rapira /usr/local/bin/rapira
 rapira --version
 ```
 
+```bash [macOS]
+curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-v0.6.0-php8.5-macos-aarch64.tar.gz
+tar xzf rapira-v0.6.0-php8.5-macos-aarch64.tar.gz
+sudo mv rapira-v0.6.0-php8.5-macos-aarch64 /opt/rapira
+sudo ln -s /opt/rapira/bin/rapira /usr/local/bin/rapira
+rapira --version
+```
+
+:::
+
 ::: warning
 Program znajduje swój interpreter przez **względny rpath** — `$ORIGIN/../lib/rapira` na Linuksie, `@loader_path/../lib/rapira` na macOS — liczony od rzeczywistego położenia samego pliku wykonywalnego. Cały katalog możesz przenieść, gdzie chcesz, ale nigdy nie wyjmuj z niego pliku wykonywalnego: `cp bin/rapira /usr/local/bin/` psuje wyszukiwanie, bo obok `/usr/local/bin` nie ma niczego o nazwie `lib/rapira`. Zrób zamiast tego dowiązanie symboliczne, jak wyżej. Loader rozwiązuje dowiązanie, zanim rozwinie rpath, więc symlink może leżeć gdziekolwiek, a prawdziwe drzewo zostaje w całości.
 :::
 
 ## Sprawdź pobrane pliki
 
-Każde wydanie publikuje jeden plik z sumami kontrolnymi, obejmujący wszystkie jego pliki. To `--ignore-missing` pozwala sprawdzić tylko ten jeden czy dwa pliki, które naprawdę pobierasz:
+Każde wydanie publikuje jeden plik z sumami kontrolnymi, obejmujący wszystkie jego pliki, więc sprawdzanie musi wyłuskać z niego tylko ten jeden czy dwa pliki, które naprawdę pobierasz. Na Linuksie robi to `--ignore-missing`; na macOS `grep` podaje `shasum` jedyny potrzebny wiersz:
 
 ::: code-group
 
@@ -102,8 +114,7 @@ sha256sum -c --ignore-missing rapira-v0.6.0-SHA256SUMS.txt
 
 ```bash [macOS]
 curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-v0.6.0-SHA256SUMS.txt
-shasum -a 256 rapira-v0.6.0-php8.5-macos-aarch64.tar.gz
-grep macos-aarch64 rapira-v0.6.0-SHA256SUMS.txt
+grep rapira-v0.6.0-php8.5-macos-aarch64.tar.gz rapira-v0.6.0-SHA256SUMS.txt | shasum -a 256 -c
 ```
 
 :::
@@ -148,7 +159,7 @@ Build dla macOS działa **wyłącznie na Apple Silicon**, celuje w **macOS 14 i 
 Gdy plik wykonywalny jest już na miejscu, [Szybki start](/pl/docs/quickstart) doprowadzi Cię do pierwszego obsłużonego żądania w jakąś minutę.
 
 ::: question Czy przed instalacją Rapiry muszę mieć zainstalowane PHP?
-Nie. Każdy artefakt niesie własne `libphp`, zbudowane z SAPI embed, którego Rapira wymaga. Systemowe PHP nie jest ani używane, ani zmieniane — jeśli masz działającego php-fpm, będzie działał dalej, nietknięty.
+Nie. Każdy artefakt niesie własne `libphp`, zbudowane z SAPI embed, którego Rapira wymaga. Systemowe PHP nie jest ani używane, ani zmieniane — jeśli masz działającego php-fpm, będzie działał dalej, nietknięty. Czego w artefaktach nie ma, to polecenia `php`, więc narzędzia wokół aplikacji — Composer, `bin/console`, `artisan` — nadal potrzebują własnego PHP w wierszu poleceń.
 :::
 
 ::: question Czy mogę mieć PHP 8.4 i 8.5 obok siebie?

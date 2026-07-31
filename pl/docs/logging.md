@@ -86,7 +86,7 @@ Oba formaty lecą na stderr, jeden zapis na wpis. Właśnie ta zasada jednego za
 
 **`plain`** wybierzesz do terminala — znacznik czasu, poziom, cel, komunikat:
 
-```
+```text
 2026-07-30T09:12:34.567890Z ERROR php: …
 ```
 
@@ -94,7 +94,7 @@ Kolory pojawiają się tylko wtedy, gdy stderr jest terminalem, i nigdy przy prz
 
 **`json`** wybierzesz, gdy log zbiera kolektor — jeden obiekt na linijkę:
 
-```
+```text
 {"timestamp":…,"level":"ERROR","message":…,"target":…}
 ```
 
@@ -110,7 +110,7 @@ RUST_LOG=rapira=debug,php=info rapira serve worker.php
 RUST_LOG=warn,rapira=trace rapira serve worker.php
 ```
 
-Pierwsza linijka podgłaśnia wszystko do `info`. Druga to celowana para — serwer na `debug`, PHP na `info`. Trzecia wycisza zależności do `warn` i podnosi cel `rapira` — start, cykl życia workerów, zamykanie — do `trace`. Pozostałe cele dopasowują się po własnych nazwach, więc dopisz je, gdy pytanie dotyczy czegoś innego: `RUST_LOG=warn,rapira=trace,master=trace`.
+Pierwsza linijka podgłaśnia wszystko do `info`. Druga to celowana para — cel `rapira` na `debug`, PHP na `info`. Trzecia wycisza zależności do `warn` i podnosi cel `rapira` — start, cykl życia workerów, zamykanie — do `trace`. Pozostałe cele dopasowują się po własnych nazwach, więc dopisz je, gdy pytanie dotyczy czegoś innego: `RUST_LOG=warn,rapira=trace,master=trace`.
 
 ::: warning
 Gdy `RUST_LOG` jest ustawiona na niepustą wartość, **zastępuje** `level` i `[log.targets]` w całości — podmienia cały filtr, a nie scala go z konfiguracją. Twoje wpisy z `[log.targets]` nie leżą pod spodem jako druga warstwa: po prostu nikt do nich nie zagląda. Żeby wrócić do konfiguracji, zostaw zmienną nieustawioną (albo pustą). Na `format` nie wpływa nigdy.

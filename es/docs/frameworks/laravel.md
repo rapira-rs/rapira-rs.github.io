@@ -29,7 +29,7 @@ Si el trato no te convence, la [salida de emergencia al modo clásico](#la-salid
 
 ## Antes de empezar
 
-Necesitas Rapira instalado —lo tienes en [Instalación](/es/docs/installation)— y una aplicación de Laravel que ya te funcione.
+Necesitas Rapira instalado —lo tienes en [Instalación](/es/docs/installation)— y una aplicación de Laravel que ya te funcione. También necesitas un PHP CLI normal en la máquina para Composer y `artisan`: Rapira trae PHP como biblioteca (`libphp`), no como comando `php`, así que esos pasos se ejecutan con el PHP de tu sistema, que Rapira ni usa ni toca.
 
 Hay una cosa que conviene comprobar antes del primer arranque: un esqueleto recién creado de `laravel/laravel` viene con una base de datos SQLite y con los drivers de sesión, caché y colas apoyados en base de datos, lo que significa que necesita `pdo_sqlite`. El PHP que acompaña a las releases de Rapira lo trae: PDO, `pdo_sqlite` y `sqlite3` están en el conjunto de extensiones de la compilación de release, tal y como lista la página de [Instalación](/es/docs/installation). Si ejecutas Rapira contra un PHP compilado por ti, asegúrate de que esas extensiones aparecen en tu línea de configure ([Compilar desde el código](/es/docs/build-from-source) lo cuenta), o tira por el camino sin base de datos y apunta Laravel a los drivers de archivo y sync: `SESSION_DRIVER=file`, `CACHE_STORE=file`, `QUEUE_CONNECTION=sync`. Esa es la combinación con la que se verificó esta página.
 
@@ -136,7 +136,7 @@ La ruta de salud `/up` que trae el esqueleto responde `200` como siempre, lo que
 
 Las sesiones funcionan petición a petición, verificado con el driver de archivos: la cookie de sesión sale, vuelve en la petición siguiente y cada cliente tiene la suya. El driver de base de datos necesita que antes resuelvas el asunto de la extensión PDO de los requisitos, pero nada de esa elección de driver es específico de Rapira.
 
-**En CSRF no hay nada específico de Rapira.** El token vive en la sesión, y se ha verificado que las sesiones funcionan petición a petición, así que un formulario que funciona con php-fpm no tiene ningún motivo achacable a Rapira para dejar de hacerlo. No hay nada que excluir, desactivar ni reconfigurar por culpa del worker. (Las rutas de humo de la propia verificación envían POST sin token y por eso quedaron excluidas de CSRF, de modo que el viaje completo del token se deduce del resultado de las sesiones en lugar de medirse.)
+**En CSRF no hay nada específico de Rapira.** El token vive en la sesión, y se ha verificado que las sesiones funcionan petición a petición, así que un formulario que funciona con php-fpm no tiene ningún motivo achacable a Rapira para dejar de hacerlo. No hay nada que excluir, desactivar ni reconfigurar por culpa del worker. (Las rutas de prueba de la propia verificación envían POST sin token y por eso quedaron excluidas de CSRF, de modo que el viaje completo del token se deduce del resultado de las sesiones en lugar de medirse.)
 
 Los envíos de formularios, los cuerpos de petición en JSON y las subidas de archivos se verificaron todos con ese mismo worker. Y cuando una ruta lanza una excepción, el manejador de excepciones de Laravel pinta su `500` de siempre: el fallo se queda dentro de la petición y el worker sigue atendiendo la siguiente.
 

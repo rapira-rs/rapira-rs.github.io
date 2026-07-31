@@ -29,7 +29,7 @@ Laravel 的容器天生就没打算在没人帮忙的情况下活过第二个请
 
 ## 开始之前
 
-你需要装好 Rapira——见[安装](/zh/docs/installation)——以及一个已经能跑起来的 Laravel 应用。
+你需要装好 Rapira——见[安装](/zh/docs/installation)——以及一个已经能跑起来的 Laravel 应用。机器上还得有一个普通的 PHP CLI，Composer 和 `artisan` 都要靠它跑：Rapira 把 PHP 作为库（`libphp`）提供，并不带 `php` 命令，所以这些步骤走的是你系统里的 PHP，Rapira 既不用它，也不碰它。
 
 第一次启动之前有件事要确认：全新的 `laravel/laravel` 骨架默认用 SQLite 数据库，session、cache 和 queue 也都走数据库驱动，也就是说它需要 `pdo_sqlite`。Rapira 发行版自带的 PHP 有这个扩展：PDO、`pdo_sqlite` 和 `sqlite3` 都在发行构建的扩展清单里，[安装](/zh/docs/installation)页面列得很清楚。如果你让 Rapira 跑在自己编译的 PHP 上，记得把这些扩展写进 configure 参数（[从源码构建](/zh/docs/build-from-source)讲了怎么做），或者干脆走不碰数据库的那条路，把 Laravel 指向文件和同步驱动——`SESSION_DRIVER=file`、`CACHE_STORE=file`、`QUEUE_CONNECTION=sync`。本页的验证用的就是这套组合。
 

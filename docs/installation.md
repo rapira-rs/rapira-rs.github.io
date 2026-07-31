@@ -32,7 +32,7 @@ Everything lives on the [GitHub releases page](https://github.com/rapira-rs/rapi
 | macOS, Apple Silicon                | `rapira-v0.6.0-php8.5-macos-aarch64.tar.gz`  |
 | Checksums for all of the above      | `rapira-v0.6.0-SHA256SUMS.txt`               |
 
-A package is the better default on Linux: it puts things where your distribution expects them and lets `apt` or `dnf` pull the shared libraries PHP needs. Reach for a tarball when you want the server to live in one self-contained directory — a container image, a deploy artifact, a machine where you are not root.
+A package is the better default on Linux: it puts things where your distribution expects them and lets `apt` or `dnf` pull the shared libraries PHP needs. Reach for a tarball when you want the server to live in one self-contained directory — a container image, a deploy artifact, a machine where you are not root. Whichever you take, check it against `rapira-v0.6.0-SHA256SUMS.txt` before you install it — a `.deb` or `.rpm` runs its install scripts as root, and [Check what you downloaded](#check-what-you-downloaded) is two commands.
 
 ## Debian and Ubuntu
 
@@ -64,7 +64,7 @@ The same glibc 2.34 floor puts the baseline at **RHEL 9** and its rebuilds — R
 
 An archive unpacks into a single directory that holds the whole server:
 
-```
+```text
 rapira-v0.6.0-php8.5-linux-x86_64/
 ├── bin/rapira
 ├── lib/rapira/libphp.so
@@ -77,7 +77,9 @@ On macOS `lib/rapira` holds `libphp.dylib` together with the rest of its non-sys
 
 Put the directory wherever you keep such things and link the binary into your `PATH`:
 
-```bash
+::: code-group
+
+```bash [Linux]
 curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-v0.6.0-php8.5-linux-x86_64.tar.gz
 tar xzf rapira-v0.6.0-php8.5-linux-x86_64.tar.gz
 sudo mv rapira-v0.6.0-php8.5-linux-x86_64 /opt/rapira
@@ -85,13 +87,23 @@ sudo ln -s /opt/rapira/bin/rapira /usr/local/bin/rapira
 rapira --version
 ```
 
+```bash [macOS]
+curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-v0.6.0-php8.5-macos-aarch64.tar.gz
+tar xzf rapira-v0.6.0-php8.5-macos-aarch64.tar.gz
+sudo mv rapira-v0.6.0-php8.5-macos-aarch64 /opt/rapira
+sudo ln -s /opt/rapira/bin/rapira /usr/local/bin/rapira
+rapira --version
+```
+
+:::
+
 ::: warning
 The binary finds its interpreter through a **relative rpath** — `$ORIGIN/../lib/rapira` on Linux, `@loader_path/../lib/rapira` on macOS — where the base is the binary's own real location. Move the whole directory anywhere you like, but never take the binary out of it: `cp bin/rapira /usr/local/bin/` breaks the lookup, because nothing named `lib/rapira` sits next to `/usr/local/bin`. Symlink it instead, as above. The loader resolves the link before it expands the rpath, so a symlink can live anywhere while the real tree stays together.
 :::
 
 ## Check what you downloaded
 
-Every release publishes one checksum file covering all of its assets. `--ignore-missing` is what lets you verify just the one or two files you actually pulled:
+Every release publishes one checksum file covering all of its assets, so the check has to pick out just the one or two files you actually pulled. `--ignore-missing` does that on Linux; on macOS the `grep` hands `shasum` the single line it needs:
 
 ::: code-group
 
@@ -102,8 +114,7 @@ sha256sum -c --ignore-missing rapira-v0.6.0-SHA256SUMS.txt
 
 ```bash [macOS]
 curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-v0.6.0-SHA256SUMS.txt
-shasum -a 256 rapira-v0.6.0-php8.5-macos-aarch64.tar.gz
-grep macos-aarch64 rapira-v0.6.0-SHA256SUMS.txt
+grep rapira-v0.6.0-php8.5-macos-aarch64.tar.gz rapira-v0.6.0-SHA256SUMS.txt | shasum -a 256 -c
 ```
 
 :::
@@ -148,7 +159,7 @@ The macOS build is **Apple Silicon only**, targets **macOS 14 and newer**, and i
 With the binary in place, [Quickstart](/docs/quickstart) gets a request served in about a minute.
 
 ::: question Do I need PHP installed before I install Rapira?
-No. Every artifact carries its own `libphp`, built with the embed SAPI that Rapira requires. A system PHP is neither used nor modified — if you have php-fpm running, it keeps running, untouched.
+No. Every artifact carries its own `libphp`, built with the embed SAPI that Rapira requires. A system PHP is neither used nor modified — if you have php-fpm running, it keeps running, untouched. What no artifact contains is a `php` command, so the tooling around your application — Composer, `bin/console`, `artisan` — still needs a PHP CLI of its own.
 :::
 
 ::: question Can I have PHP 8.4 and 8.5 side by side?

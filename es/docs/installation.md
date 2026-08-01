@@ -15,7 +15,7 @@ Cada descarga viene etiquetada como `php8.4` o `php8.5`, y esa etiqueta describe
 
 La única decisión es sobre qué versión menor corre tu aplicación: **8.4** u **8.5**. Usa 8.5 salvo que algo de tu stack exija 8.4.
 
-Los paquetes deb y rpm imponen esa restricción. `rapira-php8.4` y `rapira-php8.5` instalan exactamente las mismas rutas, así que ambos declaran `provides`, `conflicts` y `replaces` sobre un paquete virtual `rapira`: se excluyen mutuamente, y al instalar uno ocupa el lugar del otro en vez de acabar a su lado. Así es también como cambias de versión de PHP: instala el otro paquete y el gestor de paquetes hace el cambio. Los tarballs no se excluyen entre sí: cada uno se descomprime en su propio directorio, de modo que un árbol de 8.4 y otro de 8.5 pueden convivir y ejecutarse desde rutas distintas.
+Los paquetes deb y rpm imponen esa restricción. `rapira-php8.4` y `rapira-php8.5` instalan exactamente las mismas rutas, así que ambos declaran `provides`, `conflicts` y `replaces` (`obsoletes` en rpm) sobre un paquete virtual `rapira`: se excluyen mutuamente, y al instalar uno ocupa el lugar del otro en vez de acabar a su lado. Así es también como cambias de versión de PHP: instala el otro paquete y el gestor de paquetes hace el cambio. Los tarballs no se excluyen entre sí: cada uno se descomprime en su propio directorio, de modo que un árbol de 8.4 y otro de 8.5 pueden convivir y ejecutarse desde rutas distintas.
 
 ## Artefactos de la versión
 

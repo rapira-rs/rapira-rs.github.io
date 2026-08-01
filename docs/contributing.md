@@ -1,6 +1,6 @@
 # Contributing to the docs
 
-Want to help improve the Rapira docs? Wonderful. This page is a live tour of everything the documentation engine can do — every block below is rendered from the same Markdown you'll write, so keep it handy as a cheat-sheet while editing pages.
+This page documents every authoring feature the documentation engine supports — every block below is rendered from the same Markdown you'll write, so keep it handy as a cheat-sheet while editing pages.
 
 To preview your edits, run `npm install` once, then `npm run dev` and open the local URL it prints. Translations live in per-language folders — `ru/`, `es/`, `zh/`, `pl/` — mirroring the English structure, and English is the source of truth.
 

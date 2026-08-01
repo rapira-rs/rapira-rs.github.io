@@ -152,7 +152,7 @@ author: Author Name
 
 ## FAQ (`::: question`)
 
-Questions can be written anywhere in an article using `::: question` blocks. At build time they are extracted from their positions and grouped into collapsible spoilers.
+Documentation pages do not use this plugin (see the Register block above); it stays available for blog posts. Questions can be written anywhere in an article using `::: question` blocks. At build time they are extracted from their positions and grouped into collapsible spoilers.
 
 **Syntax:**
 ```md

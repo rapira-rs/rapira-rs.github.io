@@ -102,8 +102,8 @@ PHP_CONFIG=$HOME/.local/php-nts/bin/php-config cargo build --release
 At runtime Rapira loads `libphp.so` (`libphp.dylib` on macOS) dynamically. If it lives in a standard location there is nothing to do; otherwise point the loader at it:
 
 ```bash
-LD_LIBRARY_PATH=$HOME/.local/php-nts/lib ./target/release/rapira serve worker.php     # Linux
-DYLD_LIBRARY_PATH=$HOME/.local/php-nts/lib ./target/release/rapira serve worker.php   # macOS
+LD_LIBRARY_PATH="$HOME/.local/php-nts/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ./target/release/rapira serve worker.php         # Linux
+DYLD_LIBRARY_PATH="$HOME/.local/php-nts/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" ./target/release/rapira serve worker.php   # macOS
 ```
 
 The result is the same server the packages install: [Quickstart](/docs/quickstart) walks through a first script, [CLI](/docs/cli) lists what `serve` accepts, and [Configuration](/docs/configuration) covers `rapira.toml`.

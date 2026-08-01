@@ -1,6 +1,6 @@
 # Współtworzenie dokumentacji
 
-Chcesz pomóc ulepszyć dokumentację Rapiry? Świetnie. Ta strona to żywy przegląd wszystkiego, co potrafi silnik dokumentacji — każdy blok poniżej powstaje z tego samego Markdownu, który będziesz pisać, więc miej ją pod ręką jako ściągę podczas edycji stron.
+Ta strona opisuje wszystkie elementy składni, które obsługuje silnik dokumentacji — każdy blok poniżej powstaje z tego samego Markdownu, który będziesz pisać, więc miej ją pod ręką jako ściągę podczas edycji stron.
 
 Aby podejrzeć swoje zmiany, uruchom raz `npm install`, a potem `npm run dev` i otwórz wyświetlony lokalny adres. Każdy język ma własny katalog z tłumaczeniami — `ru/`, `es/`, `zh/`, `pl/` — o tej samej strukturze co wersja angielska, a angielski jest źródłem prawdy.
 

@@ -76,7 +76,7 @@ listen = "127.0.0.1:8000"
 # listen = "unix:/run/rapira/rapira.sock"
 ```
 
-Unix socket 建出来是 `0666`，也就是说任何能访问这个路径的进程都可以连上去。这个权限 Rapira 没有对应的设置项。如果这一点要紧，那就去限制目录：在上面那份 unit 里加上 `RuntimeDirectoryMode=0750`，再配一个代理用户所属的 `Group=`，`/run/rapira` 就把其他人挡在了外面。
+Unix socket 建出来是 `0666`，也就是说本机上任何能进到这个目录的进程都可以连上来，直接把请求发给你的应用。这个权限 Rapira 没有对应的设置项，所以谁能碰到这个 socket，只由目录本身的权限决定。如果这一点要紧，那就去限制目录：在上面那份 unit 里加上 `RuntimeDirectoryMode=0750`，再配一个代理用户所属的 `Group=`，`/run/rapira` 就把其他人挡在了外面。
 
 转发字段送到 Rapira 时必须用普通的 `-` 写法——`X-Forwarded-For`，绝不能写成 `X_Forwarded_For`。下划线和点号的写法会压到和正规写法同一个 `$_SERVER` 键上，客户端正是借这一手覆盖掉代理刚设好的值，所以 Rapira 会在 PHP 看到之前把它们摘掉。这套映射，以及管着它的 `http.unsafe_field_names` 设置项，都在 [HTTP](/zh/docs/http) 那一页。
 

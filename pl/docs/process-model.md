@@ -35,7 +35,7 @@ flowchart TB
 
 Każdy worker to jeden interpreter PHP w wersji NTS z własnym asynchronicznym runtime'em HTTP, przyjmujący połączenia na odziedziczonym gnieździe. Przed pulą nie stoi żaden dyspozytor: wszystkie workery czekają w `accept()` na tym samym gnieździe, a jądro systemu oddaje każde przychodzące połączenie dokładnie jednemu z nich.
 
-Proces nadrzędny nigdy nie obsługuje żądania. Nie ma nawet stosu HTTP — to jeden wątek zablokowany w `poll(2)` na self-pipe, czekający na sygnały, śmierć potomków i własne timery. Proces, który musi przeżyć, żeby zrestartować całą resztę, robi możliwie najmniej.
+Proces nadrzędny nigdy nie obsługuje żądania. Nie ma nawet stosu HTTP — to jeden wątek zablokowany w `poll(2)` na self-pipe, czekający na sygnały, śmierć potomków, własne timery, a w trybie `ondemand` także na gotowość gniazda nasłuchującego. Proces, który musi przeżyć, żeby zrestartować całą resztę, robi możliwie najmniej.
 
 ::: info
 Proces nadrzędny trzyma też moduł PHP przez całe swoje życie i jako jedyny go zamyka. Worker kończy się, nie zwijając niczego po sobie, więc ten, który padnie albo pójdzie na recykling, nigdy nie ruszy obrazu silnika używanego wciąż przez pozostałe workery.
@@ -54,7 +54,7 @@ Gdy pula już stoi, proces nadrzędny mniej więcej raz na sekundę wykonuje cyk
 
 ## Tryby puli
 
-`pool.mode` decyduje o tym, jak pula dobiera swój rozmiar. W każdym trybie liczy się `pool.processes` — dla `static` to dokładna liczba procesów, dla pozostałych dwóch sufit — a domyślnie przypada jeden worker na rdzeń CPU.
+`pool.mode` decyduje o tym, jak pula dobiera swój rozmiar. W każdym trybie liczy się `pool.processes` — dla `static` to dokładna liczba procesów, dla pozostałych dwóch sufit — a domyślnie przypada jeden worker na logiczny rdzeń CPU.
 
 | Tryb | Ile workerów | Klucze, które działają |
 | --- | --- | --- |
@@ -114,7 +114,7 @@ Drugi `SIGTERM` albo `SIGINT` pomija czekanie i wymusza natychmiastowe wyjście.
 
 `SIGUSR2` (albo `SIGHUP`) wymienia całą pulę na świeże workery — i właśnie tak aplikacja podniesiona w rezydentnym workerze zostaje odrzucona i powstaje na nowo z wdrożonego kodu.
 
-W trybie Classic skrypt wejściowy wykonuje się od zera przy każdym żądaniu, więc nie ma tam nic rezydentnego do wymiany i nowy kod działa bez przeładowania. W trybie SAPI Worker aplikacja podnosi się raz i zostaje w pamięci, więc wdrożony kod zaczyna działać dopiero po przeładowaniu kroczącym — zrób z tego krok wdrożenia. Więcej informacji znajdziesz na stronie [Wdrożenie](/pl/docs/deployment).
+W trybie Classic skrypt wejściowy wykonuje się od zera przy każdym żądaniu, więc nie ma tam nic rezydentnego do wymiany i nowy kod działa bez przeładowania — chyba że ustawiłeś `opcache.validate_timestamps = 0`: wtedy segment OPcache należący do procesu nadrzędnego podaje stare opcode'y aż do pełnego restartu. W trybie SAPI Worker aplikacja podnosi się raz i zostaje w pamięci, więc wdrożony kod zaczyna działać dopiero po przeładowaniu kroczącym — zrób z tego krok wdrożenia. Więcej informacji znajdziesz na stronie [Wdrożenie](/pl/docs/deployment).
 
 Przeładowanie w żadnym momencie nie zbija twojej mocy obsługującej żądania, bo nowe workery zachodzą na stare, zamiast je restartować: proces nadrzędny podnosi jednego świeżego workera, czeka, aż ten faktycznie zacznie przyjmować połączenia, i dopiero wtedy wygasza jednego starego. Gdy stary zniknie, jego slot dostaje kolejnego świeżego i tak dalej, przez całe pokolenie. Każde wygaszanie to ta sama sekwencja `SIGQUIT` → `SIGTERM` → `SIGKILL` co przy zatrzymaniu, ograniczona tym samym limitem czasu i zastosowana do tego jednego workera.
 

@@ -76,7 +76,7 @@ listen = "127.0.0.1:8000"
 # listen = "unix:/run/rapira/rapira.sock"
 ```
 
-Gniazdo uniksowe powstaje z prawami `0666`, więc połączy się z nim każdy proces, który ma dostęp do tej ścieżki. Rapira nie ma ustawienia, którym dałoby się te prawa zmienić. Jeśli to dla ciebie istotne, ogranicz sam katalog: w jednostce wyżej `RuntimeDirectoryMode=0750` i `Group=`, do której należy użytkownik proxy, zamykają `/run/rapira` przed wszystkimi innymi.
+Gniazdo uniksowe powstaje z prawami `0666`, więc połączy się z nim każdy lokalny proces, który ma dostęp do katalogu z gniazdem, i wyśle żądania prosto do twojej aplikacji. Rapira nie ma ustawienia, którym dałoby się te prawa zmienić, więc dostęp do gniazda ograniczają wyłącznie prawa samego katalogu. Jeśli to dla ciebie istotne, ogranicz sam katalog: w jednostce wyżej `RuntimeDirectoryMode=0750` i `Group=`, do której należy użytkownik proxy, zamykają `/run/rapira` przed wszystkimi innymi.
 
 Pola przekazywane dalej muszą docierać do Rapiry w zwykłej pisowni z `-` — `X-Forwarded-For`, nigdy `X_Forwarded_For`. Wersje z podkreśleniem i z kropką lądują pod tym samym kluczem `$_SERVER` co ta prawidłowa, a to właśnie tędy klient mógłby nadpisać to, co przed chwilą ustawiło twoje proxy — dlatego Rapira wycina je, zanim PHP je zobaczy. Mapowanie nazw i sterujące nim ustawienie `http.unsafe_field_names` opisuje [strona o HTTP](/pl/docs/http).
 

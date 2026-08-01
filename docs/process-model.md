@@ -35,7 +35,7 @@ flowchart TB
 
 Each worker runs one NTS PHP interpreter behind its own async HTTP runtime and accepts on the socket it inherited. There is no dispatcher in front of the pool: every worker is parked in `accept()` on the same socket, and the kernel hands each incoming connection to exactly one of them.
 
-The master never serves a request. It has no HTTP stack at all — it is a single thread blocked in `poll(2)` over a self-pipe, waiting for signals, child deaths and its own timers. The process that must survive to restart everything else does as little as possible.
+The master never serves a request. It has no HTTP stack at all — it is a single thread blocked in `poll(2)` over a self-pipe, waiting for signals, child deaths and its own timers, and under `ondemand` also for a readable listen socket. The process that must survive to restart everything else does as little as possible.
 
 ::: info
 The master also holds the PHP module for its whole life and is the only process that shuts it down. A worker exits without tearing anything down, so a worker that crashes or recycles never tears down the engine image the other workers are still using.
@@ -54,7 +54,7 @@ Once the pool is up, the master runs a maintenance tick roughly once a second an
 
 ## Pool modes
 
-`pool.mode` picks how the pool sizes itself. In every mode `pool.processes` is the number that matters — an exact count for `static`, a ceiling for the other two — and it defaults to one worker per CPU.
+`pool.mode` picks how the pool sizes itself. In every mode `pool.processes` is the number that matters — an exact count for `static`, a ceiling for the other two — and it defaults to one worker per logical CPU.
 
 | Mode | How many workers | Keys that apply |
 | --- | --- | --- |
@@ -114,7 +114,7 @@ A second `SIGTERM` or `SIGINT` skips the wait and forces the exit immediately.
 
 `SIGUSR2` (or `SIGHUP`) replaces the whole pool with fresh workers — which is how a resident worker's booted application gets thrown away and built again from the deployed code.
 
-In Classic mode the entry script is executed from scratch on every request, so there is nothing resident to replace and new code takes effect without a reload. In SAPI Worker mode the application is booted once and stays in memory, so deployed code only takes effect after a rolling reload — make it a step of your deploy. See [deployment](/docs/deployment) for more information.
+In Classic mode the entry script is executed from scratch on every request, so there is nothing resident to replace and new code takes effect without a reload — unless you have set `opcache.validate_timestamps = 0`, in which case the master's OPcache segment keeps serving the old opcodes until a full restart. In SAPI Worker mode the application is booted once and stays in memory, so deployed code only takes effect after a rolling reload — make it a step of your deploy. See [deployment](/docs/deployment) for more information.
 
 The reload never dips below your serving capacity, because it overlaps rather than restarts: the master starts one fresh worker, waits until that worker is actually accepting, and only then drains one old worker. When the old one is gone, its slot gets the next fresh worker, and so on down the generation. Each drain is the same graceful `SIGQUIT` → `SIGTERM` → `SIGKILL` escalation as a stop, bounded by the same control timeout, applied to that one worker.
 

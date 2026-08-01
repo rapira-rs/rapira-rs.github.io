@@ -5,7 +5,7 @@ description: "La mecánica común a todos los frameworks que corren sobre Rapira
 
 # Integración con frameworks
 
-En modo clásico una aplicación de framework corre sobre Rapira sin tocar nada: apuntas el servidor al front controller que ya tienes. En modo worker el proceso de PHP sigue vivo entre una petición y la siguiente, y lo que la aplicación puede mantener residente depende del diseño del propio framework. Esta página cubre la mecánica que es igual para todos los frameworks; las tres guías de cada framework dan por hecho que ya la has leído y solo cuentan lo suyo.
+En modo clásico una aplicación de framework corre sobre Rapira sin tocar nada: apuntas el servidor al front controller que ya tienes. En modo worker el proceso de PHP sigue vivo entre una petición y la siguiente, y lo que la aplicación puede mantener residente depende del diseño del propio framework. Esta página cubre la mecánica que es igual para todos los frameworks; las tres guías específicas de cada framework dan por hecho que ya la has leído y solo cuentan lo suyo.
 
 ::: info Verificado con
 
@@ -144,7 +144,7 @@ Las formas residentes —el kernel de Symfony, el contenedor de Yii3 detrás de 
 
 ## OPcache y el código que cambia
 
-Rapira arranca PHP exactamente una vez, en el maestro, antes de hacer fork de un solo worker — así que OPcache crea su segmento de memoria compartida una única vez y todos los workers heredan ese mismo mapeo. Los scripts compilados siguen calientes de una petición a otra *y* en todo el pool, en los dos modos. Un worker que vuelve a incluir los archivos de tu framework no los está volviendo a parsear.
+Rapira arranca PHP exactamente una vez, en el maestro, antes de hacer fork del primer worker — así que OPcache crea su segmento de memoria compartida una única vez y todos los workers heredan ese mismo mapeo. Los scripts compilados siguen calientes de una petición a otra *y* en todo el pool, en los dos modos. Un worker que vuelve a incluir los archivos de tu framework no los está volviendo a parsear.
 
 En producción, `opcache.validate_timestamps = 0` te quita el stat por archivo en cada petición. El precio es que ya nada invalida la caché: el segmento es del maestro y sobrevive a todas las generaciones de workers, así que una recarga progresiva seguirá sirviendo los opcodes viejos y un despliegue necesita un reinicio completo. La secuencia está en la [puesta en producción](/es/docs/deployment).
 

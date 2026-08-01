@@ -58,7 +58,7 @@ php artisan route:cache
 
 Rapira does not map URLs onto files: every request runs the front controller, and `$_SERVER['REQUEST_URI']` carries the path for Laravel to route. Routing, Laravel's own 404 page for unmatched paths, and `url()` generation were all verified — generated URLs are clean absolute URLs with no `index.php` in them, with no `$_SERVER` overrides and no route or URL configuration changes.
 
-The skeleton's built-in `/up` health route answers `200`, so it works as the target for a load balancer or container health check. Static assets need something in front of Rapira — a CDN, or the reverse proxy the [deployment](/docs/deployment) page sets up.
+The skeleton's built-in `/up` health route answers `200`, so it works as the target for a load balancer or container health check. Static assets need something in front of Rapira — a CDN, or the reverse proxy the [deployment](/docs/deployment) page sets up. Rapira's listener speaks plain HTTP and leaves `$_SERVER['HTTPS']` empty regardless of `X-Forwarded-Proto`, so when that proxy terminates TLS, configure Laravel's [trusted proxies](https://laravel.com/docs/requests#configuring-trusted-proxies) — otherwise `url()` generates `http://` links.
 
 ## Sessions, CSRF and forms
 

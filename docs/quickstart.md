@@ -81,7 +81,7 @@ rapira serve worker.php
 curl '127.0.0.1:8000/?name=world'
 ```
 
-Run that `curl` a few times and the counter goes up: the same process keeps serving requests. By default Rapira forks one worker per CPU, so a request can land on any of them — the kernel picks which worker accepts it — and each worker keeps its own count; the pid in the output tells you which one answered. Start with `rapira serve --processes 1 worker.php` if you want the count to run as a single sequence. The [process model](/docs/process-model) explains how the pool is supervised.
+Run that `curl` a few times and the counter goes up: the same process keeps serving requests. By default Rapira forks one worker per logical CPU, so a request can land on any of them — the kernel picks which worker accepts it — and each worker keeps its own count; the pid in the output tells you which one answered. Start with `rapira serve --processes 1 worker.php` if you want the count to run as a single sequence. The [process model](/docs/process-model) explains how the pool is supervised.
 
 Everything you build before the `while` loop stays in memory for the life of the worker: the Composer autoloader, a DI container, database and cache connections, compiled routes and templates — all of it built once, at boot, instead of on every request. Only the per-request state is new each time round.
 

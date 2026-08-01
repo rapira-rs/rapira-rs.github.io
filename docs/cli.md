@@ -21,7 +21,7 @@ A setting is resolved from up to three layers, consulted in this order:
 
 **CLI flags > config file > built-in defaults.**
 
-Only the four flags in the table below have a command-line form; everything else comes from the file or the default.
+Only the four flags in the table below and the `SCRIPT` argument have a command-line form; everything else comes from the file or the default.
 
 So a flag always wins over the same value in `rapira.toml`, and `rapira.toml` always wins over the default. That ordering lets you keep the stable configuration in the file and override one value on the command line for a single run — a different port while you test, more workers on a bigger box — without editing anything.
 

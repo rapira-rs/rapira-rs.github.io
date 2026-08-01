@@ -30,7 +30,7 @@ Rezydentny wzorzec sprowadza się więc do trzech kroków: zbuduj runner raz, ur
 - Zainstalowana Rapira — zobacz [Instalację](/pl/docs/installation).
 - Aplikacja Yii3: świeży projekt z szablonu [`yiisoft/app`](https://github.com/yiisoft/app) albo taki, który już masz.
 
-Po stronie PHP nie instalujesz niczego: jedynym nowym plikiem w projekcie jest skrypt workera z listingu niżej, a leży on w katalogu głównym projektu, obok `composer.json`, bo `rootPath` runnera to właśnie katalog główny.
+Po stronie PHP nie instalujesz niczego: jedynym nowym plikiem w projekcie jest skrypt workera z listingu niżej, a leży on w katalogu głównym projektu, obok `composer.json`, bo `rootPath` runnera to właśnie katalog główny. Potrzebujesz też zwykłego PHP CLI na maszynie: to przez niego uruchamiasz Composera. Rapira dostarcza PHP jako bibliotekę (`libphp`), a nie jako polecenie `php`, więc te kroki wykonują się na systemowym PHP, którego Rapira ani nie używa, ani nie rusza.
 
 ## Rezydentny worker
 
@@ -128,7 +128,7 @@ while ($http->handleRequest($handler)) {
 }
 ```
 
-Kontener powstaje za każdym razem od nowa, więc jest mniej ruchomych części, nie ma zerowania, które można źle napisać, i nie ma szans na to, że stan przecieknie z jednego żądania do następnego. Ten wariant też przeszedł pełen zestaw testów.
+Kontener powstaje za każdym razem od nowa, więc jest mniej ruchomych części, nie ma zerowania, które można źle napisać, i stan kontenera nie przechodzi z jednego żądania do następnego; właściwości `static`, zmienne globalne i wszystko, co ustawił bootstrap, zostają w pamięci pod każdym workerem i musi je zerować twój własny kod. Ten wariant też przeszedł pełen zestaw testów.
 
 Kontener podnosi się przy każdym żądaniu, więc za każdym razem płacisz czas rozruchu i za każdym razem produkujesz śmieci wielkości całego kontenera. Pamięć workera rośnie, bo te kontenery odkładają się, zanim PHP zwolni je hurtem — to zwykły profil rozruchu na żądanie, a nie wyciek. Połącz ten wzorzec z `pool.max_requests`, żeby worker co jakiś czas kończył pracę i był podmieniany na świeżego; kształty zużycia pamięci opisuje [przegląd frameworków](/pl/docs/frameworks/), a sam klucz — [Konfiguracja](/pl/docs/configuration).
 

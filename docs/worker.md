@@ -139,7 +139,7 @@ $handler = static function () use ($http): void {
 
 **Uncollected reference cycles.** PHP's reference-counting frees most things immediately, but cycles are only collected when the cycle collector runs. Calling `gc_collect_cycles()` once per loop turn — as the script above does — is not required, but it collects them at a predictable point, between requests instead of in the middle of one.
 
-**Requests that never finish.** A worker stuck in a hung request stays there indefinitely and handles nothing else in the meantime. `pool.request_terminate_timeout_secs` puts a wall-clock limit on a single request and kills the worker that exceeds it. See [Configuration](/docs/configuration) for both keys and [Process model](/docs/process-model) for what the master does when a worker dies.
+**Requests that never finish.** A worker stuck in a hung request stays there indefinitely and handles nothing else in the meantime. `pool.request_terminate_timeout_secs` puts a wall-clock limit on a single request and kills the worker that exceeds it. See [Configuration](/docs/configuration) for this key and `pool.max_requests`, and [Process model](/docs/process-model) for what the master does when a worker dies.
 
 **An uncaught exception is per-request, not per-worker.** An uncaught exception in your handler is counted in `errors` and answered with a `500`, unless the handler already committed a status before it threw. Either way the loop keeps going, so the exception does not take the worker down with it. A fatal error is different: it unwinds the resident script, so the worker re-runs it from the top and boots your application again. That is what the `recycles` counter counts.
 

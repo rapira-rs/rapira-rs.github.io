@@ -30,7 +30,7 @@ Yii3 从设计上就是要跑在一个不退出的进程里：它的 DI 容器�
 - 装好 Rapira——见[安装](/zh/docs/installation)。
 - 一个 Yii3 应用：新建一个 [`yiisoft/app`](https://github.com/yiisoft/app) 项目，或者用你手上现成的那个。
 
-PHP 那边什么都不用装：下面这个 worker 脚本是项目里唯一新增的文件，它放在项目根目录、`composer.json` 旁边，因为 runner 的 `rootPath` 就是项目根目录。
+PHP 那边什么都不用装：下面这个 worker 脚本是项目里唯一新增的文件，它放在项目根目录、`composer.json` 旁边，因为 runner 的 `rootPath` 就是项目根目录。机器上还得有一个普通的 PHP CLI，Composer 要靠它跑：Rapira 把 PHP 作为库（`libphp`）提供，并不带 `php` 命令，所以这些步骤走的是你系统里的 PHP，Rapira 既不用它，也不碰它。
 
 ## 常驻 worker
 
@@ -128,7 +128,7 @@ while ($http->handleRequest($handler)) {
 }
 ```
 
-容器每次都是重建的，所以零件更少，没有可能写错的重置，状态也没机会从上一个请求漏到下一个。这一套同样通过了全套测试。
+容器每次都是重建的，所以零件更少，没有可能写错的重置，容器里的状态也不会带到下一个请求；但 `static` 属性、全局变量以及启动文件建立起来的东西，在任何 worker 下都会常驻，得由你自己的代码来重置。这一套同样通过了全套测试。
 
 容器每个请求都要启动一遍，这份启动开销你每次都得付，还每次都造出整整一个容器的垃圾。这些容器要堆到一定程度 PHP 才成批回收，期间 worker 的内存是往上走的——这是每请求启动一遍的正常形态，不是泄漏。把这套写法和 `pool.max_requests` 搭着用，让 worker 每隔一段时间结束并由新进程接替；各种内存形态见[框架集成](/zh/docs/frameworks/)，这个键的说明见[配置](/zh/docs/configuration)。
 

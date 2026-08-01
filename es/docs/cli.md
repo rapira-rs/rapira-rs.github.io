@@ -21,7 +21,7 @@ Cada ajuste se resuelve consultando hasta tres capas, siempre en este orden:
 
 **Opciones de línea de comandos > archivo de configuración > valores por defecto.**
 
-Solo las cuatro opciones de la tabla de abajo tienen forma de línea de comandos; todo lo demás sale del archivo o del valor por defecto.
+Solo las cuatro opciones de la tabla de abajo y el argumento `SCRIPT` tienen forma de línea de comandos; todo lo demás sale del archivo o del valor por defecto.
 
 Así que una opción siempre gana al mismo valor puesto en `rapira.toml`, y `rapira.toml` siempre gana al valor por defecto. Ese orden te permite dejar la configuración estable en el archivo y cambiar un único valor desde la línea de comandos para una ejecución suelta —otro puerto mientras pruebas, más workers en una máquina más grande— sin editar nada.
 

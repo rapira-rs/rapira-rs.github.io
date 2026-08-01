@@ -88,7 +88,7 @@ while ($http->handleRequest($web)) {
 
 `create_plugin_handler()` 接收一个配置对象，而真正决定选用哪个插件的，是这个配置的*类*。`HttpHandlerConfig` 表示这个 worker 提供 HTTP 服务，换回来的就是一个 `HttpHandler`。
 
-它在两种情况下会抛出 `Rapira\RapiraException`：没有插件匹配你传进来的配置类，以及脚本压根不在 worker 模式下运行——经典模式没有常驻循环，那里的 handler 除了报告“正在关闭”之外什么也做不了。
+它在两种情况下会抛出 `Rapira\RapiraException`：没有插件匹配你传进来的配置类，以及脚本压根不在 worker 模式下运行——经典模式没有常驻循环，即便真的返回一个 handler，它也只能报告“正在关闭”。
 
 配置本身还带着一份对目标插件的描述，放在 `$http->config->info` 里——一个带 `name` 和 `description` 的 `Rapira\PluginInfo`（HTTP 插件对应的是 `http` 和 `HTTP request handler`）：
 
@@ -139,7 +139,7 @@ $handler = static function () use ($http): void {
 
 **没被回收的循环引用。**PHP 的引用计数会立刻释放掉大部分对象，但循环引用只有等循环回收器跑起来才清得掉。像上面那个脚本那样每转一圈循环就调用一次 `gc_collect_cycles()` 并不是必需的，但它把回收固定在一个可预期的时刻——发生在两次请求之间，而不是某个请求处理到一半的时候。
 
-**永远结束不了的请求。**卡在挂死请求里的 worker 会一直待在那里，这段时间它也处理不了别的请求。`pool.request_terminate_timeout_secs` 给单个请求设了一个墙钟时间上限，超出就把这个 worker 杀掉。这两个键见[配置](/zh/docs/configuration)，worker 死掉之后 master 会怎么做，见[进程模型](/zh/docs/process-model)。
+**永远结束不了的请求。**卡在挂死请求里的 worker 会一直待在那里，这段时间它也处理不了别的请求。`pool.request_terminate_timeout_secs` 给单个请求设了一个墙钟时间上限，超出就把这个 worker 杀掉。这个键和 `pool.max_requests` 见[配置](/zh/docs/configuration)，worker 死掉之后 master 会怎么做，见[进程模型](/zh/docs/process-model)。
 
 **未捕获的异常只影响单个请求，不影响整个 worker。**handler 里未捕获的异常会计入 `errors` 并以 `500` 应答，除非抛出之前 handler 已经把状态码提交出去了。无论哪种情况循环都照转不误，异常不会把 worker 一起带走。致命错误则是另一回事：它会让常驻脚本直接终止，于是 worker 从头把它重新跑一遍，你的应用也随之重新启动——`recycles` 数的就是这件事。
 

@@ -18,7 +18,7 @@ Los modos aparecen ordenados según cuánto control tiene PHP sobre el ciclo de 
 
 ## Classic <Badge type="tip" text="disponible" />
 
-El script de entrada se ejecuta desde cero en cada petición, igual que haría con php-fpm: se rellenan las superglobales, arranca el front controller, sale la respuesta y todo se destruye. No se arrastra nada, así que nada puede filtrarse de una petición a la siguiente.
+El script de entrada se ejecuta desde cero en cada petición, igual que haría con php-fpm: se rellenan las superglobales, arranca el front controller, sale la respuesta y todo se destruye. No se arrastra nada de lo que crea el script, así que el estado de la aplicación no puede filtrarse de una petición a la siguiente. Valen las mismas excepciones que con php-fpm: las conexiones persistentes y el estado que vive dentro de una extensión están en el proceso worker, no en la petición.
 
 Una aplicación que ya existe funciona tal cual, porque Rapira ocupa el lugar de php-fpm sin que toques el código. PHP va incrustado en el proceso del servidor, así que no hay ningún salto FastCGI entre el frontal HTTP y el intérprete.
 

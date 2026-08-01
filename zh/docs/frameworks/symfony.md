@@ -183,6 +183,6 @@ request_terminate_timeout_secs = 30
 rapira serve --classic public/index.php
 ```
 
-还是同一个应用，只是跑在经典模式下：它每个请求都要启动一遍，所以改动立刻生效，代价是每个请求都得付一次完整的启动开销。至于已经在跑的生产服务器，让部署上去的代码接手而一条连接都不断的办法是滚动重载（给 master 发 `SIGUSR2`）——除非你开了 `opcache.validate_timestamps = 0`，那时 master 的 OPcache 段比整个进程池活得久，部署就得整个重启才行；见[进程模型](/zh/docs/process-model)和[生产环境部署](/zh/docs/deployment)。
+还是同一个应用，只是跑在经典模式下：它每个请求都要启动一遍，所以改动立刻生效，代价是每个请求都得付一次完整的启动开销。至于已经在跑的生产服务器，让部署上去的代码接手而不中断连接的办法是滚动重载（给 master 发 `SIGUSR2`）——除非你开了 `opcache.validate_timestamps = 0`，那时 master 的 OPcache 段比整个进程池活得久，部署就得整个重启才行；见[进程模型](/zh/docs/process-model)和[生产环境部署](/zh/docs/deployment)。
 
 未捕获的异常由 Symfony 自己处理：框架用自己的 `500` 应答它——`dev` 下是完整的异常页面，`prod` 下是一个通用错误页——接着处理下一个请求的还是同一个 worker 进程，故障前后它的 pid 没变。异常之后留下来的是泄漏或者被弄坏的服务状态，handler 末尾那次重置正是用来清掉它的。堆栈最后落到哪儿，取决于你的日志器；原装的 skeleton 一个日志器也不带。真正会出现在 Rapira 那条 stderr 日志里的，是从 PHP 自己手里逃出去的东西，比如上面那个 `EnvNotFoundException`——怎么把级别调高，见[日志](/zh/docs/logging)。

@@ -30,7 +30,7 @@ The resident pattern is then three steps: build the runner once, run it per requ
 - Rapira installed — see [Installation](/docs/installation).
 - A Yii3 application: either a fresh [`yiisoft/app`](https://github.com/yiisoft/app) project or one you already have.
 
-Nothing has to be installed on the PHP side: the worker script below is the only new file in the project, and it sits at the project root next to `composer.json`, because the runner's `rootPath` is the project root.
+Nothing has to be installed on the PHP side: the worker script below is the only new file in the project, and it sits at the project root next to `composer.json`, because the runner's `rootPath` is the project root. You also need an ordinary PHP CLI on the machine for Composer — Rapira ships PHP as a library (`libphp`), not as a `php` command, so those steps run on your system PHP, which Rapira neither uses nor touches.
 
 ## The resident worker
 
@@ -128,7 +128,7 @@ while ($http->handleRequest($handler)) {
 }
 ```
 
-The container is rebuilt every time, so there are fewer moving parts, no reset to get wrong, and no chance of state leaking from one request into the next. This also passed the full battery.
+The container is rebuilt every time, so there are fewer moving parts, no reset to get wrong, and no container state carried from one request into the next; `static` properties, globals and whatever the bootstrap set up stay resident under any worker and have to be reset by your own code. This also passed the full battery.
 
 The container boots on every request, which takes the boot time each time and generates a container's worth of garbage. The worker's memory grows as those containers pile up before PHP reclaims them in bulk, the ordinary profile of a per-request boot rather than a leak. Pair this pattern with `pool.max_requests` so a worker is retired and replaced periodically; the [frameworks overview](/docs/frameworks/) explains the memory shapes and [Configuration](/docs/configuration) documents the key.
 

@@ -58,7 +58,7 @@ php artisan route:cache
 
 Rapira 不会把 URL 映射成文件：每个请求跑的都是前端控制器，路径由 `$_SERVER['REQUEST_URI']` 交给 Laravel 去路由。路由、没匹配上的路径拿到的 Laravel 自带 404 页面，以及 `url()` 生成的地址，全都验证过——生成出来的是干净的绝对 URL，里面没有 `index.php`，而且既不需要覆盖 `$_SERVER`，也不需要改任何路由或 URL 配置。
 
-骨架自带的 `/up` 健康检查路由返回 `200`，拿它给负载均衡器或者容器健康检查当探测目标正合适。静态资源需要在 Rapira 前面加一层——CDN，或者[生产环境部署](/zh/docs/deployment)页面里配置的反向代理。
+骨架自带的 `/up` 健康检查路由返回 `200`，拿它给负载均衡器或者容器健康检查当探测目标正合适。静态资源需要在 Rapira 前面加一层——CDN，或者[生产环境部署](/zh/docs/deployment)页面里配置的反向代理。Rapira 的监听器只讲明文 HTTP，无论 `X-Forwarded-Proto` 是什么值，`$_SERVER['HTTPS']` 都是空的，所以 TLS 在那个代理上终结时，要在 Laravel 里配置[可信代理](https://laravel.com/docs/requests#configuring-trusted-proxies)，否则 `url()` 生成的是 `http://` 链接。
 
 ## Session、CSRF 与表单
 

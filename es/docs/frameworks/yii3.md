@@ -30,7 +30,7 @@ El patrón residente son entonces tres pasos: construir el runner una vez, ejecu
 - Rapira instalado: ver [Instalación](/es/docs/installation).
 - Una aplicación Yii3, ya sea un proyecto recién creado con [`yiisoft/app`](https://github.com/yiisoft/app) o una que ya tengas.
 
-En el lado de PHP no hay que instalar nada: el script de worker de abajo es el único archivo nuevo del proyecto, y va en la raíz, junto a `composer.json`, porque el `rootPath` del runner es precisamente la raíz del proyecto.
+En el lado de PHP no hay que instalar nada: el script de worker de abajo es el único archivo nuevo del proyecto, y va en la raíz, junto a `composer.json`, porque el `rootPath` del runner es precisamente la raíz del proyecto. También necesitas un PHP CLI normal en la máquina para Composer: Rapira trae PHP como biblioteca (`libphp`), no como comando `php`, así que esos pasos se ejecutan con el PHP de tu sistema, que Rapira ni usa ni toca.
 
 ## El worker residente
 
@@ -128,7 +128,7 @@ while ($http->handleRequest($handler)) {
 }
 ```
 
-El contenedor se reconstruye cada vez, así que hay menos piezas móviles, ningún reinicio que puedas hacer mal y ninguna posibilidad de que el estado se filtre de una petición a la siguiente. Esta variante también pasó la batería completa.
+El contenedor se reconstruye cada vez, así que hay menos piezas móviles, ningún reinicio que puedas hacer mal y ningún estado del contenedor que pase de una petición a la siguiente; las propiedades `static`, las variables globales y todo lo que dejara montado el arranque siguen residentes bajo cualquier worker y tiene que reiniciarlos tu propio código. Esta variante también pasó la batería completa.
 
 El contenedor arranca en cada petición, de modo que ese arranque se paga cada vez y se genera la basura de un contenedor entero. La memoria del worker va creciendo según se acumulan esos contenedores hasta que PHP los libera de golpe, el perfil normal de un arranque por petición y no una fuga. Combina este patrón con `pool.max_requests` para que cada worker termine y sea reemplazado cada cierto tiempo; los perfiles de memoria están en la [guía general de frameworks](/es/docs/frameworks/) y la clave está documentada en [Configuración](/es/docs/configuration).
 

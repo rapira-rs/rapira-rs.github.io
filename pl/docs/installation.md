@@ -15,7 +15,7 @@ Każdy plik do pobrania ma w nazwie `php8.4` albo `php8.5`, a ta etykieta opisuj
 
 Jedyny wybór to wersja, na której działa aplikacja: **8.4** albo **8.5**. Użyj 8.5, chyba że coś w Twoim stosie wymaga 8.4.
 
-Pakiety deb i rpm to wymuszają. `rapira-php8.4` i `rapira-php8.5` instalują dokładnie te same ścieżki, więc oba deklarują `provides`, `conflicts` i `replaces` na wirtualnym pakiecie `rapira`: wykluczają się wzajemnie, a instalacja jednego zajmuje miejsce drugiego, zamiast dokładać się obok. Tak samo zmienia się wersję PHP — zainstaluj ten drugi pakiet, a menedżer pakietów sam dokona podmiany. Archiwa tar się nie wykluczają: każde rozpakowuje się do własnego katalogu, więc drzewo 8.4 i drzewo 8.5 mogą stać obok siebie i działać z różnych ścieżek.
+Pakiety deb i rpm to wymuszają. `rapira-php8.4` i `rapira-php8.5` instalują dokładnie te same ścieżki, więc oba deklarują `provides`, `conflicts` i `replaces` (w rpm: `obsoletes`) na wirtualnym pakiecie `rapira`: wykluczają się wzajemnie, a instalacja jednego zajmuje miejsce drugiego, zamiast dokładać się obok. Tak samo zmienia się wersję PHP — zainstaluj ten drugi pakiet, a menedżer pakietów sam dokona podmiany. Archiwa tar się nie wykluczają: każde rozpakowuje się do własnego katalogu, więc drzewo 8.4 i drzewo 8.5 mogą stać obok siebie i działać z różnych ścieżek.
 
 ## Artefakty wydania
 

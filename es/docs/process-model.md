@@ -35,7 +35,7 @@ flowchart TB
 
 Cada worker ejecuta un intérprete de PHP NTS detrás de su propio runtime HTTP asíncrono y acepta conexiones en el socket que ha heredado. Delante del pool no hay ningún repartidor: todos los workers están aparcados en `accept()` sobre el mismo socket, y el kernel le entrega cada conexión entrante a uno solo de ellos.
 
-El maestro no atiende ni una petición. No tiene pila HTTP en absoluto: es un único hilo bloqueado en `poll(2)` sobre un self-pipe, esperando señales, muertes de sus hijos y sus propios temporizadores. El proceso que tiene que sobrevivir para reiniciar todo lo demás hace lo mínimo imprescindible.
+El maestro no atiende ni una petición. No tiene pila HTTP en absoluto: es un único hilo bloqueado en `poll(2)` sobre un self-pipe, esperando señales, muertes de sus hijos, sus propios temporizadores y, en modo `ondemand`, también a que el socket de escucha esté listo. El proceso que tiene que sobrevivir para reiniciar todo lo demás hace lo mínimo imprescindible.
 
 ::: info
 El maestro también mantiene cargado el módulo de PHP mientras vive y es el único proceso que lo cierra. Un worker sale sin desmontar nada, así que un worker que se cae o que se recicla nunca destruye la imagen del motor que siguen usando los demás workers.
@@ -54,7 +54,7 @@ Con el pool ya en marcha, el maestro ejecuta un tick de mantenimiento más o men
 
 ## Modos del pool
 
-`pool.mode` elige cómo se dimensiona el pool. En los tres modos el número que manda es `pool.processes` —una cifra exacta con `static` y un techo con los otros dos— y por defecto vale un worker por CPU.
+`pool.mode` elige cómo se dimensiona el pool. En los tres modos el número que manda es `pool.processes` —una cifra exacta con `static` y un techo con los otros dos— y por defecto vale un worker por CPU lógica.
 
 | Modo | Cuántos workers | Claves que aplican |
 | --- | --- | --- |
@@ -114,7 +114,7 @@ Un segundo `SIGTERM` o `SIGINT` se salta la espera y fuerza la salida al instant
 
 `SIGUSR2` (o `SIGHUP`) sustituye el pool entero por workers nuevos, que es la forma de tirar la aplicación ya arrancada de un worker residente y volver a construirla con el código que has desplegado.
 
-En modo Classic el script de entrada se ejecuta desde cero en cada petición, así que no hay nada residente que sustituir y el código nuevo entra en juego sin recarga. En modo SAPI Worker la aplicación arranca una vez y se queda en memoria, con lo que el código desplegado no entra en juego hasta que hay una recarga progresiva: conviértela en un paso más de tu despliegue. Consulta [En producción](/es/docs/deployment) para más información.
+En modo Classic el script de entrada se ejecuta desde cero en cada petición, así que no hay nada residente que sustituir y el código nuevo entra en juego sin recarga, salvo que hayas puesto `opcache.validate_timestamps = 0`: entonces el segmento de OPcache del maestro sigue sirviendo los opcodes viejos hasta un reinicio completo. En modo SAPI Worker la aplicación arranca una vez y se queda en memoria, con lo que el código desplegado no entra en juego hasta que hay una recarga progresiva: conviértela en un paso más de tu despliegue. Consulta [En producción](/es/docs/deployment) para más información.
 
 La recarga nunca te baja de la capacidad con la que estabas sirviendo, porque solapa en vez de reiniciar: el maestro levanta un worker nuevo, espera a que ese worker esté aceptando de verdad y solo entonces drena uno viejo. Cuando el viejo se ha ido, su plaza pasa al siguiente worker nuevo, y así hasta el final de la generación. Cada drenaje es la misma escalada ordenada de `SIGQUIT` → `SIGTERM` → `SIGKILL` que una parada, acotada por el mismo tiempo de control, aplicada a ese único worker.
 

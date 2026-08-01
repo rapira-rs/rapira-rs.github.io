@@ -21,7 +21,7 @@ Każde ustawienie Rapira ustala z maksymalnie trzech warstw, sprawdzanych w tej 
 
 **Flagi wiersza poleceń > plik konfiguracyjny > wbudowane wartości domyślne.**
 
-Z wiersza poleceń da się ustawić tylko cztery flagi z poniższej tabeli; cała reszta pochodzi z pliku albo z wartości domyślnej.
+Z wiersza poleceń da się ustawić tylko cztery flagi z poniższej tabeli i argument `SCRIPT`; cała reszta pochodzi z pliku albo z wartości domyślnej.
 
 Flaga zawsze wygrywa z tą samą wartością w `rapira.toml`, a `rapira.toml` zawsze wygrywa z wartością domyślną. Taka kolejność pozwala trzymać stabilną konfigurację w pliku i nadpisać pojedynczą wartość w wierszu poleceń na jeden przebieg — inny port na czas testów, więcej workerów na większej maszynie — bez edytowania czegokolwiek.
 

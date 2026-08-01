@@ -58,7 +58,7 @@ php artisan route:cache
 
 Rapira no mapea las URL sobre archivos: cada petición ejecuta el front controller y la ruta que Laravel enruta llega en `$_SERVER['REQUEST_URI']`. El enrutado, la página 404 del propio Laravel para las rutas que no encajan y la generación con `url()` se verificaron todos: las URL que salen son absolutas y limpias, sin `index.php` por ninguna parte, y sin sobrescribir nada de `$_SERVER` ni tocar la configuración de rutas o de URLs.
 
-La ruta de salud `/up` que trae el esqueleto responde `200`, así que sirve como destino del health check de un balanceador de carga o de un contenedor. Los archivos estáticos necesitan algo delante de Rapira: una CDN o el proxy inverso que monta la página [En producción](/es/docs/deployment).
+La ruta de salud `/up` que trae el esqueleto responde `200`, así que sirve como destino del health check de un balanceador de carga o de un contenedor. Los archivos estáticos necesitan algo delante de Rapira: una CDN o el proxy inverso que monta la página [En producción](/es/docs/deployment). El listener de Rapira habla HTTP en claro y deja `$_SERVER['HTTPS']` vacío sea cual sea el valor de `X-Forwarded-Proto`, así que, cuando ese proxy termina el TLS, configura los [proxies de confianza](https://laravel.com/docs/requests#configuring-trusted-proxies) de Laravel; si no, `url()` generará enlaces `http://`.
 
 ## Sesiones, CSRF y formularios
 

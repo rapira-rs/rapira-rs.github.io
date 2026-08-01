@@ -58,7 +58,7 @@ php artisan route:cache
 
 Rapira nie mapuje adresów na pliki: każde żądanie uruchamia front controller, a ścieżkę do trasowania Laravel bierze z `$_SERVER['REQUEST_URI']`. Trasowanie, własną stronę 404 Laravela dla niedopasowanych ścieżek i generowanie adresów przez `url()` — wszystko to sprawdziliśmy: powstają czyste adresy bezwzględne bez `index.php` w środku, bez nadpisywania czegokolwiek w `$_SERVER` i bez zmian w konfiguracji tras czy adresów.
 
-Wbudowana w szkielet trasa `/up` odpowiada kodem `200`, więc nadaje się na cel health checku load balancera albo kontenera. Pliki statyczne wymagają czegoś przed Rapirą — CDN-a albo reverse proxy, które konfiguruje strona [Wdrożenie produkcyjne](/pl/docs/deployment).
+Wbudowana w szkielet trasa `/up` odpowiada kodem `200`, więc nadaje się na cel health checku load balancera albo kontenera. Pliki statyczne wymagają czegoś przed Rapirą — CDN-a albo reverse proxy, które konfiguruje strona [Wdrożenie produkcyjne](/pl/docs/deployment). Rapira nasłuchuje nieszyfrowanego HTTP i zostawia `$_SERVER['HTTPS']` puste niezależnie od `X-Forwarded-Proto`, więc kiedy to proxy kończy TLS, skonfiguruj w Laravelu [zaufane proxy](https://laravel.com/docs/requests#configuring-trusted-proxies) — inaczej `url()` wygeneruje odnośniki `http://`.
 
 ## Sesje, CSRF i formularze
 

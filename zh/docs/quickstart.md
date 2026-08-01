@@ -81,7 +81,7 @@ rapira serve worker.php
 curl '127.0.0.1:8000/?name=world'
 ```
 
-多跑几次这条 `curl`，计数会不断增加：请求始终由同一个进程处理。默认情况下 Rapira 会按 CPU 核数每核 fork 一个 worker，请求落到哪个 worker 上由内核决定，而每个 worker 各记各的数；输出里的 pid 会告诉你这次是谁应答的。想让计数保持为一条连续的序列，就改用 `rapira serve --processes 1 worker.php` 启动。进程池是怎么被管起来的，见[进程模型](/zh/docs/process-model)。
+多跑几次这条 `curl`，计数会不断增加：请求始终由同一个进程处理。默认情况下 Rapira 会为每个逻辑 CPU fork 一个 worker，请求落到哪个 worker 上由内核决定，而每个 worker 各记各的数；输出里的 pid 会告诉你这次是谁应答的。想让计数保持为一条连续的序列，就改用 `rapira serve --processes 1 worker.php` 启动。进程池是怎么被管起来的，见[进程模型](/zh/docs/process-model)。
 
 在 `while` 循环之前搭好的一切，都会在 worker 的整个生命周期里留在内存中：Composer 自动加载器、DI 容器、数据库和缓存连接、编译好的路由和模板——这些都只在启动时构建一次，而不是每个请求都重建一遍。每轮循环真正重新产生的，只有属于单个请求的那部分状态。
 

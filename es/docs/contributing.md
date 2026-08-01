@@ -1,6 +1,6 @@
 # Contribuir a la documentación
 
-¿Quieres ayudar a mejorar la documentación de Rapira? Estupendo. Esta página es un recorrido en vivo por todo lo que puede hacer el motor de documentación: cada bloque de abajo se genera con el mismo Markdown que escribirás tú, así que tenla a mano como chuleta mientras editas páginas.
+Esta página documenta todas las funciones de escritura que admite el motor de documentación: cada bloque de abajo se genera con el mismo Markdown que escribirás tú, así que tenla a mano como chuleta mientras editas páginas.
 
 Para previsualizar tus cambios, ejecuta `npm install` una vez y luego `npm run dev`; abre la URL local que aparece en pantalla. Cada idioma tiene su propia carpeta de traducciones —`ru/`, `es/`, `zh/`, `pl/`— con la misma estructura que la versión en inglés, y el inglés es la fuente de referencia.
 

@@ -76,7 +76,7 @@ listen = "127.0.0.1:8000"
 # listen = "unix:/run/rapira/rapira.sock"
 ```
 
-The Unix socket is created with mode `0666`, so any process with access to that path can connect to it. Rapira has no setting for that mode. If it matters, restrict the directory instead: with the unit above, `RuntimeDirectoryMode=0750` plus a `Group=` the proxy's user belongs to keeps everyone else out of `/run/rapira`.
+The Unix socket is created with mode `0666`, so any local process that can traverse the runtime directory can connect to it and send requests to your application. Rapira has no setting for that mode, so the directory's permissions are the only thing limiting who reaches the socket. If it matters, restrict the directory: with the unit above, `RuntimeDirectoryMode=0750` plus a `Group=` the proxy's user belongs to keeps everyone else out of `/run/rapira`.
 
 Forwarded fields must reach Rapira with the ordinary `-` spelling — `X-Forwarded-For`, never `X_Forwarded_For`. Underscore and dot spellings fold onto the same `$_SERVER` key as the proper one, which is how a client would otherwise overwrite what your proxy just set, so Rapira drops them before PHP sees them. The [HTTP page](/docs/http) explains the mapping and the `http.unsafe_field_names` setting that governs it.
 

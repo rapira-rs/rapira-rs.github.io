@@ -18,7 +18,7 @@ Tryby wymieniono w kolejności odpowiadającej temu, ile kontroli nad cyklem ży
 
 ## Classic <Badge type="tip" text="dostępne" />
 
-Skrypt wejściowy wykonuje się od zera przy każdym żądaniu, dokładnie tak jak pod php-fpm: zmienne superglobalne zostają wypełnione, front controller startuje, odpowiedź wychodzi, a wszystko po drodze jest sprzątane. Nic nie przechodzi dalej, więc nic nie może wyciec z jednego żądania do następnego.
+Skrypt wejściowy wykonuje się od zera przy każdym żądaniu, dokładnie tak jak pod php-fpm: zmienne superglobalne zostają wypełnione, front controller startuje, odpowiedź wychodzi, a wszystko po drodze jest sprzątane. Nic z tego, co utworzył skrypt, nie przechodzi dalej, więc stan aplikacji nie wycieka z jednego żądania do następnego. Wyjątki są te same co w php-fpm: trwałe połączenia i stan trzymany przez rozszerzenia żyją w procesie workera, a nie w żądaniu.
 
 Istniejąca aplikacja działa bez zmian, bo Rapira wchodzi na miejsce php-fpm i nie ruszasz ani linijki kodu. PHP jest osadzony w procesie serwera, więc między frontem HTTP a interpreterem nie ma skoku przez FastCGI.
 

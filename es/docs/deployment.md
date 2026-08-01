@@ -76,7 +76,7 @@ listen = "127.0.0.1:8000"
 # listen = "unix:/run/rapira/rapira.sock"
 ```
 
-El socket Unix se crea con permisos `0666`, así que cualquier proceso con acceso a esa ruta puede conectarse. Rapira no tiene ningún ajuste para esos permisos. Si eso te importa, restringe el directorio: en la unidad de arriba, `RuntimeDirectoryMode=0750` y un `Group=` al que pertenezca el usuario del proxy dejan `/run/rapira` fuera del alcance de los demás.
+El socket Unix se crea con permisos `0666`, así que cualquier proceso local con acceso al directorio donde está puede conectarse y mandarle peticiones a tu aplicación. Rapira no tiene ningún ajuste para esos permisos, de modo que los del directorio son lo único que limita quién llega hasta el socket. Si eso te importa, restringe el directorio: en la unidad de arriba, `RuntimeDirectoryMode=0750` y un `Group=` al que pertenezca el usuario del proxy dejan `/run/rapira` fuera del alcance de los demás.
 
 Los campos reenviados tienen que llegar a Rapira con la grafía normal, la del guion: `X-Forwarded-For`, nunca `X_Forwarded_For`. Las variantes con guion bajo o con punto caen en la misma clave de `$_SERVER` que la buena, que es justo por donde un cliente sobrescribiría lo que tu proxy acaba de poner, así que Rapira las descarta antes de que PHP las vea. La [página de HTTP](/es/docs/http) explica la correspondencia y el ajuste `http.unsafe_field_names` que la gobierna.
 

@@ -139,7 +139,7 @@ $handler = static function () use ($http): void {
 
 **Niezebrane cykle referencji.** Zliczanie referencji w PHP zwalnia większość rzeczy natychmiast, ale cykle znikają dopiero wtedy, gdy uruchomi się kolektor cykli. Wywołanie `gc_collect_cycles()` raz na obrót pętli — tak jak w skrypcie wyżej — nie jest wymagane, ale sprząta je w przewidywalnym momencie: między żądaniami, a nie w środku któregoś z nich.
 
-**Żądania, które nigdy się nie kończą.** Worker uwięziony w zawieszonym żądaniu tkwi w nim w nieskończoność i przez ten czas nie obsługuje niczego innego. `pool.request_terminate_timeout_secs` nakłada na pojedyncze żądanie limit czasu rzeczywistego i ubija workera, który go przekroczy. Oba klucze opisuje [Konfiguracja](/pl/docs/configuration), a to, co proces nadrzędny robi po śmierci workera — [Model procesów](/pl/docs/process-model).
+**Żądania, które nigdy się nie kończą.** Worker uwięziony w zawieszonym żądaniu tkwi w nim w nieskończoność i przez ten czas nie obsługuje niczego innego. `pool.request_terminate_timeout_secs` nakłada na pojedyncze żądanie limit czasu rzeczywistego i ubija workera, który go przekroczy. Ten klucz i `pool.max_requests` opisuje [Konfiguracja](/pl/docs/configuration), a to, co proces nadrzędny robi po śmierci workera — [Model procesów](/pl/docs/process-model).
 
 **Nieprzechwycony wyjątek dotyczy żądania, nie workera.** Nieprzechwycony wyjątek w handlerze trafia do licznika `errors` i kończy się odpowiedzią `500` — chyba że handler zdążył wcześniej ustalić status. Tak czy inaczej pętla kręci się dalej, więc wyjątek nie pociąga workera za sobą. Inaczej jest z błędem krytycznym: zwija on rezydentny skrypt, więc worker uruchamia go od góry i jeszcze raz podnosi twoją aplikację. To właśnie zlicza licznik `recycles`.
 

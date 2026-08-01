@@ -81,7 +81,7 @@ rapira serve worker.php
 curl '127.0.0.1:8000/?name=world'
 ```
 
-Puść tego `curla` kilka razy: licznik rośnie, bo żądania obsługuje wciąż ten sam proces. Domyślnie Rapira forkuje po jednym workerze na rdzeń CPU, więc żądanie może trafić do dowolnego z nich — o tym, który je odbierze, decyduje jądro systemu — a każdy worker liczy po swojemu; pid w odpowiedzi mówi, który akurat odpowiedział. Jeśli chcesz, żeby licznik rósł jednym ciągiem, zacznij od `rapira serve --processes 1 worker.php`. O tym, jak nadzorowana jest pula, mówi [model procesów](/pl/docs/process-model).
+Puść tego `curla` kilka razy: licznik rośnie, bo żądania obsługuje wciąż ten sam proces. Domyślnie Rapira forkuje po jednym workerze na logiczny rdzeń CPU, więc żądanie może trafić do dowolnego z nich — o tym, który je odbierze, decyduje jądro systemu — a każdy worker liczy po swojemu; pid w odpowiedzi mówi, który akurat odpowiedział. Jeśli chcesz, żeby licznik rósł jednym ciągiem, zacznij od `rapira serve --processes 1 worker.php`. O tym, jak nadzorowana jest pula, mówi [model procesów](/pl/docs/process-model).
 
 Wszystko, co zbudujesz przed pętlą `while`, zostaje w pamięci przez całe życie workera: autoloader Composera, kontener DI, połączenia z bazą i cache'em, skompilowane trasy i szablony — wszystko to powstaje raz, przy starcie, a nie przy każdym żądaniu. Od nowa powstaje tylko stan związany z konkretnym żądaniem.
 

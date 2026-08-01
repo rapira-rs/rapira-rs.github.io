@@ -10,16 +10,18 @@ Documentation site for **Rapira**, built with [VitePress](https://vitepress.dev/
 
 **Existing applications keep working.** The classic SAPI is supported, so an ordinary front controller runs as it is: Rapira takes php-fpm's place with no changes to the code, and runs faster doing it.
 
-**Four execution modes** form a ladder, `Classic → SAPI Worker → PSR Worker → Async`, and an application picks the rung it can actually reach. The names are the site's own: they say what the rung *is* — a live worker, and the contract it speaks — instead of pointing at the product that made the shape familiar. Never name the modes after FrankenPHP or RoadRunner on the site:
+**Four execution modes**: Classic, SAPI Worker, PSR Worker, Async — listed in order of how much control PHP gets over the request lifecycle. Classic and SAPI Worker are shipped; PSR Worker and Async are planned. The names are the site's own: they say what the mode *is* — whether the worker stays alive, and the contract it speaks — instead of pointing at the product that made the shape familiar. Never name the modes after FrankenPHP or RoadRunner on the site:
 
 - **Classic** — the entry script runs from scratch on every request, exactly as it would under php-fpm.
 - **SAPI Worker** — the same shape, except the worker does not die: the superglobals are refilled for each request while the warmed-up process keeps running.
 - **PSR Worker** — the PHP side pulls requests from Rapira through an API call and decides what to do with each one: fill the superglobals for compatibility, or skip them entirely and work with a PSR-7 message. One request at a time.
 - **Async** — the same API, except the worker asks for more than one request at once and handles them concurrently, which PHP 8.1 fibers make possible.
 
-All four rungs are open to any application; what limits the choice is the application's own stack, never the server. Global state that cannot survive a second request keeps you on the Classic rung, a library that is not fiber-safe keeps you below Async — that is a property of the code, not a restriction Rapira imposes. Frame it that way: Rapira offers the whole ladder, the app decides how high it climbs.
+Any application can use any mode; what limits the choice is the application's own code, never the server. Global state that cannot survive a second request restricts an application to Classic; a library that is not fiber-safe rules out Async. State it that way — as a property of the application's code.
 
-**The home page shows a shortened ladder,** `Classic → Worker → Async` — three rungs, because four names plus their distinctions do not fit a feature card and the middle pair differ in a detail (who initiates the request) that means nothing to someone seeing the project for the first time. There, `Worker` stands for both worker rungs. The full four-rung ladder belongs in the documentation, where there is room to explain it.
+**The ladder/rung/climb metaphor for the modes is banned** — in English and in every translation, docs and home page alike. The modes are listed, not ranked; earlier drafts used "ladder"/"rung" vocabulary and it must not come back.
+
+**The home page shows a shortened mode list,** `Classic → Worker → Async` — three names, because four names plus their distinctions do not fit a feature card and the middle pair differ in a detail (who initiates the request) that means nothing to someone seeing the project for the first time. There, `Worker` stands for both worker modes. The full list of four belongs in the documentation, where there is room to explain it.
 
 The mode is selected in the config, but neither the config format nor the PHP-side API is stable yet — describe the modes by what they do, and check specific keys and function names before they reach the site.
 
@@ -60,9 +62,24 @@ pl/           # Polish locale    ┘
 
 English (root) is the **source of truth**. Every other locale mirrors its structure.
 
+The docs sidebar (five per-locale blocks in `.vitepress/config.mts`) has six groups — Introduction, Getting started, Writing your app, Running the server, Framework integration, Contributing — with an identical group/item structure in every locale; only the labels are translated.
+
 ## Style Guide
 
-**Tone:** Informal but technically accurate. Write for newcomers — use full sentences, explain concepts before showing code. Avoid telegraphic style ("Register plugin. Call it.") — context and motivation matter.
+**Tone:** Plain technical documentation, in the register of Zed's docs (zed.dev/docs). Write for newcomers — full sentences, explain concepts before showing code, no telegraphic style ("Register plugin. Call it."). Second person for the reader, third person for the software; contractions are fine.
+
+**Register — binding for English and every translation:**
+
+- **Open with a definition.** The first sentence says what the subject is, with the product or feature as grammatical subject; optionally one scope sentence naming what the page covers; then the first `##`. Installation-type pages may skip the intro entirely. Never open with motivation, a problem statement, or the reader.
+- **No metaphors, no analogies.** No ladder/rung/climb (banned outright, see above), no economic framing ("paid once at boot", "the price is"), no personification ("your code does not know the difference"), no punchlines or reveals ("…: nothing."). Standard technical idiom stays: boot, warm, spin up, drop-in replacement, sawtooth, graceful shutdown, backstop.
+- **No teasers or narrative transitions** ("and that is why the next section exists"), no editorializing ("worth knowing", "the entire point", "honestly", "actually"/"genuinely" as emphasis), no marketing adjectives, no rhetorical questions, no dramatized second person ("now your responsibility", "yours to manage").
+- **No FAQ blocks.** Docs pages carry no `::: question` containers — in English or any translation. An answer worth writing belongs in the body, in the section that owns the topic; a recurring reader question means the body is missing something, so fix the body.
+- **Hedge about the software's state, never about knowledge:** "currently", "not yet" — never "probably", "generally", "in practice you'll almost always".
+- **Limitations are flat present-tense facts stated in place**, each paired with its workaround in the same paragraph. No apology, no drama.
+- **Choices:** give parallel criteria ("Use A if …; use B if …") or one plain paragraph per option; recommendations are stated flatly with the reason attached, never sold.
+- **Headings:** noun phrases or gerunds, sentence case. No slogans, full sentences, questions, or second person.
+- **Cross-references:** inline links with the noun as link text; terminal references are "See [X] for more information." Pages stop after the last technical item — no summary or outro paragraphs; "Next steps" bullet lists only on hub pages.
+- **Do not over-sterilize.** Full subordinated sentences (~20 words on average) are the norm, not fragments; plain connective sentences between sections are fine. Translators must render the same plain register — never "improve" it into literary prose.
 
 **Code examples:**
 - List the options first, then a single code block with all examples (easier to read than many small blocks).
@@ -73,7 +90,7 @@ English (root) is the **source of truth**. Every other locale mirrors its struct
 - Avoid tautology in lists, fix typos.
 - Small sections are sometimes better integrated into an existing one.
 
-**Markdown callouts:** Use `::: tip`, `::: warning`, `::: info`, `::: danger` blocks — each renders with its own icon and color. Use `::: question` for FAQ spoilers.
+**Markdown callouts:** Use `::: tip`, `::: warning`, `::: info`, `::: danger` blocks — each renders with its own icon and color. The `::: question` spoiler plugin exists but is not used in the docs (see the Register block); do not add FAQ containers.
 
 ## Working with Content
 
@@ -135,7 +152,7 @@ author: Author Name
 
 ## FAQ (`::: question`)
 
-Questions can be written anywhere in an article using `::: question` blocks. At build time they are extracted from their positions and grouped into collapsible spoilers.
+Documentation pages do not use this plugin (see the Register block above); it stays available for blog posts. Questions can be written anywhere in an article using `::: question` blocks. At build time they are extracted from their positions and grouped into collapsible spoilers.
 
 **Syntax:**
 ```md

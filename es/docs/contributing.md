@@ -1,6 +1,8 @@
 # Contribuir a la documentación
 
-¿Quieres ayudar a mejorar la documentación de Rapira? Estupendo. Esta página es un recorrido en vivo por todo lo que puede hacer el motor de documentación: cada bloque de abajo se genera con el mismo Markdown que escribirás tú, así que tenla a mano como chuleta mientras editas páginas.
+Esta página documenta todas las funciones de escritura que admite el motor de documentación: cada bloque de abajo se genera con el mismo Markdown que escribirás tú, así que tenla a mano como chuleta mientras editas páginas.
+
+Para previsualizar tus cambios, ejecuta `npm install` una vez y luego `npm run dev`; abre la URL local que aparece en pantalla. Cada idioma tiene su propia carpeta de traducciones —`ru/`, `es/`, `zh/`, `pl/`— con la misma estructura que la versión en inglés, y el inglés es la fuente de referencia.
 
 ## Bloques de aviso
 
@@ -114,7 +116,6 @@ Las tablas normales de Markdown funcionan sin más:
 | Avisos          |    ✅    |
 | Grupos de código|    ✅    |
 | Mermaid         |    ✅    |
-| Spoilers de FAQ |    ✅    |
 
 Las etiquetas en línea van muy bien para marcar estados: <Badge type="tip" text="nuevo" /> <Badge type="warning" text="beta" /> <Badge type="danger" text="obsoleto" />.
 
@@ -134,7 +135,6 @@ prev: false               # ocultar el enlace «Anterior» del pie
 next:                     # o renombrar / redirigir un enlace del pie
   text: Blog
   link: /es/blog/
-faqLevel: 2               # dónde se agrupan los bloques ::: question (ver arriba)
 ---
 ```
 
@@ -148,34 +148,3 @@ outline: false    # ocultarlo
 ```
 
 Usa `layout: home` para una portada o `layout: page` para una página sin barra lateral ni índice; las páginas normales usan el layout `doc` por defecto.
-
-## Preguntas (spoilers de FAQ)
-
-Escribe un bloque `::: question` en cualquier parte de la página:
-
-```md
-::: question ¿Cómo ejecuto el sitio en local?
-`npm install` una vez y luego `npm run dev`.
-:::
-```
-
-El motor extrae todas las preguntas del texto y las agrupa en spoilers desplegables al final de la sección, como los de aquí abajo.
-
-Dónde aparecen depende de ti: define `faqLevel` en el frontmatter de la página:
-
-```yaml
----
-faqLevel: 1       # por defecto — al final de cada sección H1 (normalmente el final de la página)
-faqLevel: 2       # al final de cada sección H2
-faqLevel: 0       # al final de la página, sin tener en cuenta los encabezados
-faqLevel: false   # sin agrupar — cada pregunta se queda donde la escribiste
----
-```
-
-::: question ¿Cómo ejecuto el sitio en local?
-Ejecuta `npm install` una vez y luego `npm run dev`; abre la URL local que aparece en pantalla.
-:::
-
-::: question ¿Dónde están las traducciones?
-Cada idioma tiene su propia carpeta —`ru/`, `es/`, `zh/`, `pl/`— con la misma estructura que la versión en inglés. El inglés es la fuente de referencia.
-:::

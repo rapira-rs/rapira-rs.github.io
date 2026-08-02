@@ -159,6 +159,13 @@ html {
   margin: 2.5rem 0 !important;
 }
 
+/* Prev/next pager: the external-link icon is an ::after on the link itself, and
+   the title inside it is block-level, so the icon is pushed onto its own line.
+   An inline title puts the two back together. */
+.pager-link.vp-external-link-icon .title {
+  display: inline;
+}
+
 /* ===== HOME PAGE STYLES ===== */
 
 /* Landing cover: wordmark centered on the page background, actions below */

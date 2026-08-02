@@ -96,6 +96,120 @@ yarn
 
 :::
 
+## File tabs
+
+A `<CodeTabs>` block shows several files the way an editor does: one tab per file, with the code of the open tab underneath. List the tabs in a `<script setup>` block on the page, then put each snippet in a `<template>` named after that tab's `slot`:
+
+````md
+<script setup>
+const appTabs = [
+  { name: 'index.php', slot: 'classic' },
+  { name: 'worker.php', slot: 'worker' },
+  { name: 'rapira.toml', slot: 'config' },
+]
+</script>
+
+<CodeTabs :tabs="appTabs">
+
+<template #classic>
+
+```php
+<?php
+require __DIR__ . '/vendor/autoload.php';
+
+echo (new App())->handle($_SERVER['REQUEST_URI']);
+```
+
+</template>
+
+<template #worker>
+
+```php
+<?php
+require __DIR__ . '/vendor/autoload.php';
+
+$http = create_plugin_handler(new HttpHandlerConfig());
+$app = new App(); // booted once, reused for every request
+
+$handler = static function () use ($app): void {
+    echo $app->handle($_SERVER['REQUEST_URI']);
+};
+
+while ($http->handleRequest($handler)) {
+}
+```
+
+</template>
+
+<template #config>
+
+```toml
+[pool]
+entrypoint = "worker.php"
+processes = 4
+```
+
+</template>
+
+</CodeTabs>
+````
+
+The icon on a tab comes from the extension in its name: `.php`, `.rs`, `.toml`, `.yaml`, `.json` and `.sh` each have their own, and anything else gets a plain file glyph. Set `icon` on a tab to choose one yourself — `php`, `rust`, `toml`, `yaml`, `json`, `shell` or `file`.
+
+That block renders as:
+
+<script setup>
+const appTabs = [
+  { name: 'index.php', slot: 'classic' },
+  { name: 'worker.php', slot: 'worker' },
+  { name: 'rapira.toml', slot: 'config' },
+]
+</script>
+
+<CodeTabs :tabs="appTabs">
+
+<template #classic>
+
+```php
+<?php
+require __DIR__ . '/vendor/autoload.php';
+
+echo (new App())->handle($_SERVER['REQUEST_URI']);
+```
+
+</template>
+
+<template #worker>
+
+```php
+<?php
+require __DIR__ . '/vendor/autoload.php';
+
+$http = create_plugin_handler(new HttpHandlerConfig());
+$app = new App(); // booted once, reused for every request
+
+$handler = static function () use ($app): void {
+    echo $app->handle($_SERVER['REQUEST_URI']);
+};
+
+while ($http->handleRequest($handler)) {
+}
+```
+
+</template>
+
+<template #config>
+
+```toml
+[pool]
+entrypoint = "worker.php"
+processes = 4
+```
+
+</template>
+
+</CodeTabs>
+
 ## Diagrams
 
 A fenced `mermaid` block renders as a diagram:

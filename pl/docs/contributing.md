@@ -96,6 +96,120 @@ yarn
 
 :::
 
+## Karty plików
+
+Blok `<CodeTabs>` pokazuje kilka plików tak, jak robi to edytor: u góry karta na każdy plik, pod nimi kod otwartej karty. Wypisz karty w bloku `<script setup>` na stronie, a każdy fragment umieść w `<template>` o nazwie zgodnej ze `slot` danej karty:
+
+````md
+<script setup>
+const appTabs = [
+  { name: 'index.php', slot: 'classic' },
+  { name: 'worker.php', slot: 'worker' },
+  { name: 'rapira.toml', slot: 'config' },
+]
+</script>
+
+<CodeTabs :tabs="appTabs">
+
+<template #classic>
+
+```php
+<?php
+require __DIR__ . '/vendor/autoload.php';
+
+echo (new App())->handle($_SERVER['REQUEST_URI']);
+```
+
+</template>
+
+<template #worker>
+
+```php
+<?php
+require __DIR__ . '/vendor/autoload.php';
+
+$http = create_plugin_handler(new HttpHandlerConfig());
+$app = new App(); // uruchamiany raz, obsługuje kolejne żądania
+
+$handler = static function () use ($app): void {
+    echo $app->handle($_SERVER['REQUEST_URI']);
+};
+
+while ($http->handleRequest($handler)) {
+}
+```
+
+</template>
+
+<template #config>
+
+```toml
+[pool]
+entrypoint = "worker.php"
+processes = 4
+```
+
+</template>
+
+</CodeTabs>
+````
+
+Ikonę karty wyznacza rozszerzenie w jej nazwie: `.php`, `.rs`, `.toml`, `.yaml`, `.json` i `.sh` mają własne, pozostałe dostają zwykły znaczek pliku. Aby wybrać ikonę samodzielnie, dodaj karcie pole `icon` o wartości `php`, `rust`, `toml`, `yaml`, `json`, `shell` lub `file`.
+
+Tak ten blok wygląda na stronie:
+
+<script setup>
+const appTabs = [
+  { name: 'index.php', slot: 'classic' },
+  { name: 'worker.php', slot: 'worker' },
+  { name: 'rapira.toml', slot: 'config' },
+]
+</script>
+
+<CodeTabs :tabs="appTabs">
+
+<template #classic>
+
+```php
+<?php
+require __DIR__ . '/vendor/autoload.php';
+
+echo (new App())->handle($_SERVER['REQUEST_URI']);
+```
+
+</template>
+
+<template #worker>
+
+```php
+<?php
+require __DIR__ . '/vendor/autoload.php';
+
+$http = create_plugin_handler(new HttpHandlerConfig());
+$app = new App(); // uruchamiany raz, obsługuje kolejne żądania
+
+$handler = static function () use ($app): void {
+    echo $app->handle($_SERVER['REQUEST_URI']);
+};
+
+while ($http->handleRequest($handler)) {
+}
+```
+
+</template>
+
+<template #config>
+
+```toml
+[pool]
+entrypoint = "worker.php"
+processes = 4
+```
+
+</template>
+
+</CodeTabs>
+
 ## Diagramy
 
 Blok `mermaid` renderuje się jako diagram:

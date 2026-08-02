@@ -5,6 +5,7 @@ import DefaultTheme from 'vitepress/theme'
 import GitHubStars from './GitHubStars.vue'
 import BlogPosts from './BlogPosts.vue'
 import BlogPostHeader from './BlogPostHeader.vue'
+import CodeTabs from './CodeTabs.vue'
 import RapiraHero from './RapiraHero.vue'
 import { isBlogPath } from '../locales'
 import './style.css'
@@ -25,5 +26,6 @@ export default {
   }),
   enhanceApp({ app }) {
     app.component('BlogPosts', BlogPosts)
+    app.component('CodeTabs', CodeTabs)
   },
 } satisfies Theme

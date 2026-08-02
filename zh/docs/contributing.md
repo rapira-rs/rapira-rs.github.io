@@ -96,6 +96,120 @@ yarn
 
 :::
 
+## 文件标签页
+
+`<CodeTabs>` 会像编辑器那样展示一组文件：每个文件一个标签，下方是当前标签的代码。在页面的 `<script setup>` 里列出标签，再把各段代码放进与标签 `slot` 同名的 `<template>` 中：
+
+````md
+<script setup>
+const appTabs = [
+  { name: 'index.php', slot: 'classic' },
+  { name: 'worker.php', slot: 'worker' },
+  { name: 'rapira.toml', slot: 'config' },
+]
+</script>
+
+<CodeTabs :tabs="appTabs">
+
+<template #classic>
+
+```php
+<?php
+require __DIR__ . '/vendor/autoload.php';
+
+echo (new App())->handle($_SERVER['REQUEST_URI']);
+```
+
+</template>
+
+<template #worker>
+
+```php
+<?php
+require __DIR__ . '/vendor/autoload.php';
+
+$http = create_plugin_handler(new HttpHandlerConfig());
+$app = new App(); // 只启动一次，供后续所有请求复用
+
+$handler = static function () use ($app): void {
+    echo $app->handle($_SERVER['REQUEST_URI']);
+};
+
+while ($http->handleRequest($handler)) {
+}
+```
+
+</template>
+
+<template #config>
+
+```toml
+[pool]
+entrypoint = "worker.php"
+processes = 4
+```
+
+</template>
+
+</CodeTabs>
+````
+
+标签图标取自文件名后缀：`.php`、`.rs`、`.toml`、`.yaml`、`.json` 和 `.sh` 各有专属图标，其余一律使用通用文件图标。想自己指定，就给标签加上 `icon`，取值为 `php`、`rust`、`toml`、`yaml`、`json`、`shell` 或 `file`。
+
+这段代码在页面上的效果如下：
+
+<script setup>
+const appTabs = [
+  { name: 'index.php', slot: 'classic' },
+  { name: 'worker.php', slot: 'worker' },
+  { name: 'rapira.toml', slot: 'config' },
+]
+</script>
+
+<CodeTabs :tabs="appTabs">
+
+<template #classic>
+
+```php
+<?php
+require __DIR__ . '/vendor/autoload.php';
+
+echo (new App())->handle($_SERVER['REQUEST_URI']);
+```
+
+</template>
+
+<template #worker>
+
+```php
+<?php
+require __DIR__ . '/vendor/autoload.php';
+
+$http = create_plugin_handler(new HttpHandlerConfig());
+$app = new App(); // 只启动一次，供后续所有请求复用
+
+$handler = static function () use ($app): void {
+    echo $app->handle($_SERVER['REQUEST_URI']);
+};
+
+while ($http->handleRequest($handler)) {
+}
+```
+
+</template>
+
+<template #config>
+
+```toml
+[pool]
+entrypoint = "worker.php"
+processes = 4
+```
+
+</template>
+
+</CodeTabs>
+
 ## 图表
 
 `mermaid` 代码块会渲染成图表：

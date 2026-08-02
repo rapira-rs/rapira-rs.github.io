@@ -426,7 +426,12 @@ html {
   transition: all 0.3s ease;
 }
 
-.vp-doc .vp-code-group div[class*="language-"] {
+/* A block inside a tabbed frame — `::: code-group` or `<CodeTabs>` — sits flush
+   against the tab bar, so it gives up the margin, rounding and shadow a
+   standalone block gets. The rule above is `!important`, so this one has to be
+   too, or the frame ends up with the block's 24px margin inside it. */
+.vp-doc .vp-code-group div[class*="language-"],
+.vp-doc .code-tab-panel div[class*="language-"] {
   margin: 0 !important;
   border-radius: 0 !important;
   box-shadow: none !important;
@@ -437,7 +442,8 @@ html {
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
 }
 
-.vp-doc .vp-code-group div[class*="language-"]:hover {
+.vp-doc .vp-code-group div[class*="language-"]:hover,
+.vp-doc .code-tab-panel div[class*="language-"]:hover {
   box-shadow: none !important;
 }
 

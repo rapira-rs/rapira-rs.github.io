@@ -96,6 +96,120 @@ yarn
 
 :::
 
+## Pestañas de archivos
+
+Un bloque `<CodeTabs>` muestra varios archivos como lo haría un editor: una pestaña por archivo y, debajo, el código de la pestaña abierta. Declara la lista de pestañas en un bloque `<script setup>` de la página y coloca cada fragmento en un `<template>` cuyo nombre coincida con el `slot` de la pestaña:
+
+````md
+<script setup>
+const appTabs = [
+  { name: 'index.php', slot: 'classic' },
+  { name: 'worker.php', slot: 'worker' },
+  { name: 'rapira.toml', slot: 'config' },
+]
+</script>
+
+<CodeTabs :tabs="appTabs">
+
+<template #classic>
+
+```php
+<?php
+require __DIR__ . '/vendor/autoload.php';
+
+echo (new App())->handle($_SERVER['REQUEST_URI']);
+```
+
+</template>
+
+<template #worker>
+
+```php
+<?php
+require __DIR__ . '/vendor/autoload.php';
+
+$http = create_plugin_handler(new HttpHandlerConfig());
+$app = new App(); // se arranca una vez y se reutiliza en cada petición
+
+$handler = static function () use ($app): void {
+    echo $app->handle($_SERVER['REQUEST_URI']);
+};
+
+while ($http->handleRequest($handler)) {
+}
+```
+
+</template>
+
+<template #config>
+
+```toml
+[pool]
+entrypoint = "worker.php"
+processes = 4
+```
+
+</template>
+
+</CodeTabs>
+````
+
+El icono de cada pestaña sale de la extensión de su nombre: `.php`, `.rs`, `.toml`, `.yaml`, `.json` y `.sh` tienen el suyo, y el resto recibe un icono de archivo genérico. Añade `icon` a una pestaña para elegirlo tú: `php`, `rust`, `toml`, `yaml`, `json`, `shell` o `file`.
+
+Así se ve ese bloque en la página:
+
+<script setup>
+const appTabs = [
+  { name: 'index.php', slot: 'classic' },
+  { name: 'worker.php', slot: 'worker' },
+  { name: 'rapira.toml', slot: 'config' },
+]
+</script>
+
+<CodeTabs :tabs="appTabs">
+
+<template #classic>
+
+```php
+<?php
+require __DIR__ . '/vendor/autoload.php';
+
+echo (new App())->handle($_SERVER['REQUEST_URI']);
+```
+
+</template>
+
+<template #worker>
+
+```php
+<?php
+require __DIR__ . '/vendor/autoload.php';
+
+$http = create_plugin_handler(new HttpHandlerConfig());
+$app = new App(); // se arranca una vez y se reutiliza en cada petición
+
+$handler = static function () use ($app): void {
+    echo $app->handle($_SERVER['REQUEST_URI']);
+};
+
+while ($http->handleRequest($handler)) {
+}
+```
+
+</template>
+
+<template #config>
+
+```toml
+[pool]
+entrypoint = "worker.php"
+processes = 4
+```
+
+</template>
+
+</CodeTabs>
+
 ## Diagramas
 
 Un bloque `mermaid` se convierte en un diagrama:

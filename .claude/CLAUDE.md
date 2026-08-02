@@ -52,7 +52,8 @@ docs/         # English (root)
         ├── GitHubIcon.vue      # Shared GitHub mark (nav stars + hero action)
         ├── RapiraHero.vue      # Home landing cover (wordmark + lede + actions)
         ├── BlogPosts.vue       # Blog index list
-        └── BlogPostHeader.vue  # Per-post hero image + meta
+        ├── BlogPostHeader.vue  # Per-post hero image + meta
+        └── CodeTabs.vue        # Editor-style file tabs around code blocks
 
 ru/           # Russian locale   ┐
 es/           # Spanish locale   │ same structure as root:
@@ -192,6 +193,7 @@ The home pages (`index.md` in each locale) use `layout: home` **without** a `her
 Beyond standard Markdown, the `:::` callouts, and `::: question` spoilers, pages can use:
 
 - **Code blocks**: syntax highlighting + language label + copy button; line highlighting (```` ```rust{2,4} ````); focus / diff via inline `// [!code focus]`, `// [!code --]`, `// [!code ++]` markers; tabbed groups (`::: code-group` with fenced blocks inside, each labelled `` ```bash [npm] ``).
+- **File tabs**: `<CodeTabs :tabs="…">` (`theme/CodeTabs.vue`, registered globally) wraps several code blocks in an editor-style tab bar — one tab per file. The tab list is declared in a `<script setup>` block on the page (`{ name, slot, icon? }`) and each snippet goes in a `<template #slot>`. The icon is derived from the extension in `name`; the glyphs are drawn inline in the component, so a new language needs an accent colour there rather than an asset in `public/`. Use it for files that belong together (entry script + config); use `::: code-group` for alternative forms of the same thing (npm/pnpm/yarn).
 - **Mermaid diagrams**: a fenced ```` ```mermaid ```` block (via `vitepress-plugin-mermaid`).
 - **Badges**: `<Badge type="tip|warning|danger|info" text="…" />` for inline status labels.
 - **Tables**: standard GFM tables.

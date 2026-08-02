@@ -96,6 +96,120 @@ yarn
 
 :::
 
+## Вкладки с файлами
+
+Блок `<CodeTabs>` показывает несколько файлов так, как это делает редактор: сверху вкладка на каждый файл, под ними — код открытой вкладки. Перечислите вкладки в блоке `<script setup>` на странице, а каждый фрагмент положите в `<template>`, имя которого совпадает со `slot` вкладки:
+
+````md
+<script setup>
+const appTabs = [
+  { name: 'index.php', slot: 'classic' },
+  { name: 'worker.php', slot: 'worker' },
+  { name: 'rapira.toml', slot: 'config' },
+]
+</script>
+
+<CodeTabs :tabs="appTabs">
+
+<template #classic>
+
+```php
+<?php
+require __DIR__ . '/vendor/autoload.php';
+
+echo (new App())->handle($_SERVER['REQUEST_URI']);
+```
+
+</template>
+
+<template #worker>
+
+```php
+<?php
+require __DIR__ . '/vendor/autoload.php';
+
+$http = create_plugin_handler(new HttpHandlerConfig());
+$app = new App(); // поднимается один раз и живёт от запроса к запросу
+
+$handler = static function () use ($app): void {
+    echo $app->handle($_SERVER['REQUEST_URI']);
+};
+
+while ($http->handleRequest($handler)) {
+}
+```
+
+</template>
+
+<template #config>
+
+```toml
+[pool]
+entrypoint = "worker.php"
+processes = 4
+```
+
+</template>
+
+</CodeTabs>
+````
+
+Иконку вкладки задаёт расширение в её имени: у `.php`, `.rs`, `.toml`, `.yaml`, `.json` и `.sh` она своя, у остальных — обычный значок файла. Чтобы выбрать иконку самостоятельно, добавьте вкладке поле `icon` со значением `php`, `rust`, `toml`, `yaml`, `json`, `shell` или `file`.
+
+Вот как этот блок выглядит на странице:
+
+<script setup>
+const appTabs = [
+  { name: 'index.php', slot: 'classic' },
+  { name: 'worker.php', slot: 'worker' },
+  { name: 'rapira.toml', slot: 'config' },
+]
+</script>
+
+<CodeTabs :tabs="appTabs">
+
+<template #classic>
+
+```php
+<?php
+require __DIR__ . '/vendor/autoload.php';
+
+echo (new App())->handle($_SERVER['REQUEST_URI']);
+```
+
+</template>
+
+<template #worker>
+
+```php
+<?php
+require __DIR__ . '/vendor/autoload.php';
+
+$http = create_plugin_handler(new HttpHandlerConfig());
+$app = new App(); // поднимается один раз и живёт от запроса к запросу
+
+$handler = static function () use ($app): void {
+    echo $app->handle($_SERVER['REQUEST_URI']);
+};
+
+while ($http->handleRequest($handler)) {
+}
+```
+
+</template>
+
+<template #config>
+
+```toml
+[pool]
+entrypoint = "worker.php"
+processes = 4
+```
+
+</template>
+
+</CodeTabs>
+
 ## Диаграммы
 
 Блок `mermaid` превращается в диаграмму:

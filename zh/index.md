@@ -15,6 +15,50 @@ features:
     link: /zh/docs/execution-modes
 ---
 
+<script setup>
+import { VPImage } from 'vitepress/theme'
+
+// 文字右侧的 Pingora 横幅——纯装饰，明暗主题各一张，
+// 文件按下面的名字放进 public/。
+const pingoraBanner = {
+  light: '/pingora-banner-light.png',
+  dark: '/pingora-banner-dark.png',
+  alt: 'Pingora',
+}
+
+// Pingora 带进二进制的能力：`ready: false` 表示 Rapira 尚未提供，
+// 这些标签会显示为灰色。
+const httpFeatures = [
+  { label: 'HTTP/1.1' },
+  { label: 'HTTP/2', ready: false },
+  { label: 'HTTP/3', ready: false },
+  { label: 'Keep-alive' },
+  { label: 'Early Hints' },
+  { label: 'Trailers', ready: false },
+  { label: 'TLS 1.3', ready: false },
+  { label: 'TLS 1.2', ready: false },
+  { label: 'ALPN', ready: false },
+]
+</script>
+
+<RapiraSection title="内置 HTTP 服务器，由 Pingora 驱动" link="/zh/docs/http" link-text="HTTP 请求与响应">
+
+说来矛盾，PHP 一直没有一个生产可用的自带 HTTP 服务器：内置的那个只是开发工具，php-fpm 又离不开 nginx 这样的外部 Web 服务器。
+
+现在有了：一个现代、快速、基于 [Pingora](https://github.com/cloudflare/pingora) 构建的服务器。Cloudflare 正是用这个框架承载着全网相当可观的一部分流量。
+
+<template #aside>
+<div class="rapira-section-art">
+<VPImage :image="pingoraBanner" draggable="false" />
+</div>
+</template>
+
+<template #footer>
+<FeatureTags :items="httpFeatures" />
+</template>
+
+</RapiraSection>
+
 <div class="sponsors-section">
   <h2 class="sponsors-title">赞助商</h2>
   <div class="sponsors-grid">

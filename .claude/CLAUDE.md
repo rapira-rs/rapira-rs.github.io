@@ -51,6 +51,8 @@ docs/         # English (root)
         ├── GitHubStars.vue
         ├── GitHubIcon.vue      # Shared GitHub mark (nav stars + hero action)
         ├── RapiraHero.vue      # Home landing cover (wordmark + lede + actions)
+        ├── RapiraSection.vue    # Home feature segment (heading, text, aside, footer)
+        ├── FeatureTags.vue      # Tag row for segment features (ready/pending)
         ├── BlogPosts.vue       # Blog index list
         ├── BlogPostHeader.vue  # Per-post hero image + meta
         └── CodeTabs.vue        # Editor-style file tabs around code blocks
@@ -181,6 +183,19 @@ The home pages (`index.md` in each locale) use `layout: home` **without** a `her
 - The cover sets `user-select: none` (decoration, and a stray drag-select looks broken) and the wordmark is `draggable="false"`. `.rapira-lede` opts back into selection — it is prose worth copying.
 - The `features:` frontmatter block still renders below the cover as usual.
 - Styles: `.rapira-hero*`, `.rapira-lede*` in `theme/style.css`.
+
+## Home Feature Segments
+
+Below the `features:` cards each home page carries a series of full-width segments, written in the page's markdown as `<RapiraSection>` (`theme/RapiraSection.vue`, registered globally): a heading row spanning the segment's full width (`title` prop, optional `eyebrow` above it), then the markdown prose from the default slot plus an optional `link` + `link-text` under it. An optional `#aside` slot puts a second column on the right (cards, a code block, an image); without it the prose runs single-column at a capped measure. An optional `#footer` slot renders a full-width row under both columns (the networking segment puts its `FeatureTags` there). One shared frame keeps the series consistent; the aside is individual. Segments are separated by whitespace alone — no rules between them — so a new one only has to be appended before the sponsors block.
+
+All copy lives in `index.md` — props and slot content, never in the component — so translators never open a `.vue` file. Data-driven asides declare their items in a `<script setup>` block on the page, the same pattern `CodeTabs` uses.
+
+Segment building blocks:
+
+- **`FeatureTags`** (HTTP-server segment, `#footer`) — a flat tag row (`items: [{ label, ready? }]`). `ready` defaults to true; a tag with `ready: false` is drawn dimmed, dashed and with a hollow dot: that is how the site shows a feature that is not shipped yet, and the drawing is left to say it — there is no caption spelling it out.
+- **`.rapira-section-art`** (HTTP-server segment, `#aside`) — a decorative theme-aware image (`VPImage`) painted as the background of the aside column: absolutely positioned, fitted to the height the text gives the row, hidden together with its column on the stacked layout. The Pingora banner files are `public/pingora-banner-{light,dark}.png`.
+
+Frame styles are `.rapira-section*` in `theme/style.css` (they have to outrank `.vp-doc`, since the segments render inside the home page's markdown container); aside internals stay scoped in their own component.
 
 **Sponsors block:** each home page ends with a `<div class="sponsors-section">` showing the sponsor logo (`public/sponsors/logo-buhta.svg`, links to buhta.com) plus a "Become a Sponsor | Star on GitHub" CTA. "Become a Sponsor" points to the in-site sponsor page (`/sponsor`, `/ru/sponsor`, …); the heading and CTA text are translated inline per locale. Styles: `.sponsors-section`, `.sponsor-*` in `theme/style.css` (the logo is auto-inverted in dark mode). The sponsor pages themselves live at `sponsor.md` in each locale.
 

@@ -15,6 +15,50 @@ features:
     link: /es/docs/execution-modes
 ---
 
+<script setup>
+import { VPImage } from 'vitepress/theme'
+
+// El banner de Pingora a la derecha del texto — decoración, una variante por
+// tema. Los archivos van en public/ con estos nombres.
+const pingoraBanner = {
+  light: '/pingora-banner-light.png',
+  dark: '/pingora-banner-dark.png',
+  alt: 'Pingora',
+}
+
+// Lo que Pingora aporta al binario: `ready: false` marca lo que Rapira todavía
+// no sirve — esas etiquetas se dibujan atenuadas.
+const httpFeatures = [
+  { label: 'HTTP/1.1' },
+  { label: 'HTTP/2', ready: false },
+  { label: 'HTTP/3', ready: false },
+  { label: 'Keep-alive' },
+  { label: 'Early Hints' },
+  { label: 'Trailers', ready: false },
+  { label: 'TLS 1.3', ready: false },
+  { label: 'TLS 1.2', ready: false },
+  { label: 'ALPN', ready: false },
+]
+</script>
+
+<RapiraSection title="Servidor HTTP integrado, potenciado por Pingora" link="/es/docs/http" link-text="Peticiones y respuestas HTTP">
+
+Resulta paradójico, pero PHP nunca ha tenido un servidor HTTP propio listo para producción: el integrado es solo una herramienta de desarrollo, y php-fpm no funciona sin un servidor web externo como nginx.
+
+Ahora ya lo tiene: un servidor moderno y rápido, construido sobre [Pingora](https://github.com/cloudflare/pingora). Con ese framework Cloudflare atiende una parte considerable del tráfico de todo internet.
+
+<template #aside>
+<div class="rapira-section-art">
+<VPImage :image="pingoraBanner" draggable="false" />
+</div>
+</template>
+
+<template #footer>
+<FeatureTags :items="httpFeatures" />
+</template>
+
+</RapiraSection>
+
 <div class="sponsors-section">
   <h2 class="sponsors-title">Patrocinadores</h2>
   <div class="sponsors-grid">

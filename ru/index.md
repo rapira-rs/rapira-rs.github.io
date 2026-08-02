@@ -15,6 +15,50 @@ features:
     link: /ru/docs/execution-modes
 ---
 
+<script setup>
+import { VPImage } from 'vitepress/theme'
+
+// Баннер Pingora справа от текста — декорация, по варианту на тему.
+// Файлы кладутся в public/ под этими именами.
+const pingoraBanner = {
+  light: '/pingora-banner-light.png',
+  dark: '/pingora-banner-dark.png',
+  alt: 'Pingora',
+}
+
+// Что Pingora приносит в бинарник: `ready: false` — ещё не реализовано в Rapira,
+// такие теги рисуются приглушёнными.
+const httpFeatures = [
+  { label: 'HTTP/1.1' },
+  { label: 'HTTP/2', ready: false },
+  { label: 'HTTP/3', ready: false },
+  { label: 'Keep-alive' },
+  { label: 'Early Hints' },
+  { label: 'Trailers', ready: false },
+  { label: 'TLS 1.3', ready: false },
+  { label: 'TLS 1.2', ready: false },
+  { label: 'ALPN', ready: false },
+]
+</script>
+
+<RapiraSection title="Встроенный HTTP-сервер, усиленный Pingora" link="/ru/docs/http" link-text="HTTP-запросы и ответы">
+
+Парадоксально, но у PHP нет своего production-ready HTTP-сервера. Встроенный годится только для разработки, а php-fpm не работает без внешнего веб-сервера вроде nginx.
+
+Теперь такой сервер у PHP есть: современный, быстрый, построенный на [Pingora](https://github.com/cloudflare/pingora). Этим фреймворком Cloudflare обслуживает заметную часть трафика всего интернета.
+
+<template #aside>
+<div class="rapira-section-art">
+<VPImage :image="pingoraBanner" draggable="false" />
+</div>
+</template>
+
+<template #footer>
+<FeatureTags :items="httpFeatures" />
+</template>
+
+</RapiraSection>
+
 <div class="sponsors-section">
   <h2 class="sponsors-title">Спонсоры</h2>
   <div class="sponsors-grid">

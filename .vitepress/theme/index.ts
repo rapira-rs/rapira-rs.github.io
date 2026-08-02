@@ -7,6 +7,8 @@ import BlogPosts from './BlogPosts.vue'
 import BlogPostHeader from './BlogPostHeader.vue'
 import CodeTabs from './CodeTabs.vue'
 import RapiraHero from './RapiraHero.vue'
+import RapiraSection from './RapiraSection.vue'
+import FeatureTags from './FeatureTags.vue'
 import { isBlogPath } from '../locales'
 import './style.css'
 
@@ -27,5 +29,7 @@ export default {
   enhanceApp({ app }) {
     app.component('BlogPosts', BlogPosts)
     app.component('CodeTabs', CodeTabs)
+    app.component('RapiraSection', RapiraSection)
+    app.component('FeatureTags', FeatureTags)
   },
 } satisfies Theme

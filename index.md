@@ -30,14 +30,14 @@ const pingoraBanner = {
 // not serve yet — those tags are drawn dimmed.
 const httpFeatures = [
   { label: 'HTTP/1.1' },
-  { label: 'HTTP/2', ready: false },
-  { label: 'HTTP/3', ready: false },
+  { label: 'HTTP/2' },
+  { label: 'HTTP/3' },
   { label: 'Keep-alive' },
   { label: 'Early Hints' },
   { label: 'Trailers', ready: false },
-  { label: 'TLS 1.3', ready: false },
-  { label: 'TLS 1.2', ready: false },
-  { label: 'ALPN', ready: false },
+  { label: 'TLS 1.3' },
+  { label: 'TLS 1.2' },
+  { label: 'ALPN' },
 ]
 
 // Four ways to wire a server to PHP — one tab each.

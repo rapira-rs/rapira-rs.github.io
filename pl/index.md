@@ -30,14 +30,14 @@ const pingoraBanner = {
 // jeszcze nie obsługuje — takie etykiety są wyszarzone.
 const httpFeatures = [
   { label: 'HTTP/1.1' },
-  { label: 'HTTP/2', ready: false },
-  { label: 'HTTP/3', ready: false },
+  { label: 'HTTP/2' },
+  { label: 'HTTP/3' },
   { label: 'Keep-alive' },
   { label: 'Early Hints' },
   { label: 'Trailers', ready: false },
-  { label: 'TLS 1.3', ready: false },
-  { label: 'TLS 1.2', ready: false },
-  { label: 'ALPN', ready: false },
+  { label: 'TLS 1.3' },
+  { label: 'TLS 1.2' },
+  { label: 'ALPN' },
 ]
 
 // Cztery sposoby połączenia serwera z PHP — po zakładce na każdy.

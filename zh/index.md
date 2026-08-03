@@ -39,6 +39,15 @@ const httpFeatures = [
   { label: 'TLS 1.2', ready: false },
   { label: 'ALPN', ready: false },
 ]
+
+// 服务器与 PHP 之间的四种衔接方式——一种一个标签页，
+// 各标签页的文字放在下面 <TextTabs> 的插槽里。
+const interopTabs = [
+  { name: 'FastCGI', slot: 'fastcgi', users: ['php-fpm', 'nginx', 'Angie'] },
+  { name: 'Goridge', slot: 'goridge', users: ['RoadRunner'] },
+  { name: 'CGO', slot: 'cgo', users: ['FrankenPHP'] },
+  { name: 'C ABI', slot: 'cabi', users: ['Rapira'] },
+]
 </script>
 
 <RapiraSection title="内置 HTTP 服务器，由 Pingora 驱动" link="/zh/docs/http" link-text="HTTP 请求与响应">
@@ -55,6 +64,39 @@ const httpFeatures = [
 
 <template #footer>
 <FeatureTags :items="httpFeatures" />
+</template>
+
+</RapiraSection>
+
+<RapiraSection title="零中间层：Rust 直接调用 PHP" link="/zh/docs/process-model" link-text="进程模型">
+
+Rapira 用 Rust 编写，PHP 用 C 编写。Rust 原生调用 C 函数，两种语言之间的互操作没有任何开销：从 Rust 调用一个 PHP 函数，就是一次普通的函数调用。解释器内嵌在服务器进程里，Rapira 通过直接绑定驱动它——从启动引擎到处理每一个请求。
+
+这里没有 FastCGI，没有 Goridge，也没有 CGO：请求从不序列化，也从不离开进程。在 SAPI 模式下，Rapira 直接写入超全局变量。
+
+<template #aside>
+<TextTabs :tabs="interopTabs">
+<template #fastcgi>
+
+PHP 运行在独立进程中，Web 服务器通过 socket 上的二进制协议与之通信：每个请求被打包成 FastCGI 记录，发送过去，在另一端解包，响应再原路返回。
+
+</template>
+<template #goridge>
+
+PHP worker 是独立进程，通过管道或 socket 从服务器接收请求。Goridge 就是这套交换的协议：每个请求和响应都要在一端序列化、在另一端解析。
+
+</template>
+<template #cgo>
+
+PHP 解释器内嵌在服务器进程里，但宿主是用 Go 写的，而 Go 无法直接调用 C 代码。每次调用都要经过 CGO，这个中间层在每次跨越语言边界时都会带来开销。
+
+</template>
+<template #cabi>
+
+ABI 是编译型语言之间的二进制契约。Rust 原生支持 C ABI：从 Rust 调用 C 函数，编译出的机器码与 C 自己的调用完全相同。
+
+</template>
+</TextTabs>
 </template>
 
 </RapiraSection>

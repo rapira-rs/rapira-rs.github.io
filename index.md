@@ -39,6 +39,15 @@ const httpFeatures = [
   { label: 'TLS 1.2', ready: false },
   { label: 'ALPN', ready: false },
 ]
+
+// Four ways to wire a server to PHP — one tab each.
+// The tab prose lives in the <TextTabs> slots below.
+const interopTabs = [
+  { name: 'FastCGI', slot: 'fastcgi', users: ['php-fpm', 'nginx', 'Angie'] },
+  { name: 'Goridge', slot: 'goridge', users: ['RoadRunner'] },
+  { name: 'CGO', slot: 'cgo', users: ['FrankenPHP'] },
+  { name: 'C ABI', slot: 'cabi', users: ['Rapira'] },
+]
 </script>
 
 <RapiraSection title="A built-in HTTP server, powered by Pingora" link="/docs/http" link-text="HTTP requests and responses">
@@ -55,6 +64,39 @@ Now PHP has that server: modern, fast, built on [Pingora](https://github.com/clo
 
 <template #footer>
 <FeatureTags :items="httpFeatures" />
+</template>
+
+</RapiraSection>
+
+<RapiraSection title="Zero interop: Rust calls PHP directly" link="/docs/process-model" link-text="Process model">
+
+Rapira is written in Rust, PHP in C. Rust calls C functions natively, so interop between the two languages costs nothing: calling a PHP function from Rust is an ordinary function call. The interpreter is embedded in the server process, and Rapira drives it through direct bindings — from booting the engine to handling every request.
+
+There is no FastCGI, no Goridge, no CGO: a request is never serialized and never leaves the process. In SAPI mode Rapira fills the superglobals directly.
+
+<template #aside>
+<TextTabs :tabs="interopTabs">
+<template #fastcgi>
+
+PHP runs in separate processes, and the web server talks to them over a socket using a binary protocol: every request is packed into FastCGI records, sent across, unpacked on the other side — and the response makes the same trip back.
+
+</template>
+<template #goridge>
+
+PHP workers are separate processes that receive requests from the server over pipes or sockets. Goridge is the protocol of that exchange: every request and response is serialized on one side and parsed on the other.
+
+</template>
+<template #cgo>
+
+The PHP interpreter is embedded in the server process, but the host is written in Go, and Go cannot call C code directly. Every call goes through CGO — a layer that adds overhead on each crossing of the language boundary.
+
+</template>
+<template #cabi>
+
+An ABI is the binary contract between compiled languages. Rust supports the C ABI natively: a C function call from Rust compiles to the same machine code as a call from C itself.
+
+</template>
+</TextTabs>
 </template>
 
 </RapiraSection>

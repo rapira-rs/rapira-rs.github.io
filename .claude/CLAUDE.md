@@ -53,6 +53,7 @@ docs/         # English (root)
         ├── RapiraHero.vue      # Home landing cover (wordmark + lede + actions)
         ├── RapiraSection.vue    # Home feature segment (heading, text, aside, footer)
         ├── FeatureTags.vue      # Tag row for segment features (ready/pending)
+        ├── TextTabs.vue         # Tab strip over short prose panels
         ├── BlogPosts.vue       # Blog index list
         ├── BlogPostHeader.vue  # Per-post hero image + meta
         └── CodeTabs.vue        # Editor-style file tabs around code blocks
@@ -194,6 +195,7 @@ Segment building blocks:
 
 - **`FeatureTags`** (HTTP-server segment, `#footer`) — a flat tag row (`items: [{ label, ready? }]`). `ready` defaults to true; a tag with `ready: false` is drawn dimmed, dashed and with a hollow dot: that is how the site shows a feature that is not shipped yet, and the drawing is left to say it — there is no caption spelling it out.
 - **`.rapira-section-art`** (HTTP-server segment, `#aside`) — a decorative theme-aware image (`VPImage`) painted as the background of the aside column: absolutely positioned, fitted to the height the text gives the row, hidden together with its column on the stacked layout. The Pingora banner files are `public/pingora-banner-{light,dark}.png`.
+- **`TextTabs`** (interop segment, `#aside`) — a tab strip over short prose panels, one per alternative being compared (`tabs: [{ name, slot, users? }]`). Each panel's prose goes in a `<template #…>` slot; `users` names the products built on that approach and is drawn as small tags under the prose. Panels share one grid cell, so the block keeps the height of its tallest panel and switching tabs never shifts the page. Styles are scoped in the component.
 
 Frame styles are `.rapira-section*` in `theme/style.css` (they have to outrank `.vp-doc`, since the segments render inside the home page's markdown container); aside internals stay scoped in their own component.
 

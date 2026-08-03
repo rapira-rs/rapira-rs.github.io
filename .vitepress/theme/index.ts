@@ -9,6 +9,7 @@ import CodeTabs from './CodeTabs.vue'
 import RapiraHero from './RapiraHero.vue'
 import RapiraSection from './RapiraSection.vue'
 import FeatureTags from './FeatureTags.vue'
+import TextTabs from './TextTabs.vue'
 import { isBlogPath } from '../locales'
 import './style.css'
 
@@ -31,5 +32,6 @@ export default {
     app.component('CodeTabs', CodeTabs)
     app.component('RapiraSection', RapiraSection)
     app.component('FeatureTags', FeatureTags)
+    app.component('TextTabs', TextTabs)
   },
 } satisfies Theme

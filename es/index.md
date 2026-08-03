@@ -39,6 +39,15 @@ const httpFeatures = [
   { label: 'TLS 1.2', ready: false },
   { label: 'ALPN', ready: false },
 ]
+
+// Cuatro formas de conectar un servidor con PHP — una pestaña por cada una.
+// Los textos de las pestañas van en los slots de <TextTabs> más abajo.
+const interopTabs = [
+  { name: 'FastCGI', slot: 'fastcgi', users: ['php-fpm', 'nginx', 'Angie'] },
+  { name: 'Goridge', slot: 'goridge', users: ['RoadRunner'] },
+  { name: 'CGO', slot: 'cgo', users: ['FrankenPHP'] },
+  { name: 'C ABI', slot: 'cabi', users: ['Rapira'] },
+]
 </script>
 
 <RapiraSection title="Servidor HTTP integrado, potenciado por Pingora" link="/es/docs/http" link-text="Peticiones y respuestas HTTP">
@@ -55,6 +64,39 @@ Ahora ya lo tiene: un servidor moderno y rápido, construido sobre [Pingora](htt
 
 <template #footer>
 <FeatureTags :items="httpFeatures" />
+</template>
+
+</RapiraSection>
+
+<RapiraSection title="Interop cero: Rust llama a PHP directamente" link="/es/docs/process-model" link-text="Modelo de procesos">
+
+Rapira está escrita en Rust; PHP, en C. Rust llama a las funciones de C de forma nativa, así que la interoperabilidad entre ambos lenguajes no cuesta nada: llamar a una función de PHP desde Rust es una llamada de función normal. El intérprete va incrustado en el proceso del servidor, y Rapira lo controla mediante bindings directos: desde arrancar el motor hasta atender cada petición.
+
+Aquí no hay FastCGI, ni Goridge, ni CGO: la petición no se serializa en ningún punto y nunca sale del proceso. En modo SAPI, Rapira rellena las superglobales directamente.
+
+<template #aside>
+<TextTabs :tabs="interopTabs">
+<template #fastcgi>
+
+PHP se ejecuta en procesos separados y el servidor web se comunica con ellos por un socket mediante un protocolo binario: cada petición se empaqueta en registros FastCGI, viaja y se desempaqueta al otro lado, y la respuesta hace el mismo camino de vuelta.
+
+</template>
+<template #goridge>
+
+Los workers de PHP son procesos separados que reciben las peticiones del servidor a través de pipes o sockets. Goridge es el protocolo de ese intercambio: cada petición y cada respuesta se serializa en un lado y se interpreta en el otro.
+
+</template>
+<template #cgo>
+
+El intérprete de PHP va incrustado en el proceso del servidor, pero el host está escrito en Go, y Go no puede llamar a código C directamente. Cada llamada pasa por CGO, una capa que añade sobrecarga cada vez que se cruza la frontera entre lenguajes.
+
+</template>
+<template #cabi>
+
+La ABI es el contrato binario entre lenguajes compilados. Rust admite la ABI de C de forma nativa: una llamada a una función de C desde Rust se compila al mismo código máquina que una llamada hecha desde el propio C.
+
+</template>
+</TextTabs>
 </template>
 
 </RapiraSection>

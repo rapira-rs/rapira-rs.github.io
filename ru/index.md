@@ -39,6 +39,15 @@ const httpFeatures = [
   { label: 'TLS 1.2', ready: false },
   { label: 'ALPN', ready: false },
 ]
+
+// Четыре способа связать сервер с PHP — по табу на каждый.
+// Тексты табов лежат в слотах <TextTabs> ниже.
+const interopTabs = [
+  { name: 'FastCGI', slot: 'fastcgi', users: ['php-fpm', 'nginx', 'Angie'] },
+  { name: 'Goridge', slot: 'goridge', users: ['RoadRunner'] },
+  { name: 'CGO', slot: 'cgo', users: ['FrankenPHP'] },
+  { name: 'C ABI', slot: 'cabi', users: ['Rapira'] },
+]
 </script>
 
 <RapiraSection title="Встроенный HTTP-сервер, усиленный Pingora" link="/ru/docs/http" link-text="HTTP-запросы и ответы">
@@ -55,6 +64,39 @@ const httpFeatures = [
 
 <template #footer>
 <FeatureTags :items="httpFeatures" />
+</template>
+
+</RapiraSection>
+
+<RapiraSection title="Нулевой интероп: Rust вызывает PHP напрямую" link="/ru/docs/process-model" link-text="Модель процессов">
+
+Rapira написана на Rust, PHP — на C. Rust вызывает C-функции нативно, поэтому интероп между двумя языками не стоит ничего: вызов PHP-функции из Rust — это обычный вызов функции. Интерпретатор встроен в процесс сервера, и Rapira управляет им через прямые биндинги — от запуска движка до обработки каждого запроса.
+
+Здесь нет ни FastCGI, ни Goridge, ни CGO: запрос нигде не сериализуется и не покидает процесс. В режиме SAPI Rapira заполняет суперглобалы напрямую.
+
+<template #aside>
+<TextTabs :tabs="interopTabs">
+<template #fastcgi>
+
+PHP работает в отдельных процессах, а веб-сервер общается с ними по сокету бинарным протоколом: каждый запрос упаковывается в FastCGI-записи, передаётся, разбирается на другой стороне — и ответ проделывает тот же путь обратно.
+
+</template>
+<template #goridge>
+
+PHP-воркеры — отдельные процессы, которые получают запросы от сервера через пайпы или сокеты. Goridge — протокол этого обмена: каждый запрос и ответ сериализуется на одной стороне и разбирается на другой.
+
+</template>
+<template #cgo>
+
+Интерпретатор PHP встроен в процесс сервера, но хост написан на Go, а Go не вызывает C-код напрямую. Каждый вызов проходит через CGO — прослойку с накладными расходами на каждое пересечение границы языков.
+
+</template>
+<template #cabi>
+
+ABI — двоичный контракт между компилируемыми языками. Rust поддерживает C ABI нативно: вызов C-функции из Rust — это тот же машинный код, что и вызов из самого C.
+
+</template>
+</TextTabs>
 </template>
 
 </RapiraSection>

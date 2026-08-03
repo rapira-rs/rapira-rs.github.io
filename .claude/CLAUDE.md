@@ -36,6 +36,7 @@ This positioning is what the home page carries: the lede comes from the `tagline
 ```
 docs/         # English (root)
 ├── index.md  # Home page (layout: home)
+├── download.md # Download page (picker over baked release data)
 ├── docs/     # Documentation pages
 ├── blog/     # Blog posts + index.md
 └── .vitepress/
@@ -48,12 +49,14 @@ docs/         # English (root)
         ├── index.ts          # DefaultTheme + GitHub stars + blog components
         ├── style.css         # Custom styles (brand colors, blocks, FAQ)
         ├── posts.data.ts      # Blog posts data loader
+        ├── builds.data.ts     # Release builds data loader (GitHub API at build time)
         ├── GitHubStars.vue
         ├── GitHubIcon.vue      # Shared GitHub mark (nav stars + hero action)
         ├── RapiraHero.vue      # Home landing cover (wordmark + lede + actions)
         ├── RapiraSection.vue    # Home feature segment (heading, text, aside, footer)
         ├── FeatureTags.vue      # Tag row for segment features (ready/pending)
         ├── TextTabs.vue         # Tab strip over short prose panels
+        ├── DownloadBuilds.vue   # Download picker (OS → arch → PHP → format)
         ├── BlogPosts.vue       # Blog index list
         ├── BlogPostHeader.vue  # Per-post hero image + meta
         └── CodeTabs.vue        # Editor-style file tabs around code blocks
@@ -119,7 +122,7 @@ The docs sidebar (five per-locale blocks in `.vitepress/config.mts`) has six gro
 
 - Resolve a locale from a URL or src-relative path → `getLocaleByPath(path)`.
 - Resolve a locale from a `lang` code (e.g. `useData().lang`) → `getLocaleByCode(code)`.
-- Build URLs → `getDocsUrl(locale)`, `getBlogUrl(locale)`, `getFeedFilename(locale)`, `getBlogFolder(locale)`.
+- Build URLs → `getDocsUrl(locale)`, `getDownloadUrl(locale)`, `getBlogUrl(locale)`, `getFeedFilename(locale)`, `getBlogFolder(locale)`.
 - Blog predicates → `isBlogPath(path)`, `isBlogIndexPath(path)`, `getBlogGlobPatterns()`.
 - Per-locale UI strings that belong to the service (blog title/description/label, back-to-blog label) live as fields on `LocaleConfig` — add a field there instead of scattering `lang ===` maps across components.
 
@@ -180,7 +183,7 @@ faqLevel: false   # no collection — questions stay in place as inline spoilers
 The home pages (`index.md` in each locale) use `layout: home` **without** a `hero:` frontmatter block. The landing cover is a custom component, `theme/RapiraHero.vue`, injected via the `home-hero-before` layout slot. Top to bottom: the theme-aware RAPIRA wordmark (`public/rapira-bg-light.svg` / `rapira-bg-dark.svg`) centered on the page background — no card, frame or border — then the lede saying what the project is, then two frameless text actions, "Get Started" + "GitHub" (plain links styled via `.rapira-hero-action`, not `VPButton`; the GitHub one carries `GitHubIcon.vue`).
 
 - **The lede copy lives in frontmatter**, not in the component: `tagline` (what Rapira is) and `pitch` (the line below it). Both are optional — each `<p>` is skipped when its field is missing. Keeping them in `index.md` means translators edit content, not Vue.
-- The "Get Started" label *is* a per-locale UI string in `RapiraHero.vue`, since it is UI rather than content; the docs link comes from the locale service (`getDocsUrl`). Add a `startLabels` entry when adding a locale.
+- The "Get Started" and "Download" labels *are* per-locale UI strings in `RapiraHero.vue`, since they are UI rather than content; the URLs come from the locale service (`getDocsUrl`, `getDownloadUrl`). Add a `startLabels` and a `downloadLabels` entry when adding a locale.
 - The cover sets `user-select: none` (decoration, and a stray drag-select looks broken) and the wordmark is `draggable="false"`. `.rapira-lede` opts back into selection — it is prose worth copying.
 - The `features:` frontmatter block still renders below the cover as usual.
 - Styles: `.rapira-hero*`, `.rapira-lede*` in `theme/style.css`.
@@ -200,6 +203,14 @@ Segment building blocks:
 Frame styles are `.rapira-section*` in `theme/style.css` (they have to outrank `.vp-doc`, since the segments render inside the home page's markdown container); aside internals stay scoped in their own component.
 
 **Sponsors block:** each home page ends with a `<div class="sponsors-section">` showing the sponsor logo (`public/sponsors/logo-buhta.svg`, links to buhta.com) plus a "Become a Sponsor | Star on GitHub" CTA. "Become a Sponsor" points to the in-site sponsor page (`/sponsor`, `/ru/sponsor`, …); the heading and CTA text are translated inline per locale. Styles: `.sponsors-section`, `.sponsor-*` in `theme/style.css` (the logo is auto-inverted in dark mode). The sponsor pages themselves live at `sponsor.md` in each locale.
+
+## Download Page
+
+`download.md` in every locale (`/download`, `/ru/download`, …) walks the visitor from OS (preselected from the User-Agent) through architecture, PHP version and package format down to one download button, with the asset's SHA-256 shown under it. The hero's "Download" action links here via `getDownloadUrl(locale)`.
+
+- **Data is baked at build time** by `.vitepress/theme/builds.data.ts`: at `npm run build` (and once per dev-server start) it fetches `releases/latest` of `rapira-rs/rapira` **and** `rapira-rs/rapira-windows` (Windows builds live in their own repo and are dev-only — the page says so in the `#windows-note` slot, shown only while Windows is selected), parses the asset names into (os, arch, php, format) and joins each asset with its hash from the release's `SHA256SUMS.txt`. Everything is derived from asset names, so a new PHP version or architecture appears without code changes; a fetch failure logs a warning and yields an empty list (the page then links to the releases) instead of failing the build. Freshness caveat: a release published between deploys reaches the page with the next deploy.
+- **`DownloadBuilds.vue`** renders the picker. All UI strings arrive through the `labels` prop from the page's `<script setup>`, so translators edit `download.md`, never the component. Styles are scoped in the component.
+- Both workflows pass `GITHUB_TOKEN` to the build step — anonymous API calls from shared Actions runner IPs hit the rate limit.
 
 ## Custom `:::` Blocks
 

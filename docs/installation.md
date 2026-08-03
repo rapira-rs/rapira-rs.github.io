@@ -19,18 +19,7 @@ The deb and rpm packages enforce that. `rapira-php8.4` and `rapira-php8.5` insta
 
 ## Release artifacts
 
-Everything lives on the [GitHub releases page](https://github.com/rapira-rs/rapira/releases). Release `v0.6.0` publishes these, with a `php8.4` counterpart of every `php8.5` name below:
-
-| Platform                            | Artifact                                     |
-| ----------------------------------- | -------------------------------------------- |
-| Debian / Ubuntu, x86_64             | `rapira-php8.5_0.6.0-1_amd64.deb`            |
-| Debian / Ubuntu, ARM                | `rapira-php8.5_0.6.0-1_arm64.deb`            |
-| RHEL / Fedora, x86_64               | `rapira-php8.5-0.6.0-1.x86_64.rpm`           |
-| RHEL / Fedora, ARM                  | `rapira-php8.5-0.6.0-1.aarch64.rpm`          |
-| Linux tarball, x86_64               | `rapira-v0.6.0-php8.5-linux-x86_64.tar.gz`   |
-| Linux tarball, ARM                  | `rapira-v0.6.0-php8.5-linux-aarch64.tar.gz`  |
-| macOS, Apple Silicon                | `rapira-v0.6.0-php8.5-macos-aarch64.tar.gz`  |
-| Checksums for all of the above      | `rapira-v0.6.0-SHA256SUMS.txt`               |
+Everything lives on the [GitHub releases page](https://github.com/rapira-rs/rapira/releases). The [download page](/download) picks the right artifact for your platform — OS, architecture, PHP version, package format — and shows its SHA-256; every `php8.5` artifact has a `php8.4` counterpart.
 
 Use a package on Linux if you want the files where your distribution expects them and `apt` or `dnf` to pull the shared libraries PHP needs; use a tarball if you want the server in one self-contained directory — a container image, a deploy artifact, a machine where you are not root. Check either against `rapira-v0.6.0-SHA256SUMS.txt` before installing it, because a `.deb` or `.rpm` runs its install scripts as root. See [Verifying checksums](#verifying-checksums) for the commands.
 
@@ -154,6 +143,6 @@ PHP looks for `php-<sapi-name>.ini` before plain `php.ini`, and the SAPI name di
 
 Builds are published on GitHub Releases and nowhere else. There is no apt or yum repository yet, so upgrading means downloading the new artifact and installing it over the old one rather than running `apt upgrade`. A package replaces the installed one in place; with a tarball, unpack the new directory next to the old one and repoint the symlink, which leaves the previous tree in place for a one-command rollback.
 
-The macOS build is **Apple Silicon only**, targets **macOS 14 and newer**, and is ad-hoc signed: no Developer ID, no notarization, so macOS may ask you to confirm the first run. There is no Intel build. There is no Windows build either — Rapira runs on Linux and macOS only.
+The macOS build is **Apple Silicon only**, targets **macOS 14 and newer**, and is ad-hoc signed: no Developer ID, no notarization, so macOS may ask you to confirm the first run. There is no Intel build. Windows builds are published separately, in [rapira-rs/rapira-windows](https://github.com/rapira-rs/rapira-windows), and are meant for local development only — in production Rapira runs on Linux or macOS.
 
 [Quickstart](/docs/quickstart) covers serving a first request once the binary is in place.

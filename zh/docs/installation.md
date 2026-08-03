@@ -19,18 +19,7 @@ deb 和 rpm 包在打包层面强制了这一点。`rapira-php8.4` 和 `rapira-p
 
 ## 发布产物
 
-所有文件都在 [GitHub 发布页](https://github.com/rapira-rs/rapira/releases)上。`v0.6.0` 发布了下面这些，下表中每个 `php8.5` 的名字都有一个对应的 `php8.4` 版本：
-
-| 平台                    | 文件                                         |
-| ----------------------- | -------------------------------------------- |
-| Debian / Ubuntu，x86_64 | `rapira-php8.5_0.6.0-1_amd64.deb`            |
-| Debian / Ubuntu，ARM    | `rapira-php8.5_0.6.0-1_arm64.deb`            |
-| RHEL / Fedora，x86_64   | `rapira-php8.5-0.6.0-1.x86_64.rpm`           |
-| RHEL / Fedora，ARM      | `rapira-php8.5-0.6.0-1.aarch64.rpm`          |
-| Linux 压缩包，x86_64    | `rapira-v0.6.0-php8.5-linux-x86_64.tar.gz`   |
-| Linux 压缩包，ARM       | `rapira-v0.6.0-php8.5-linux-aarch64.tar.gz`  |
-| macOS，Apple Silicon    | `rapira-v0.6.0-php8.5-macos-aarch64.tar.gz`  |
-| 以上全部文件的校验和    | `rapira-v0.6.0-SHA256SUMS.txt`               |
+所有文件都在 [GitHub 发布页](https://github.com/rapira-rs/rapira/releases)上。[下载页面](/zh/download)会按你的平台——操作系统、架构、PHP 版本、包格式——挑出合适的文件，并显示它的 SHA-256；每个 `php8.5` 文件都有对应的 `php8.4` 版本。
 
 在 Linux 上，如果你希望文件放到发行版预期的位置，并让 `apt` 或 `dnf` 顺带装上 PHP 需要的共享库，就用安装包；如果你希望整个服务器待在一个自包含的目录里——容器镜像、部署产物，或者你没有 root 权限的机器——就用压缩包。两者在安装前都要拿 `rapira-v0.6.0-SHA256SUMS.txt` 核对，因为 `.deb` 和 `.rpm` 会以 root 身份执行自己的安装脚本。具体命令见[验证校验和](#验证校验和)。
 
@@ -154,6 +143,6 @@ PHP 会先找 `php-<sapi-name>.ini`，再找普通的 `php.ini`，而 SAPI 名�
 
 构建产物只发布在 GitHub Releases，别无他处。目前还没有 apt 或 yum 仓库，所以升级就是下载新的产物、覆盖装到旧的上面，而不是执行 `apt upgrade`。安装包会就地替换已装的那一份；用压缩包的话，把新目录解到旧目录旁边，再把符号链接指过去——旧的目录树留在原地，回滚只要一条命令。
 
-macOS 版本**只支持 Apple Silicon**，面向 **macOS 14 及以上**，并且只做了 ad-hoc 签名：没有 Developer ID，也没有公证，所以首次运行时 macOS 可能会要你确认。没有 Intel 版本，也没有 Windows 版本——Rapira 只支持 Linux 和 macOS。
+macOS 版本**只支持 Apple Silicon**，面向 **macOS 14 及以上**，并且只做了 ad-hoc 签名：没有 Developer ID，也没有公证，所以首次运行时 macOS 可能会要你确认。没有 Intel 版本。Windows 版本单独发布在 [rapira-rs/rapira-windows](https://github.com/rapira-rs/rapira-windows)，只用于本地开发——生产环境请在 Linux 或 macOS 上运行 Rapira。
 
 二进制文件就位之后如何处理第一个请求，见[快速开始](/zh/docs/quickstart)。

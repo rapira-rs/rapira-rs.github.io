@@ -36,8 +36,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # GITHUB_TOKEN: the download page bakes in release data at build time, and
+      # anonymous API calls from shared runner IPs hit the rate limit.
       - name: Build with VitePress
         run: npm run build
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5

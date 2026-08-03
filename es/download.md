@@ -1,0 +1,39 @@
+---
+title: Descargar Rapira
+description: Binarios precompilados de Rapira para Linux, macOS y Windows.
+sidebar: false
+aside: false
+editLink: false
+lastUpdated: false
+prev: false
+next: false
+---
+
+<script setup>
+// Etiquetas para DownloadBuilds — los textos de interfaz de esta página.
+const labels = {
+  os: 'Sistema operativo',
+  arch: 'Arquitectura',
+  php: 'Versión de PHP',
+  format: 'Formato',
+  download: 'Descargar Rapira',
+  error: 'Esta compilación del sitio no incluye la lista de builds.',
+  releases: 'Abrir los releases',
+}
+</script>
+
+# Descargar Rapira
+
+Los binarios precompilados se publican en los [releases de GitHub](https://github.com/rapira-rs/rapira/releases). Elige tu plataforma: el botón de abajo descarga la última versión estable.
+
+<DownloadBuilds :labels="labels">
+<template #windows-note>
+
+::: warning
+Los builds para Windows son solo para desarrollo local: en producción, ejecuta Rapira en Linux.
+:::
+
+</template>
+</DownloadBuilds>
+
+También puedes [compilar Rapira desde el código fuente](/es/docs/build-from-source).

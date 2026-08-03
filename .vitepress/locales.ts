@@ -102,6 +102,11 @@ export function getDocsUrl(locale: LocaleConfig): string {
   return locale.prefix ? `/${locale.prefix}/docs/` : '/docs/'
 }
 
+/** Download page URL, e.g. '/download' or '/ru/download'. */
+export function getDownloadUrl(locale: LocaleConfig): string {
+  return locale.prefix ? `/${locale.prefix}/download` : '/download'
+}
+
 /** Blog folder (src-relative), e.g. 'blog' or 'ru/blog'. */
 export function getBlogFolder(locale: LocaleConfig): string {
   return locale.prefix ? `${locale.prefix}/blog` : 'blog'

@@ -1,11 +1,11 @@
 ---
 title: Logi
-description: "Jak Rapira loguje — poziomy, nadpisania dla poszczególnych celów, diagnostyka PHP, formaty plain i JSON oraz zmienna RUST_LOG do debugowania."
+description: "Jak Rapira loguje — poziomy, nadpisania dla poszczególnych celów, diagnostyka PHP, logowanie z aplikacji, formaty plain i JSON oraz zmienna RUST_LOG do debugowania."
 ---
 
 # Logi
 
-Rapira zapisuje wszystko do jednego strumienia: zdarzenia z cyklu życia samego serwera, decyzje nadzorcze procesu nadrzędnego, warstwa HTTP i diagnostyka z PHP — wszystko na stderr i wszystko przepuszczone przez ten sam filtr. Ostrzeżenie z PHP jest wpisem w tym samym logu, a nie linijką w osobnym pliku `error_log`, i jego poziom podnosisz albo obniżasz tak samo jak każdego innego wpisu.
+Rapira zapisuje wszystko do jednego strumienia: zdarzenia z cyklu życia samego serwera, decyzje nadzorcze procesu nadrzędnego, warstwa HTTP, diagnostyka z PHP i to, co aplikacja loguje sama — wszystko na stderr. Ostrzeżenie z PHP jest wpisem w tym samym logu, a nie linijką w osobnym pliku `error_log`, i jego poziom podnosisz albo obniżasz tak samo jak każdego innego wpisu.
 
 Domyślny poziom to `error`, więc przechodzą tylko błędy, a sprawny serwer nie zapisuje nic. Podniesienie go to jedna linijka w konfiguracji albo zmienna środowiskowa `RUST_LOG`, kiedy nie chcesz w ogóle ruszać konfiguracji.
 
@@ -47,6 +47,7 @@ Cele, pod którymi loguje sama Rapira:
 | `http`   | warstwa HTTP: nasłuchy, obsługa pól żądania i odpowiedzi, wygaszanie           |
 | `ext`    | wyniki zadań rozszerzeń                                                        |
 | `php`    | wyjście i diagnostyka prosto z PHP                                             |
+| `app`    | wpisy zapisywane przez aplikację przez `\Rapira\log()`                        |
 
 Logu dostępu nie ma: Rapira nie zapisuje jednej linijki na żądanie. To, co cel `http` raportuje o polach żądania i odpowiedzi, opisuje strona [HTTP](/pl/docs/http).
 
@@ -81,6 +82,55 @@ Dzięki temu przy żadnym normalnym poziomie ostrzeżenia z zależności nie tra
 ::: info
 Diagnostyka idzie do logu, a nie do odpowiedzi: Rapira domyślnie ustawia [`display_errors`](https://www.php.net/manual/en/errorfunc.configuration.php#ini.display-errors) na `0`, a [`log_errors`](https://www.php.net/manual/en/errorfunc.configuration.php#ini.log-errors) na `1`. To *wartości domyślne*, a nie nadpisania: jeśli którąkolwiek z nich ustawia php.ini, wygrywa php.ini.
 :::
+
+## Logowanie z aplikacji
+
+`\Rapira\log()` zapisuje wpis z PHP do celu `app`. Przyjmuje komunikat, opcjonalny poziom i opcjonalną tablicę kontekstu, i jest dostępna w każdym trybie wykonania:
+
+```php
+<?php
+
+\Rapira\log('order placed');
+\Rapira\log('payment declined', \Rapira\LogLevel::Warning);
+\Rapira\log('cache miss', \Rapira\LogLevel::Debug, ['key' => 'user:42', 'ttl' => 300]);
+```
+
+Poziom to przypadek wyliczenia `\Rapira\LogLevel`, a każdy przypadek odpowiada poziomowi, którego używa już reszta logu:
+
+| Przypadek `LogLevel` | Poziom wpisu |
+| -------------------- | ------------ |
+| `Error`         | `error`      |
+| `Warning`       | `warn`       |
+| `Info`          | `info`       |
+| `Debug`         | `debug`      |
+| `Trace`         | `trace`      |
+
+Jeśli pominiesz poziom, wpis zapisywany jest jako `Info`. Ponieważ są to te same poziomy co wszędzie indziej, `[log.targets]` i `RUST_LOG` filtrują wpisy aplikacji dokładnie tak samo jak wpisy samego serwera — `app = "debug"` w `[log.targets]` podnosi wpisy aplikacji, nie ruszając niczego dookoła.
+
+Tablica kontekstu jest serializowana do JSON-a i dołączana do wpisu jako pole `context`. Klucze zostają takie, jak je zapisano, a zagnieżdżone tablice zachowują swoją strukturę:
+
+```php
+<?php
+
+\Rapira\log('checkout failed', \Rapira\LogLevel::Error, [
+    'order' => 41,
+    'totals' => ['net' => 1250, 'tax' => 250],
+]);
+```
+
+`Throwable` w kontekście jest rozwijany przed serializacją, bo `json_encode()` widzi wyjątek jako pusty obiekt — jego stan leży w prywatnych właściwościach `Exception` i `Error`. Rozwinięcie niesie nazwę klasy, komunikat, kod, plik i linię oraz idzie łańcuchem `previous`; ślad stosu nie jest dołączany:
+
+```php
+<?php
+
+try {
+    $gateway->charge($order);
+} catch (\Throwable $e) {
+    \Rapira\log('charge failed', \Rapira\LogLevel::Error, ['exception' => $e]);
+}
+```
+
+Decydując, co włożyć do kontekstu, warto znać dwa ograniczenia. Wartość, której JSON nie potrafi wyrazić — zasób, domknięcie, `NAN` lub `INF`, ciąg niebędący poprawnym UTF-8 — zostaje zastąpiona wypełniaczem, a nie kosztuje cię całego wpisu, więc sąsiednie klucze docierają. A kontekst nie ma ograniczenia rozmiaru: duża tablica albo długi ciąg są serializowane w całości i dają odpowiednio duży wpis, więc przekazuj identyfikatory, a nie obiekty, które oznaczają.
 
 ## Formaty
 

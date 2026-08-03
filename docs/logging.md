@@ -1,11 +1,11 @@
 ---
 title: Logging
-description: How Rapira logs — levels, per-target overrides, PHP diagnostics, the plain and JSON formats, and the RUST_LOG debugging override.
+description: How Rapira logs — levels, per-target overrides, PHP diagnostics, application logging from PHP, the plain and JSON formats, and the RUST_LOG debugging override.
 ---
 
 # Logging
 
-Rapira writes everything to a single stream: the server's own lifecycle events, the master's supervision decisions, the HTTP front, and PHP's diagnostics — all of it on stderr, all of it shaped by the same filter. A PHP warning is a record in that same log rather than a line in a separate `error_log` file, and it is raised or lowered like any other record.
+Rapira writes everything to a single stream: the server's own lifecycle events, the master's supervision decisions, the HTTP front, PHP's diagnostics, and whatever the application logs itself — all of it on stderr. A PHP warning is a record in that same log rather than a line in a separate `error_log` file, and it is raised or lowered like any other record.
 
 The default level is `error`, so only errors get through and a healthy server logs nothing. Raising it is one line of config, or the `RUST_LOG` environment variable when you don't want to edit config at all.
 
@@ -47,6 +47,7 @@ The targets Rapira itself emits under:
 | `http`   | the HTTP front: listeners, request and response field handling, drain |
 | `ext`    | extension task outcomes                                          |
 | `php`    | output and diagnostics coming from PHP itself                   |
+| `app`    | records the application writes with `\Rapira\log()`              |
 
 There is no access log: Rapira does not write one line per request. What the `http` target reports about a request's or response's fields is described on the [HTTP](/docs/http) page.
 
@@ -81,6 +82,55 @@ That keeps vendor deprecations out of the log at any normal level, while `level 
 ::: info
 Diagnostics go to the log, not into responses: Rapira defaults [`display_errors`](https://www.php.net/manual/en/errorfunc.configuration.php#ini.display-errors) to `0` and [`log_errors`](https://www.php.net/manual/en/errorfunc.configuration.php#ini.log-errors) to `1`. These are *defaults*, not overrides: a php.ini that sets either one wins.
 :::
+
+## Application logging
+
+`\Rapira\log()` writes a record from PHP onto the `app` target. It takes a message, an optional level and an optional context array, and is available in every execution mode:
+
+```php
+<?php
+
+\Rapira\log('order placed');
+\Rapira\log('payment declined', \Rapira\LogLevel::Warning);
+\Rapira\log('cache miss', \Rapira\LogLevel::Debug, ['key' => 'user:42', 'ttl' => 300]);
+```
+
+The level is a case of the `\Rapira\LogLevel` enum, and each case maps onto the level the rest of the log already uses:
+
+| `LogLevel` case | Record level |
+| --------------- | ------------ |
+| `Error`         | `error`      |
+| `Warning`       | `warn`       |
+| `Info`          | `info`       |
+| `Debug`         | `debug`      |
+| `Trace`         | `trace`      |
+
+Omitting the level logs at `Info`. Because these are the same levels as everywhere else, `[log.targets]` and `RUST_LOG` filter application records exactly as they filter the server's own — `app = "debug"` in `[log.targets]` raises the application's records without touching anything around them.
+
+The context array is serialized to JSON and attached to the record as a `context` field. Keys are preserved as written, and nested arrays keep their structure:
+
+```php
+<?php
+
+\Rapira\log('checkout failed', \Rapira\LogLevel::Error, [
+    'order' => 41,
+    'totals' => ['net' => 1250, 'tax' => 250],
+]);
+```
+
+A `Throwable` in the context is expanded before serialization, because `json_encode()` sees an exception as an empty object — its state lives in private properties of `Exception` and `Error`. The expansion carries the class name, message, code, file and line, and follows the `previous` chain; the stack trace is not included:
+
+```php
+<?php
+
+try {
+    $gateway->charge($order);
+} catch (\Throwable $e) {
+    \Rapira\log('charge failed', \Rapira\LogLevel::Error, ['exception' => $e]);
+}
+```
+
+Two limits are worth knowing when deciding what to put in a context. A value JSON cannot represent — a resource, a closure, `NAN` or `INF`, a string that is not valid UTF-8 — is replaced with a placeholder rather than costing you the record, so the surrounding keys still arrive. And the context is not bounded in size: a large array or a long string is serialized in full and becomes a correspondingly large record, so pass identifiers rather than the objects they identify.
 
 ## Formats
 

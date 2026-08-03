@@ -1,11 +1,11 @@
 ---
 title: Registros
-description: "Cómo registra Rapira — niveles, ajustes por target, diagnósticos de PHP, los formatos plain y JSON, y la variable RUST_LOG para depurar."
+description: "Cómo registra Rapira — niveles, ajustes por target, diagnósticos de PHP, registro desde la aplicación, los formatos plain y JSON, y la variable RUST_LOG para depurar."
 ---
 
 # Registros
 
-Rapira lo escribe todo en un único flujo: los eventos del ciclo de vida del servidor, las decisiones de supervisión del proceso maestro, el frontal HTTP y los diagnósticos de PHP. Todo por stderr y todo pasado por el mismo filtro. Una advertencia de PHP es una entrada de ese mismo registro, no una línea en un `error_log` aparte, y se le sube o se le baja el nivel igual que a cualquier otra.
+Rapira lo escribe todo en un único flujo: los eventos del ciclo de vida del servidor, las decisiones de supervisión del proceso maestro, el frontal HTTP, los diagnósticos de PHP y lo que la propia aplicación registra. Todo por stderr. Una advertencia de PHP es una entrada de ese mismo registro, no una línea en un `error_log` aparte, y se le sube o se le baja el nivel igual que a cualquier otra.
 
 El nivel por defecto es `error`, así que solo pasan los errores y un servidor sano no registra nada. Subirlo es una línea de configuración, o la variable de entorno `RUST_LOG` cuando no quieres editar la configuración para nada.
 
@@ -47,6 +47,7 @@ Estos son los targets bajo los que emite el propio Rapira:
 | `http`   | el frontal HTTP: los sockets de escucha, el tratamiento de los campos de petición y respuesta, el drenaje |
 | `ext`    | cómo acaban las tareas de las extensiones                       |
 | `php`    | la salida y los diagnósticos que vienen del propio PHP          |
+| `app`    | las entradas que la aplicación escribe con `\Rapira\log()`      |
 
 No hay registro de accesos: Rapira no escribe una línea por petición. Lo que el target `http` informa sobre los campos de una petición o de una respuesta está descrito en [HTTP](/es/docs/http).
 
@@ -81,6 +82,55 @@ Con eso, las obsolescencias de `vendor` se quedan fuera del registro en cualquie
 ::: info
 Los diagnósticos van al registro, no dentro de las respuestas: Rapira pone [`display_errors`](https://www.php.net/manual/en/errorfunc.configuration.php#ini.display-errors) a `0` y [`log_errors`](https://www.php.net/manual/en/errorfunc.configuration.php#ini.log-errors) a `1` por defecto. Son *valores por defecto*, no imposiciones: si tu php.ini define cualquiera de los dos, manda el php.ini.
 :::
+
+## Registro desde la aplicación
+
+`\Rapira\log()` escribe una entrada desde PHP en el target `app`. Recibe un mensaje, un nivel opcional y un array de contexto opcional, y está disponible en todos los modos de ejecución:
+
+```php
+<?php
+
+\Rapira\log('order placed');
+\Rapira\log('payment declined', \Rapira\LogLevel::Warning);
+\Rapira\log('cache miss', \Rapira\LogLevel::Debug, ['key' => 'user:42', 'ttl' => 300]);
+```
+
+El nivel es un caso del enum `\Rapira\LogLevel`, y cada caso se corresponde con el nivel que ya usa el resto del registro:
+
+| Caso de `LogLevel` | Nivel de la entrada |
+| ------------------ | ------------------- |
+| `Error`         | `error`      |
+| `Warning`       | `warn`       |
+| `Info`          | `info`       |
+| `Debug`         | `debug`      |
+| `Trace`         | `trace`      |
+
+Si se omite el nivel, la entrada se escribe con `Info`. Como son los mismos niveles que en todo lo demás, `[log.targets]` y `RUST_LOG` filtran las entradas de la aplicación igual que las del propio servidor: `app = "debug"` en `[log.targets]` sube las entradas de la aplicación sin tocar nada a su alrededor.
+
+El array de contexto se serializa a JSON y se adjunta a la entrada en un campo `context`. Las claves se conservan tal cual y los arrays anidados mantienen su estructura:
+
+```php
+<?php
+
+\Rapira\log('checkout failed', \Rapira\LogLevel::Error, [
+    'order' => 41,
+    'totals' => ['net' => 1250, 'tax' => 250],
+]);
+```
+
+Un `Throwable` en el contexto se expande antes de serializar, porque `json_encode()` ve una excepción como un objeto vacío: su estado vive en propiedades privadas de `Exception` y `Error`. La expansión lleva el nombre de la clase, el mensaje, el código, el archivo y la línea, y recorre la cadena `previous`; la traza de pila no se incluye:
+
+```php
+<?php
+
+try {
+    $gateway->charge($order);
+} catch (\Throwable $e) {
+    \Rapira\log('charge failed', \Rapira\LogLevel::Error, ['exception' => $e]);
+}
+```
+
+Conviene conocer dos límites al decidir qué poner en un contexto. Un valor que JSON no puede representar —un recurso, un closure, `NAN` o `INF`, una cadena que no es UTF-8 válido— se sustituye por un marcador en lugar de costarte la entrada, así que las claves de alrededor sí llegan. Y el contexto no tiene límite de tamaño: un array grande o una cadena larga se serializan enteros y producen una entrada igual de grande, así que pasa identificadores en vez de los objetos que identifican.
 
 ## Formatos
 

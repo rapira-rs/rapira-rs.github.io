@@ -86,48 +86,52 @@ onMounted(() => {
     <template v-else>
       <div class="db-row">
         <span class="db-label">{{ labels.os }}</span>
-        <div class="db-pills">
+        <div class="db-pills" role="group" :aria-label="labels.os">
           <button
             v-for="o in osList"
             :key="o"
             class="db-pill"
             :class="{ active: os === o }"
+            :aria-pressed="os === o"
             @click="os = o"
           >{{ OS_NAMES[o] ?? o }}</button>
         </div>
       </div>
       <div class="db-row">
         <span class="db-label">{{ labels.arch }}</span>
-        <div class="db-pills">
+        <div class="db-pills" role="group" :aria-label="labels.arch">
           <button
             v-for="a in archList"
             :key="a"
             class="db-pill"
             :class="{ active: arch === a }"
+            :aria-pressed="arch === a"
             @click="arch = a"
           >{{ ARCH_NAMES[a] ?? a }}</button>
         </div>
       </div>
       <div class="db-row">
         <span class="db-label">{{ labels.php }}</span>
-        <div class="db-pills">
+        <div class="db-pills" role="group" :aria-label="labels.php">
           <button
             v-for="p in phpList"
             :key="p"
             class="db-pill"
             :class="{ active: php === p }"
+            :aria-pressed="php === p"
             @click="php = p"
           >PHP {{ p }}</button>
         </div>
       </div>
       <div v-if="formatList.length > 1" class="db-row">
         <span class="db-label">{{ labels.format }}</span>
-        <div class="db-pills">
+        <div class="db-pills" role="group" :aria-label="labels.format">
           <button
             v-for="f in formatList"
             :key="f"
             class="db-pill"
             :class="{ active: format === f }"
+            :aria-pressed="format === f"
             @click="format = f"
           >{{ FORMAT_NAMES[f] ?? f }}</button>
         </div>

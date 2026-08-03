@@ -15,6 +15,9 @@ import { defineLoader } from 'vitepress'
 /** Every repo that publishes builds. Windows builds live in their own repo. */
 const REPOS = ['rapira-rs/rapira', 'rapira-rs/rapira-windows']
 
+/** A hung GitHub request must fail the fetch, not stall the whole build. */
+const FETCH_TIMEOUT_MS = 15_000
+
 export interface Build {
   version: string
   os: string
@@ -63,7 +66,10 @@ async function loadRepo(repo: string): Promise<Build[]> {
   const headers: Record<string, string> = { 'User-Agent': 'rapira-docs-build' }
   if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`
 
-  const res = await fetch(`https://api.github.com/repos/${repo}/releases/latest`, { headers })
+  const res = await fetch(`https://api.github.com/repos/${repo}/releases/latest`, {
+    headers,
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  })
   if (!res.ok) throw new Error(`${repo}: HTTP ${res.status}`)
   const release = await res.json()
 
@@ -71,7 +77,9 @@ async function loadRepo(repo: string): Promise<Build[]> {
   let sums = new Map<string, string>()
   const sumsAsset = release.assets.find((a: any) => a.name.endsWith('SHA256SUMS.txt'))
   if (sumsAsset) {
-    const sumsRes = await fetch(sumsAsset.browser_download_url)
+    const sumsRes = await fetch(sumsAsset.browser_download_url, {
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    })
     if (sumsRes.ok) sums = parseChecksums(await sumsRes.text())
   }
 

@@ -24,13 +24,13 @@ const labels = {
 
 # 下载 Rapira
 
-预编译版本发布在 [GitHub releases](https://github.com/rapira-rs/rapira/releases) 页面。选好平台，下面的按钮就会下载最新的稳定版。
+预编译版本发布在 [GitHub releases](https://github.com/rapira-rs/rapira/releases) 页面。选好平台，下面的按钮就会下载该平台最新的稳定版。
 
 <DownloadBuilds :labels="labels">
 <template #windows-note>
 
 ::: warning
-Windows 版本仅用于本地开发——生产环境请在 Linux 上运行 Rapira。
+Windows 版本仅用于本地开发——生产环境请在 Linux 或 macOS 上运行 Rapira。
 :::
 
 </template>

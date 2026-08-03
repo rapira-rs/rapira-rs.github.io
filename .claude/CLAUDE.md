@@ -298,7 +298,7 @@ For example, a commit written by Opus 5 with the 1M-token context window ends wi
 Two workflows, both running `npm ci` + `npm run build` on Node 24:
 
 - `.github/workflows/ci.yml` — runs on every pull request against `main`. Build only, no deploy: it is the gate that keeps a broken `main` from ever reaching production. VitePress fails the build on dead internal links, so this doubles as a link check.
-- `.github/workflows/deploy.yml` — runs on every push to `main` and publishes `.vitepress/dist` to GitHub Pages at **https://rapira.rs/**.
+- `.github/workflows/deploy.yml` — runs on every push to `main` and publishes `.vitepress/dist` to GitHub Pages at **https://rapira.rs/**. It also listens for a `repository_dispatch` event (`rapira-release`, sent by the release workflows of `rapira-rs/rapira` and `rapira-rs/rapira-windows` with a fine-grained PAT) and runs nightly as a backstop — the download page bakes release data in at build time, so the site must rebuild on releases, not only on docs changes.
 
 The Pages source must be set to **GitHub Actions** (Settings → Pages → Source). For the CI gate to actually block a merge, `Build` has to be a required status check in the branch protection rules for `main` (Settings → Branches).
 

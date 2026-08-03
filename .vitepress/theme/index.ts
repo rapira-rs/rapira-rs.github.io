@@ -10,6 +10,7 @@ import RapiraHero from './RapiraHero.vue'
 import RapiraSection from './RapiraSection.vue'
 import FeatureTags from './FeatureTags.vue'
 import TextTabs from './TextTabs.vue'
+import DownloadBuilds from './DownloadBuilds.vue'
 import { isBlogPath } from '../locales'
 import './style.css'
 
@@ -33,5 +34,6 @@ export default {
     app.component('RapiraSection', RapiraSection)
     app.component('FeatureTags', FeatureTags)
     app.component('TextTabs', TextTabs)
+    app.component('DownloadBuilds', DownloadBuilds)
   },
 } satisfies Theme

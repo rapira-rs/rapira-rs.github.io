@@ -19,18 +19,7 @@ Pakiety deb i rpm to wymuszają. `rapira-php8.4` i `rapira-php8.5` instalują do
 
 ## Artefakty wydania
 
-Wszystko leży na [stronie wydań na GitHubie](https://github.com/rapira-rs/rapira/releases). Wydanie `v0.6.0` publikuje poniższe pliki, a każda nazwa z `php8.5` ma swój odpowiednik z `php8.4`:
-
-| Platforma                           | Artefakt                                     |
-| ----------------------------------- | -------------------------------------------- |
-| Debian / Ubuntu, x86_64             | `rapira-php8.5_0.6.0-1_amd64.deb`            |
-| Debian / Ubuntu, ARM                | `rapira-php8.5_0.6.0-1_arm64.deb`            |
-| RHEL / Fedora, x86_64               | `rapira-php8.5-0.6.0-1.x86_64.rpm`           |
-| RHEL / Fedora, ARM                  | `rapira-php8.5-0.6.0-1.aarch64.rpm`          |
-| Archiwum tar dla Linuksa, x86_64    | `rapira-v0.6.0-php8.5-linux-x86_64.tar.gz`   |
-| Archiwum tar dla Linuksa, ARM       | `rapira-v0.6.0-php8.5-linux-aarch64.tar.gz`  |
-| macOS, Apple Silicon                | `rapira-v0.6.0-php8.5-macos-aarch64.tar.gz`  |
-| Sumy kontrolne wszystkich powyższych | `rapira-v0.6.0-SHA256SUMS.txt`               |
+Wszystko leży na [stronie wydań na GitHubie](https://github.com/rapira-rs/rapira/releases). [Strona pobierania](/pl/download) dobierze właściwy artefakt do twojej platformy — system, architekturę, wersję PHP, format pakietu — i pokaże jego sumę SHA-256; każda nazwa z `php8.5` ma swój odpowiednik z `php8.4`.
 
 Na Linuksie wybierz pakiet, jeśli chcesz, żeby pliki trafiły tam, gdzie spodziewa się ich dystrybucja, a `apt` albo `dnf` dociągnęły biblioteki współdzielone potrzebne PHP; wybierz archiwum tar, jeśli serwer ma zmieścić się w jednym samowystarczalnym katalogu — obraz kontenera, artefakt wdrożeniowy, maszyna, na której nie masz roota. Jedno i drugie przed instalacją porównaj z `rapira-v0.6.0-SHA256SUMS.txt`, bo `.deb` i `.rpm` uruchamiają swoje skrypty instalacyjne jako root. Polecenia znajdziesz w sekcji [Weryfikacja sum kontrolnych](#weryfikacja-sum-kontrolnych).
 
@@ -154,6 +143,6 @@ PHP szuka `php-<sapi-name>.ini` przed zwykłym `php.ini`, a nazwa SAPI zależy o
 
 Gotowe buildy są publikowane w GitHub Releases i nigdzie indziej. Repozytorium apt ani yum jeszcze nie ma, więc aktualizacja polega na pobraniu nowego artefaktu i zainstalowaniu go na starym, a nie na uruchomieniu `apt upgrade`. Pakiet zastępuje w miejscu ten już zainstalowany; przy archiwum tar rozpakuj nowy katalog obok starego i przestaw dowiązanie symboliczne — poprzednie drzewo zostaje na dysku, więc wycofanie zmiany to jedno polecenie.
 
-Build dla macOS działa **wyłącznie na Apple Silicon**, celuje w **macOS 14 i nowsze** i jest podpisany doraźnie: bez Developer ID, bez notaryzacji, więc przy pierwszym uruchomieniu macOS może poprosić o potwierdzenie. Wersji na Intela nie ma. Wersji na Windows też nie — Rapira działa tylko na Linuksie i macOS.
+Build dla macOS działa **wyłącznie na Apple Silicon**, celuje w **macOS 14 i nowsze** i jest podpisany doraźnie: bez Developer ID, bez notaryzacji, więc przy pierwszym uruchomieniu macOS może poprosić o potwierdzenie. Wersji na Intela nie ma. Buildy dla Windowsa są publikowane osobno, w [rapira-rs/rapira-windows](https://github.com/rapira-rs/rapira-windows), i służą wyłącznie do lokalnego developmentu — w produkcji Rapira działa na Linuksie lub macOS.
 
 [Szybki start](/pl/docs/quickstart) opisuje, jak obsłużyć pierwsze żądanie, gdy plik wykonywalny jest już na miejscu.

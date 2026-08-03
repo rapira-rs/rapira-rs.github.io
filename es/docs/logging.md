@@ -5,7 +5,7 @@ description: "Cómo registra Rapira — niveles, ajustes por target, diagnóstic
 
 # Registros
 
-Rapira lo escribe todo en un único flujo: los eventos del ciclo de vida del servidor, las decisiones de supervisión del proceso maestro, el frontal HTTP, los diagnósticos de PHP y lo que la propia aplicación registra. Todo por stderr y todo pasado por el mismo filtro. Una advertencia de PHP es una entrada de ese mismo registro, no una línea en un `error_log` aparte, y se le sube o se le baja el nivel igual que a cualquier otra.
+Rapira lo escribe todo en un único flujo: los eventos del ciclo de vida del servidor, las decisiones de supervisión del proceso maestro, el frontal HTTP, los diagnósticos de PHP y lo que la propia aplicación registra. Todo por stderr. Una advertencia de PHP es una entrada de ese mismo registro, no una línea en un `error_log` aparte, y se le sube o se le baja el nivel igual que a cualquier otra.
 
 El nivel por defecto es `error`, así que solo pasan los errores y un servidor sano no registra nada. Subirlo es una línea de configuración, o la variable de entorno `RUST_LOG` cuando no quieres editar la configuración para nada.
 
@@ -105,7 +105,7 @@ El nivel es un caso del enum `\Rapira\LogLevel`, y cada caso se corresponde con 
 | `Debug`         | `debug`      |
 | `Trace`         | `trace`      |
 
-Si se omite el argumento, la entrada se escribe con `Info`. Como son los mismos niveles que en todo lo demás, `[log.targets]` y `RUST_LOG` filtran las entradas de la aplicación igual que las del propio servidor: `app = "debug"` en `[log.targets]` sube las entradas de la aplicación sin tocar nada a su alrededor.
+Si se omite el nivel, la entrada se escribe con `Info`. Como son los mismos niveles que en todo lo demás, `[log.targets]` y `RUST_LOG` filtran las entradas de la aplicación igual que las del propio servidor: `app = "debug"` en `[log.targets]` sube las entradas de la aplicación sin tocar nada a su alrededor.
 
 El array de contexto se serializa a JSON y se adjunta a la entrada en un campo `context`. Las claves se conservan tal cual y los arrays anidados mantienen su estructura:
 

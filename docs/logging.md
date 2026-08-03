@@ -5,7 +5,7 @@ description: How Rapira logs — levels, per-target overrides, PHP diagnostics, 
 
 # Logging
 
-Rapira writes everything to a single stream: the server's own lifecycle events, the master's supervision decisions, the HTTP front, PHP's diagnostics, and whatever the application logs itself — all of it on stderr, all of it shaped by the same filter. A PHP warning is a record in that same log rather than a line in a separate `error_log` file, and it is raised or lowered like any other record.
+Rapira writes everything to a single stream: the server's own lifecycle events, the master's supervision decisions, the HTTP front, PHP's diagnostics, and whatever the application logs itself — all of it on stderr. A PHP warning is a record in that same log rather than a line in a separate `error_log` file, and it is raised or lowered like any other record.
 
 The default level is `error`, so only errors get through and a healthy server logs nothing. Raising it is one line of config, or the `RUST_LOG` environment variable when you don't want to edit config at all.
 
@@ -105,7 +105,7 @@ The level is a case of the `\Rapira\LogLevel` enum, and each case maps onto the 
 | `Debug`         | `debug`      |
 | `Trace`         | `trace`      |
 
-Omitting the argument logs at `Info`. Because these are the same levels as everywhere else, `[log.targets]` and `RUST_LOG` filter application records exactly as they filter the server's own — `app = "debug"` in `[log.targets]` raises the application's records without touching anything around them.
+Omitting the level logs at `Info`. Because these are the same levels as everywhere else, `[log.targets]` and `RUST_LOG` filter application records exactly as they filter the server's own — `app = "debug"` in `[log.targets]` raises the application's records without touching anything around them.
 
 The context array is serialized to JSON and attached to the record as a `context` field. Keys are preserved as written, and nested arrays keep their structure:
 

@@ -5,7 +5,7 @@ description: "Jak Rapira loguje — poziomy, nadpisania dla poszczególnych cel�
 
 # Logi
 
-Rapira zapisuje wszystko do jednego strumienia: zdarzenia z cyklu życia samego serwera, decyzje nadzorcze procesu nadrzędnego, warstwa HTTP, diagnostyka z PHP i to, co aplikacja loguje sama — wszystko na stderr i wszystko przepuszczone przez ten sam filtr. Ostrzeżenie z PHP jest wpisem w tym samym logu, a nie linijką w osobnym pliku `error_log`, i jego poziom podnosisz albo obniżasz tak samo jak każdego innego wpisu.
+Rapira zapisuje wszystko do jednego strumienia: zdarzenia z cyklu życia samego serwera, decyzje nadzorcze procesu nadrzędnego, warstwa HTTP, diagnostyka z PHP i to, co aplikacja loguje sama — wszystko na stderr. Ostrzeżenie z PHP jest wpisem w tym samym logu, a nie linijką w osobnym pliku `error_log`, i jego poziom podnosisz albo obniżasz tak samo jak każdego innego wpisu.
 
 Domyślny poziom to `error`, więc przechodzą tylko błędy, a sprawny serwer nie zapisuje nic. Podniesienie go to jedna linijka w konfiguracji albo zmienna środowiskowa `RUST_LOG`, kiedy nie chcesz w ogóle ruszać konfiguracji.
 
@@ -105,7 +105,7 @@ Poziom to przypadek wyliczenia `\Rapira\LogLevel`, a każdy przypadek odpowiada 
 | `Debug`         | `debug`      |
 | `Trace`         | `trace`      |
 
-Pominięcie argumentu zapisuje wpis na poziomie `Info`. Ponieważ są to te same poziomy co wszędzie indziej, `[log.targets]` i `RUST_LOG` filtrują wpisy aplikacji dokładnie tak samo jak wpisy samego serwera — `app = "debug"` w `[log.targets]` podnosi wpisy aplikacji, nie ruszając niczego dookoła.
+Jeśli pominiesz poziom, wpis zapisywany jest jako `Info`. Ponieważ są to te same poziomy co wszędzie indziej, `[log.targets]` i `RUST_LOG` filtrują wpisy aplikacji dokładnie tak samo jak wpisy samego serwera — `app = "debug"` w `[log.targets]` podnosi wpisy aplikacji, nie ruszając niczego dookoła.
 
 Tablica kontekstu jest serializowana do JSON-a i dołączana do wpisu jako pole `context`. Klucze zostają takie, jak je zapisano, a zagnieżdżone tablice zachowują swoją strukturę:
 

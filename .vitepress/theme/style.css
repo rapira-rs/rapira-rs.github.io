@@ -47,19 +47,26 @@ html {
   --vp-c-brand-3: #3a7599;
   --vp-c-brand-soft: rgba(111, 179, 222, 0.16);
 
-  /* Dark mode sits on the logo's ink */
-  --vp-c-bg: #0e121b;
-  --vp-c-bg-alt: #090c12;
-  --vp-c-bg-soft: #171c27;
-  --vp-c-bg-elv: #171c27;
-  --vp-c-divider: #262d3b;
-  --vp-c-gutter: #090c12;
-  --vp-c-border: #313a4b;
+  /* Dark mode sits on a soft graphite that keeps the logo's cool hue but stays
+     well above the logo's ink — near-black under white text reads too harsh. */
+  --vp-c-bg: #25272c;
+  --vp-c-bg-alt: #1d1f23;
+  --vp-c-bg-soft: #2e3137;
+  --vp-c-bg-elv: #2e3137;
+  --vp-c-divider: #383b42;
+  --vp-c-gutter: #1d1f23;
+  --vp-c-border: #464a52;
+
+  /* Softer than the default near-white: the alpha comes down and the tint drops
+     the default's warm cast, so the text sits on the same cool axis as the bg. */
+  --vp-c-text-1: rgba(233, 236, 243, 0.8);
+  --vp-c-text-2: rgba(233, 236, 243, 0.58);
+  --vp-c-text-3: rgba(233, 236, 243, 0.36);
 
   --rapira-glow: rgba(111, 179, 222, 0.16);
 
-  /* Matches the dark --vp-c-bg (#0e121b) */
-  --vp-nav-bg-color: rgba(14, 18, 27, 0.72);
+  /* Matches the dark --vp-c-bg (#25272c) */
+  --vp-nav-bg-color: rgba(37, 39, 44, 0.72);
 
   /* Brand-3 rather than brand-1: the tip icon carries white text */
   --vp-custom-block-tip-border: var(--vp-c-brand-3);

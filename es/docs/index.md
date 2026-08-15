@@ -1,38 +1,26 @@
 ---
 title: ¿Qué es Rapira?
-description: "Rapira es un servidor de aplicaciones PHP escrito en Rust; esta página cubre sus requisitos y las dos formas en que ejecuta una aplicación PHP."
+description: "Rapira es un servidor de aplicaciones PHP rápido y seguro, escrito en Rust: recibe las peticiones HTTP directamente y admite los modos clásico, worker y despachador."
 ---
 
 # ¿Qué es Rapira?
 
-Rapira es un servidor de aplicaciones PHP escrito en Rust.
+Rapira es un servidor de aplicaciones PHP rápido y seguro, escrito en Rust.
 
-Incrusta PHP en su propio proceso mediante el SAPI embed de PHP, la misma interfaz con la que un programa en C puede alojar el motor. El proceso anfitrión llama al intérprete directamente: no hay protocolo FastCGI, ni socket local ni pipe, ni serialización de cada petición a un formato de transporte y vuelta. Cuando llega una petición, se rellenan las superglobales y PHP se ejecuta; cuando termina, los bytes de la respuesta salen directamente hacia el cliente.
+En su diseño hemos volcado los años que llevamos manteniendo RoadRunner: queríamos que el trato con PHP fuera lo más eficiente y estable posible, y que ni el desarrollo ni el día a día en producción costaran esfuerzo de más.
 
-Del HTTP se encarga un frontal construido sobre [Pingora](https://github.com/cloudflare/pingora), el framework de proxies en Rust de Cloudflare. Viene dentro del binario, así que no hay un segundo proceso que instalar, configurar ni mantener vivo.
+Rapira no se queda en HTTP. Tenemos en la hoja de ruta la compatibilidad con todos los plugins populares de RoadRunner; sigue las novedades en nuestro [blog](/es/blog/).
 
-## Qué necesitas
+## HTTP
 
-Rapira tiene tres requisitos.
+La primera tarea de un servidor PHP es atender peticiones HTTP. Gracias a la tecnología de Cloudflare, Rapira las recibe directamente, sin nginx ni Apache, y admite todos los estándares modernos de HTTP y de cifrado.
 
-- **Solo Linux y macOS.** No existe una compilación para Windows.
-- **PHP 8.4 u 8.5.** Los archivos comprimidos de cada release y los paquetes `rapira-php8.4` / `rapira-php8.5` incluyen el runtime embed de PHP en NTS que les corresponde, así que la versión que ejecutas es la del artefacto que elijas: no hay nada más que instalar.
-- **NTS, nunca ZTS.** Rapira enlaza con un PHP que no es thread-safe. Esto solo importa si compilas Rapira contra un PHP tuyo: ahí una compilación thread-safe se rechaza de entrada, en vez de fallar más adelante.
+Del lado de PHP se admiten todos los modelos de ejecución:
 
-Para compilar contra tu propio PHP —otro conjunto de extensiones, una arquitectura poco habitual, una distro basada en musl— consulta [Compilar desde el código](/es/docs/build-from-source).
+- Clásico (SAPI): cada petición levanta la aplicación desde cero, igual que bajo php-fpm.
+- Worker (SAPI Worker): la aplicación arranca una sola vez y después atiende una petición tras otra en un bucle, a través de la interfaz SAPI (las superglobales de PHP se rellenan de nuevo en cada petición).
+- Despachador: la aplicación no muere y las peticiones y respuestas viajan por una API aparte. En este modo eres libre de atenderlas de una en una (como en RoadRunner) o de forma concurrente, con [fibras](https://www.php.net/manual/language.fibers.php).
 
-## Dos formas de ejecutar tu aplicación
-
-Hoy Rapira trae dos formas de ejecutar una aplicación PHP. El modo worker es el predeterminado; Classic hay que pedirlo, con un flag en la línea de comandos o con una sola clave en el archivo de configuración.
-
-**[Classic](/es/docs/classic)** ejecuta tu front controller desde cero en cada petición, exactamente igual que bajo php-fpm: la aplicación arranca, atiende la petición y todo lo que ha construido se descarta. No tienes que cambiar nada en tu código.
-
-**[SAPI Worker](/es/docs/worker)** mantiene el proceso vivo. Un script residente arranca tu aplicación una sola vez —autoloader, contenedor, conexiones— y a partir de ahí entra en un bucle: atiende una petición tras otra, rellenando de nuevo las superglobales cada vez. El arranque ocurre una vez al inicio y no en cada petición, y el estado sobrevive a la petición.
-
-[Modos de ejecución](/es/docs/execution-modes) añade algo más de información sobre las diferencias entre ambos y sobre cómo elegir cuál usar.
-
-## Por dónde seguir
-
-- **[Instalación](/es/docs/installation)** — paquetes y archivos comprimidos para Linux y macOS; el runtime de PHP viene dentro.
-- **[Inicio rápido](/es/docs/quickstart)** — atiende tu primera petición en los dos modos.
-- **[Configuración](/es/docs/configuration)** — la referencia completa de `rapira.toml`.
+::: info
+En [Modos de ejecución](/es/docs/execution-modes) encontrarás en detalle en qué se diferencian los modos y cómo elegir el que necesitas.
+:::

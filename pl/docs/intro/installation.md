@@ -1,31 +1,62 @@
 ---
 title: Instalacja
-description: "Zainstaluj Rapirę z pakietu deb, rpm albo z archiwum tar, sprawdź sumę kontrolną pobranego pliku i zobacz, jakie PHP zawiera każdy artefakt."
+description: "Zainstaluj Rapirę z pakietu deb, rpm albo z archiwum tar, sprawdź sumę kontrolną pobranego pliku i zobacz, jaką kompilację libphp zawiera każdy artefakt."
+faqLevel: 2
 ---
 
 # Instalacja
 
-Na Rapirę składa się plik wykonywalny i osadzone w nim PHP.
+Rapira to binarka `rapira` i leżąca obok niej `libphp` — interpreter PHP, który serwer ładuje do własnego procesu. W artefakcie nie ma nic poza tym: żadnego polecenia `php`, żadnego php-fpm, żadnego katalogu z plikami ini. Żeby Rapira ruszyła, nie musisz instalować PHP na maszynie.
 
-Rapira uruchamia PHP przez SAPI embed — interfejs, dzięki któremu program hostuje interpreter jak zwykłą bibliotekę. Potrzebne jest do tego PHP zbudowane z `--enable-embed=shared`, czyli takie, które daje `libphp.so`. Tam, gdzie dystrybucja w ogóle je dostarcza — `php-embedded` w Fedorze i RHEL-u, `php-embed` w Archu, `libphpX.Y-embed` z deb.sury.org w Debianie i Ubuntu — musisz przyjąć jej wersję i jej zestaw rozszerzeń takimi, jakie są (a `php` z Homebrew nie ma SAPI embed w ogóle). Każde wydanie Rapiry buduje PHP z oficjalnego archiwum źródeł i kładzie wynik obok pliku `rapira`.
+::: question Czym jest `libphp` i dlaczego to nie jest „zwykłe PHP”?
+Z tych samych źródeł PHP powstaje kilka interfejsów do silnika, nazywanych SAPI. Silnik za każdym razem jest ten sam — Zend wraz z rozszerzeniami; różni się tylko otoczka i to, kto prowadzi program:
+
+| SAPI | Co powstaje | Kto rządzi |
+| --- | --- | --- |
+| CLI | polecenie `php` | PHP: startuje, wykonuje skrypt, kończy pracę. |
+| FPM | `php-fpm` | PHP: samo nasłuchuje na gnieździe i utrzymuje pulę workerów. |
+| embed | `libphp.so` | Program hosta: wywołuje interpreter jak każdą inną bibliotekę. |
+
+Rapira dostarcza kompilację embed, bo to serwer prowadzi żądanie, a nie PHP. Polecenie `php` należy do innego SAPI i do innego zadania, więc w artefakcie go nie ma.
+:::
+
+::: question Dlaczego `libphp` nie jest brana z systemu?
+Potrzebne jest PHP skompilowane z `--enable-embed=shared` — tylko taka kompilacja daje `libphp.so`. Dystrybucje rzadko ją pakują, a tam, gdzie jest — `php-embedded` w Fedorze i RHEL-u, `php-embed` w Archu, `libphpX.Y-embed` z deb.sury.org w Debianie i Ubuntu — wersję pomocniczą i zestaw rozszerzeń bierzesz takie, jakie są; w `php` z Homebrew SAPI embed nie ma w ogóle. Dlatego każde wydanie Rapiry kompiluje `libphp` z oficjalnego archiwum źródeł PHP i kładzie ją obok binarki.
+:::
+
+::: question Co znaczy, że „PHP działa wewnątrz procesu Rapiry”?
+Przy starcie `libphp` trafia do przestrzeni adresowej procesu `rapira`, więc sięgnięcie do PHP jest wywołaniem funkcji w tej samej pamięci: bez gniazda, bez FastCGI, bez serializowania żądania i odpowiedzi. To opis tego, jak wykonuje się kod — jako plik biblioteka pozostaje osobna i leży obok binarki, dlatego binarka nie może opuścić swojego katalogu bez niej (zobacz [Archiwa tar, na Linuksie i macOS](#archiwa-tar-na-linuksie-i-macos)).
+:::
 
 ## Wybór wersji PHP
 
-Każdy plik do pobrania ma w nazwie `php8.4` albo `php8.5`, a ta etykieta opisuje PHP *w środku* tego pliku. Nie ma kroku „najpierw zainstaluj PHP”, nie ma `php-config`, na który trzeba wskazać, nie ma wersji, którą trzeba trzymać w zgodzie. Jeśli masz już PHP na maszynie — systemowe `php`, pulę php-fpm, build z Homebrew — Rapira ani z niego nie korzysta, ani go nie rusza. Żaden artefakt nie zawiera polecenia `php`, więc narzędzia wokół aplikacji — Composer, `bin/console`, `artisan` — nadal potrzebują własnego PHP w wierszu poleceń.
+W nazwie każdego pliku do pobrania stoi `php8.4` albo `php8.5` — to wersja PHP, z której źródeł zbudowano `libphp` w środku. Wybierz wersję pomocniczą, na której działa twoja aplikacja, i bierz 8.5, chyba że coś w twoim stosie wymaga 8.4.
 
-Jedyny wybór to wersja, na której działa aplikacja: **8.4** albo **8.5**. Użyj 8.5, chyba że coś w Twoim stosie wymaga 8.4.
+PHP, które już masz na maszynie — systemowe `php`, pula php-fpm, kompilacja z Homebrew — Rapira ani nie używa, ani nie rusza. Żaden artefakt nie zawiera polecenia `php`, więc Composer, `bin/console` i `artisan` nadal działają na twoim własnym PHP CLI.
 
-Pakiety deb i rpm to wymuszają. `rapira-php8.4` i `rapira-php8.5` instalują dokładnie te same ścieżki, więc oba deklarują `provides`, `conflicts` i `replaces` (w rpm: `obsoletes`) na wirtualnym pakiecie `rapira`: wykluczają się wzajemnie, a instalacja jednego zajmuje miejsce drugiego, zamiast dokładać się obok. Tak samo zmienia się wersję PHP — zainstaluj ten drugi pakiet, a menedżer pakietów sam dokona podmiany. Archiwa tar się nie wykluczają: każde rozpakowuje się do własnego katalogu, więc drzewo 8.4 i drzewo 8.5 mogą stać obok siebie i działać z różnych ścieżek.
+::: question Dlaczego każda wersja PHP ma osobną kompilację Rapiry?
+`libphp` w artefakcie nie jest wymienną zależnością, tylko częścią kompilacji: binarka `rapira` jest zlinkowana z jedną konkretną biblioteką, a jej ABI zmienia się między wersjami pomocniczymi PHP. Dlatego jedna kompilacja Rapiry obsługuje dokładnie jedną gałąź PHP, a wersja trafiła do nazwy pliku. W zamian nie ma kroku „najpierw zainstaluj PHP”, nie ma `php-config`, na który trzeba wskazać, ani wersji, którą trzeba trzymać w zgodzie.
+:::
+
+::: question Jak przejść z 8.4 na 8.5?
+Zainstaluj pakiet z drugą wersją, a podmianę zrobi menedżer pakietów. `rapira-php8.4` i `rapira-php8.5` zajmują dokładnie te same ścieżki, więc oba deklarują `provides`, `conflicts` i `replaces` (w rpm — `obsoletes`) na wirtualny pakiet `rapira`: nigdy nie stoją obok siebie, drugi zastępuje pierwszy. Archiwa się nie wykluczają — każde rozpakowuje się do własnego katalogu, więc drzewo 8.4 i drzewo 8.5 mogą leżeć obok siebie i uruchamiać się z różnych ścieżek.
+:::
 
 ## Artefakty wydania
 
-Wszystko leży na [stronie wydań na GitHubie](https://github.com/rapira-rs/rapira/releases). [Strona pobierania](/pl/download) dobierze właściwy artefakt do twojej platformy — system, architekturę, wersję PHP, format pakietu — i pokaże jego sumę SHA-256; każda nazwa z `php8.5` ma swój odpowiednik z `php8.4`.
+Wszystko leży na [stronie wydań w GitHubie](https://github.com/rapira-rs/rapira/releases). [Strona pobierania](/pl/download) sama dobierze artefakt do twojej platformy — systemu, architektury, wersji PHP, formatu pakietu — i pokaże jego SHA-256; każdy artefakt `php8.5` ma bliźniaka `php8.4`.
 
-Na Linuksie wybierz pakiet, jeśli chcesz, żeby pliki trafiły tam, gdzie spodziewa się ich dystrybucja, a `apt` albo `dnf` dociągnęły biblioteki współdzielone potrzebne PHP; wybierz archiwum tar, jeśli serwer ma zmieścić się w jednym samowystarczalnym katalogu — obraz kontenera, artefakt wdrożeniowy, maszyna, na której nie masz roota. Jedno i drugie przed instalacją porównaj z `rapira-v0.6.0-SHA256SUMS.txt`, bo `.deb` i `.rpm` uruchamiają swoje skrypty instalacyjne jako root. Polecenia znajdziesz w sekcji [Weryfikacja sum kontrolnych](#weryfikacja-sum-kontrolnych).
+Na Linuksie weź pakiet, jeśli chcesz, żeby pliki trafiły tam, gdzie spodziewa się ich dystrybucja, a `apt` albo `dnf` dociągnęły biblioteki współdzielone potrzebne PHP; weź archiwum, jeśli cały serwer ma się zmieścić w jednym samowystarczalnym katalogu — obraz kontenera, artefakt wdrożenia, maszyna bez roota.
+
+W obu przypadkach sprawdź plik z `rapira-v0.6.0-SHA256SUMS.txt` przed instalacją — polecenia znajdziesz w sekcji [Weryfikacja sum kontrolnych](#weryfikacja-sum-kontrolnych).
+
+::: question Po co sprawdzać sumę kontrolną przed instalacją?
+`.deb` i `.rpm` wykonują swoje skrypty instalacyjne jako root, więc podmieniony plik dostaje roota, zanim w ogóle uruchomisz serwer. Sprawdzenie to jedno polecenie i tyle wystarczy, żeby zdjąć to ryzyko.
+:::
 
 ## Debian i Ubuntu
 
-Pobierz `.deb` i zainstaluj go przez `apt`, podając ścieżkę — to wiodące `./` mówi apt, że chodzi o lokalny plik, a nie o nazwę pakietu do wyszukania:
+Pobierz `.deb` i zainstaluj go przez `apt`, podając ścieżkę:
 
 ```bash
 curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-php8.5_0.6.0-1_amd64.deb
@@ -33,13 +64,21 @@ sudo apt install ./rapira-php8.5_0.6.0-1_amd64.deb
 rapira --version
 ```
 
-Pakiet instaluje cztery pliki: program w `/usr/bin/rapira`, dołączony interpreter w `/usr/lib/rapira/libphp.so` oraz licencję i README w `/usr/share/doc/rapira/`. Nic poza tym nie zostaje ruszone — żadnej jednostki usługi, żadnego pliku konfiguracyjnego, żadnego katalogu z plikami ini. Uruchamianie Rapiry pod systemd to osobny krok, opisany na stronie [Wdrożenie produkcyjne](/pl/docs/deployment).
+Pakiet instaluje sam serwer i nic poza tym: nie dodaje ani jednostki usługi, ani pliku konfiguracyjnego, ani katalogu z ini. Uruchomienie Rapiry pod systemd to osobny krok, opisany na stronie [Wdrożenie produkcyjne](/pl/docs/deployment).
 
-Pakiety są budowane pod glibc 2.34, więc najstarsze wydania, na których się zainstalują, to **Debian 12 i Ubuntu 22.04**. Wszystko nowsze działa.
+Pakiety są budowane pod glibc 2.34, więc najstarsze systemy, na których się zainstalują, to **Debian 12 i Ubuntu 22.04**. Wszystko nowsze działa.
+
+::: question Po co `./` przed nazwą pliku?
+To właśnie początkowe `./` mówi aptowi, że chodzi o plik lokalny, a nie o nazwę pakietu do wyszukania w repozytoriach.
+:::
+
+::: question Jakie pliki pojawią się w systemie?
+Cztery: binarka `/usr/bin/rapira`, interpreter `/usr/lib/rapira/libphp.so` oraz licencja i README w `/usr/share/doc/rapira/`. Poza tym pakiet niczego nie zmienia.
+:::
 
 ## RHEL, Rocky i Fedora
 
-Ten sam schemat, tyle że z `dnf`:
+To samo, tylko przez `dnf`:
 
 ```bash
 curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-php8.5-0.6.0-1.x86_64.rpm
@@ -47,11 +86,11 @@ sudo dnf install ./rapira-php8.5-0.6.0-1.x86_64.rpm
 rapira --version
 ```
 
-Ten sam próg glibc 2.34 ustawia minimum na **RHEL 9** i jego pochodne — Rocky 9, AlmaLinux 9 — oraz dowolną aktualną Fedorę.
+Ten sam próg glibc 2.34 wyznacza minimum: **RHEL 9** i jego przebudowy — Rocky 9, AlmaLinux 9 — plus dowolna aktualna Fedora.
 
 ## Archiwa tar, na Linuksie i macOS
 
-Archiwum rozpakowuje się do jednego katalogu, w którym mieści się cały serwer:
+Archiwum rozpakowuje się do jednego katalogu, w którym leży cały serwer:
 
 ```text
 rapira-v0.6.0-php8.5-linux-x86_64/
@@ -62,9 +101,7 @@ rapira-v0.6.0-php8.5-linux-x86_64/
 └── LICENSE
 ```
 
-Na macOS w `lib/rapira` leży `libphp.dylib` razem z całą resztą niesystemowych bibliotek, od których zależy, więc drzewo jest samodzielne. Na Linuksie dołączona jest tylko `libphp.so`, a zwykłe biblioteki systemowe — OpenSSL 3, libcurl, libxml2, SQLite, Oniguruma, zlib — muszą już być w systemie. Na typowej dystrybucji są; dokładnie tę listę deb i rpm deklarują jako zależności, obok glibc i libgcc.
-
-Przenieś katalog do jego docelowej lokalizacji i podlinkuj program do `PATH`:
+Przenieś katalog tam, gdzie ma zostać na stałe, i dodaj binarkę do `PATH` przez dowiązanie symboliczne:
 
 ::: code-group
 
@@ -87,12 +124,20 @@ rapira --version
 :::
 
 ::: warning
-Program znajduje swój interpreter przez **względny rpath** — `$ORIGIN/../lib/rapira` na Linuksie, `@loader_path/../lib/rapira` na macOS — liczony od rzeczywistego położenia samego pliku wykonywalnego. Cały katalog można przenieść gdziekolwiek, ale plik wykonywalny musi zostać w środku: `cp bin/rapira /usr/local/bin/` psuje wyszukiwanie, bo obok `/usr/local/bin` nie ma niczego o nazwie `lib/rapira`. Zrób zamiast tego dowiązanie symboliczne, jak wyżej. Loader rozwiązuje dowiązanie, zanim rozwinie rpath, więc symlink może leżeć gdziekolwiek, a prawdziwe drzewo zostaje w całości.
+Binarka szuka swojego interpretera obok siebie, więc katalog można przenosić tylko w całości: `cp bin/rapira /usr/local/bin/` psuje uruchomienie. Do `PATH` dodawaj dowiązanie symboliczne, tak jak w poleceniach wyżej.
+:::
+
+::: question Dlaczego dowiązanie działa, a kopia binarki nie?
+Ścieżka do interpretera jest wpisana w binarkę jako **względny rpath** — `$ORIGIN/../lib/rapira` na Linuksie i `@loader_path/../lib/rapira` na macOS — a punktem odniesienia jest rzeczywiste położenie samej binarki. Obok `/usr/local/bin` nie ma żadnego `lib/rapira`, więc kopia nie znajdzie interpretera. Dowiązanie loader najpierw rozwiązuje, a dopiero potem rozwija rpath, więc link może leżeć gdziekolwiek, a prawdziwe drzewo zostaje nienaruszone.
+:::
+
+::: question Jakich bibliotek systemowych potrzebuje archiwum?
+Na macOS w `lib/rapira` leży `libphp.dylib` razem ze wszystkimi niesystemowymi bibliotekami, od których zależy — drzewo jest samowystarczalne. Na Linuksie w komplecie jest tylko `libphp.so`, a zwyczajne biblioteki systemowe — OpenSSL 3, libcurl, libxml2, SQLite, Oniguruma, zlib — muszą już być w systemie. W typowej dystrybucji i tak są; to dokładnie one figurują jako zależności pakietów deb i rpm, obok glibc i libgcc.
 :::
 
 ## Weryfikacja sum kontrolnych
 
-Każde wydanie publikuje jeden plik z sumami kontrolnymi, obejmujący wszystkie jego artefakty, więc sprawdzanie musi wybrać z niego tylko te pliki, które pobrałeś. Na Linuksie robi to `--ignore-missing`; na macOS `grep` podaje `shasum` jedyny potrzebny wiersz:
+Każde wydanie ma jeden plik z sumami dla wszystkich swoich artefaktów, więc przy weryfikacji trzeba wybrać tylko te, które pobrałeś. Na Linuksie robi to flaga `--ignore-missing`, a na macOS `grep` podaje `shasum` dokładnie tę jedną potrzebną linię:
 
 ::: code-group
 
@@ -108,41 +153,45 @@ grep rapira-v0.6.0-php8.5-macos-aarch64.tar.gz rapira-v0.6.0-SHA256SUMS.txt | sh
 
 :::
 
-## Dołączone PHP
+## Kompilacja libphp
 
-Dołączone PHP buduje się z `--disable-all`, a potem włącza z powrotem stały zestaw rozszerzeń:
+`libphp` jest kompilowana z `--disable-all`, po czym z powrotem włączany jest stały zestaw rozszerzeń:
 
-- **Podstawy działania** — session, filter, mbstring, iconv, ctype, tokenizer, fileinfo, phar
-- **OPcache** oraz PCRE z włączonym JIT
-- **Sieć i kompresja** — openssl, curl, zlib
-- **XML** — libxml, dom, xml, simplexml, xmlreader, xmlwriter
-- **Bazy danych** — PDO z `pdo_sqlite` oraz `sqlite3`
-- Wszystko, co PHP i tak zawsze wkompilowuje — Core, standard, SPL, date, json, hash, random, Reflection
+- **Podstawa runtime'u** — session, filter, mbstring, iconv, ctype, tokenizer, fileinfo, phar.
+- **OPcache** oraz PCRE z włączonym JIT-em.
+- **Sieć i kompresja** — openssl, curl, zlib.
+- **XML** — libxml, dom, xml, simplexml, xmlreader, xmlwriter.
+- **Bazy danych** — PDO z `pdo_sqlite` oraz samo `sqlite3`.
+- Wszystko, co PHP wkompilowuje zawsze — Core, standard, SPL, date, json, hash, random, Reflection.
 
-Każde wydanie bierze najnowszą wersję poprawkową gałęzi, którą buduje. Archiwum zapisuje dokładny numer w `share/php/PHP_VERSION.txt`; z poziomu działającego serwera podają go `PHP_VERSION` i `phpinfo()`.
+Czego w niej *nie ma*: `pdo_mysql`, `pgsql`, redis, apcu, imagick i reszty z tej półki. Jeśli twoja aplikacja potrzebuje takiego rozszerzenia, skompiluj `libphp` razem z nim i zbuduj Rapirę pod tę bibliotekę — jak, opisuje strona [Budowanie ze źródeł](/pl/docs/intro/build-from-source).
 
-::: info Nazwa SAPI
-Na PHP 8.4 SAPI rejestruje się jako `fastcgi`, bo OPcache w tej wersji uruchamia się tylko dla zamkniętej listy nazw SAPI, a nazwa spoza listy oznacza brak współdzielonej pamięci podręcznej opcode'ów. PHP 8.5 pozbyło się tej listy, więc tam `PHP_SAPI` i `php_sapi_name()` zwracają `rapira`. Wiersz *Server API* w `phpinfo()` w obu przypadkach pokazuje `Rapira`. Kod, który rozgałęzia się po `PHP_SAPI`, powinien rozpoznawać obie wartości.
+Każde wydanie bierze najświeższą wersję łatki z budowanej gałęzi. W archiwum dokładna wersja zapisana jest w `share/php/PHP_VERSION.txt`, a na działającym serwerze podają ją `PHP_VERSION` i `phpinfo()`.
+
+::: question Dlaczego na PHP 8.4 `PHP_SAPI` zwraca `fastcgi`?
+Na PHP 8.4 OPcache startuje tylko dla zamkniętej listy nazw SAPI, a nazwa spoza listy oznacza brak wspólnego cache'u opcode'ów w ogóle — dlatego tam SAPI rejestruje się jako `fastcgi`. PHP 8.5 zniosło tę listę, więc `PHP_SAPI` i `php_sapi_name()` zwracają `rapira`. Wiersz *Server API* w `phpinfo()` w obu przypadkach pokazuje `Rapira`. Kod, który rozgałęzia się po `PHP_SAPI`, musi rozumieć obie wartości.
 :::
-
-Czego w zestawie *nie* ma: `pdo_mysql`, `pgsql`, redis, apcu, imagick i całej reszty z tej rodziny. Jeśli aplikacja któregoś potrzebuje, zbuduj PHP z rozszerzeniami, których chcesz, i skompiluj z nim Rapirę. Więcej informacji znajdziesz na stronie [Budowanie ze źródeł](/pl/docs/intro/build-from-source).
 
 ## php.ini
 
-Ani pakiety, ani archiwa nie zawierają `php.ini`, a Rapira sama go nie tworzy. PHP korzysta więc ze swojego zwykłego wyszukiwania: sprawdza najpierw `PHPRC`, potem bieżący katalog roboczy, a na końcu ścieżkę wkompilowaną w build — ta wskazuje wnętrze katalogu, w którym PHP było budowane, więc na Twojej maszynie nigdy nic nie znajdzie. Nietknięta instalacja działa zatem na wbudowanych ustawieniach domyślnych PHP.
-
-Wskaż konkretny plik albo katalog do przeszukania przez `PHPRC`:
+Ani pakiety, ani archiwa nie zawierają `php.ini`, a Rapira sama go nie tworzy, więc nietknięta instalacja działa na wbudowanych domyślnych ustawieniach PHP. Wskaż przez `PHPRC` konkretny plik albo katalog, w którym go szukać:
 
 ```bash
 PHPRC=/etc/rapira/php.ini rapira serve --config /etc/rapira/rapira.toml
 ```
 
-PHP szuka `php-<sapi-name>.ini` przed zwykłym `php.ini`, a nazwa SAPI zależy od wersji (patrz wyżej), dlatego to `php.ini` jest nazwą, która działa i na 8.4, i na 8.5.
+::: question Gdzie PHP samo szuka `php.ini`?
+Tak jak zwykle: najpierw patrzy na `PHPRC`, potem do bieżącego katalogu roboczego, a na końcu na ścieżkę wpisaną przy kompilacji, która prowadzi do katalogu, w którym budowano PHP, i tym samym na twojej maszynie nie prowadzi donikąd.
+:::
+
+::: question Dlaczego plik nazywa się `php.ini`, a nie `php-rapira.ini`?
+PHP najpierw szuka `php-<nazwa-sapi>.ini`, a dopiero potem zwykłego `php.ini`, a nazwa SAPI zależy od wersji — `fastcgi` na 8.4 i `rapira` na 8.5. Zwykły `php.ini` pasuje do obu.
+:::
 
 ## Dystrybucja
 
-Gotowe buildy są publikowane w GitHub Releases i nigdzie indziej. Repozytorium apt ani yum jeszcze nie ma, więc aktualizacja polega na pobraniu nowego artefaktu i zainstalowaniu go na starym, a nie na uruchomieniu `apt upgrade`. Pakiet zastępuje w miejscu ten już zainstalowany; przy archiwum tar rozpakuj nowy katalog obok starego i przestaw dowiązanie symboliczne — poprzednie drzewo zostaje na dysku, więc wycofanie zmiany to jedno polecenie.
+Buildy publikujemy w GitHub Releases i nigdzie indziej. Repozytorium dla apta ani yuma na razie nie ma, więc aktualizacja to pobranie nowego artefaktu i zainstalowanie go na miejscu starego, a nie `apt upgrade`. Pakiet zastępuje zainstalowany w miejscu; przy archiwum rozpakuj nowy katalog obok starego i przełącz dowiązanie — poprzednie drzewo zostaje na swoim miejscu, a wycofanie zmiany to jedno polecenie.
 
 Build dla macOS działa **wyłącznie na Apple Silicon**, celuje w **macOS 14 i nowsze** i jest podpisany doraźnie: bez Developer ID, bez notaryzacji, więc przy pierwszym uruchomieniu macOS może poprosić o potwierdzenie. Wersji na Intela nie ma. Buildy dla Windowsa są publikowane osobno, w [rapira-rs/rapira-windows](https://github.com/rapira-rs/rapira-windows), i służą wyłącznie do lokalnego developmentu — w produkcji Rapira działa na Linuksie lub macOS.
 
-[Szybki start](/pl/docs/intro/quickstart) opisuje, jak obsłużyć pierwsze żądanie, gdy plik wykonywalny jest już na miejscu.
+[Szybki start](/pl/docs/intro/quickstart) pokazuje, jak obsłużyć pierwsze żądanie, gdy binarka jest już na miejscu.

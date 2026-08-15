@@ -80,9 +80,10 @@ The Introduction group is backed by a folder: `docs/intro/` holds the entry page
 **Register — binding for English and every translation:**
 
 - **Open with a definition.** The first sentence says what the subject is, with the product or feature as grammatical subject; optionally one scope sentence naming what the page covers; then the first `##`. Installation-type pages may skip the intro entirely. Never open with motivation, a problem statement, or the reader.
+- **Second person for what the reader owns or does; a plain article for everything else.** "You" and "your" belong to the reader's property, decisions and actions — "if your application needs an extension", "pick the minor version your application runs on", "point `PHPRC` at a real file". What belongs to the software takes a plain article: "serving a first request", "the binary finds its interpreter", "the license under `/usr/share/doc/`". Test before writing a possessive: swap "your X" for "a X" or "the X", and if nothing is lost, it was decoration. Binding for translations — «ваш первый запрос» fails the same test as "your first request".
 - **No metaphors, no analogies.** No ladder/rung/climb (banned outright, see above), no economic framing ("paid once at boot", "the price is"), no personification ("your code does not know the difference"), no punchlines or reveals ("…: nothing."). Standard technical idiom stays: boot, warm, spin up, drop-in replacement, sawtooth, graceful shutdown, backstop.
 - **No teasers or narrative transitions** ("and that is why the next section exists"), no editorializing ("worth knowing", "the entire point", "honestly", "actually"/"genuinely" as emphasis), no marketing adjectives, no rhetorical questions, no dramatized second person ("now your responsibility", "yours to manage").
-- **No FAQ blocks.** Docs pages carry no `::: question` containers — in English or any translation. An answer worth writing belongs in the body, in the section that owns the topic; a recurring reader question means the body is missing something, so fix the body.
+- **Background detail goes in `::: question` spoilers.** The body carries what the reader acts on — the steps, the choice between options, the facts a decision turns on. The mechanism under it — why an artifact is built that way, what the loader does with a path, why an identifier has the value it has — moves into a `::: question` block titled as the question the reader would ask ("Why is there a separate build per PHP version?"). Set `faqLevel: 2` in the frontmatter so each question collects at the end of the section that raised it. `ru/docs/intro/installation.md` is the worked example.
 - **Hedge about the software's state, never about knowledge:** "currently", "not yet" — never "probably", "generally", "in practice you'll almost always".
 - **Limitations are flat present-tense facts stated in place**, each paired with its workaround in the same paragraph. No apology, no drama.
 - **Choices:** give parallel criteria ("Use A if …; use B if …") or one plain paragraph per option; recommendations are stated flatly with the reason attached, never sold.
@@ -99,7 +100,7 @@ The Introduction group is backed by a folder: `docs/intro/` holds the entry page
 - Avoid tautology in lists, fix typos.
 - Small sections are sometimes better integrated into an existing one.
 
-**Markdown callouts:** Use `::: tip`, `::: warning`, `::: info`, `::: danger` blocks — each renders with its own icon and color. The `::: question` spoiler plugin exists but is not used in the docs (see the Register block); do not add FAQ containers.
+**Markdown callouts:** Use `::: tip`, `::: warning`, `::: info`, `::: danger` blocks — each renders with its own icon and color. `::: question` holds the background detail (see the Register block above and the FAQ section below).
 
 ## Working with Content
 
@@ -161,7 +162,7 @@ author: Author Name
 
 ## FAQ (`::: question`)
 
-Documentation pages do not use this plugin (see the Register block above); it stays available for blog posts. Questions can be written anywhere in an article using `::: question` blocks. At build time they are extracted from their positions and grouped into collapsible spoilers.
+Questions can be written anywhere in an article using `::: question` blocks — docs pages and blog posts alike. At build time they are extracted from their positions and grouped into collapsible spoilers. What belongs in one is the Register block's call; this section is the mechanics.
 
 **Syntax:**
 ```md

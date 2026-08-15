@@ -5,7 +5,7 @@ description: "用 Rapira 以经典模式和 worker 模式提供 PHP 应用，并
 
 # 快速开始
 
-本页介绍如何用经典模式返回一个页面、把同一个应用改造成常驻 worker，以及把设置搬进配置文件。前提是你手上已经有一个能用的 `rapira` 可执行文件，以及它自带的 PHP；详见[安装](/zh/docs/installation)。
+本页介绍如何用经典模式返回一个页面、把同一个应用改造成常驻 worker，以及把设置搬进配置文件。前提是你手上已经有一个能用的 `rapira` 可执行文件，以及它自带的 PHP；详见[安装](/zh/docs/intro/installation)。
 
 ## 经典模式
 

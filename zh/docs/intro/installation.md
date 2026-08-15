@@ -125,7 +125,7 @@ grep rapira-v0.6.0-php8.5-macos-aarch64.tar.gz rapira-v0.6.0-SHA256SUMS.txt | sh
 在 PHP 8.4 上，SAPI 会把自己注册成 `fastcgi`：那个版本的 OPcache 只对固定的一份 SAPI 名单启动，名字不在单子上就完全没有共享 opcode 缓存。PHP 8.5 去掉了这份名单，所以在那里 `PHP_SAPI` 和 `php_sapi_name()` 返回的是 `rapira`。而 `phpinfo()` 里的 *Server API* 一行，两个版本都显示 `Rapira`。根据 `PHP_SAPI` 做分支的代码，两个值都要认。
 :::
 
-**没有**包含的扩展：`pdo_mysql`、`pgsql`、redis、apcu、imagick，以及这一类的其他所有扩展。如果你的应用需要其中之一，就自己编译一个带所需扩展的 PHP，再基于它编译 Rapira。详见[从源码构建](/zh/docs/build-from-source)。
+**没有**包含的扩展：`pdo_mysql`、`pgsql`、redis、apcu、imagick，以及这一类的其他所有扩展。如果你的应用需要其中之一，就自己编译一个带所需扩展的 PHP，再基于它编译 Rapira。详见[从源码构建](/zh/docs/intro/build-from-source)。
 
 ## php.ini
 
@@ -145,4 +145,4 @@ PHP 会先找 `php-<sapi-name>.ini`，再找普通的 `php.ini`，而 SAPI 名�
 
 macOS 版本**只支持 Apple Silicon**，面向 **macOS 14 及以上**，并且只做了 ad-hoc 签名：没有 Developer ID，也没有公证，所以首次运行时 macOS 可能会要你确认。没有 Intel 版本。Windows 版本单独发布在 [rapira-rs/rapira-windows](https://github.com/rapira-rs/rapira-windows)，只用于本地开发——生产环境请在 Linux 或 macOS 上运行 Rapira。
 
-二进制文件就位之后如何处理第一个请求，见[快速开始](/zh/docs/quickstart)。
+二进制文件就位之后如何处理第一个请求，见[快速开始](/zh/docs/intro/quickstart)。

@@ -27,7 +27,7 @@ Rezydentny wzorzec sprowadza się więc do trzech kroków: zbuduj runner raz, ur
 
 ## Zanim zaczniesz
 
-- Zainstalowana Rapira — zobacz [Instalację](/pl/docs/installation).
+- Zainstalowana Rapira — zobacz [Instalację](/pl/docs/intro/installation).
 - Aplikacja Yii3: świeży projekt z szablonu [`yiisoft/app`](https://github.com/yiisoft/app) albo taki, który już masz.
 
 Po stronie PHP nie instalujesz niczego: jedynym nowym plikiem w projekcie jest skrypt workera z listingu niżej, a leży on w katalogu głównym projektu, obok `composer.json`, bo `rootPath` runnera to właśnie katalog główny. Potrzebujesz też zwykłego PHP CLI na maszynie: to przez niego uruchamiasz Composera. Rapira dostarcza PHP jako bibliotekę (`libphp`), a nie jako polecenie `php`, więc te kroki wykonują się na systemowym PHP, którego Rapira ani nie używa, ani nie rusza.
@@ -193,4 +193,4 @@ Ten sam kod, żadnego skryptu workera, świeży stan przy każdym żądaniu. Wi�
 
 Skrypt workera to dodatkowy skrypt wejściowy, a nie zamiennik front controllera, więc zostaw `public/index.php`: to jego uruchamia tryb klasyczny i nadal przydaje się przy pracy lokalnej z wbudowanym serwerem PHP.
 
-`public/index.php` z szablonu ma gałąź `PHP_SAPI === 'cli-server'`, która serwuje pliki statyczne i przepisuje `SCRIPT_NAME`. Powstała z myślą o wbudowanym serwerze deweloperskim PHP i pod Rapirą nigdy się nie uruchamia, bo `PHP_SAPI` ma tu wartość `rapira` (`fastcgi` na PHP 8.4 — zobacz [Instalację](/pl/docs/installation)), więc może zostać tak, jak jest.
+`public/index.php` z szablonu ma gałąź `PHP_SAPI === 'cli-server'`, która serwuje pliki statyczne i przepisuje `SCRIPT_NAME`. Powstała z myślą o wbudowanym serwerze deweloperskim PHP i pod Rapirą nigdy się nie uruchamia, bo `PHP_SAPI` ma tu wartość `rapira` (`fastcgi` na PHP 8.4 — zobacz [Instalację](/pl/docs/intro/installation)), więc może zostać tak, jak jest.

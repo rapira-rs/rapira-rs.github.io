@@ -5,12 +5,12 @@ description: When and how to compile Rapira yourself — the Rust and C toolchai
 
 # Build from source
 
-Rapira compiles from source on Linux and macOS. Building it yourself covers the cases the prebuilt binaries on the [Installation](/docs/installation) page don't, and the only requirement beyond the usual Rust and C toolchain is a PHP that Rapira can embed.
+Rapira compiles from source on Linux and macOS. Building it yourself covers the cases the prebuilt binaries on the [Installation](/docs/intro/installation) page don't, and the only requirement beyond the usual Rust and C toolchain is a PHP that Rapira can embed.
 
 ## When to build from source
 
 - **There is no prebuilt binary for your platform** — an unusual CPU architecture, or a musl-based distro such as Alpine.
-- **Your distribution is older than the packages support.** The releases are built against glibc 2.34 — Debian 12, Ubuntu 22.04 and RHEL 9 are the oldest they install on (see [Installation](/docs/installation)).
+- **Your distribution is older than the packages support.** The releases are built against glibc 2.34 — Debian 12, Ubuntu 22.04 and RHEL 9 are the oldest they install on (see [Installation](/docs/intro/installation)).
 - **You need a different set of PHP extensions.** The release builds bundle a PHP compiled from the flag list in [`ci/php-configure-flags.txt`](https://github.com/rapira-rs/rapira/blob/main/ci/php-configure-flags.txt), which is deliberately small: session, mbstring, OPcache, OpenSSL, curl, the XML family, PDO with SQLite. If your application needs `pdo_mysql`, `intl` or `gd`, build Rapira against a PHP that has them.
 - **You are working on Rapira itself**, or want something that hasn't been released yet.
 
@@ -106,7 +106,7 @@ LD_LIBRARY_PATH="$HOME/.local/php-nts/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" 
 DYLD_LIBRARY_PATH="$HOME/.local/php-nts/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" ./target/release/rapira serve worker.php   # macOS
 ```
 
-The result is the same server the packages install: [Quickstart](/docs/quickstart) walks through a first script, [CLI](/docs/cli) lists what `serve` accepts, and [Configuration](/docs/configuration) covers `rapira.toml`.
+The result is the same server the packages install: [Quickstart](/docs/intro/quickstart) walks through a first script, [CLI](/docs/cli) lists what `serve` accepts, and [Configuration](/docs/configuration) covers `rapira.toml`.
 
 ## Working on Rapira itself
 

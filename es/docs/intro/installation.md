@@ -125,7 +125,7 @@ Cada versión toma el último parche de la rama que compila. El tarball deja con
 En PHP 8.4 el SAPI se registra como `fastcgi`, porque en esa versión OPcache solo arranca para una lista fija de nombres de SAPI, y quedarse fuera de ella significa quedarse sin caché compartida de opcodes. PHP 8.5 eliminó esa lista, así que ahí `PHP_SAPI` y `php_sapi_name()` devuelven `rapira`. La fila *Server API* de `phpinfo()` muestra `Rapira` en ambos casos. Si tu código se bifurca según `PHP_SAPI`, haz que reconozca los dos valores.
 :::
 
-Lo que *no* se incluye: `pdo_mysql`, `pgsql`, redis, apcu, imagick y toda esa familia. Si tu aplicación necesita alguna, compila PHP con las extensiones que quieras y compila Rapira contra ese PHP. Consulta [Compilar desde el código](/es/docs/build-from-source) para más información.
+Lo que *no* se incluye: `pdo_mysql`, `pgsql`, redis, apcu, imagick y toda esa familia. Si tu aplicación necesita alguna, compila PHP con las extensiones que quieras y compila Rapira contra ese PHP. Consulta [Compilar desde el código](/es/docs/intro/build-from-source) para más información.
 
 ## php.ini
 
@@ -145,4 +145,4 @@ Las compilaciones se publican en GitHub Releases y en ningún otro sitio. Todav�
 
 La compilación de macOS es **solo para Apple Silicon**, apunta a **macOS 14 o superior** y va firmada ad hoc: sin Developer ID y sin notarización, así que puede que macOS te pida confirmar la primera ejecución. No hay compilación para Intel. Las compilaciones para Windows se publican aparte, en [rapira-rs/rapira-windows](https://github.com/rapira-rs/rapira-windows), y están pensadas solo para desarrollo local: en producción, Rapira funciona en Linux o macOS.
 
-[Inicio rápido](/es/docs/quickstart) explica cómo servir la primera petición una vez que el binario está en su sitio.
+[Inicio rápido](/es/docs/intro/quickstart) explica cómo servir la primera petición una vez que el binario está en su sitio.

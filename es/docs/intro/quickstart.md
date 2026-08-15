@@ -5,7 +5,7 @@ description: "Servir una aplicación PHP con Rapira en modo clásico y en modo w
 
 # Inicio rápido
 
-Esta página explica cómo servir una página en modo clásico, convertir esa misma aplicación en un worker residente y llevar los ajustes a un archivo de configuración. Da por hecho que tienes un binario `rapira` que funciona, con el PHP que trae incluido; consulta [Instalación](/es/docs/installation) para más información.
+Esta página explica cómo servir una página en modo clásico, convertir esa misma aplicación en un worker residente y llevar los ajustes a un archivo de configuración. Da por hecho que tienes un binario `rapira` que funciona, con el PHP que trae incluido; consulta [Instalación](/es/docs/intro/installation) para más información.
 
 ## Modo clásico
 

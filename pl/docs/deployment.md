@@ -7,13 +7,13 @@ description: "Jak uruchomić Rapirę na serwerze: jednostka systemd, układ konf
 
 Uruchomienie Rapiry na serwerze wymaga tego, bez czego lokalne `rapira serve app/worker.php` się obywa: startu przy rozruchu maszyny, powrotu po awarii, przeładowania nowego kodu bez gubienia żądań i logów, które da się potem przeczytać. Ta strona opisuje jednostkę systemd, miejsce na konfigurację, proxy z przodu i ustawienia, które wyznaczają granice długowiecznym workerom.
 
-Prawie nic z tego nie jest wkompilowane w binarkę. Nic w Rapirze nie zależy od tego, gdzie leży twoja konfiguracja ani co pilnuje procesu, więc układ opisany niżej to konwencja, którą ustala ta strona i którą przyjmuje reszta dokumentacji. Najpierw wgraj binarkę na maszynę — tym zajmuje się [Instalacja](/pl/docs/installation).
+Prawie nic z tego nie jest wkompilowane w binarkę. Nic w Rapirze nie zależy od tego, gdzie leży twoja konfiguracja ani co pilnuje procesu, więc układ opisany niżej to konwencja, którą ustala ta strona i którą przyjmuje reszta dokumentacji. Najpierw wgraj binarkę na maszynę — tym zajmuje się [Instalacja](/pl/docs/intro/installation).
 
 ## Jednostka systemd
 
 Rapira zajmuje miejsce php-fpm, a jej proces nadrzędny już pilnuje puli: forkuje, zbiera zakończone procesy, odtwarza je z narastającym odczekiwaniem, wymienia workery i skaluje pulę. Jedynym zadaniem systemd jest utrzymanie tego jednego procesu nadrzędnego przy życiu, więc dla osobnego menedżera procesów w rodzaju supervisord nie zostaje tu nic do roboty.
 
-Pakiety `.deb` i `.rpm` instalują plik wykonywalny i osadzone w nim PHP, i nic poza tym — **żadnej jednostki usługi ani `php.ini`** (dokładną listę plików podaje [Instalacja](/pl/docs/installation)). Jedno i drugie to polityka konkretnej instalacji, a pakiet, który by je dostarczał, przy każdej aktualizacji nadpisywałby twoje zmiany.
+Pakiety `.deb` i `.rpm` instalują plik wykonywalny i osadzone w nim PHP, i nic poza tym — **żadnej jednostki usługi ani `php.ini`** (dokładną listę plików podaje [Instalacja](/pl/docs/intro/installation)). Jedno i drugie to polityka konkretnej instalacji, a pakiet, który by je dostarczał, przy każdej aktualizacji nadpisywałby twoje zmiany.
 
 Napisz własną w `/etc/systemd/system/rapira.service`:
 

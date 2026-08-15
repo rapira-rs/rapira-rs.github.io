@@ -37,7 +37,7 @@ This positioning is what the home page carries: the lede comes from the `tagline
 docs/         # English (root)
 ├── index.md  # Home page (layout: home)
 ├── download.md # Download page (picker over baked release data)
-├── docs/     # Documentation pages
+├── docs/     # Documentation pages (intro/ holds the entry page + getting started)
 ├── blog/     # Blog posts + index.md
 └── .vitepress/
     ├── config.mts       # Config: nav, sidebar, locales, search, mermaid, RSS
@@ -69,7 +69,9 @@ pl/           # Polish locale    ┘
 
 English (root) is the **source of truth**. Every other locale mirrors its structure.
 
-The docs sidebar (five per-locale blocks in `.vitepress/config.mts`) has six groups — Introduction, Getting started, Writing your app, Running the server, Framework integration, Contributing — with an identical group/item structure in every locale; only the labels are translated.
+The docs sidebar (five per-locale blocks in `.vitepress/config.mts`) has five groups — Introduction, Writing your app, Running the server, Framework integration, Contributing — with an identical group/item structure in every locale; only the labels are translated.
+
+The Introduction group is backed by a folder: `docs/intro/` holds the entry page (`index.md`, "What is Rapira?", served at `/docs/intro/`) plus Installation, Quickstart and Build from source. There is no page at `/docs/` — the docs entry URL comes from `getDocsUrl()` in `.vitepress/locales.ts` and points at `/docs/intro/`. Every other docs page sits flat in `docs/`.
 
 ## Style Guide
 

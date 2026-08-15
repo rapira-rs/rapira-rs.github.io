@@ -5,12 +5,12 @@ description: "Kiedy i jak samodzielnie skompilować Rapirę — narzędzia Rusta
 
 # Budowanie ze źródeł
 
-Rapira kompiluje się ze źródeł na Linuksie i macOS. Samodzielne budowanie pokrywa przypadki, których nie obejmują gotowe binarki ze strony [Instalacja](/pl/docs/installation), a jedynym wymaganiem poza zwykłymi narzędziami Rusta i C jest PHP, które Rapira potrafi osadzić.
+Rapira kompiluje się ze źródeł na Linuksie i macOS. Samodzielne budowanie pokrywa przypadki, których nie obejmują gotowe binarki ze strony [Instalacja](/pl/docs/intro/installation), a jedynym wymaganiem poza zwykłymi narzędziami Rusta i C jest PHP, które Rapira potrafi osadzić.
 
 ## Kiedy budować ze źródeł
 
 - **Dla twojej platformy nie ma gotowej binarki** — nietypowa architektura procesora albo dystrybucja oparta na musl, na przykład Alpine.
-- **Twoja dystrybucja jest starsza, niż obsługują pakiety.** Wydania powstają na glibc 2.34, więc najstarsze systemy, na których się zainstalują, to Debian 12, Ubuntu 22.04 i RHEL 9 (zobacz [Instalację](/pl/docs/installation)).
+- **Twoja dystrybucja jest starsza, niż obsługują pakiety.** Wydania powstają na glibc 2.34, więc najstarsze systemy, na których się zainstalują, to Debian 12, Ubuntu 22.04 i RHEL 9 (zobacz [Instalację](/pl/docs/intro/installation)).
 - **Potrzebujesz innego zestawu rozszerzeń PHP.** Wydania zawierają PHP skompilowane z listy flag w pliku [`ci/php-configure-flags.txt`](https://github.com/rapira-rs/rapira/blob/main/ci/php-configure-flags.txt), celowo krótkiej: session, mbstring, OPcache, OpenSSL, curl, rodzina XML, PDO z SQLite. Jeśli twoja aplikacja potrzebuje `pdo_mysql`, `intl` albo `gd`, zbuduj Rapirę na PHP, które je ma.
 - **Pracujesz nad samą Rapirą** albo chcesz coś, czego jeszcze nie wydaliśmy.
 
@@ -106,7 +106,7 @@ LD_LIBRARY_PATH="$HOME/.local/php-nts/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" 
 DYLD_LIBRARY_PATH="$HOME/.local/php-nts/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" ./target/release/rapira serve worker.php   # macOS
 ```
 
-Efektem jest ten sam serwer, który instalują pakiety: [Szybki start](/pl/docs/quickstart) przeprowadzi cię przez pierwszy skrypt, [Wiersz poleceń](/pl/docs/cli) wylicza, co przyjmuje `serve`, a [Konfiguracja](/pl/docs/configuration) opisuje `rapira.toml`.
+Efektem jest ten sam serwer, który instalują pakiety: [Szybki start](/pl/docs/intro/quickstart) przeprowadzi cię przez pierwszy skrypt, [Wiersz poleceń](/pl/docs/cli) wylicza, co przyjmuje `serve`, a [Konfiguracja](/pl/docs/configuration) opisuje `rapira.toml`.
 
 ## Praca nad samą Rapirą
 

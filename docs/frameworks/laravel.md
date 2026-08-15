@@ -17,9 +17,9 @@ Everything on this page was run against a `laravel/laravel` skeleton with a hand
 
 ## Prerequisites
 
-You need Rapira installed — see [Installation](/docs/installation) — and a Laravel application you can already run. You also need an ordinary PHP CLI on the machine for Composer and `artisan` — Rapira ships PHP as a library (`libphp`), not as a `php` command, so those steps run on your system PHP, which Rapira neither uses nor touches.
+You need Rapira installed — see [Installation](/docs/intro/installation) — and a Laravel application you can already run. You also need an ordinary PHP CLI on the machine for Composer and `artisan` — Rapira ships PHP as a library (`libphp`), not as a `php` command, so those steps run on your system PHP, which Rapira neither uses nor touches.
 
-Check the database extensions before the first boot: a fresh `laravel/laravel` skeleton defaults to an SQLite database and to database-backed session, cache and queue drivers, which means it needs `pdo_sqlite`. The PHP bundled with the Rapira releases has it — PDO, `pdo_sqlite` and `sqlite3` are all in the release build's extension set, listed on the [Installation](/docs/installation) page. If you run Rapira against a PHP you compiled yourself, make sure those extensions are in your configure line ([Build from source](/docs/build-from-source) covers it), or point Laravel at the file and sync drivers instead — `SESSION_DRIVER=file`, `CACHE_STORE=file`, `QUEUE_CONNECTION=sync`. That is the combination this page's verification ran with.
+Check the database extensions before the first boot: a fresh `laravel/laravel` skeleton defaults to an SQLite database and to database-backed session, cache and queue drivers, which means it needs `pdo_sqlite`. The PHP bundled with the Rapira releases has it — PDO, `pdo_sqlite` and `sqlite3` are all in the release build's extension set, listed on the [Installation](/docs/intro/installation) page. If you run Rapira against a PHP you compiled yourself, make sure those extensions are in your configure line ([Build from source](/docs/intro/build-from-source) covers it), or point Laravel at the file and sync drivers instead — `SESSION_DRIVER=file`, `CACHE_STORE=file`, `QUEUE_CONNECTION=sync`. That is the combination this page's verification ran with.
 
 ## Running it
 

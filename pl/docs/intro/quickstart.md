@@ -5,7 +5,7 @@ description: "Obsługa aplikacji PHP na Rapirze w trybie klasycznym i w trybie w
 
 # Szybki start
 
-Ta strona pokazuje, jak wystawić stronę w trybie klasycznym, zamienić tę samą aplikację w stale działający worker i przenieść ustawienia do pliku konfiguracyjnego. Zakłada, że masz działający plik binarny `rapira` razem z dołączonym do niego PHP; więcej informacji znajdziesz w [Instalacji](/pl/docs/installation).
+Ta strona pokazuje, jak wystawić stronę w trybie klasycznym, zamienić tę samą aplikację w stale działający worker i przenieść ustawienia do pliku konfiguracyjnego. Zakłada, że masz działający plik binarny `rapira` razem z dołączonym do niego PHP; więcej informacji znajdziesz w [Instalacji](/pl/docs/intro/installation).
 
 ## Tryb klasyczny
 

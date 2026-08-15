@@ -5,12 +5,12 @@ description: "什么时候需要自己编译 Rapira，具体又该怎么做：Ru
 
 # 从源码构建
 
-Rapira 可以在 Linux 和 macOS 上从源码构建。[安装](/zh/docs/installation)页面上的预编译二进制文件覆盖不到的场景，就交给自己编译来解决；除了常规的 Rust 和 C 工具链之外，唯一的要求就是一个能被 Rapira 嵌入的 PHP。
+Rapira 可以在 Linux 和 macOS 上从源码构建。[安装](/zh/docs/intro/installation)页面上的预编译二进制文件覆盖不到的场景，就交给自己编译来解决；除了常规的 Rust 和 C 工具链之外，唯一的要求就是一个能被 Rapira 嵌入的 PHP。
 
 ## 什么时候需要从源码构建
 
 - **你的平台没有预编译的二进制文件**——冷门的 CPU 架构，或者 Alpine 这类基于 musl 的发行版。
-- **你的发行版比软件包支持的更老。**发布的二进制是针对 glibc 2.34 构建的，能装上的最老的系统是 Debian 12、Ubuntu 22.04 和 RHEL 9（见[安装](/zh/docs/installation)）。
+- **你的发行版比软件包支持的更老。**发布的二进制是针对 glibc 2.34 构建的，能装上的最老的系统是 Debian 12、Ubuntu 22.04 和 RHEL 9（见[安装](/zh/docs/intro/installation)）。
 - **你需要另一套 PHP 扩展。**官方构建自带的 PHP 是照 [`ci/php-configure-flags.txt`](https://github.com/rapira-rs/rapira/blob/main/ci/php-configure-flags.txt) 里的参数列表编译的，而这份列表是刻意保持精简的：session、mbstring、OPcache、OpenSSL、curl、XML 家族，以及带 SQLite 的 PDO。如果你的应用要用 `pdo_mysql`、`intl` 或 `gd`，就得挑一个带这些扩展的 PHP 来构建 Rapira。
 - **你在开发 Rapira 本身**，或者想用上还没发布的东西。
 
@@ -106,7 +106,7 @@ LD_LIBRARY_PATH="$HOME/.local/php-nts/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" 
 DYLD_LIBRARY_PATH="$HOME/.local/php-nts/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" ./target/release/rapira serve worker.php   # macOS
 ```
 
-构建出来的就是软件包安装的那个服务器：[快速开始](/zh/docs/quickstart)带你写第一个脚本，[命令行](/zh/docs/cli)列出了 `serve` 接受的全部参数，[配置](/zh/docs/configuration)讲的是 `rapira.toml`。
+构建出来的就是软件包安装的那个服务器：[快速开始](/zh/docs/intro/quickstart)带你写第一个脚本，[命令行](/zh/docs/cli)列出了 `serve` 接受的全部参数，[配置](/zh/docs/configuration)讲的是 `rapira.toml`。
 
 ## 参与 Rapira 本身的开发
 

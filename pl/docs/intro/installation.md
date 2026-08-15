@@ -125,7 +125,7 @@ Każde wydanie bierze najnowszą wersję poprawkową gałęzi, którą buduje. A
 Na PHP 8.4 SAPI rejestruje się jako `fastcgi`, bo OPcache w tej wersji uruchamia się tylko dla zamkniętej listy nazw SAPI, a nazwa spoza listy oznacza brak współdzielonej pamięci podręcznej opcode'ów. PHP 8.5 pozbyło się tej listy, więc tam `PHP_SAPI` i `php_sapi_name()` zwracają `rapira`. Wiersz *Server API* w `phpinfo()` w obu przypadkach pokazuje `Rapira`. Kod, który rozgałęzia się po `PHP_SAPI`, powinien rozpoznawać obie wartości.
 :::
 
-Czego w zestawie *nie* ma: `pdo_mysql`, `pgsql`, redis, apcu, imagick i całej reszty z tej rodziny. Jeśli aplikacja któregoś potrzebuje, zbuduj PHP z rozszerzeniami, których chcesz, i skompiluj z nim Rapirę. Więcej informacji znajdziesz na stronie [Budowanie ze źródeł](/pl/docs/build-from-source).
+Czego w zestawie *nie* ma: `pdo_mysql`, `pgsql`, redis, apcu, imagick i całej reszty z tej rodziny. Jeśli aplikacja któregoś potrzebuje, zbuduj PHP z rozszerzeniami, których chcesz, i skompiluj z nim Rapirę. Więcej informacji znajdziesz na stronie [Budowanie ze źródeł](/pl/docs/intro/build-from-source).
 
 ## php.ini
 
@@ -145,4 +145,4 @@ Gotowe buildy są publikowane w GitHub Releases i nigdzie indziej. Repozytorium 
 
 Build dla macOS działa **wyłącznie na Apple Silicon**, celuje w **macOS 14 i nowsze** i jest podpisany doraźnie: bez Developer ID, bez notaryzacji, więc przy pierwszym uruchomieniu macOS może poprosić o potwierdzenie. Wersji na Intela nie ma. Buildy dla Windowsa są publikowane osobno, w [rapira-rs/rapira-windows](https://github.com/rapira-rs/rapira-windows), i służą wyłącznie do lokalnego developmentu — w produkcji Rapira działa na Linuksie lub macOS.
 
-[Szybki start](/pl/docs/quickstart) opisuje, jak obsłużyć pierwsze żądanie, gdy plik wykonywalny jest już na miejscu.
+[Szybki start](/pl/docs/intro/quickstart) opisuje, jak obsłużyć pierwsze żądanie, gdy plik wykonywalny jest już na miejscu.

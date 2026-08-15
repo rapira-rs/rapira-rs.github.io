@@ -27,7 +27,7 @@ The resident pattern is then three steps: build the runner once, run it per requ
 
 ## Prerequisites
 
-- Rapira installed — see [Installation](/docs/installation).
+- Rapira installed — see [Installation](/docs/intro/installation).
 - A Yii3 application: either a fresh [`yiisoft/app`](https://github.com/yiisoft/app) project or one you already have.
 
 Nothing has to be installed on the PHP side: the worker script below is the only new file in the project, and it sits at the project root next to `composer.json`, because the runner's `rootPath` is the project root. You also need an ordinary PHP CLI on the machine for Composer — Rapira ships PHP as a library (`libphp`), not as a `php` command, so those steps run on your system PHP, which Rapira neither uses nor touches.
@@ -193,4 +193,4 @@ Same code, no worker script, fresh state per request. See [Classic mode](/docs/c
 
 The worker script is an additional entry point rather than a replacement for the front controller, so keep `public/index.php`: it is the entry script classic mode runs, and it stays useful for local work with PHP's built-in server.
 
-The template's `public/index.php` contains a `PHP_SAPI === 'cli-server'` branch that serves static files and rewrites `SCRIPT_NAME`. It exists for PHP's built-in development server and never triggers under Rapira, where `PHP_SAPI` is `rapira` (`fastcgi` on PHP 8.4 — see [Installation](/docs/installation)), so it can stay as it is.
+The template's `public/index.php` contains a `PHP_SAPI === 'cli-server'` branch that serves static files and rewrites `SCRIPT_NAME`. It exists for PHP's built-in development server and never triggers under Rapira, where `PHP_SAPI` is `rapira` (`fastcgi` on PHP 8.4 — see [Installation](/docs/intro/installation)), so it can stay as it is.

@@ -5,7 +5,7 @@ description: Serving a PHP application with Rapira in classic mode and in worker
 
 # Quickstart
 
-This page covers serving a page in classic mode, turning the same application into a resident worker, and moving the settings into a config file. It assumes a working `rapira` binary with the PHP it bundles; see [Installation](/docs/installation) for more information.
+This page covers serving a page in classic mode, turning the same application into a resident worker, and moving the settings into a config file. It assumes a working `rapira` binary with the PHP it bundles; see [Installation](/docs/intro/installation) for more information.
 
 ## Classic mode
 

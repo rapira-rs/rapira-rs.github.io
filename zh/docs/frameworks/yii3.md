@@ -27,7 +27,7 @@ Yii3 从设计上就是要跑在一个不退出的进程里：它的 DI 容器�
 
 ## 前置条件
 
-- 装好 Rapira——见[安装](/zh/docs/installation)。
+- 装好 Rapira——见[安装](/zh/docs/intro/installation)。
 - 一个 Yii3 应用：新建一个 [`yiisoft/app`](https://github.com/yiisoft/app) 项目，或者用你手上现成的那个。
 
 PHP 那边什么都不用装：下面这个 worker 脚本是项目里唯一新增的文件，它放在项目根目录、`composer.json` 旁边，因为 runner 的 `rootPath` 就是项目根目录。机器上还得有一个普通的 PHP CLI，Composer 要靠它跑：Rapira 把 PHP 作为库（`libphp`）提供，并不带 `php` 命令，所以这些步骤走的是你系统里的 PHP，Rapira 既不用它，也不碰它。
@@ -193,4 +193,4 @@ rapira serve --classic public/index.php
 
 worker 脚本是多出来的一个入口，不是前端控制器的替代品，所以 `public/index.php` 要留着：经典模式跑的就是这个入口脚本，本地拿 PHP 内置服务器干活时它也照样好使。
 
-模板的 `public/index.php` 里有一个 `PHP_SAPI === 'cli-server'` 分支，专门提供静态文件并改写 `SCRIPT_NAME`。它是给 PHP 内置开发服务器准备的，在 Rapira 下永远不会走到——这里的 `PHP_SAPI` 是 `rapira`（PHP 8.4 上是 `fastcgi`，见[安装](/zh/docs/installation)）——所以保持原样就行。
+模板的 `public/index.php` 里有一个 `PHP_SAPI === 'cli-server'` 分支，专门提供静态文件并改写 `SCRIPT_NAME`。它是给 PHP 内置开发服务器准备的，在 Rapira 下永远不会走到——这里的 `PHP_SAPI` 是 `rapira`（PHP 8.4 上是 `fastcgi`，见[安装](/zh/docs/intro/installation)）——所以保持原样就行。

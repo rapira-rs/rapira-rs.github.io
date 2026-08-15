@@ -78,7 +78,7 @@ rapira serve --config /etc/rapira/rapira.toml
 rapira serve --config /etc/rapira/rapira.toml --listen 127.0.0.1:9000
 ```
 
-El primer comando no lleva `--listen`, así que el servidor levanta en la dirección por defecto y mandarle una petición es una línea más. En [Inicio rápido](/es/docs/quickstart) encontrarás un script worker con el que probar ese comando.
+El primer comando no lleva `--listen`, así que el servidor levanta en la dirección por defecto y mandarle una petición es una línea más. En [Inicio rápido](/es/docs/intro/quickstart) encontrarás un script worker con el que probar ese comando.
 
 ```bash
 curl http://127.0.0.1:8000/

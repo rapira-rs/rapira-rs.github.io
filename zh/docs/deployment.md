@@ -7,13 +7,13 @@ description: "如何在服务器上运行 Rapira：systemd unit、配置布局�
 
 在服务器上运行 Rapira，需要本地那条 `rapira serve app/worker.php` 用不到的东西：开机自启、崩溃之后能自己回来、上了新代码能重载而不丢请求，以及事后能读的日志。本页讲的是一份 systemd unit、一个放配置的位置、前面挡一层代理，以及给常驻 worker 划定边界的那几项设置。
 
-这里几乎没有一样东西是编译进二进制的。Rapira 不依赖配置放在哪里，也不依赖由什么来监管进程，所以下面这套布局只是本页立的一个约定，文档其余部分都按它来写。先把二进制装到机器上——这一步见[安装](/zh/docs/installation)。
+这里几乎没有一样东西是编译进二进制的。Rapira 不依赖配置放在哪里，也不依赖由什么来监管进程，所以下面这套布局只是本页立的一个约定，文档其余部分都按它来写。先把二进制装到机器上——这一步见[安装](/zh/docs/intro/installation)。
 
 ## 一份 systemd unit
 
 Rapira 顶替的就是 php-fpm，而它的 master 本身就在看着进程池：fork、回收、带退避地重启、按策略换掉 worker、伸缩池子的规模。systemd 唯一要做的就是让那个 master 进程一直活着，所以 supervisord 这类单独的进程管理器在这里没有什么可做的。
 
-`.deb` 和 `.rpm` 包只装两样东西：二进制，以及它内置的 PHP 运行时——**既没有 service unit，也没有 `php.ini`**（具体落地哪些文件，[安装](/zh/docs/installation)那一页列得很清楚）。这两样都属于各站点自己的策略，包里要是带上它们，每次升级都会覆盖掉你的改动。
+`.deb` 和 `.rpm` 包只装两样东西：二进制，以及它内置的 PHP 运行时——**既没有 service unit，也没有 `php.ini`**（具体落地哪些文件，[安装](/zh/docs/intro/installation)那一页列得很清楚）。这两样都属于各站点自己的策略，包里要是带上它们，每次升级都会覆盖掉你的改动。
 
 自己写一份，放进 `/etc/systemd/system/rapira.service`：
 

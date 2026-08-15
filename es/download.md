@@ -36,4 +36,4 @@ Los builds para Windows son solo para desarrollo local: en producción, Rapira f
 </template>
 </DownloadBuilds>
 
-También puedes [compilar Rapira desde el código fuente](/es/docs/build-from-source).
+También puedes [compilar Rapira desde el código fuente](/es/docs/intro/build-from-source).

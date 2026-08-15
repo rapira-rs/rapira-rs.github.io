@@ -78,7 +78,7 @@ rapira serve --config /etc/rapira/rapira.toml
 rapira serve --config /etc/rapira/rapira.toml --listen 127.0.0.1:9000
 ```
 
-第一条没写 `--listen`，服务器就起在默认地址上，再来一行就能给它发一个请求。可以配合它运行的 worker 脚本见[快速开始](/zh/docs/quickstart)。
+第一条没写 `--listen`，服务器就起在默认地址上，再来一行就能给它发一个请求。可以配合它运行的 worker 脚本见[快速开始](/zh/docs/intro/quickstart)。
 
 ```bash
 curl http://127.0.0.1:8000/

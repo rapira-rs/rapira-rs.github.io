@@ -35,9 +35,9 @@ session 就是原生的 PHP session，和在 php-fpm 下完全一样：每个请
 
 ## 前置条件
 
-你需要[装好 Rapira](/zh/docs/installation)，再加一个 Symfony 应用——`composer create-project symfony/skeleton my-app` 新建一个，或者直接用手上那个。应用不必做任何特别准备：worker 脚本放在 `composer.json` 旁边，其他一切原地不动。另外机器上还得有一个普通的 PHP CLI，Composer 和 `bin/console` 都要用它：Rapira 是把 PHP 以库（`libphp`）的形式带进来的，并不提供 `php` 命令，所以这些步骤跑的是你系统里的 PHP，Rapira 既不使用也不干涉它。
+你需要[装好 Rapira](/zh/docs/intro/installation)，再加一个 Symfony 应用——`composer create-project symfony/skeleton my-app` 新建一个，或者直接用手上那个。应用不必做任何特别准备：worker 脚本放在 `composer.json` 旁边，其他一切原地不动。另外机器上还得有一个普通的 PHP CLI，Composer 和 `bin/console` 都要用它：Rapira 是把 PHP 以库（`libphp`）的形式带进来的，并不提供 `php` 命令，所以这些步骤跑的是你系统里的 PHP，Rapira 既不使用也不干涉它。
 
-有两个扩展要留意，因为 skeleton 在 `composer.json` 里把它们写成了硬依赖（`ext-ctype`、`ext-iconv`），*同时*还 `replace` 掉了对应的 polyfill——所以它们必须是真正的扩展，不能是 PHP 写的替身。两个 PHP 构建都需要它们，系统里那个 CLI 也一样，否则 `composer create-project` 和 `composer install` 在平台检查那一步就会失败，那时 Rapira 根本还没上场。每个 Rapira 发布版内嵌的 PHP 两个都带：`ctype` 和 `iconv` 就在构建的 configure 参数里，完整的扩展清单在[安装](/zh/docs/installation)页上。如果你改用自己的 PHP 来编译 Rapira，记得把这两个都打开——那份清单在哪里设置，见[从源码构建](/zh/docs/build-from-source)。
+有两个扩展要留意，因为 skeleton 在 `composer.json` 里把它们写成了硬依赖（`ext-ctype`、`ext-iconv`），*同时*还 `replace` 掉了对应的 polyfill——所以它们必须是真正的扩展，不能是 PHP 写的替身。两个 PHP 构建都需要它们，系统里那个 CLI 也一样，否则 `composer create-project` 和 `composer install` 在平台检查那一步就会失败，那时 Rapira 根本还没上场。每个 Rapira 发布版内嵌的 PHP 两个都带：`ctype` 和 `iconv` 就在构建的 configure 参数里，完整的扩展清单在[安装](/zh/docs/intro/installation)页上。如果你改用自己的 PHP 来编译 Rapira，记得把这两个都打开——那份清单在哪里设置，见[从源码构建](/zh/docs/intro/build-from-source)。
 
 下面这个 worker 文件还用到了 `symfony/dotenv`，skeleton 自带这个组件。如果你的部署环境本来就设好了真正的环境变量、压根没有 `.env`，那就把那一行连同这个组件一起删掉。worker 不走 `symfony/runtime`，它自己加载 `.env`、自己构造内核，但这个包还是留着，因为 `bin/console` 和 `public/index.php` 仍然要用它。
 

@@ -36,4 +36,4 @@ const labels = {
 </template>
 </DownloadBuilds>
 
-Rapira также можно [собрать из исходников](/ru/docs/build-from-source).
+Rapira также можно [собрать из исходников](/ru/docs/intro/build-from-source).

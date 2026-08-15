@@ -7,13 +7,13 @@ description: "Cómo ejecutar Rapira en un servidor: una unidad de systemd, la di
 
 Ejecutar Rapira en un servidor añade lo que un `rapira serve app/worker.php` local no necesita: arrancar al encender la máquina, volver después de una caída, recargar el código nuevo sin tirar ninguna petición y unos registros que puedas leer más tarde. Esta página cubre una unidad de systemd, un sitio para la configuración, un proxy delante y los ajustes que ponen límites a unos workers de vida larga.
 
-Casi nada de esto está compilado en el binario. Nada en Rapira depende de dónde tengas la configuración ni de qué supervise el proceso, así que la disposición de más abajo es una convención que establece esta página y que asume el resto de la documentación. Antes de nada, mete el binario en la máquina: de eso se encarga [Instalación](/es/docs/installation).
+Casi nada de esto está compilado en el binario. Nada en Rapira depende de dónde tengas la configuración ni de qué supervise el proceso, así que la disposición de más abajo es una convención que establece esta página y que asume el resto de la documentación. Antes de nada, mete el binario en la máquina: de eso se encarga [Instalación](/es/docs/intro/installation).
 
 ## Una unidad de systemd
 
 Rapira ocupa el lugar de php-fpm, y su maestro ya supervisa el pool: crea procesos con fork, recoge los que mueren, los vuelve a crear con backoff, recicla workers y escala el pool. Mantener vivo ese único proceso maestro es el único trabajo de systemd, así que no le queda nada que hacer a un gestor de procesos aparte como supervisord.
 
-Los paquetes `.deb` y `.rpm` instalan el binario y el runtime de PHP que lleva incrustado, y nada más: **ni unidad de servicio ni `php.ini`** (en [Instalación](/es/docs/installation) tienes la lista exacta de archivos). Las dos cosas son política de cada instalación, y un paquete que las trajera te pisaría los cambios en cada actualización.
+Los paquetes `.deb` y `.rpm` instalan el binario y el runtime de PHP que lleva incrustado, y nada más: **ni unidad de servicio ni `php.ini`** (en [Instalación](/es/docs/intro/installation) tienes la lista exacta de archivos). Las dos cosas son política de cada instalación, y un paquete que las trajera te pisaría los cambios en cada actualización.
 
 Escribe la tuya en `/etc/systemd/system/rapira.service`:
 

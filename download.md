@@ -36,4 +36,4 @@ Windows builds are for local development only — in production Rapira runs on L
 </template>
 </DownloadBuilds>
 
-You can also [build Rapira from source](/docs/build-from-source).
+You can also [build Rapira from source](/docs/intro/build-from-source).

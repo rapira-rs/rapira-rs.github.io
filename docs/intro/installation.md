@@ -125,7 +125,7 @@ Each release picks up the newest patch version of the branch it builds. The tarb
 On PHP 8.4 the SAPI registers itself as `fastcgi`, because OPcache on that version only starts for a fixed list of SAPI names and an unlisted one means no shared opcode cache at all. PHP 8.5 dropped that list, so there `PHP_SAPI` and `php_sapi_name()` report `rapira`. The *Server API* row in `phpinfo()` reads `Rapira` on both. Code that branches on `PHP_SAPI` should recognise either value.
 :::
 
-What is *not* included: `pdo_mysql`, `pgsql`, redis, apcu, imagick, and everything else in that family. If your application needs one, build PHP with the extensions you want and compile Rapira against it. See [Build from source](/docs/build-from-source) for more information.
+What is *not* included: `pdo_mysql`, `pgsql`, redis, apcu, imagick, and everything else in that family. If your application needs one, build PHP with the extensions you want and compile Rapira against it. See [Build from source](/docs/intro/build-from-source) for more information.
 
 ## php.ini
 
@@ -145,4 +145,4 @@ Builds are published on GitHub Releases and nowhere else. There is no apt or yum
 
 The macOS build is **Apple Silicon only**, targets **macOS 14 and newer**, and is ad-hoc signed: no Developer ID, no notarization, so macOS may ask you to confirm the first run. There is no Intel build. Windows builds are published separately, in [rapira-rs/rapira-windows](https://github.com/rapira-rs/rapira-windows), and are meant for local development only — in production Rapira runs on Linux or macOS.
 
-[Quickstart](/docs/quickstart) covers serving a first request once the binary is in place.
+[Quickstart](/docs/intro/quickstart) covers serving a first request once the binary is in place.

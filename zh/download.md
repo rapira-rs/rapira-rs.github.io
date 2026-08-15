@@ -36,4 +36,4 @@ Windows 版本仅用于本地开发——生产环境请在 Linux 或 macOS 上�
 </template>
 </DownloadBuilds>
 
-你也可以[从源码构建 Rapira](/zh/docs/build-from-source)。
+你也可以[从源码构建 Rapira](/zh/docs/intro/build-from-source)。

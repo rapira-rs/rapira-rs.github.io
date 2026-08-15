@@ -78,7 +78,7 @@ rapira serve --config /etc/rapira/rapira.toml
 rapira serve --config /etc/rapira/rapira.toml --listen 127.0.0.1:9000
 ```
 
-Pierwsze polecenie nie ma `--listen`, więc serwer wstaje pod domyślnym adresem, a do wysłania żądania wystarczy jeszcze jedna linijka. Skrypt workera, który możesz w ten sposób uruchomić, znajdziesz w [Szybkim starcie](/pl/docs/quickstart).
+Pierwsze polecenie nie ma `--listen`, więc serwer wstaje pod domyślnym adresem, a do wysłania żądania wystarczy jeszcze jedna linijka. Skrypt workera, który możesz w ten sposób uruchomić, znajdziesz w [Szybkim starcie](/pl/docs/intro/quickstart).
 
 ```bash
 curl http://127.0.0.1:8000/

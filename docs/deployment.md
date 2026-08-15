@@ -7,13 +7,13 @@ description: How to run Rapira on a server — a systemd unit, config layout, a 
 
 Running Rapira on a server adds what a local `rapira serve app/worker.php` does not need: starting at boot, coming back after a crash, reloading new code without dropping a request, and logs you can read afterwards. This page covers a systemd unit, a place for the config, a proxy in front, and the settings that bound long-lived workers.
 
-Almost none of this is compiled into the binary. Nothing in Rapira depends on where your config lives or on what supervises the process, so the layout below is a convention this page establishes and the rest of the docs assume. Get the binary onto the machine first — that part is on [Installation](/docs/installation).
+Almost none of this is compiled into the binary. Nothing in Rapira depends on where your config lives or on what supervises the process, so the layout below is a convention this page establishes and the rest of the docs assume. Get the binary onto the machine first — that part is on [Installation](/docs/intro/installation).
 
 ## A systemd unit
 
 Rapira takes php-fpm's place, and its master already supervises the pool — it forks, reaps, respawns with backoff, recycles workers and scales the pool. Keeping that one master process alive is systemd's only job, so there is nothing for a separate process manager like supervisord to do.
 
-The `.deb` and `.rpm` packages install the binary and the PHP runtime it embeds, and nothing else — **no service unit and no `php.ini`** ([Installation](/docs/installation) lists the exact files). Both are site policy, and a package that shipped them would overwrite your edits on every upgrade.
+The `.deb` and `.rpm` packages install the binary and the PHP runtime it embeds, and nothing else — **no service unit and no `php.ini`** ([Installation](/docs/intro/installation) lists the exact files). Both are site policy, and a package that shipped them would overwrite your edits on every upgrade.
 
 Write your own into `/etc/systemd/system/rapira.service`:
 

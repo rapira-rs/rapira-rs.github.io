@@ -97,9 +97,9 @@ export function getLocaleByCode(code: string): LocaleConfig {
 
 // ── URL / path helpers (always locale-aware) ─────────────────────────
 
-/** Docs index URL for a locale, e.g. '/docs/' or '/ru/docs/'. */
+/** Docs entry URL for a locale, e.g. '/docs/intro/' or '/ru/docs/intro/'. */
 export function getDocsUrl(locale: LocaleConfig): string {
-  return locale.prefix ? `/${locale.prefix}/docs/` : '/docs/'
+  return locale.prefix ? `/${locale.prefix}/docs/intro/` : '/docs/intro/'
 }
 
 /** Download page URL, e.g. '/download' or '/ru/download'. */

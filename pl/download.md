@@ -36,4 +36,4 @@ Kompilacje dla Windowsa służą wyłącznie do lokalnego developmentu — w pro
 </template>
 </DownloadBuilds>
 
-Rapirę możesz też [zbudować ze źródeł](/pl/docs/build-from-source).
+Rapirę możesz też [zbudować ze źródeł](/pl/docs/intro/build-from-source).

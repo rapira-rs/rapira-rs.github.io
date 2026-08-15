@@ -53,7 +53,7 @@ gtag('config', 'G-Q7Z14B1SZ9');`],
       ],
       themeConfig: {
         nav: [
-          { text: 'Docs', link: '/docs/' },
+          { text: 'Docs', link: '/docs/intro/' },
           { text: 'Blog', link: '/blog/' },
         ],
         editLink: {
@@ -65,21 +65,16 @@ gtag('config', 'G-Q7Z14B1SZ9');`],
             {
               text: 'Introduction',
               items: [
-                { text: 'What is Rapira?', link: '/docs/' },
-                { text: 'Execution modes', link: '/docs/execution-modes' },
-              ],
-            },
-            {
-              text: 'Getting started',
-              items: [
-                { text: 'Installation', link: '/docs/installation' },
-                { text: 'Quickstart', link: '/docs/quickstart' },
-                { text: 'Build from source', link: '/docs/build-from-source' },
+                { text: 'What is Rapira?', link: '/docs/intro/' },
+                { text: 'Installation', link: '/docs/intro/installation' },
+                { text: 'Quickstart', link: '/docs/intro/quickstart' },
+                { text: 'Build from source', link: '/docs/intro/build-from-source' },
               ],
             },
             {
               text: 'Writing your app',
               items: [
+                { text: 'Execution modes', link: '/docs/execution-modes' },
                 { text: 'Classic mode', link: '/docs/classic' },
                 { text: 'Worker mode', link: '/docs/worker' },
                 { text: 'HTTP requests and responses', link: '/docs/http' },
@@ -126,7 +121,7 @@ gtag('config', 'G-Q7Z14B1SZ9');`],
       ],
       themeConfig: {
         nav: [
-          { text: 'Документация', link: '/ru/docs/' },
+          { text: 'Документация', link: '/ru/docs/intro/' },
           { text: 'Блог', link: '/ru/blog/' },
         ],
         editLink: {
@@ -138,21 +133,16 @@ gtag('config', 'G-Q7Z14B1SZ9');`],
             {
               text: 'Введение',
               items: [
-                { text: 'Что такое Rapira', link: '/ru/docs/' },
-                { text: 'Режимы выполнения', link: '/ru/docs/execution-modes' },
-              ],
-            },
-            {
-              text: 'Начало работы',
-              items: [
-                { text: 'Установка', link: '/ru/docs/installation' },
-                { text: 'Быстрый старт', link: '/ru/docs/quickstart' },
-                { text: 'Сборка из исходников', link: '/ru/docs/build-from-source' },
+                { text: 'Что такое Rapira', link: '/ru/docs/intro/' },
+                { text: 'Установка', link: '/ru/docs/intro/installation' },
+                { text: 'Быстрый старт', link: '/ru/docs/intro/quickstart' },
+                { text: 'Сборка из исходников', link: '/ru/docs/intro/build-from-source' },
               ],
             },
             {
               text: 'Разработка приложения',
               items: [
+                { text: 'Режимы выполнения', link: '/ru/docs/execution-modes' },
                 { text: 'Классический режим', link: '/ru/docs/classic' },
                 { text: 'Режим воркера', link: '/ru/docs/worker' },
                 { text: 'Запросы и ответы HTTP', link: '/ru/docs/http' },
@@ -213,7 +203,7 @@ gtag('config', 'G-Q7Z14B1SZ9');`],
       ],
       themeConfig: {
         nav: [
-          { text: 'Documentación', link: '/es/docs/' },
+          { text: 'Documentación', link: '/es/docs/intro/' },
           { text: 'Blog', link: '/es/blog/' },
         ],
         editLink: {
@@ -225,21 +215,16 @@ gtag('config', 'G-Q7Z14B1SZ9');`],
             {
               text: 'Introducción',
               items: [
-                { text: '¿Qué es Rapira?', link: '/es/docs/' },
-                { text: 'Modos de ejecución', link: '/es/docs/execution-modes' },
-              ],
-            },
-            {
-              text: 'Primeros pasos',
-              items: [
-                { text: 'Instalación', link: '/es/docs/installation' },
-                { text: 'Inicio rápido', link: '/es/docs/quickstart' },
-                { text: 'Compilar desde el código', link: '/es/docs/build-from-source' },
+                { text: '¿Qué es Rapira?', link: '/es/docs/intro/' },
+                { text: 'Instalación', link: '/es/docs/intro/installation' },
+                { text: 'Inicio rápido', link: '/es/docs/intro/quickstart' },
+                { text: 'Compilar desde el código', link: '/es/docs/intro/build-from-source' },
               ],
             },
             {
               text: 'Escribir tu aplicación',
               items: [
+                { text: 'Modos de ejecución', link: '/es/docs/execution-modes' },
                 { text: 'Modo clásico', link: '/es/docs/classic' },
                 { text: 'Modo worker', link: '/es/docs/worker' },
                 { text: 'Peticiones y respuestas HTTP', link: '/es/docs/http' },
@@ -300,7 +285,7 @@ gtag('config', 'G-Q7Z14B1SZ9');`],
       ],
       themeConfig: {
         nav: [
-          { text: '文档', link: '/zh/docs/' },
+          { text: '文档', link: '/zh/docs/intro/' },
           { text: '博客', link: '/zh/blog/' },
         ],
         editLink: {
@@ -312,21 +297,16 @@ gtag('config', 'G-Q7Z14B1SZ9');`],
             {
               text: '简介',
               items: [
-                { text: '什么是 Rapira', link: '/zh/docs/' },
-                { text: '执行模式', link: '/zh/docs/execution-modes' },
-              ],
-            },
-            {
-              text: '快速上手',
-              items: [
-                { text: '安装', link: '/zh/docs/installation' },
-                { text: '快速开始', link: '/zh/docs/quickstart' },
-                { text: '从源码构建', link: '/zh/docs/build-from-source' },
+                { text: '什么是 Rapira', link: '/zh/docs/intro/' },
+                { text: '安装', link: '/zh/docs/intro/installation' },
+                { text: '快速开始', link: '/zh/docs/intro/quickstart' },
+                { text: '从源码构建', link: '/zh/docs/intro/build-from-source' },
               ],
             },
             {
               text: '编写应用',
               items: [
+                { text: '执行模式', link: '/zh/docs/execution-modes' },
                 { text: '经典模式', link: '/zh/docs/classic' },
                 { text: 'Worker 模式', link: '/zh/docs/worker' },
                 { text: 'HTTP 请求与响应', link: '/zh/docs/http' },
@@ -387,7 +367,7 @@ gtag('config', 'G-Q7Z14B1SZ9');`],
       ],
       themeConfig: {
         nav: [
-          { text: 'Dokumentacja', link: '/pl/docs/' },
+          { text: 'Dokumentacja', link: '/pl/docs/intro/' },
           { text: 'Blog', link: '/pl/blog/' },
         ],
         editLink: {
@@ -399,21 +379,16 @@ gtag('config', 'G-Q7Z14B1SZ9');`],
             {
               text: 'Wprowadzenie',
               items: [
-                { text: 'Czym jest Rapira', link: '/pl/docs/' },
-                { text: 'Tryby wykonania', link: '/pl/docs/execution-modes' },
-              ],
-            },
-            {
-              text: 'Pierwsze kroki',
-              items: [
-                { text: 'Instalacja', link: '/pl/docs/installation' },
-                { text: 'Szybki start', link: '/pl/docs/quickstart' },
-                { text: 'Budowanie ze źródeł', link: '/pl/docs/build-from-source' },
+                { text: 'Czym jest Rapira', link: '/pl/docs/intro/' },
+                { text: 'Instalacja', link: '/pl/docs/intro/installation' },
+                { text: 'Szybki start', link: '/pl/docs/intro/quickstart' },
+                { text: 'Budowanie ze źródeł', link: '/pl/docs/intro/build-from-source' },
               ],
             },
             {
               text: 'Tworzenie aplikacji',
               items: [
+                { text: 'Tryby wykonania', link: '/pl/docs/execution-modes' },
                 { text: 'Tryb klasyczny', link: '/pl/docs/classic' },
                 { text: 'Tryb workera', link: '/pl/docs/worker' },
                 { text: 'Żądania i odpowiedzi HTTP', link: '/pl/docs/http' },

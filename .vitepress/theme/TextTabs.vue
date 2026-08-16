@@ -75,7 +75,7 @@ const activeIndex = ref(0)
   background: transparent;
   font-family: var(--vp-font-family-base);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: var(--rapira-fw-ui);
   color: var(--vp-c-text-2);
   cursor: pointer;
   transition: color 0.2s, background-color 0.2s;
@@ -129,7 +129,7 @@ const activeIndex = ref(0)
   border-radius: 99px;
   background: var(--vp-c-default-soft);
   font-size: 12px;
-  font-weight: 500;
+  font-weight: var(--rapira-fw-ui);
   color: var(--vp-c-text-2);
 }
 </style>

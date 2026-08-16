@@ -10,7 +10,7 @@ export default withMermaid(defineConfig({
   description: 'Rapira documentation',
 
   mermaid: {
-    fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
+    fontFamily: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif",
     htmlLabels: false,
   },
 

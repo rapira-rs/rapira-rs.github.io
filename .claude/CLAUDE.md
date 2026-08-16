@@ -47,7 +47,8 @@ docs/         # English (root)
     ├── rss.ts           # RSS feed generation (build + dev server)
     └── theme/
         ├── index.ts          # DefaultTheme + GitHub stars + blog components
-        ├── style.css         # Custom styles (brand colors, blocks, FAQ)
+        ├── style.css         # Custom styles (brand colors, typography, blocks, FAQ)
+        ├── fonts.css         # @font-face for the self-hosted faces (files in public/fonts/)
         ├── posts.data.ts      # Blog posts data loader
         ├── builds.data.ts     # Release builds data loader (GitHub API at build time)
         ├── GitHubStars.vue
@@ -264,6 +265,16 @@ When custom CSS is unavoidable:
 - Treat `!important` and overrides of internal `.VP*` classes as a smell: they break on VitePress upgrades. If you need one, add a short comment saying why the framework couldn't do it.
 - Verify in **both** light and dark themes before considering it done.
 - Deleting is preferred over adding: if a rule duplicates default theme behaviour, drop it.
+
+## Typography
+
+The site does not use the Inter that VitePress ships. Text is set in **IBM Plex Sans** and code in **JetBrains Mono**, both OFL, both self-hosted — no request goes to a font CDN.
+
+- **Files:** `public/fonts/`, the variable cut of each face split by script (`latin`, `latin-ext`, `cyrillic`, `cyrillic-ext`, `greek`, `vietnamese`; Plex additionally in italic). The subsets carry a `unicode-range`, so a reader only downloads the scripts the page actually uses. Both OFL texts sit next to them. To refresh, re-download the same file names from `@fontsource-variable/ibm-plex-sans` and `@fontsource-variable/jetbrains-mono`.
+- **`@font-face` rules:** `theme/fonts.css`, imported from `theme/index.ts` ahead of `style.css`. They declare `format('woff2-variations')` — that keyword is what lets the browser interpolate a weight such as 350 instead of snapping to the nearest static instance.
+- **Families and weights:** the `TYPOGRAPHY` section at the top of `theme/style.css`. `--vp-font-family-base` / `--vp-font-family-mono` name the faces (plus a `:lang(zh)` variant that keeps `'Punctuation SC'` in front, since neither face covers Chinese), and the whole weight scale lives in `--rapira-fw-*` variables — one per role (`body`, `heading`, `nav`, `sidebar-group`, `sidebar-item`, `outline-title`, `outline-item`). VitePress hardcodes every weight in its own stylesheets, so those variables are applied through overrides right below; retune weights there and nowhere else.
+- Coding ligatures are off (`font-variant-ligatures: none` on `code`/`kbd`/`pre`/`samp`): documentation shows the characters the reader types.
+- The mermaid font is set separately in `config.mts` (`mermaid.fontFamily`) — it renders into an SVG and does not inherit the page variables.
 
 ## VitePress Commands
 

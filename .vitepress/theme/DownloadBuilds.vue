@@ -225,7 +225,7 @@ onMounted(() => {
   background: var(--vp-button-brand-bg);
   color: var(--vp-button-brand-text) !important;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: var(--rapira-fw-ui-title);
   text-decoration: none !important;
   transition: background-color 0.2s;
 }

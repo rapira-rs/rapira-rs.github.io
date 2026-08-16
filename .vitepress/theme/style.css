@@ -47,15 +47,15 @@ html {
   --vp-c-brand-3: #3a7599;
   --vp-c-brand-soft: rgba(111, 179, 222, 0.16);
 
-  /* Dark mode sits on a soft graphite that keeps the logo's cool hue but stays
-     well above the logo's ink — near-black under white text reads too harsh. */
-  --vp-c-bg: #25272c;
-  --vp-c-bg-alt: #1d1f23;
-  --vp-c-bg-soft: #2e3137;
-  --vp-c-bg-elv: #2e3137;
-  --vp-c-divider: #383b42;
-  --vp-c-gutter: #1d1f23;
-  --vp-c-border: #464a52;
+  /* Dark mode sits close to the logo's ink (#0e121b) — same blue cast, a step
+     lighter, which keeps the softened text from reading as harsh on it. */
+  --vp-c-bg: #1e2229;
+  --vp-c-bg-alt: #171a20;
+  --vp-c-bg-soft: #272c35;
+  --vp-c-bg-elv: #272c35;
+  --vp-c-divider: #333945;
+  --vp-c-gutter: #171a20;
+  --vp-c-border: #414957;
 
   /* Softer than the default near-white: the alpha comes down and the tint drops
      the default's warm cast, so the text sits on the same cool axis as the bg. */
@@ -65,8 +65,8 @@ html {
 
   --rapira-glow: rgba(111, 179, 222, 0.16);
 
-  /* Matches the dark --vp-c-bg (#25272c) */
-  --vp-nav-bg-color: rgba(37, 39, 44, 0.72);
+  /* Matches the dark --vp-c-bg (#1e2229) */
+  --vp-nav-bg-color: rgba(30, 34, 41, 0.72);
 
   /* Brand-3 rather than brand-1: the tip icon carries white text */
   --vp-custom-block-tip-border: var(--vp-c-brand-3);
@@ -173,6 +173,250 @@ html {
   display: inline;
 }
 
+/* ===== TYPOGRAPHY ===== */
+
+/* IBM Plex Sans for text, JetBrains Mono for code, both self-hosted — the
+   @font-face rules are in fonts.css. Plex replaces the Inter that VitePress
+   ships: open apertures and a smaller x-height carry long paragraphs better,
+   and its Cyrillic was drawn rather than adapted. The stock stacks stay behind
+   each one as the fallback while the file loads. */
+:root {
+  --vp-font-family-base: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif,
+    'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  --vp-font-family-mono: 'JetBrains Mono', ui-monospace, 'Menlo', 'Monaco',
+    'Consolas', 'Liberation Mono', 'Courier New', monospace;
+
+}
+
+/* Neither face covers Chinese, so the zh locale keeps VitePress's CJK
+   punctuation font in front and falls through to the system CJK stack. */
+:root:where(:lang(zh)) {
+  --vp-font-family-base: 'Punctuation SC', 'IBM Plex Sans', ui-sans-serif,
+    system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+/* Both faces are variable, so weights are free to sit between the named steps.
+   VitePress has no variables of its own for them — every weight is hardcoded in
+   its base stylesheet and its components — so the whole scale is collected
+   here, one variable per role, and tuned in this block alone. Plex axis runs
+   100–700 and its stems are lighter than Inter's at the same number, so the
+   body sits at 400 and still reads lighter than the Inter 350 it replaced. */
+:root {
+  /* Documents */
+  --rapira-fw-body: 350;
+  --rapira-fw-heading: 550;
+  --rapira-fw-link: 400;
+
+  /* Chrome: nav bar, search, menus, tabs, badges, footers, pagination */
+  --rapira-fw-ui: 450;
+  --rapira-fw-ui-title: 550;
+  --rapira-fw-sidebar-group: 600;
+  --rapira-fw-sidebar-item: 400;
+  --rapira-fw-outline-title: 550;
+  --rapira-fw-outline-item: 400;
+
+  /* Code sets its own weight: a monospace face packs the same stem into a
+     fixed advance width, so it reads heavier than the prose around it. */
+  --rapira-fw-code: 300;
+}
+
+/* Text size, the same story as the weights: VitePress puts 16px on the body and
+   then hardcodes a px size on every other piece of an article, so there is no
+   single place to turn. The variables below hold the stock values unchanged —
+   raise one and the rules under it carry the change through.
+
+   The stock line-heights are in px as well and do not follow the type, so a
+   sizeable jump here wants its leading revisited: `.vp-doc p` is 28px, the
+   headings 40/32/28/24px, all in the default theme. */
+:root {
+  --rapira-fs-body: 17px;
+  --rapira-fs-h1: 28px;
+  --rapira-fs-h1-wide: 32px; /* from 768px up */
+  --rapira-fs-h2: 24px;
+  --rapira-fs-h3: 20px;
+  --rapira-fs-h4: 18px;
+  --rapira-fs-quote: 17px;
+  --rapira-fs-table: 15px;
+
+  /* ::: blocks carry variables of their own in the default theme; they are
+     restated at their stock values so the whole scale reads in one place. */
+  --vp-custom-block-font-size: 15px;
+  --vp-custom-block-code-font-size: 15px;
+
+  /* Left sidebar, every level */
+  --rapira-fs-sidebar: 15px;
+
+  /* Nav bar: the links, the menus they open and the site title, then the search
+     field and the stars button, which the theme keeps a step smaller. */
+  --rapira-fs-nav: 15px;
+  --rapira-fs-nav-title: 17px;
+  --rapira-fs-nav-small: 14px;
+
+  /* Code. The theme sizes it in em, so it used to ride on the body; in px it
+     stands on its own and the pair of faces can be balanced by eye —
+     JetBrains Mono has the larger x-height and looks a step bigger than Plex at
+     the same number. The tab strips above a block (::: code-group and
+     CodeTabs) share one size. */
+  --rapira-fs-code: 13px;
+  --rapira-fs-code-tabs: 13px;
+  --vp-code-font-size: var(--rapira-fs-code);
+}
+
+body {
+  font-size: var(--rapira-fs-body);
+}
+
+.vp-doc h1 {
+  font-size: var(--rapira-fs-h1);
+}
+
+@media (min-width: 768px) {
+  .vp-doc h1 {
+    font-size: var(--rapira-fs-h1-wide);
+  }
+}
+
+.vp-doc h2 {
+  font-size: var(--rapira-fs-h2);
+}
+
+.vp-doc h3 {
+  font-size: var(--rapira-fs-h3);
+}
+
+.vp-doc h4 {
+  font-size: var(--rapira-fs-h4);
+}
+
+.vp-doc blockquote > p {
+  font-size: var(--rapira-fs-quote);
+}
+
+.vp-doc th,
+.vp-doc td {
+  font-size: var(--rapira-fs-table);
+}
+
+.VPSidebar .VPSidebarItem .text {
+  font-size: var(--rapira-fs-sidebar);
+}
+
+.VPNavBar .VPNavBarMenuLink,
+.VPNavBar .VPFlyout .text,
+.VPMenu .link,
+.VPMenu .VPMenuGroup .title {
+  font-size: var(--rapira-fs-nav);
+}
+
+.VPNavBar .VPNavBarTitle .title {
+  font-size: var(--rapira-fs-nav-title);
+}
+
+.VPNavBar .DocSearch-Button .DocSearch-Button-Placeholder {
+  font-size: var(--rapira-fs-nav-small);
+}
+
+.vp-code-group .tabs label {
+  font-size: var(--rapira-fs-code-tabs);
+}
+
+/* Headings keep their own weight for the code inside them — a light stem in a
+   550 heading would read as a mistake. */
+.vp-doc [class*='language-'] code,
+.vp-doc :not(pre, h1, h2, h3, h4, h5, h6) > code,
+.custom-block code {
+  font-weight: var(--rapira-fw-code);
+}
+
+/* Documentation shows the characters the reader will type, so the coding
+   ligatures the face is known for are off: '!=' has to stay two glyphs, not
+   turn into '≠'. Drop this rule to get them back. */
+code,
+kbd,
+pre,
+samp {
+  font-variant-ligatures: none;
+}
+
+body {
+  font-weight: var(--rapira-fw-body);
+}
+
+.vp-doc h1,
+.vp-doc h2,
+.vp-doc h3,
+.vp-doc h4,
+.vp-doc h5,
+.vp-doc h6 {
+  font-weight: var(--rapira-fw-heading);
+}
+
+/* Links carry their own weight in the default theme, a step above the text they
+   sit in. Colour already marks them, so the step is smaller here. */
+.vp-doc a,
+.vp-doc .custom-block a {
+  font-weight: var(--rapira-fw-link);
+}
+
+/* The default theme hardcodes a weight in nearly every component of the chrome,
+   most of them 500, and each one is a scoped style — the attribute selector Vue
+   adds puts them out of reach of a plain class, hence the extra ancestor on
+   every selector below rather than !important. The two lists are the whole set:
+   UI text, then the titles that stand above it. */
+.VPNavBar .VPNavBarMenuLink,
+.VPNavBar .VPFlyout .text,
+.VPNavBar .DocSearch-Button .DocSearch-Button-Placeholder,
+.VPNavBar .DocSearch-Button .DocSearch-Button-Key,
+.VPNavScreen .VPNavScreenMenuLink,
+.VPNavScreen .button,
+.VPNavScreen .VPNavScreenAppearance .text,
+.VPNavScreen .VPNavScreenTranslations .title,
+.VPMenu .link,
+.VPLocalNav .menu,
+.VPLocalNav .VPLocalNavOutlineDropdown button,
+.VPLocalNavOutlineDropdown .top-link,
+.VPLocalSearchBox .title.main,
+.VPDocFooter .edit-link-button,
+.VPDocFooter .desc,
+.VPDocFooter .title,
+.VPDocFooter .VPLastUpdated,
+.VPFooter .copyright,
+.VPContent .VPBadge,
+.VPFeature .link-text-value,
+.vp-code-group .tabs label,
+.vp-doc [class*='language-'] > span.lang {
+  font-weight: var(--rapira-fw-ui);
+}
+
+.VPNavBar .VPNavBarTitle .title,
+.VPMenu .VPMenuGroup .title,
+.VPNavScreen .VPNavScreenMenuGroupSection .title,
+.vp-doc .custom-block-title,
+.vp-doc .custom-block.details summary {
+  font-weight: var(--rapira-fw-ui-title);
+}
+
+.VPSidebar .VPSidebarItem.level-0 .text {
+  font-weight: var(--rapira-fw-sidebar-group);
+}
+
+.VPSidebar .VPSidebarItem.level-1 .text,
+.VPSidebar .VPSidebarItem.level-2 .text,
+.VPSidebar .VPSidebarItem.level-3 .text,
+.VPSidebar .VPSidebarItem.level-4 .text,
+.VPSidebar .VPSidebarItem.level-5 .text {
+  font-weight: var(--rapira-fw-sidebar-item);
+}
+
+.VPDocAsideOutline .outline-title {
+  font-weight: var(--rapira-fw-outline-title);
+}
+
+.VPDocAsideOutline .content {
+  font-weight: var(--rapira-fw-outline-item);
+}
+
 /* ===== HOME PAGE STYLES ===== */
 
 /* Landing cover: wordmark centered on the page background, actions below */
@@ -225,7 +469,7 @@ html {
   margin: 0;
   font-size: 22px;
   line-height: 1.5;
-  font-weight: 500;
+  font-weight: var(--rapira-fw-ui-title);
 }
 
 .rapira-lede-text {
@@ -255,7 +499,7 @@ html {
   align-items: center;
   gap: 0.4em;
   font-size: 22px;
-  font-weight: 400;
+  font-weight: var(--rapira-fw-body);
   line-height: 32px;
   color: var(--vp-c-text-1);
   /* A border, not text-decoration: the link is a flex box, so an underline would
@@ -321,13 +565,14 @@ html {
 
 .VPFeature .title {
   font-size: 18px !important;
-  font-weight: 600 !important;
+  font-weight: var(--rapira-fw-ui-title);
   margin-bottom: 12px !important;
 }
 
 .VPFeature .details {
   font-size: 15px !important;
   line-height: 1.7 !important;
+  font-weight: var(--rapira-fw-body);
   opacity: 0.9;
 }
 
@@ -400,7 +645,7 @@ html {
 .rapira-section-eyebrow {
   margin: 0 0 12px;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: var(--rapira-fw-ui);
   line-height: 1.4;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -412,7 +657,7 @@ html {
   padding: 0;
   border: none;
   font-size: 28px;
-  font-weight: 600;
+  font-weight: var(--rapira-fw-heading);
   line-height: 1.3;
   letter-spacing: -0.01em;
 }
@@ -432,7 +677,7 @@ html {
   display: inline-block;
   margin-top: 20px;
   font-size: 15px;
-  font-weight: 500;
+  font-weight: var(--rapira-fw-link);
   color: var(--vp-c-brand-1);
   text-decoration: none;
 }
@@ -475,7 +720,7 @@ html {
 
 .VPHome .sponsors-title {
   font-size: 24px !important;
-  font-weight: 400 !important;
+  font-weight: var(--rapira-fw-body) !important;
   margin-bottom: 32px !important;
   color: var(--vp-c-text-2);
   border: none !important;
@@ -698,7 +943,7 @@ html {
   margin: 8px 0;
   padding: 0;
   cursor: pointer;
-  font-weight: 500;
+  font-weight: var(--rapira-fw-link);
   color: var(--vp-c-brand-1);
   list-style: none;
   display: inline-flex;
@@ -760,5 +1005,5 @@ html {
 /* ===== MERMAID DIAGRAMS ===== */
 
 .mermaid svg {
-  font-family: Inter, ui-sans-serif, system-ui, sans-serif !important;
+  font-family: var(--vp-font-family-base) !important;
 }

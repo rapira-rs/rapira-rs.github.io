@@ -125,7 +125,7 @@ const icons = computed(() => props.tabs.map((tab) => {
   background: transparent;
   color: var(--vp-c-text-3);
   font-family: var(--vp-font-family-base);
-  font-size: 13px;
+  font-size: var(--rapira-fs-code-tabs);
   white-space: nowrap;
   cursor: pointer;
   transition: background-color 0.2s, color 0.2s;

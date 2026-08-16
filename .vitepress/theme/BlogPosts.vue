@@ -96,7 +96,7 @@ function onImageError(event: Event, fallback: string | undefined) {
 .post-title {
   margin: 0;
   font-size: 1.25rem;
-  font-weight: 600;
+  font-weight: var(--rapira-fw-ui-title);
   line-height: 1.3;
 }
 

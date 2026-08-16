@@ -52,8 +52,8 @@ const formatStars = (count: number | null) => {
   gap: 6px;
   padding: 4px 12px;
   margin-left: 12px;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: var(--rapira-fs-nav-small);
+  font-weight: var(--rapira-fw-ui);
   line-height: 20px;
   color: var(--vp-c-text-1);
   background-color: var(--vp-c-bg-soft);
@@ -80,7 +80,7 @@ const formatStars = (count: number | null) => {
   min-width: 20px;
   padding: 0 6px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: var(--rapira-fw-ui);
   line-height: 18px;
   color: var(--vp-c-text-2);
   background-color: var(--vp-c-default-soft);

@@ -12,6 +12,7 @@ import FeatureTags from './FeatureTags.vue'
 import TextTabs from './TextTabs.vue'
 import DownloadBuilds from './DownloadBuilds.vue'
 import { isBlogPath } from '../locales'
+import './fonts.css'
 import './style.css'
 
 export default {

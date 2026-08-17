@@ -3,6 +3,43 @@ html {
   scrollbar-gutter: stable;
 }
 
+/* Custom scrollbar. Firefox has no pseudo-elements for it, so it gets the two
+   `scrollbar-*` properties; WebKit and Chromium get the pseudo-elements, which
+   allow the rounded, inset thumb. The track stays transparent so it takes the
+   colour of whatever it sits over, and a transparent border clipped to the
+   padding box insets the thumb, leaving a gap on both sides. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--rapira-scrollbar-thumb) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--rapira-scrollbar-thumb);
+  border: 3px solid transparent;
+  border-radius: 8px;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--rapira-scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
+/* The corner where a horizontal and a vertical bar meet — e.g. a wide code
+   block — otherwise shows the browser's default grey square. */
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 /* Brand palette — steel blue, derived from the logo's ink (#0E121B, hue ~215°).
    The wordmark itself is monochrome, so the accent is the one colour we add;
    the neutrals below are biased toward it so nothing reads as warm grey. */
@@ -22,6 +59,11 @@ html {
 
   /* Accent glow, shared by the feature and sponsor card hovers */
   --rapira-glow: rgba(44, 110, 155, 0.2);
+
+  /* Scrollbar: a hair darker than the border so the thumb reads on the page
+     background, and the brand accent once the pointer is on it. */
+  --rapira-scrollbar-thumb: #c3ccd8;
+  --rapira-scrollbar-thumb-hover: var(--vp-c-brand-1);
 
   /* Frosted nav bar: translucent --vp-nav-bg-color + this blur */
   --rapira-nav-blur: blur(12px);
@@ -64,6 +106,9 @@ html {
   --vp-c-text-3: rgba(233, 236, 243, 0.36);
 
   --rapira-glow: rgba(111, 179, 222, 0.16);
+
+  --rapira-scrollbar-thumb: #3b4250;
+  --rapira-scrollbar-thumb-hover: var(--vp-c-brand-1);
 
   /* Matches the dark --vp-c-bg (#1e2229) */
   --vp-nav-bg-color: rgba(30, 34, 41, 0.72);

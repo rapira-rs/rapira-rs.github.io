@@ -27,10 +27,10 @@ const labels = {
 Gotowe kompilacje publikujemy w [wydaniach na GitHubie](https://github.com/rapira-rs/rapira/releases). Wybierz platformę — przycisk poniżej pobierze najnowszą stabilną wersję dla niej.
 
 <DownloadBuilds :labels="labels">
-<template #windows-note>
+<template #dev-note>
 
 ::: warning
-Kompilacje dla Windowsa służą wyłącznie do lokalnego developmentu — w produkcji Rapira działa na Linuksie lub macOS.
+Ta kompilacja służy wyłącznie do lokalnego developmentu — na produkcję użyj Linuksa.
 :::
 
 </template>

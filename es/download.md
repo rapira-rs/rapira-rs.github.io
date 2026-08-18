@@ -27,10 +27,10 @@ const labels = {
 Los binarios precompilados se publican en los [releases de GitHub](https://github.com/rapira-rs/rapira/releases). Elige tu plataforma: el botón de abajo descarga su última versión estable.
 
 <DownloadBuilds :labels="labels">
-<template #windows-note>
+<template #dev-note>
 
 ::: warning
-Los builds para Windows son solo para desarrollo local: en producción, Rapira funciona en Linux o macOS.
+Este build es solo para desarrollo local: para producción, usa Linux.
 :::
 
 </template>

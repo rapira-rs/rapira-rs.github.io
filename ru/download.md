@@ -27,10 +27,10 @@ const labels = {
 Готовые сборки публикуются в [релизах на GitHub](https://github.com/rapira-rs/rapira/releases). Выберите платформу — кнопка внизу скачает последнюю стабильную версию для неё.
 
 <DownloadBuilds :labels="labels">
-<template #windows-note>
+<template #dev-note>
 
 ::: warning
-Сборки для Windows предназначены только для локальной разработки — в продакшене Rapira работает на Linux или macOS.
+Эта сборка предназначена только для локальной разработки — для продакшена используйте Linux.
 :::
 
 </template>

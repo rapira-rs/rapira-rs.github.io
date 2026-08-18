@@ -10,8 +10,8 @@ import { data } from './builds.data'
  *
  * All UI strings come in through the `labels` prop, so each locale's
  * `download.md` owns its copy and this component stays translation-free.
- * The `windows-note` slot renders only while Windows is selected — the page
- * puts its dev-only warning there.
+ * The `dev-note` slot renders while any non-Linux OS is selected — the page
+ * puts its dev-only warning there, since production runs on Linux.
  */
 interface Labels {
   os: string
@@ -137,7 +137,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <slot v-if="os === 'windows'" name="windows-note" />
+      <slot v-if="os !== 'linux'" name="dev-note" />
 
       <div v-if="build" class="db-result">
         <a class="db-button" :href="build.url">

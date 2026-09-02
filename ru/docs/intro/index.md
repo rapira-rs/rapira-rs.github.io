@@ -1,11 +1,11 @@
 ---
 title: Что такое Rapira
-description: Rapira — сервер приложений PHP, написанный на Rust. Он поддерживает режимы Classic, Worker и Dispatcher.
+description: Rapira - сервер приложений PHP, написанный на Rust. Он поддерживает режимы Classic, Worker и Dispatcher.
 ---
 
 # Что такое Rapira
 
-Rapira — сервер приложений PHP, написанный на Rust.
+Rapira - сервер приложений PHP, написанный на Rust.
 
 Разработчики RoadRunner проектируют и разрабатывают Rapira. Rapira вызывает PHP напрямую в процессе сервера.
 

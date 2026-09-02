@@ -41,7 +41,7 @@ El proceso no se tira entre peticiones: Rapira hace fork de sus workers una sola
 
 ## Modo Worker
 
-El modo Worker mantiene el script vivo. Arranca una vez y se queda en un bucle pidiéndole a Rapira la siguiente petición; Rapira vuelve a rellenar las superglobales y llama a tu handler. El código PHP conserva la forma de siempre —sigues leyendo `$_GET` y devolviendo la respuesta con `echo`—, pero el arranque ocurre una vez por proceso en lugar de una vez por petición. Consulta [Modos de ejecución](/es/docs/execution-modes) para más información.
+El modo Worker mantiene el script vivo. Arranca una vez y se queda en un bucle pidiéndole a Rapira la siguiente petición; Rapira vuelve a rellenar las superglobales y llama a tu handler. El código PHP conserva la forma de siempre -sigues leyendo `$_GET` y devolviendo la respuesta con `echo`-, pero el arranque ocurre una vez por proceso en lugar de una vez por petición. Consulta [Modos de ejecución](/es/docs/execution-modes) para más información.
 
 Crea `worker.php` en la raíz del proyecto:
 
@@ -117,6 +117,6 @@ Pulsa `Ctrl-C` y Rapira se apaga de forma ordenada: deja de aceptar trabajo nuev
 
 ## Próximos pasos
 
-- [Modo Worker](/es/docs/worker) — el bucle residente a fondo: estado, fugas, reciclaje y cómo arrancar una aplicación real antes del bucle.
-- [Configuración](/es/docs/configuration) — todas las claves que admite `rapira.toml`, con sus valores por defecto.
-- [Frameworks](/es/docs/frameworks/) — guías de integración para Symfony, Laravel y Yii3.
+- [Modo Worker](/es/docs/worker) - el bucle residente a fondo: estado, fugas, reciclaje y cómo arrancar una aplicación real antes del bucle.
+- [Configuración](/es/docs/configuration) - todas las claves que admite `rapira.toml`, con sus valores por defecto.
+- [Frameworks](/es/docs/frameworks/) - guías de integración para Symfony, Laravel y Yii3.

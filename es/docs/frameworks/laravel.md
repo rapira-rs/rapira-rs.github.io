@@ -8,7 +8,7 @@ description: "Ejecutar Laravel sobre Rapira en modo Classic y el estado actual d
 Rapira ejecuta Laravel en modo Classic con el script de entrada `public/index.php` de siempre. Lo ejecuta desde cero en cada petición, igual que php-fpm. La aplicación no necesita ningún cambio. El modo Worker para Laravel está en desarrollo; su estado actual está más abajo, en [Modo Worker](#modo-worker).
 
 ::: info Verificado con
-- **PHP 8.5.8** — NTS, SAPI embed
+- **PHP 8.5.8** - NTS, SAPI embed
 - **Rapira 0.8.0**
 - Aplicación base **laravel/laravel** con **laravel/framework v13.23.0**
 
@@ -17,7 +17,7 @@ Las pruebas utilizaron una aplicación base `laravel/laravel` con varias rutas a
 
 ## Requisitos previos
 
-Necesitas Rapira instalado —lo tienes en [Instalación](/es/docs/intro/installation)— y una aplicación de Laravel que ya te funcione. También necesitas un PHP CLI normal en la máquina para Composer y `artisan`: Rapira trae PHP como biblioteca (`libphp`), no como comando `php`, así que esos pasos se ejecutan con el PHP de tu sistema, que Rapira ni usa ni toca.
+Necesitas Rapira instalado -lo tienes en [Instalación](/es/docs/intro/installation)- y una aplicación de Laravel que ya te funcione. También necesitas un PHP CLI normal en la máquina para Composer y `artisan`: Rapira trae PHP como biblioteca (`libphp`), no como comando `php`, así que esos pasos se ejecutan con el PHP de tu sistema, que Rapira ni usa ni toca.
 
 Comprueba las extensiones de base de datos antes del primer arranque: una aplicación base nueva de `laravel/laravel` viene con una base de datos SQLite y con los drivers de sesión, caché y colas apoyados en base de datos, lo que significa que necesita `pdo_sqlite`. El PHP que acompaña a las releases de Rapira lo trae: PDO, `pdo_sqlite` y `sqlite3` están en el conjunto de extensiones de la compilación de release, tal y como lista la página de [Instalación](/es/docs/intro/installation). Si ejecutas Rapira contra un PHP compilado por ti, asegúrate de que esas extensiones aparecen en tu línea de configure ([Compilar desde el código](/es/docs/intro/build-from-source) lo cuenta), o apunta Laravel a los drivers de archivo y sync: `SESSION_DRIVER=file`, `CACHE_STORE=file`, `QUEUE_CONNECTION=sync`. Esa es la combinación con la que se verificó esta página.
 

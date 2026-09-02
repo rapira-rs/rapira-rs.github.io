@@ -2,7 +2,7 @@
 
 Esta página documenta todas las funciones de escritura que admite el motor de documentación: cada bloque de abajo se genera con el mismo Markdown que escribirás tú, así que tenla a mano como chuleta mientras editas páginas.
 
-Para previsualizar tus cambios, ejecuta `npm install` una vez y luego `npm run dev`; abre la URL local que aparece en pantalla. Cada idioma tiene su propia carpeta de traducciones —`ru/`, `es/`, `zh/`, `pl/`— con la misma estructura que la versión en inglés, y el inglés es la fuente de referencia.
+Para previsualizar tus cambios, ejecuta `npm install` una vez y luego `npm run dev`; abre la URL local que aparece en pantalla. Cada idioma tiene su propia carpeta de traducciones -`ru/`, `es/`, `zh/`, `pl/`- con la misma estructura que la versión en inglés, y el inglés es la fuente de referencia.
 
 ## Bloques de aviso
 
@@ -239,7 +239,7 @@ Define las opciones de la página en un bloque YAML al principio del archivo:
 ---
 title: Título propio      # reemplaza el H1 en <title> / og:title
 description: Resumen breve # meta description y og:description
-outline: [2, 3]           # el menú «En esta página» — ver abajo
+outline: [2, 3]           # el menú «En esta página» - ver abajo
 aside: false              # ocultar por completo la columna derecha
 lastUpdated: false        # ocultar la marca «Actualizado» en esta página
 editLink: false           # ocultar el enlace «Editar esta página»
@@ -253,7 +253,7 @@ next:                     # o renombrar / redirigir un enlace del pie
 El **outline** controla el índice «En esta página» de la derecha:
 
 ```yaml
-outline: [2, 3]   # por defecto — H2 y H3
+outline: [2, 3]   # por defecto - H2 y H3
 outline: deep     # todos los niveles, H2–H6
 outline: 2        # solo H2
 outline: false    # ocultarlo

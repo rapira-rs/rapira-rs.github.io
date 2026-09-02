@@ -26,7 +26,7 @@ Consulta [Modo Classic](/es/docs/classic) para más información.
 
 ## Worker <Badge type="tip" text="disponible" />
 
-El modo Worker tiene la misma forma que Classic —sigues leyendo las superglobales, sigues haciendo `echo` de la respuesta— salvo que el worker no se destruye al terminar la petición. Un script residente arranca todo una vez y entra en un bucle: el servidor vuelve a rellenar `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE` y las demás en cada petición nueva, ejecuta tu handler y te pasa la siguiente. Autoloader, contenedor de DI, configuración, conexiones a la base de datos: todo lo que crees fuera del bucle se queda caliente.
+El modo Worker tiene la misma forma que Classic -sigues leyendo las superglobales, sigues haciendo `echo` de la respuesta- salvo que el worker no se destruye al terminar la petición. Un script residente arranca todo una vez y entra en un bucle: el servidor vuelve a rellenar `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE` y las demás en cada petición nueva, ejecuta tu handler y te pasa la siguiente. Autoloader, contenedor de DI, configuración, conexiones a la base de datos: todo lo que crees fuera del bucle se queda caliente.
 
 El arranque ocurre una vez por worker en lugar de una vez por petición y, en una aplicación moderna, ese arranque suele ser la parte más cara de la petición. El proceso ya no arranca limpio en cada petición, así que todo lo que tu aplicación deje en propiedades estáticas, singletons o estado global seguirá ahí en la siguiente. Rapira puede reciclar un worker cada cierto número de peticiones, de modo que una fuga lenta en tu aplicación o en alguna de sus dependencias no acabe en una caída mientras la localizas.
 

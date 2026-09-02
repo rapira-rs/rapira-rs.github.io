@@ -31,7 +31,7 @@ const httpFeatures = [
   { label: 'Trailers', ready: false },
 ]
 
-// Cuatro formas de conectar un servidor con PHP — una pestaña por cada una.
+// Cuatro formas de conectar un servidor con PHP - una pestaña por cada una.
 // Los textos de las pestañas van en los slots de <TextTabs> más abajo.
 const interopTabs = [
   { name: 'FastCGI', slot: 'fastcgi', users: ['php-fpm', 'nginx', 'Angie'] },

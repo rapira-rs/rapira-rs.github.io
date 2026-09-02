@@ -5,16 +5,16 @@ description: "rapira.toml 完整参考：[http]、[pool]、[supervisor] 和 [log
 
 # 配置
 
-Rapira 不需要配置文件也能启动——`rapira serve --mode worker app/worker.php` 会替每一项设置挑好默认值。等默认值不够用了，就该加一个 `rapira.toml`：换一个监听地址、把 worker 数量固定下来、定一套回收策略、写一个 init 系统读得到的 pidfile、把日志级别调得更详细。把服务器指向这个文件，它就从这个文件读取设置：
+Rapira 不需要配置文件也能启动--`rapira serve --mode worker app/worker.php` 会替每一项设置挑好默认值。等默认值不够用了，就该加一个 `rapira.toml`：换一个监听地址、把 worker 数量固定下来、定一套回收策略、写一个 init 系统读得到的 pidfile、把日志级别调得更详细。把服务器指向这个文件，它就从这个文件读取设置：
 
 ```bash
 rapira serve --config /etc/rapira/rapira.toml
 ```
 
-文件由四个小节组成，每一节都可以不写：`[http]` 管监听器，`[pool]` 管 worker 进程，`[supervisor]` 管 master 进程，`[log]` 管往 stderr 写什么。唯一没有默认值的是 PHP 入口脚本——要么在这里设 `pool.entrypoint`，要么在命令行上把脚本作为位置参数传进去。
+文件由四个小节组成，每一节都可以不写：`[http]` 管监听器，`[pool]` 管 worker 进程，`[supervisor]` 管 master 进程，`[log]` 管往 stderr 写什么。唯一没有默认值的是 PHP 入口脚本--要么在这里设 `pool.entrypoint`，要么在命令行上把脚本作为位置参数传进去。
 
 ::: info
-设置是分层的：命令行参数压过配置文件，配置文件压过内置默认值。所以 `--processes 8` 会盖掉文件里的 `processes = 4`——纳入版本控制的配置，照样能为某一次运行临时覆盖。环境变量不在这个分层之内：除了两个只影响日志的变量，设置只来自配置文件和命令行参数。参数本身见[命令行](/zh/docs/cli)那一页。
+设置是分层的：命令行参数压过配置文件，配置文件压过内置默认值。所以 `--processes 8` 会盖掉文件里的 `processes = 4`--纳入版本控制的配置，照样能为某一次运行临时覆盖。环境变量不在这个分层之内：除了两个只影响日志的变量，设置只来自配置文件和命令行参数。参数本身见[命令行](/zh/docs/cli)那一页。
 :::
 
 ## 一份完整的 rapira.toml
@@ -81,7 +81,7 @@ http = "warn"
 
 | 键 | 类型 | 默认值 | 含义 |
 | --- | --- | --- | --- |
-| `listen` | 字符串 | `"127.0.0.1:8000"` | 绑定地址，三种写法之一：带 IP 字面量的 `host:port`（`127.0.0.1:8000`、`[::1]:8000`）、代表所有网卡的 `:port`，以及 Unix socket 的 `unix:/run/rapira.sock`。只写端口号或者写主机名都会被拒绝——地址必须说清楚指的是哪个网卡。 |
+| `listen` | 字符串 | `"127.0.0.1:8000"` | 绑定地址，三种写法之一：带 IP 字面量的 `host:port`（`127.0.0.1:8000`、`[::1]:8000`）、代表所有网卡的 `:port`，以及 Unix socket 的 `unix:/run/rapira.sock`。只写端口号或者写主机名都会被拒绝--地址必须说清楚指的是哪个网卡。 |
 | `server_name` | 字符串 | `"localhost"` | PHP 从 `$_SERVER['SERVER_NAME']` 读到的值。 |
 | `server_port` | 整数 | 监听端口，`unix:` 时为 `80` | PHP 从 `$_SERVER['SERVER_PORT']` 读到的值。如果 Rapira 前面的代理终结连接的端口和 Rapira 实际绑定的端口不是同一个，就设一下它。 |
 | `max_body_size_mb` | 整数 | `8` | Rapira 愿意接收的最大请求体，单位 MiB（1024 × 1024 字节）。再大就回 `413`。至少为 1。 |
@@ -90,7 +90,7 @@ http = "warn"
 | `unsafe_field_names` | `"drop"` \| `"reject"` | `"drop"` | 名字不符合 `[A-Za-z0-9-]` 的请求字段怎么处理：在 PHP 看到之前删掉，每删一个记一条 `warn` 日志；或者直接回 `400`。这么做的理由和背后的 CGI 映射规则，都在 [HTTP](/zh/docs/http) 那一页。 |
 | `middleware` | 字符串列表 | 空 | 请求在交给 PHP 之前先由哪些中间件处理。列表顺序就是链的顺序。目前 Rapira 只认识 `"static"` 这一个名字。同一个名字列两次会被拒绝，列了名字却没有对应的表会被拒绝，配了表却没列进列表同样会被拒绝，所以这个列表就是每个中间件唯一的开关。 |
 
-`server_name` 和 `server_port` 只影响 PHP 在 `$_SERVER` 里看到的内容，都不改变服务器绑定的地址——决定这件事的只有 `listen`。
+`server_name` 和 `server_port` 只影响 PHP 在 `$_SERVER` 里看到的内容，都不改变服务器绑定的地址--决定这件事的只有 `listen`。
 
 ### `[http.static]` 表
 
@@ -136,7 +136,7 @@ sendfile 根目录就是 `sendFile()` 能读取的那个目录。Rapira 会把�
 
 | 键 | 类型 | 默认值 | 含义 |
 | --- | --- | --- | --- |
-| `entrypoint` | 字符串 | 无——必填 | 每个 worker 要跑的 PHP 脚本。相对路径按配置文件所在的目录解析。命令行上的 `SCRIPT` 参数会覆盖它；两者至少得有一个，否则服务器拒绝启动。 |
+| `entrypoint` | 字符串 | 无--必填 | 每个 worker 要跑的 PHP 脚本。相对路径按配置文件所在的目录解析。命令行上的 `SCRIPT` 参数会覆盖它；两者至少得有一个，否则服务器拒绝启动。 |
 | `mode` | `"classic"` \| `"worker"` \| `"dispatcher"` | `"dispatcher"` | worker 怎么跑入口脚本。`classic` 每个请求都把脚本从头跑一遍；`worker` 让脚本常驻，并为每个请求重新填好超全局变量；`dispatcher` 让脚本常驻，并交给它一个 dispatcher 对象，由脚本自己从中取出每个请求。命令行上的 `--mode` 参数能双向覆盖这个键。见[执行模式](/zh/docs/execution-modes)。 |
 | `processes` | 整数 | 每个逻辑 CPU 一个 | 要 fork 多少个 worker 进程。在 `dynamic` 和 `ondemand` 这两种伸缩方式下它是上限，不是实际数量。至少为 1。 |
 | `scaling` | `"static"` \| `"dynamic"` \| `"ondemand"` | `"static"` | 进程池怎么决定自己的规模。`static` 始终保持 `processes` 个 worker 存活；`dynamic` 在两个空闲阈值之间伸缩，上限是 `processes`；`ondemand` 只在有活干的时候才 fork，空闲的 worker 会被淘汰。 |
@@ -152,11 +152,11 @@ sendfile 根目录就是 `sendFile()` 能读取的那个目录。Rapira 会把�
 
 ## `[supervisor]` 小节
 
-master 进程的策略——监听 socket 归它掌管，worker 由它照看，你发的信号也是发给它。init 系统打交道的对象同样是它，所以 unit 文件里通常设置的就是这几个键；见[部署](/zh/docs/deployment)。
+master 进程的策略--监听 socket 归它掌管，worker 由它照看，你发的信号也是发给它。init 系统打交道的对象同样是它，所以 unit 文件里通常设置的就是这几个键；见[部署](/zh/docs/deployment)。
 
 | 键 | 类型 | 默认值 | 含义 |
 | --- | --- | --- | --- |
-| `pidfile` | 字符串 | 无 | master 把自己的 pid 写到哪里。相对路径按配置文件所在的目录解析。信号要发的就是这个 pid——每个信号各做什么，[进程模型](/zh/docs/process-model)那一页有完整的对照表。 |
+| `pidfile` | 字符串 | 无 | master 把自己的 pid 写到哪里。相对路径按配置文件所在的目录解析。信号要发的就是这个 pid--每个信号各做什么，[进程模型](/zh/docs/process-model)那一页有完整的对照表。 |
 | `process_control_timeout_secs` | 整数 | `30` | master 给 worker 多少时间优雅收尾，超时就按 QUIT → TERM → KILL 逐级升级。 |
 
 ## `[log]` 小节

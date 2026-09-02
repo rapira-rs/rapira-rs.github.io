@@ -49,8 +49,8 @@ Esta colisión de nombres es un problema de seguridad. Si un proxy de confianza 
 
 Por eso Rapira revisa los nombres de campo de la petición antes de que los vea ninguna otra capa. Un nombre se acepta cuando todos sus bytes están en `[A-Za-z0-9-]`. Los caracteres que colisionan son `_` y `.`: los dos caen en la misma clave de `$_SERVER` que la grafía con guiones. La regla es una lista de permitidos y no una lista de esos dos bytes prohibidos, así que un carácter legal pero raro como `~` también se rechaza, y el filtro seguirá siendo correcto si alguna de las dos transformaciones se amplía algún día. Qué pasa con un nombre rechazado lo decide `http.unsafe_field_names`:
 
-- **`drop`** (por defecto) — el campo se elimina antes de que PHP lo vea, y cada eliminación se registra con nivel `warn` en el target `http`.
-- **`reject`** — a la petición se le responde `400` y no se sirve nada.
+- **`drop`** (por defecto) - el campo se elimina antes de que PHP lo vea, y cada eliminación se registra con nivel `warn` en el target `http`.
+- **`reject`** - a la petición se le responde `400` y no se sirve nada.
 
 ```toml
 [http]
@@ -69,10 +69,10 @@ Si tus clientes mandan legítimamente un nombre con guion bajo, la solución es 
 
 HTTP permite que un cliente repita un campo, y en CGI solo cabe un valor por variable, así que hay que combinar las repeticiones en un único valor antes de que PHP vea nada. Rapira las combina como diga la gramática de cada campo que pueden combinarse:
 
-- **Campos de lista** — los valores se unen con `, `, que es la recombinación que la [RFC 9110 §5.3](https://www.rfc-editor.org/rfc/rfc9110#section-5.3) permite para un campo definido como lista separada por comas. Dos líneas `Accept` quedan en `text/*, image/*`.
-- **`Cookie`** — también es una lista, pero no de comas. Sus repeticiones se unen con `; `, la forma de cookie-string que espera el parser de PHP, y así `$_COOKIE` sale bien.
-- **Campos de valor único** — `Authorization`, `Proxy-Authorization`, `Content-Type`, `Content-Length`, `Referer` y `From` conservan solo la **primera** línea; las demás se descartan con un `warn`. Unirlas las estropearía: un segundo `Authorization` combinado con el primero acaba dentro de la credencial que PHP está a punto de decodificar en base64. A un `Content-Length` repetido se le responde `400` antes de combinar nada, así que a esta regla solo llegan los otros cinco.
-- **`Host`** — a más de una línea `Host` se le responde `400`; nunca se combinan. La [RFC 9112 §3.2](https://www.rfc-editor.org/rfc/rfc9112#section-3.2) lo marca como obligatorio, y la capa que termina la conexión es la única que puede dar la respuesta correcta.
+- **Campos de lista** - los valores se unen con `, `, que es la recombinación que la [RFC 9110 §5.3](https://www.rfc-editor.org/rfc/rfc9110#section-5.3) permite para un campo definido como lista separada por comas. Dos líneas `Accept` quedan en `text/*, image/*`.
+- **`Cookie`** - también es una lista, pero no de comas. Sus repeticiones se unen con `; `, la forma de cookie-string que espera el parser de PHP, y así `$_COOKIE` sale bien.
+- **Campos de valor único** - `Authorization`, `Proxy-Authorization`, `Content-Type`, `Content-Length`, `Referer` y `From` conservan solo la **primera** línea; las demás se descartan con un `warn`. Unirlas las estropearía: un segundo `Authorization` combinado con el primero acaba dentro de la credencial que PHP está a punto de decodificar en base64. A un `Content-Length` repetido se le responde `400` antes de combinar nada, así que a esta regla solo llegan los otros cinco.
+- **`Host`** - a más de una línea `Host` se le responde `400`; nunca se combinan. La [RFC 9112 §3.2](https://www.rfc-editor.org/rfc/rfc9112#section-3.2) lo marca como obligatorio, y la capa que termina la conexión es la única que puede dar la respuesta correcta.
 
 Los valores de los campos llegan a PHP como bytes en crudo, siempre. Una cookie en latin1 o una cabecera firmada conservan cada octeto que mandó el cliente, porque una conversión a UTF-8 por el camino estropearía justo los valores que no pueden cambiar.
 
@@ -106,7 +106,7 @@ Los campos salto a salto pertenecen a una conexión concreta y no a la respuesta
 
 `Connection`, `Keep-Alive`, `Upgrade`, `Trailer`, `TE`, `Proxy-Connection` y, además, los dos campos de delimitación, `Content-Length` y `Transfer-Encoding`.
 
-Y si PHP manda una cabecera `Connection`, también se eliminan los campos que nombra —para eso está el valor de `Connection`—, y esa limpieza ocurre antes de que Rapira inserte su propio `Content-Length`, así que un `Connection: content-length` no puede eliminar de la respuesta los campos de delimitación.
+Y si PHP manda una cabecera `Connection`, también se eliminan los campos que nombra -para eso está el valor de `Connection`-, y esa limpieza ocurre antes de que Rapira inserte su propio `Content-Length`, así que un `Connection: content-length` no puede eliminar de la respuesta los campos de delimitación.
 
 Todo lo demás pasa tal y como lo escribió PHP, repeticiones incluidas: `Set-Cookie`, `Vary` y `Link` pueden aparecer legítimamente varias veces y se mandan todas. Una cabecera que no hay forma de representar en la red se descarta con una línea de registro en lugar de tumbar la respuesta, así que el resto de la respuesta se envía igualmente.
 

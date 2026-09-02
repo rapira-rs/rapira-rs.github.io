@@ -37,11 +37,11 @@ Hello, world!
 Method: GET
 ```
 
-请求之间进程并没有被丢掉——Rapira 只 fork 一次 worker，每个 worker 里都常驻着一个启动好的 PHP 解释器。被丢掉的是脚本自己的状态：变量、自动加载器、框架搭起来的那一整套。
+请求之间进程并没有被丢掉--Rapira 只 fork 一次 worker，每个 worker 里都常驻着一个启动好的 PHP 解释器。被丢掉的是脚本自己的状态：变量、自动加载器、框架搭起来的那一整套。
 
 ## Worker 模式
 
-Worker 模式会让脚本一直活着：它只启动一次，随后在循环里不断向 Rapira 要下一个请求；Rapira 重新填好超全局变量，再调用你的处理函数。PHP 代码的模样还是熟悉的那套——照样读 `$_GET`，照样 `echo` 出响应——区别在于启动工作每个进程只做一次，而不是每个请求都做一次。详见[执行模式](/zh/docs/execution-modes)。
+Worker 模式会让脚本一直活着：它只启动一次，随后在循环里不断向 Rapira 要下一个请求；Rapira 重新填好超全局变量，再调用你的处理函数。PHP 代码的模样还是熟悉的那套--照样读 `$_GET`，照样 `echo` 出响应--区别在于启动工作每个进程只做一次，而不是每个请求都做一次。详见[执行模式](/zh/docs/execution-modes)。
 
 在项目根目录新建 `worker.php`：
 
@@ -79,13 +79,13 @@ curl '127.0.0.1:8000/?name=world'
 
 多跑几次这条 `curl`，计数会不断增加，因为请求始终由同一个进程处理。默认情况下 Rapira 会为每个逻辑 CPU fork 一个 worker，请求落到哪个 worker 上由内核决定。每个 worker 各记各的数，输出里的 pid 会告诉你这次是谁应答的。想让计数保持为一条连续的序列，就用 `rapira serve --mode worker --processes 1 worker.php` 启动服务器。进程池是怎么被管起来的，见[进程模型](/zh/docs/process-model)。
 
-在 `while` 循环之前搭好的一切，都会在 worker 的整个生命周期里留在内存中：Composer 自动加载器、DI 容器、数据库和缓存连接、编译好的路由和模板——这些都只在启动时构建一次，而不是每个请求都重建一遍。每轮循环真正重新产生的，只有属于单个请求的那部分状态。
+在 `while` 循环之前搭好的一切，都会在 worker 的整个生命周期里留在内存中：Composer 自动加载器、DI 容器、数据库和缓存连接、编译好的路由和模板--这些都只在启动时构建一次，而不是每个请求都重建一遍。每轮循环真正重新产生的，只有属于单个请求的那部分状态。
 
 ::: warning
 在请求之间存活下来的状态，必须由 worker 脚本自己重置。上一个请求留下的静态属性、全局变量、没结束的事务，下一个请求照样看得见。该盯住哪些地方、怎么让 worker 保持干净，都在 [Worker 模式](/zh/docs/worker)里。
 :::
 
-处理函数里照常可以用这些函数：`header()`、`http_response_code()`、`echo`，再加上 `rapira_finish_request()`——它能提前把响应刷出去，然后接着干剩下的活。详见 [HTTP](/zh/docs/http)。
+处理函数里照常可以用这些函数：`header()`、`http_response_code()`、`echo`，再加上 `rapira_finish_request()`--它能提前把响应刷出去，然后接着干剩下的活。详见 [HTTP](/zh/docs/http)。
 
 ## 配置文件
 
@@ -106,7 +106,7 @@ rapira serve --config rapira.toml
 ```
 
 ::: info
-`pool.entrypoint` 写成相对路径时，是相对配置文件所在的目录解析的，所以不管你在哪个目录下执行，同一份文件都能用。命令行参数的优先级仍然高于文件——`rapira serve --config rapira.toml --processes 1` 会保留其余设置，只 fork 一个 worker。
+`pool.entrypoint` 写成相对路径时，是相对配置文件所在的目录解析的，所以不管你在哪个目录下执行，同一份文件都能用。命令行参数的优先级仍然高于文件--`rapira serve --config rapira.toml --processes 1` 会保留其余设置，只 fork 一个 worker。
 :::
 
 文件还接受进程池的伸缩模式、worker 回收、请求超时、日志以及 supervisor 的 pidfile。不认识的键会被直接拒绝而不是忽略，所以拼错一个字母会让启动失败，而不是悄无声息地不起作用。完整的参考见[配置](/zh/docs/configuration)，命令行参数见[命令行](/zh/docs/cli)。
@@ -117,6 +117,6 @@ rapira serve --config rapira.toml
 
 ## 下一步
 
-- [Worker 模式](/zh/docs/worker)——常驻循环的细节：状态、泄漏、回收，以及怎样在进入循环之前把一个真实应用启动起来。
-- [配置](/zh/docs/configuration)——`rapira.toml` 能接受的每一个键，以及各自的默认值。
-- [框架集成](/zh/docs/frameworks/)——Symfony、Laravel 和 Yii3 的集成指南。
+- [Worker 模式](/zh/docs/worker)--常驻循环的细节：状态、泄漏、回收，以及怎样在进入循环之前把一个真实应用启动起来。
+- [配置](/zh/docs/configuration)--`rapira.toml` 能接受的每一个键，以及各自的默认值。
+- [框架集成](/zh/docs/frameworks/)--Symfony、Laravel 和 Yii3 的集成指南。

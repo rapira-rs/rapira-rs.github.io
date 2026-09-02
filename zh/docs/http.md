@@ -42,39 +42,39 @@ CGI 把请求头字段暴露给脚本只有一条规则：把字段名转成大�
 | `X.Forwarded.For` | `$_SERVER['HTTP_X_FORWARDED_FOR']`  |
 
 ::: warning
-这种名字冲突是一个安全问题。假设 Rapira 前面有一个可信代理会设置 `X-Forwarded-For`，那么客户端只要发 `X_Forwarded_For`，就能命中同一个 `$_SERVER` 键——而代理自己的请求头过滤只认带连字符的写法，永远看不见带下划线的那个。于是客户端可以写入一个值，而你的应用会把它当作来自代理的值。
+这种名字冲突是一个安全问题。假设 Rapira 前面有一个可信代理会设置 `X-Forwarded-For`，那么客户端只要发 `X_Forwarded_For`，就能命中同一个 `$_SERVER` 键--而代理自己的请求头过滤只认带连字符的写法，永远看不见带下划线的那个。于是客户端可以写入一个值，而你的应用会把它当作来自代理的值。
 :::
 
 ## 会撞上 CGI 变量的名字
 
-正因如此，在其他任何一层看到这些请求头之前，Rapira 会先筛一遍字段名：每个字节都落在 `[A-Za-z0-9-]` 里，这个名字才放行。会造成撞名的字符是 `_` 和 `.`——它们都会压到与连字符写法相同的那个 `$_SERVER` 键上。这条规则用的是白名单，而不是把这两个字节列进黑名单，所以像 `~` 这种合法但少见的字符同样会被拒绝；将来两套映射里任何一套放宽了范围，这道筛查也依然成立。被拒绝的名字会怎么处理，由 `http.unsafe_field_names` 决定：
+正因如此，在其他任何一层看到这些请求头之前，Rapira 会先筛一遍字段名：每个字节都落在 `[A-Za-z0-9-]` 里，这个名字才放行。会造成撞名的字符是 `_` 和 `.`--它们都会压到与连字符写法相同的那个 `$_SERVER` 键上。这条规则用的是白名单，而不是把这两个字节列进黑名单，所以像 `~` 这种合法但少见的字符同样会被拒绝；将来两套映射里任何一套放宽了范围，这道筛查也依然成立。被拒绝的名字会怎么处理，由 `http.unsafe_field_names` 决定：
 
-- **`drop`**（默认）——字段在 PHP 看到之前就被摘掉，每摘一次都会在 `http` 目标上记一条 `warn` 日志。
-- **`reject`**——请求以 `400` 作答，不会提供任何内容。
+- **`drop`**（默认）--字段在 PHP 看到之前就被摘掉，每摘一次都会在 `http` 目标上记一条 `warn` 日志。
+- **`reject`**--请求以 `400` 作答，不会提供任何内容。
 
 ```toml
 [http]
 unsafe_field_names = "drop"
 ```
 
-没有第三个选项把这道筛查整个关掉，也没有针对单个名字的例外，因为它挡下的撞名本身就是一个安全问题——这个配置项在整套设置中的位置，见[配置](/zh/docs/configuration)。
+没有第三个选项把这道筛查整个关掉，也没有针对单个名字的例外，因为它挡下的撞名本身就是一个安全问题--这个配置项在整套设置中的位置，见[配置](/zh/docs/configuration)。
 
 如果你的客户端确实要发带下划线的字段名，正确的做法是把它改成用 `-` 的写法。代理自己设的字段也一视同仁：带下划线的字段是可信代理写的还是客户端伪造的，Rapira 分辨不出来，所以代理设的 `X_Forwarded_For` 同样会在 PHP 运行之前被摘掉。Rapira 前面的代理只要在自己的配置里加一行就能完成这次改写，之后这个名字就是普通名字，原样通过。
 
 ::: tip
-`drop` 每摘掉一个字段都会记一条 `warn`，但默认日志级别是 `error`，不调高就看不到这些行。如果某个请求头意外没有出现在 `$_SERVER` 里，先把级别调上去，盯着 `http` 目标看——具体怎么做见[日志](/zh/docs/logging)。
+`drop` 每摘掉一个字段都会记一条 `warn`，但默认日志级别是 `error`，不调高就看不到这些行。如果某个请求头意外没有出现在 `$_SERVER` 里，先把级别调上去，盯着 `http` 目标看--具体怎么做见[日志](/zh/docs/logging)。
 :::
 
 ## 发了不止一次的字段
 
 HTTP 允许客户端重复发送同一个字段，而 CGI 一个变量只放得下一个值，所以在 PHP 看到任何东西之前，这些重复必须合并成一个值。至于怎么合，Rapira 按字段自身的语法来处理：
 
-- **列表型字段**——各个值用 `, ` 拼接，这正是 [RFC 9110 §5.3](https://www.rfc-editor.org/rfc/rfc9110#section-5.3) 为“以逗号分隔的列表”类字段所允许的重组方式。两行 `Accept` 会变成 `text/*, image/*`。
-- **`Cookie`**——同样是列表，但分隔符不是逗号。它的重复项用 `; ` 拼接，这正是 PHP 解析器期待的 cookie 字符串形式，`$_COOKIE` 才会解析正确。
-- **单值字段**——`Authorization`、`Proxy-Authorization`、`Content-Type`、`Content-Length`、`Referer` 和 `From` 只保留**第一**行，多出来的会被丢弃并记一条 `warn`。把它们拼起来会破坏字段值：第二个 `Authorization` 拼进第一个之后，就混进了 PHP 马上要 base64 解码的那段凭据里。重复的 `Content-Length` 在合并之前就会以 `400` 作答，真正走到这条规则的只有其余五个字段。
-- **`Host`**——出现不止一行 `Host` 时一律以 `400` 作答，绝不合并。[RFC 9112 §3.2](https://www.rfc-editor.org/rfc/rfc9112#section-3.2) 把这条定为 MUST，而且只有终结连接的那一层才给得出正确的答复。
+- **列表型字段**--各个值用 `, ` 拼接，这正是 [RFC 9110 §5.3](https://www.rfc-editor.org/rfc/rfc9110#section-5.3) 为“以逗号分隔的列表”类字段所允许的重组方式。两行 `Accept` 会变成 `text/*, image/*`。
+- **`Cookie`**--同样是列表，但分隔符不是逗号。它的重复项用 `; ` 拼接，这正是 PHP 解析器期待的 cookie 字符串形式，`$_COOKIE` 才会解析正确。
+- **单值字段**--`Authorization`、`Proxy-Authorization`、`Content-Type`、`Content-Length`、`Referer` 和 `From` 只保留**第一**行，多出来的会被丢弃并记一条 `warn`。把它们拼起来会破坏字段值：第二个 `Authorization` 拼进第一个之后，就混进了 PHP 马上要 base64 解码的那段凭据里。重复的 `Content-Length` 在合并之前就会以 `400` 作答，真正走到这条规则的只有其余五个字段。
+- **`Host`**--出现不止一行 `Host` 时一律以 `400` 作答，绝不合并。[RFC 9112 §3.2](https://www.rfc-editor.org/rfc/rfc9112#section-3.2) 把这条定为 MUST，而且只有终结连接的那一层才给得出正确的答复。
 
-字段值自始至终以原始字节交给 PHP。latin1 编码的 cookie、带签名的请求头，客户端发来的每一个字节都原封不动——中途做一次 UTF-8 转换，毁掉的恰恰是那些一个字节都不能变的值。
+字段值自始至终以原始字节交给 PHP。latin1 编码的 cookie、带签名的请求头，客户端发来的每一个字节都原封不动--中途做一次 UTF-8 转换，毁掉的恰恰是那些一个字节都不能变的值。
 
 ## 请求体
 
@@ -106,7 +106,7 @@ max_body_size_mb = 8
 
 `Connection`、`Keep-Alive`、`Upgrade`、`Trailer`、`TE`、`Proxy-Connection`，外加两个定界字段 `Content-Length` 和 `Transfer-Encoding`。
 
-如果 PHP 确实发了 `Connection` 头，它点名的那些字段同样会被剥掉——`Connection` 的值本来就是这个意思——而且这一步跑在 Rapira 插入自己的 `Content-Length` 之前，所以 `Connection: content-length` 无法把定界字段从响应里去掉。
+如果 PHP 确实发了 `Connection` 头，它点名的那些字段同样会被剥掉--`Connection` 的值本来就是这个意思--而且这一步跑在 Rapira 插入自己的 `Content-Length` 之前，所以 `Connection: content-length` 无法把定界字段从响应里去掉。
 
 其余的一切都按 PHP 写的样子原样通过，重复的也一样：`Set-Cookie`、`Vary` 和 `Link` 本来就可能正当地出现好几次，它们会被全部发出。至于压根没法在报文里表示的响应头，会被丢弃并记一条日志，而不是让整个响应失败，响应的其余部分照常发出。
 
@@ -124,7 +124,7 @@ PHP 发出的中间响应头（1xx）会被丢掉，PHP 写的 trailer 同样被
 
 响应准备好之后，处理逻辑往往还有事情要做：触发一个 webhook、往队列里写一条记录、把缓存预热一遍。客户端不必等这些。
 
-`rapira_finish_request()` 会在此处结束响应：PHP 的输出缓冲被刷进响应里，响应交给接入层发往客户端，而你的处理逻辑继续往下跑——此时客户端手里已经拿到了完整的响应。它和 `fastcgi_finish_request()` 是同一套契约，为 php-fpm 写的代码行为一如既往：
+`rapira_finish_request()` 会在此处结束响应：PHP 的输出缓冲被刷进响应里，响应交给接入层发往客户端，而你的处理逻辑继续往下跑--此时客户端手里已经拿到了完整的响应。它和 `fastcgi_finish_request()` 是同一套契约，为 php-fpm 写的代码行为一如既往：
 
 ```php
 <?php
@@ -139,11 +139,11 @@ $mailer->sendConfirmation($order);
 $metrics->flush();
 ```
 
-它的签名是 `rapira_finish_request(): bool`。和 Rapira 暴露给 PHP 的其他所有东西一样，它声明在 [`crates/php_sys/rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php) 里——把 IDE 指向这个文件，就能得到补全和类型提示。
+它的签名是 `rapira_finish_request(): bool`。和 Rapira 暴露给 PHP 的其他所有东西一样，它声明在 [`crates/php_sys/rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php) 里--把 IDE 指向这个文件，就能得到补全和类型提示。
 
 这个函数按整个进程注册，作用于当前正在处理的那个请求，所以 Classic 模式同样支持它：脚本是常驻还是每个请求重跑一遍，行为都一样。不同模式之间还有哪些差别，见[执行模式](/zh/docs/execution-modes)。
 
 有两点要记住：
 
-- **调用之后再输出，就发不出去了**。响应已经关闭，后面的 `echo` 会被直接丢掉——它不会排队等着以后冲刷。客户端必须看到的东西，都得在调用之前写完。
-- **worker 并没有闲下来**。结束响应放走的是**客户端**，不是进程。在你的处理逻辑返回之前，这个 worker 不会去接下一个请求，所以挪到调用之后的那些活儿，下一个请求照样得等——一共有多少个 worker 能等，见[进程模型](/zh/docs/process-model)。这次调用降低的是客户端的延迟，并不会带来并发，所以重活儿应该交给队列。
+- **调用之后再输出，就发不出去了**。响应已经关闭，后面的 `echo` 会被直接丢掉--它不会排队等着以后冲刷。客户端必须看到的东西，都得在调用之前写完。
+- **worker 并没有闲下来**。结束响应放走的是**客户端**，不是进程。在你的处理逻辑返回之前，这个 worker 不会去接下一个请求，所以挪到调用之后的那些活儿，下一个请求照样得等--一共有多少个 worker 能等，见[进程模型](/zh/docs/process-model)。这次调用降低的是客户端的延迟，并不会带来并发，所以重活儿应该交给队列。

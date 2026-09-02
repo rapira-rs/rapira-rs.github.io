@@ -1,8 +1,8 @@
 # Współtworzenie dokumentacji
 
-Ta strona opisuje wszystkie elementy składni, które obsługuje silnik dokumentacji — każdy blok poniżej powstaje z tego samego Markdownu, który będziesz pisać, więc miej ją pod ręką jako ściągę podczas edycji stron.
+Ta strona opisuje wszystkie elementy składni, które obsługuje silnik dokumentacji - każdy blok poniżej powstaje z tego samego Markdownu, który będziesz pisać, więc miej ją pod ręką jako ściągę podczas edycji stron.
 
-Aby podejrzeć swoje zmiany, uruchom raz `npm install`, a potem `npm run dev` i otwórz wyświetlony lokalny adres. Każdy język ma własny katalog z tłumaczeniami — `ru/`, `es/`, `zh/`, `pl/` — o tej samej strukturze co wersja angielska, a angielski jest źródłem prawdy.
+Aby podejrzeć swoje zmiany, uruchom raz `npm install`, a potem `npm run dev` i otwórz wyświetlony lokalny adres. Każdy język ma własny katalog z tłumaczeniami - `ru/`, `es/`, `zh/`, `pl/` - o tej samej strukturze co wersja angielska, a angielski jest źródłem prawdy.
 
 ## Bloki z wyróżnieniem
 
@@ -19,7 +19,7 @@ Neutralna informacja kontekstowa.
 Coś, na co trzeba uważać.
 :::
 ::: danger
-Realne ryzyko — działaj ostrożnie.
+Realne ryzyko - działaj ostrożnie.
 :::
 ```
 
@@ -36,7 +36,7 @@ Coś, na co trzeba uważać.
 :::
 
 ::: danger
-Realne ryzyko — działaj ostrożnie.
+Realne ryzyko - działaj ostrożnie.
 :::
 
 Zaraz po typie możesz podać własny tytuł:
@@ -55,7 +55,7 @@ fn main() {
 }
 ```
 
-Skieruj uwagę czytelnika na konkretne wiersze — podświetl je, ustaw fokus albo pokaż zmiany:
+Skieruj uwagę czytelnika na konkretne wiersze - podświetl je, ustaw fokus albo pokaż zmiany:
 
 ```rust{3}
 fn main() {
@@ -239,7 +239,7 @@ Opcje strony ustawiasz w bloku YAML na samej górze pliku:
 ---
 title: Własny tytuł       # nadpisuje H1 w <title> / og:title
 description: Krótkie streszczenie # meta description i og:description
-outline: [2, 3]           # menu „Na tej stronie” — patrz niżej
+outline: [2, 3]           # menu „Na tej stronie” - patrz niżej
 aside: false              # całkowicie ukryj prawą kolumnę
 lastUpdated: false        # ukryj znacznik „Zaktualizowano” na tej stronie
 editLink: false           # ukryj link „Edytuj tę stronę”
@@ -253,7 +253,7 @@ next:                     # albo zmień nazwę / cel linku w stopce
 **outline** steruje spisem „Na tej stronie” po prawej:
 
 ```yaml
-outline: [2, 3]   # domyślnie — H2 i H3
+outline: [2, 3]   # domyślnie - H2 i H3
 outline: deep     # wszystkie poziomy, H2–H6
 outline: 2        # tylko H2
 outline: false    # ukryj

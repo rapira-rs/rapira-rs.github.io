@@ -5,7 +5,7 @@ description: "La referencia completa de rapira.toml: todas las claves de [http],
 
 # Configuración
 
-Rapira arranca sin ningún archivo de configuración: `rapira serve --mode worker app/worker.php` elige un valor por defecto para todo. Añades un `rapira.toml` cuando esos valores se te quedan cortos — otra dirección de escucha, un número fijo de workers, una política de reciclaje, un pidfile que tu sistema de init pueda leer, un nivel de registro más detallado. Apunta el servidor al archivo y el servidor lee de ahí sus ajustes:
+Rapira arranca sin ningún archivo de configuración: `rapira serve --mode worker app/worker.php` elige un valor por defecto para todo. Añades un `rapira.toml` cuando esos valores se te quedan cortos - otra dirección de escucha, un número fijo de workers, una política de reciclaje, un pidfile que tu sistema de init pueda leer, un nivel de registro más detallado. Apunta el servidor al archivo y el servidor lee de ahí sus ajustes:
 
 ```bash
 rapira serve --config /etc/rapira/rapira.toml
@@ -136,7 +136,7 @@ Los workers son los procesos que ejecutan PHP de verdad, y esta sección dice qu
 
 | Clave | Tipo | Por defecto | Significado |
 | --- | --- | --- | --- |
-| `entrypoint` | cadena | ninguno — obligatorio | El script PHP que ejecuta cada worker. Una ruta relativa se resuelve respecto al directorio donde está el archivo de configuración. Un argumento `SCRIPT` en la línea de comandos lo sustituye, y uno de los dos tiene que estar o el servidor se niega a arrancar. |
+| `entrypoint` | cadena | ninguno - obligatorio | El script PHP que ejecuta cada worker. Una ruta relativa se resuelve respecto al directorio donde está el archivo de configuración. Un argumento `SCRIPT` en la línea de comandos lo sustituye, y uno de los dos tiene que estar o el servidor se niega a arrancar. |
 | `mode` | `"classic"` \| `"worker"` \| `"dispatcher"` | `"dispatcher"` | Cómo ejecuta un worker el script de entrada. `classic` lo vuelve a ejecutar desde cero en cada petición. `worker` lo mantiene residente y rellena de nuevo las superglobales en cada petición. `dispatcher` lo mantiene residente y le da un objeto dispatcher del que el script va sacando cada petición. La opción `--mode` de la línea de comandos se impone a esta clave en los dos sentidos. Consulta los [modos de ejecución](/es/docs/execution-modes). |
 | `processes` | entero | uno por CPU lógica | Cuántos procesos worker crear con fork. Con el escalado `dynamic` y con el `ondemand` esto es el techo, no la cantidad. Tiene que ser 1 como mínimo. |
 | `scaling` | `"static"` \| `"dynamic"` \| `"ondemand"` | `"static"` | Cómo se dimensiona el pool. `static` mantiene vivos `processes` workers todo el tiempo; `dynamic` escala entre los umbrales de reserva, con `processes` como techo; `ondemand` solo hace fork cuando hay trabajo y deja que se retiren los workers ociosos. |

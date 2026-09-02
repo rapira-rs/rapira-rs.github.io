@@ -16,8 +16,8 @@ image: /blog/hello/preview.jpg
 
 也就是说，你现在就可以：
 
-- **给[仓库](https://github.com/rapira-rs/rapira)点个 star** —— 这是表达支持最简单的方式，也能让更多人发现这个项目。
-- **去 [issues](https://github.com/rapira-rs/rapira/issues) 看看** —— 提问、提出新功能，或者参与别人已经开的 issue 讨论。没有什么比早期反馈更能影响 API 的设计。
+- **给[仓库](https://github.com/rapira-rs/rapira)点个 star** -- 这是表达支持最简单的方式，也能让更多人发现这个项目。
+- **去 [issues](https://github.com/rapira-rs/rapira/issues) 看看** -- 提问、提出新功能，或者参与别人已经开的 issue 讨论。没有什么比早期反馈更能影响 API 的设计。
 - **加入我们的 [Discord](https://discord.gg/z7dcFATc9Q) 聊天频道**。但请注意，新功能的提议和讨论只在 issues 里进行。
 - **Watch 仓库**，如果你只想持续关注项目的走向。
 

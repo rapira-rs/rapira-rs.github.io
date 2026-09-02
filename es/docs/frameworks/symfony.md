@@ -8,10 +8,10 @@ description: "Cómo ejecutar una aplicación Symfony sobre Rapira en modo Worker
 La estructura de Symfony encaja con un worker residente: un kernel que arrancas, una `Request` que le pasas y una `Response` que te devuelve. Con Rapira el kernel arranca una sola vez, al levantarse el worker, y a partir de ahí cada petición es una llamada a `handle()` sobre un contenedor que ya está caliente. De tu aplicación no cambia casi nada: lo que cambia son las veinte líneas que sustituyen a `public/index.php`. Esta página cubre ese archivo, el reinicio entre peticiones y cómo llegan al contenedor los valores de `.env`.
 
 ::: info Verificado con
-- **PHP 8.5.8** — NTS, SAPI embed
+- **PHP 8.5.8** - NTS, SAPI embed
 - **Rapira 0.8.0**
-- **Symfony 7.4** (`symfony/framework-bundle` v7.4.15) — batería completa en `dev` y en `prod`
-- **Symfony 8.1** (`symfony/framework-bundle` v8.1.2) — batería completa en `dev`
+- **Symfony 7.4** (`symfony/framework-bundle` v7.4.15) - batería completa en `dev` y en `prod`
+- **Symfony 8.1** (`symfony/framework-bundle` v8.1.2) - batería completa en `dev`
 
 Las dos aplicaciones se crearon con el paquete `symfony/skeleton` y usaron un único proceso worker. Ambas ejecutaron el **mismo `worker.php`**, byte a byte, sin ninguna rama por versión. Las pruebas cubren el enrutado, un 404, cadenas de consulta, URLs generadas, envíos de formulario, cuerpos JSON, sesiones que se mantienen entre peticiones, la subida de un archivo, una excepción sin capturar y 200 peticiones seguidas.
 :::
@@ -22,10 +22,10 @@ El kernel arranca en la parte de arriba del script, fuera del bucle, y se queda 
 
 En cada petición, el handler hace cuatro cosas y después limpia:
 
-1. `Request::createFromGlobals()` — Rapira vuelve a rellenar `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE` y `$_FILES` en cada petición antes de llamar a tu handler, así que el constructor de siempre de Symfony lee exactamente lo mismo que leería con php-fpm.
-2. `$kernel->handle($request)` — enrutado, controlador y respuesta, sin cambios.
-3. `$response->send()` — la salida se convierte en la respuesta HTTP (en [HTTP](/es/docs/http) tienes cómo se empaqueta al salir).
-4. `$kernel->terminate($request, $response)` — se ejecutan los listeners posteriores a la respuesta, como siempre.
+1. `Request::createFromGlobals()` - Rapira vuelve a rellenar `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE` y `$_FILES` en cada petición antes de llamar a tu handler, así que el constructor de siempre de Symfony lee exactamente lo mismo que leería con php-fpm.
+2. `$kernel->handle($request)` - enrutado, controlador y respuesta, sin cambios.
+3. `$response->send()` - la salida se convierte en la respuesta HTTP (en [HTTP](/es/docs/http) tienes cómo se empaqueta al salir).
+4. `$kernel->terminate($request, $response)` - se ejecutan los listeners posteriores a la respuesta, como siempre.
 
 Después, el handler reinicia los servicios con estado a través del `services_resetter` del contenedor: es el mismo reinicio que Symfony ejecuta entre mensajes de Messenger, y es lo que usa un kernel de vida larga para soltar lo que se va acumulando petición a petición.
 
@@ -39,7 +39,7 @@ Necesitas [Rapira instalado](/es/docs/intro/installation) y una aplicación Symf
 
 Hay dos extensiones que sí importan, porque el archivo `composer.json` de la aplicación base las exige de forma estricta (`ext-ctype`, `ext-iconv`) *y además* hace `replace` de los polyfills correspondientes, así que tienen que ser extensiones de verdad y no sustitutos escritos en PHP. Las necesitan las dos compilaciones de PHP, también el CLI del sistema: si no, `composer create-project` y `composer install` fallan en la comprobación de plataforma mucho antes de que Rapira entre en juego. El PHP que va dentro de cada release de Rapira trae las dos: `ctype` e `iconv` están en la línea de configure de la compilación, y la lista completa de extensiones está en la página de [Instalación](/es/docs/intro/installation). Si en vez de eso compilas Rapira contra un PHP tuyo, deja las dos activadas; en [Compilar desde el código](/es/docs/intro/build-from-source) se ve dónde se fija esa lista.
 
-El archivo del worker que viene abajo usa además `symfony/dotenv`, que la aplicación base ya incluye. Si tu despliegue define variables de entorno de verdad y no tiene ningún `.env`, quita esa línea y, con ella, el componente. El worker no pasa por `symfony/runtime` —arranca el `.env` y construye el kernel él mismo—, pero deja el paquete instalado, porque `bin/console` y `public/index.php` lo siguen usando.
+El archivo del worker que viene abajo usa además `symfony/dotenv`, que la aplicación base ya incluye. Si tu despliegue define variables de entorno de verdad y no tiene ningún `.env`, quita esa línea y, con ella, el componente. El worker no pasa por `symfony/runtime` -arranca el `.env` y construye el kernel él mismo-, pero deja el paquete instalado, porque `bin/console` y `public/index.php` lo siguen usando.
 
 ## El script del worker
 
@@ -101,7 +101,7 @@ Si el resetter no basta, quedan dos herramientas más contundentes: `$container-
 ## `$_ENV` y `variables_order`
 
 ::: warning
-Con un `bootEnv()` a secas —sin `usePutenv()`—, una aplicación Symfony con `APP_ENV=prod` responde **500 ya en la primera petición**, y en todas las siguientes, con `EnvNotFoundException: Environment variable not found: "DEFAULT_URI"`. La misma aplicación en `dev` no falla.
+Con un `bootEnv()` a secas -sin `usePutenv()`-, una aplicación Symfony con `APP_ENV=prod` responde **500 ya en la primera petición**, y en todas las siguientes, con `EnvNotFoundException: Environment variable not found: "DEFAULT_URI"`. La misma aplicación en `dev` no falla.
 :::
 
 La causa está en PHP. Con los valores de ini por defecto con los que se hizo la verificación (`variables_order = "GPCS"`, `auto_globals_jit = On`), PHP vuelve a armar el flag JIT de `$_ENV` en **cada** petición. El primer archivo que se compile durante esa petición y mencione `$_ENV` dispara `php_auto_globals_create_env`, que reimporta la superglobal desde el entorno real del proceso y borra todo lo que `Dotenv->bootEnv()` había dejado ahí al arrancar el worker. En la prueba, `$_ENV` pasó de ser un array lleno a estar vacío en mitad de una petición.
@@ -116,7 +116,7 @@ El arreglo es esa única línea del script de arriba:
 
 `usePutenv()` hace que Dotenv escriba los valores también en el entorno *real* del proceso, que es justo de donde lee la reimportación, así que ahí los valores sobreviven; y el `EnvVarProcessor` de Symfony recurre a `getenv()` de todas formas. Rapira ejecuta PHP en NTS con un modelo de procesos pre-fork, un intérprete por proceso, así que las advertencias habituales sobre `putenv()` y los hilos aquí no vienen al caso.
 
-La otra opción en producción es definir variables de entorno de verdad —un `Environment=` de systemd, tu runtime de contenedores, tu orquestador— y dejar el `.env` como comodidad de desarrollo. En cualquiera de los dos casos, los valores viven en un sitio que la reimportación de mitad de petición no puede borrar.
+La otra opción en producción es definir variables de entorno de verdad -un `Environment=` de systemd, tu runtime de contenedores, tu orquestador- y dejar el `.env` como comodidad de desarrollo. En cualquiera de los dos casos, los valores viven en un sitio que la reimportación de mitad de petición no puede borrar.
 
 Esto se aplica a cualquier runtime de PHP con workers residentes: cualquier framework que lea `$_ENV` de forma perezosa está expuesto. La página de [Frameworks](/es/docs/frameworks/) lo trata junto a los otros dos comportamientos de los procesos residentes: el destructor de un objeto de arranque y `register_shutdown_function()`, que se disparan una sola vez, al final de la primera petición.
 
@@ -180,4 +180,4 @@ rapira serve --mode classic public/index.php
 
 Es la misma aplicación en modo Classic: arranca en cada petición, así que los cambios surten efecto al momento, a costa de un arranque completo por petición. En un servidor de producción ya en marcha, la forma de que el código recién desplegado tome el relevo sin tirar conexiones es una recarga sin cortes (`SIGUSR2` al maestro), salvo que uses `opcache.validate_timestamps = 0`: ahí el segmento de OPcache del maestro sobrevive al pool y el despliegue necesita un reinicio completo. Mira [Modelo de procesos](/es/docs/process-model) y [cómo ejecutarlo en producción](/es/docs/deployment).
 
-Una excepción sin capturar se gestiona dentro de Symfony: el framework responde con su propio `500` —la página completa de la excepción en `dev`, una página de error genérica en `prod`— y la petición siguiente la recoge ese mismo proceso worker, con el pid intacto pese al fallo. Lo que sobrevive a una excepción es el estado de servicio corrupto o de más, y eso lo suelta el reinicio del final del handler. Dónde acaba la traza depende de tu logger, y una aplicación base recién creada no trae ninguno. Lo que sí llega al registro de Rapira por stderr es todo lo que se escapa del propio PHP, como la `EnvNotFoundException` de antes; en [Registros](/es/docs/logging) se ve cómo subir el nivel.
+Una excepción sin capturar se gestiona dentro de Symfony: el framework responde con su propio `500` -la página completa de la excepción en `dev`, una página de error genérica en `prod`- y la petición siguiente la recoge ese mismo proceso worker, con el pid intacto pese al fallo. Lo que sobrevive a una excepción es el estado de servicio corrupto o de más, y eso lo suelta el reinicio del final del handler. Dónde acaba la traza depende de tu logger, y una aplicación base recién creada no trae ninguno. Lo que sí llega al registro de Rapira por stderr es todo lo que se escapa del propio PHP, como la `EnvNotFoundException` de antes; en [Registros](/es/docs/logging) se ve cómo subir el nivel.

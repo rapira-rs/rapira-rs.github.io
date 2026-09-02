@@ -6,10 +6,10 @@ faqLevel: 2
 
 # Instalación
 
-Rapira se distribuye como el binario `rapira` con `libphp` al lado: ese es el intérprete de PHP que el servidor carga en su propio proceso. En el artefacto no hay nada más — ni el comando `php`, ni php-fpm, ni un directorio de ini. No hace falta instalar PHP en la máquina para que Rapira funcione.
+Rapira se distribuye como el binario `rapira` con `libphp` al lado: ese es el intérprete de PHP que el servidor carga en su propio proceso. En el artefacto no hay nada más - ni el comando `php`, ni php-fpm, ni un directorio de ini. No hace falta instalar PHP en la máquina para que Rapira funcione.
 
 ::: question ¿Qué es `libphp` y por qué no es «PHP a secas»?
-De un mismo código fuente de PHP salen varias interfaces hacia el motor, llamadas SAPI. El motor es siempre el mismo —Zend con sus extensiones—; lo que cambia es la envoltura y quién lleva las riendas del programa:
+De un mismo código fuente de PHP salen varias interfaces hacia el motor, llamadas SAPI. El motor es siempre el mismo -Zend con sus extensiones-; lo que cambia es la envoltura y quién lleva las riendas del programa:
 
 | SAPI | Qué produce | Quién manda |
 | --- | --- | --- |
@@ -21,7 +21,7 @@ Rapira lleva la compilación embed porque quien conduce la petición es el servi
 :::
 
 ::: question ¿Por qué `libphp` no se toma del sistema?
-Hace falta un PHP compilado con `--enable-embed=shared`: solo esa compilación produce `libphp.so`. Las distribuciones casi nunca la empaquetan, y donde sí lo hacen —`php-embedded` en Fedora y RHEL, `php-embed` en Arch, `libphpX.Y-embed` de deb.sury.org en Debian y Ubuntu— la versión menor y el conjunto de extensiones vienen dados; el `php` de Homebrew ni siquiera trae la SAPI embed. Por eso cada versión de Rapira compila `libphp` a partir del código fuente oficial de PHP y la coloca junto al binario.
+Hace falta un PHP compilado con `--enable-embed=shared`: solo esa compilación produce `libphp.so`. Las distribuciones casi nunca la empaquetan, y donde sí lo hacen -`php-embedded` en Fedora y RHEL, `php-embed` en Arch, `libphpX.Y-embed` de deb.sury.org en Debian y Ubuntu- la versión menor y el conjunto de extensiones vienen dados; el `php` de Homebrew ni siquiera trae la SAPI embed. Por eso cada versión de Rapira compila `libphp` a partir del código fuente oficial de PHP y la coloca junto al binario.
 :::
 
 ::: question ¿Qué significa que «PHP se ejecuta dentro del proceso de Rapira»?
@@ -32,7 +32,7 @@ Al arrancar, `libphp` se carga en el espacio de direcciones del proceso `rapira`
 
 Cada descarga lleva `php8.4` o `php8.5` en el nombre: esa es la versión de PHP con cuyo código se compiló la `libphp` que va dentro. Elige la versión menor sobre la que corre tu aplicación y quédate con 8.5 salvo que algo de tu stack exija 8.4.
 
-El PHP que ya tengas en la máquina —el `php` del sistema, un pool de php-fpm, una compilación de Homebrew— Rapira ni lo usa ni lo toca. Ningún artefacto trae el comando `php`, así que Composer, `bin/console` y `artisan` siguen funcionando con tu propio PHP CLI.
+El PHP que ya tengas en la máquina -el `php` del sistema, un pool de php-fpm, una compilación de Homebrew- Rapira ni lo usa ni lo toca. Ningún artefacto trae el comando `php`, así que Composer, `bin/console` y `artisan` siguen funcionando con tu propio PHP CLI.
 
 ::: question ¿Por qué cada versión de PHP tiene su propia compilación de Rapira?
 La `libphp` del artefacto no es una dependencia intercambiable, sino parte de la compilación: el binario `rapira` está enlazado con una biblioteca concreta, y su ABI cambia de una versión menor de PHP a la siguiente. Por eso una compilación de Rapira funciona con exactamente una rama de PHP, y la versión va en el nombre del archivo. A cambio no hay paso previo de «instala PHP», ni un `php-config` al que apuntar, ni una versión que mantener sincronizada.
@@ -44,7 +44,7 @@ Instala el paquete de la otra versión y el gestor de paquetes hace el cambio po
 
 ## Artefactos de la versión
 
-Todo está en la [página de releases de GitHub](https://github.com/rapira-rs/rapira/releases). La [página de descargas](/es/download) elige el artefacto para tu plataforma —sistema, arquitectura, versión de PHP, formato de paquete— y muestra su SHA-256; cada artefacto `php8.5` tiene su gemelo `php8.4`.
+Todo está en la [página de releases de GitHub](https://github.com/rapira-rs/rapira/releases). La [página de descargas](/es/download) elige el artefacto para tu plataforma -sistema, arquitectura, versión de PHP, formato de paquete- y muestra su SHA-256; cada artefacto `php8.5` tiene su gemelo `php8.4`.
 
 En Linux, coge un paquete si quieres que los archivos queden donde tu distribución los espera y que `apt` o `dnf` instalen las bibliotecas compartidas que PHP necesita; coge un tarball si el servidor tiene que caber en un único directorio autocontenido: una imagen de contenedor, un artefacto de despliegue, una máquina donde no tienes root.
 
@@ -86,7 +86,7 @@ sudo dnf install ./rapira-php8.5-0.8.0-1.x86_64.rpm
 rapira --version
 ```
 
-El mismo suelo de glibc 2.34 marca el mínimo: **RHEL 9** y sus recompilaciones —Rocky 9, AlmaLinux 9— más cualquier Fedora actual.
+El mismo suelo de glibc 2.34 marca el mínimo: **RHEL 9** y sus recompilaciones -Rocky 9, AlmaLinux 9- más cualquier Fedora actual.
 
 ## Tarballs, en Linux y macOS
 
@@ -128,11 +128,11 @@ El binario busca su intérprete junto a sí mismo, así que el directorio solo s
 :::
 
 ::: question ¿Por qué funciona el enlace simbólico y no una copia del binario?
-La ruta al intérprete va grabada en el binario como **rpath relativo** —`$ORIGIN/../lib/rapira` en Linux y `@loader_path/../lib/rapira` en macOS—, y se resuelve desde donde el binario está realmente. Junto a `/usr/local/bin` no hay ningún `lib/rapira`, así que una copia no encuentra el intérprete. El enlace simbólico lo resuelve el cargador antes de expandir el rpath, de modo que el enlace puede estar en cualquier parte mientras el árbol real permanece intacto.
+La ruta al intérprete va grabada en el binario como **rpath relativo** -`$ORIGIN/../lib/rapira` en Linux y `@loader_path/../lib/rapira` en macOS-, y se resuelve desde donde el binario está realmente. Junto a `/usr/local/bin` no hay ningún `lib/rapira`, así que una copia no encuentra el intérprete. El enlace simbólico lo resuelve el cargador antes de expandir el rpath, de modo que el enlace puede estar en cualquier parte mientras el árbol real permanece intacto.
 :::
 
 ::: question ¿Qué bibliotecas del sistema necesita el tarball?
-En macOS, `lib/rapira` contiene `libphp.dylib` junto con todas las bibliotecas no propias del sistema de las que depende, así que el árbol es autocontenido. En Linux solo se incluye `libphp.so`, y las bibliotecas habituales del sistema —OpenSSL 3, libcurl, libxml2, SQLite, Oniguruma, zlib— tienen que estar presentes. En una distribución normal ya lo están; son exactamente las que el deb y el rpm declaran como dependencias, junto con glibc y libgcc.
+En macOS, `lib/rapira` contiene `libphp.dylib` junto con todas las bibliotecas no propias del sistema de las que depende, así que el árbol es autocontenido. En Linux solo se incluye `libphp.so`, y las bibliotecas habituales del sistema -OpenSSL 3, libcurl, libxml2, SQLite, Oniguruma, zlib- tienen que estar presentes. En una distribución normal ya lo están; son exactamente las que el deb y el rpm declaran como dependencias, junto con glibc y libgcc.
 :::
 
 ## Comprobar las sumas de verificación

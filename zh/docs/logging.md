@@ -1,11 +1,11 @@
 ---
 title: 日志
-description: "Rapira 怎么记日志——级别、按目标单独覆盖、PHP 诊断信息、应用自己的日志、plain 与 json 两种格式，以及调试用的 RUST_LOG 覆盖开关。"
+description: "Rapira 怎么记日志--级别、按目标单独覆盖、PHP 诊断信息、应用自己的日志、plain 与 json 两种格式，以及调试用的 RUST_LOG 覆盖开关。"
 ---
 
 # 日志
 
-Rapira 把所有内容都写进同一条流：服务器自身的生命周期事件、master 的监管决策、HTTP 接入层、PHP 的诊断信息，还有应用自己记的日志——统统写到 stderr。PHP 的一条警告就是这份日志里的一条记录，而不是另一个 `error_log` 文件里的一行，它的级别和别的记录一样可以调高或调低。
+Rapira 把所有内容都写进同一条流：服务器自身的生命周期事件、master 的监管决策、HTTP 接入层、PHP 的诊断信息，还有应用自己记的日志--统统写到 stderr。PHP 的一条警告就是这份日志里的一条记录，而不是另一个 `error_log` 文件里的一行，它的级别和别的记录一样可以调高或调低。
 
 默认级别是 `error`，因此只有错误能通过，运行正常的服务器不写任何日志。提高级别只需配置里的一行；完全不想改配置时，也可以用 `RUST_LOG` 环境变量。
 
@@ -19,9 +19,9 @@ level = "error"   # Use error, warn, info, debug, or trace. Default: error.
 format = "plain"  # Use plain or json. Default: plain.
 ```
 
-`level` 一次给所有目标定下同一条下限：`error` 只放行错误，`warn` 再添上警告，一路往下到 `trace`，那就是什么都放行。`format` 决定每条记录长什么样——是给人读的文本行，还是一行一个 JSON 对象。
+`level` 一次给所有目标定下同一条下限：`error` 只放行错误，`warn` 再添上警告，一路往下到 `trace`，那就是什么都放行。`format` 决定每条记录长什么样--是给人读的文本行，还是一行一个 JSON 对象。
 
-这两个键都可以不写，整个小节不写也行。文件里的其余部分——监听器、进程池、supervisor——见[配置](/zh/docs/configuration)那一页。
+这两个键都可以不写，整个小节不写也行。文件里的其余部分--监听器、进程池、supervisor--见[配置](/zh/docs/configuration)那一页。
 
 ## 按目标单独覆盖
 
@@ -36,7 +36,7 @@ php = "debug"
 http = "warn"
 ```
 
-每个键点名一个目标，只调它一个的高低，其余照旧跟着 `level` 走。键**按前缀**匹配，所以 `php` 连 `php_sys` 和 `php_sys::callbacks` 一起管住了——最短的匹配前缀就够了，子模块从来不必逐个列出。
+每个键点名一个目标，只调它一个的高低，其余照旧跟着 `level` 走。键**按前缀**匹配，所以 `php` 连 `php_sys` 和 `php_sys::callbacks` 一起管住了--最短的匹配前缀就够了，子模块从来不必逐个列出。
 
 Rapira 自己用的目标有这些：
 
@@ -54,30 +54,30 @@ Rapira 自己用的目标有这些：
 会发出 tracing 记录的依赖库，以自己的模块路径作为目标，同一套前缀匹配对它们一样有效。每条记录都带着自己的目标名，把这个名字抄进 `[log.targets]`，就能压下吵闹的目标。
 
 ::: tip
-想弄明白进程池为什么是眼下这个样子，就盯着 `master` 这个目标看——重新拉起、重载、进程池伸缩，都会记在那里。这些事件各自意味着什么，见[进程模型](/zh/docs/process-model)。
+想弄明白进程池为什么是眼下这个样子，就盯着 `master` 这个目标看--重新拉起、重载、进程池伸缩，都会记在那里。这些事件各自意味着什么，见[进程模型](/zh/docs/process-model)。
 :::
 
 ## PHP 诊断信息
 
-PHP 报出来的一切都落在 `php` 目标上，每条诊断信息的级别取自它的错误类型——于是控制服务器的那套过滤规则，同时也决定了 PHP 有多少输出会进日志：
+PHP 报出来的一切都落在 `php` 目标上，每条诊断信息的级别取自它的错误类型--于是控制服务器的那套过滤规则，同时也决定了 PHP 有多少输出会进日志：
 
 | 诊断信息                                                                                        | 级别    |
 | ----------------------------------------------------------------------------------------------- | ------- |
-| 致命错误——`E_ERROR`、`E_PARSE`、`E_CORE_ERROR`、`E_COMPILE_ERROR`、`E_USER_ERROR`、`E_RECOVERABLE_ERROR` | `error` |
-| 警告——`E_WARNING`、`E_CORE_WARNING`、`E_COMPILE_WARNING`、`E_USER_WARNING`                     | `warn`  |
-| 提示——`E_NOTICE`、`E_USER_NOTICE`                                                              | `info`  |
-| 弃用提醒——`E_DEPRECATED`、`E_USER_DEPRECATED`                                                  | `debug` |
+| 致命错误--`E_ERROR`、`E_PARSE`、`E_CORE_ERROR`、`E_COMPILE_ERROR`、`E_USER_ERROR`、`E_RECOVERABLE_ERROR` | `error` |
+| 警告--`E_WARNING`、`E_CORE_WARNING`、`E_COMPILE_WARNING`、`E_USER_WARNING`                     | `warn`  |
+| 提示--`E_NOTICE`、`E_USER_NOTICE`                                                              | `info`  |
+| 弃用提醒--`E_DEPRECATED`、`E_USER_DEPRECATED`                                                  | `debug` |
 
 弃用提醒落在 `debug`，是为了让 vendor 里躺着几千条弃用提醒的代码库，不至于把同时报出来的警告和错误埋掉。
 
-被脚本的 [`error_reporting`](https://www.php.net/manual/en/function.error-reporting.php) 掩码挡掉的诊断信息不会凭空消失——它掉到 `trace`。所以常见的那套掩码，效果和你预期的一致：
+被脚本的 [`error_reporting`](https://www.php.net/manual/en/function.error-reporting.php) 掩码挡掉的诊断信息不会凭空消失--它掉到 `trace`。所以常见的那套掩码，效果和你预期的一致：
 
 ```php
 <?php
 error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
 ```
 
-这样一来，日常任何级别下 vendor 的弃用提醒都进不了日志；等你想知道究竟屏蔽掉了什么，`level = "trace"` 又能把它们全找回来。这里有两个例外。致命错误**绝不**降级，掩码怎么写都一样，因为 worker 为什么被回收只有它们说得清——vendor 目录里的 `error_reporting(0)` 藏不住它们。`E_CORE_ERROR`/`E_CORE_WARNING` 在脚本还来不及设掩码之前就已经抛出，任何掩码对它们同样无效。
+这样一来，日常任何级别下 vendor 的弃用提醒都进不了日志；等你想知道究竟屏蔽掉了什么，`level = "trace"` 又能把它们全找回来。这里有两个例外。致命错误**绝不**降级，掩码怎么写都一样，因为 worker 为什么被回收只有它们说得清--vendor 目录里的 `error_reporting(0)` 藏不住它们。`E_CORE_ERROR`/`E_CORE_WARNING` 在脚本还来不及设掩码之前就已经抛出，任何掩码对它们同样无效。
 
 ::: info
 诊断信息进日志，不进响应：Rapira 把 [`display_errors`](https://www.php.net/manual/en/errorfunc.configuration.php#ini.display-errors) 默认设为 `0`，[`log_errors`](https://www.php.net/manual/en/errorfunc.configuration.php#ini.log-errors) 默认设为 `1`。这些只是*默认值*，不是强制覆盖：php.ini 里写了其中哪一项，就以 php.ini 为准。
@@ -105,7 +105,7 @@ error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
 | `Debug`         | `debug`      |
 | `Trace`         | `trace`      |
 
-省略级别时按 `Info` 记录。因为用的是和别处一样的级别，`[log.targets]` 和 `RUST_LOG` 过滤应用记录的方式，和过滤服务器自己的记录完全一致——在 `[log.targets]` 里写 `app = "debug"` 就能只把应用的记录调高，周围什么都不动。
+省略级别时按 `Info` 记录。因为用的是和别处一样的级别，`[log.targets]` 和 `RUST_LOG` 过滤应用记录的方式，和过滤服务器自己的记录完全一致--在 `[log.targets]` 里写 `app = "debug"` 就能只把应用的记录调高，周围什么都不动。
 
 上下文数组会被序列化成 JSON，作为 `context` 字段挂在记录上；在 `json` 格式下，这个字段位于记录的 `fields` 对象里。键按写下的样子保留，嵌套数组保持原有结构：
 
@@ -118,7 +118,7 @@ error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
 ]);
 ```
 
-上下文里的 `Throwable` 会在序列化前展开，因为 `json_encode()` 看到的异常是一个空对象——它的状态存在 `Exception` 和 `Error` 的私有属性里。展开后带上类名、消息、代码、文件和行号，并沿 `previous` 链继续；调用栈不包含在内：
+上下文里的 `Throwable` 会在序列化前展开，因为 `json_encode()` 看到的异常是一个空对象--它的状态存在 `Exception` 和 `Error` 的私有属性里。展开后带上类名、消息、代码、文件和行号，并沿 `previous` 链继续；调用栈不包含在内：
 
 ```php
 <?php
@@ -132,15 +132,15 @@ try {
 
 `\Rapira\log()` 从不抛异常：上下文里某个值的 `jsonSerialize()` 抛了异常，它会丢掉这个异常，把该值写成 `null`，其余的键原样不动。
 
-决定往上下文里放什么时，有两个限制值得知道。JSON 表达不了的值——资源、闭包、`NAN` 或 `INF`、不是合法 UTF-8 的字符串——会被替换成占位符，而不是让你整条记录都没了，所以周围的键照样到达。另外上下文的大小没有上限：大数组或长字符串会被完整序列化，记录也就相应地大，所以请传标识符，而不是它们指向的对象。
+决定往上下文里放什么时，有两个限制值得知道。JSON 表达不了的值--资源、闭包、`NAN` 或 `INF`、不是合法 UTF-8 的字符串--会被替换成占位符，而不是让你整条记录都没了，所以周围的键照样到达。另外上下文的大小没有上限：大数组或长字符串会被完整序列化，记录也就相应地大，所以请传标识符，而不是它们指向的对象。
 
 ## 格式
 
-两种格式都写到 stderr，一条记录一次写入。正是这条“一次写完”的规则，让一个 master 加十几个 worker 往同一个文件描述符里写时，不会在记录中间互相串行——每条记录整条写出去，而不是一片片拼起来。
+两种格式都写到 stderr，一条记录一次写入。正是这条“一次写完”的规则，让一个 master 加十几个 worker 往同一个文件描述符里写时，不会在记录中间互相串行--每条记录整条写出去，而不是一片片拼起来。
 
 Rapira 不往别处写，所以把进程的 stderr 重定向出去，日志就落到文件里，而服务管理器不需要任何配置就能收好它。更多内容见[生产环境部署](/zh/docs/deployment)。
 
-**`plain`** 用于在终端里阅读——时间戳、级别、目标、消息：
+**`plain`** 用于在终端里阅读--时间戳、级别、目标、消息：
 
 ```text
 2026-07-30T09:12:34.567890Z ERROR php: …
@@ -148,7 +148,7 @@ Rapira 不往别处写，所以把进程的 stderr 重定向出去，日志就�
 
 stderr 是终端时它带颜色，重定向到文件时绝不带，所以收集下来的日志里不会混进转义序列。把 [`NO_COLOR`](https://no-color.org/) 设成任意非空值，即便在终端里颜色也会关掉。
 
-**`json`** 用于日志收集器——一行一个对象：
+**`json`** 用于日志收集器--一行一个对象：
 
 ```text
 {"timestamp":…,"level":"ERROR","fields":{"message":…},"target":…}
@@ -169,5 +169,5 @@ RUST_LOG=warn,rapira=trace rapira serve --mode worker worker.php
 第一条把所有东西都调到 `info`。第二条是有针对性的一对：`rapira` 目标开到 `debug`，PHP 开到 `info`。第三条先把所有目标压到 `warn`，再把 `rapira` 目标拉到 `trace`，这个目标涵盖启动、worker 生命周期和关闭。其他目标同样按各自的名字匹配，问题出在别处就把它们加上：`RUST_LOG=warn,rapira=trace,master=trace`。
 
 ::: warning
-`RUST_LOG` 一旦设成非空值，就会把 `level` 和 `[log.targets]` 整个**替换**掉——换掉的是整套过滤规则，不是两边合并。你写的 `[log.targets]` 不会垫在它下面继续生效，而是压根不会被读取。想回到配置文件，把这个变量取消设置（或者留空）即可。它从不影响 `format`。
+`RUST_LOG` 一旦设成非空值，就会把 `level` 和 `[log.targets]` 整个**替换**掉--换掉的是整套过滤规则，不是两边合并。你写的 `[log.targets]` 不会垫在它下面继续生效，而是压根不会被读取。想回到配置文件，把这个变量取消设置（或者留空）即可。它从不影响 `format`。
 :::

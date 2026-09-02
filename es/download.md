@@ -10,7 +10,7 @@ next: false
 ---
 
 <script setup>
-// Etiquetas para DownloadBuilds — los textos de interfaz de esta página.
+// Etiquetas para DownloadBuilds - los textos de interfaz de esta página.
 const labels = {
   os: 'Sistema operativo',
   arch: 'Arquitectura',

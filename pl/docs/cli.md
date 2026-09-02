@@ -23,9 +23,9 @@ Każde ustawienie Rapira ustala z maksymalnie trzech warstw, sprawdzanych w tej 
 
 Z wiersza poleceń da się ustawić tylko cztery flagi z poniższej tabeli i argument `SCRIPT`; cała reszta pochodzi z pliku albo z wartości domyślnej.
 
-Flaga zawsze wygrywa z tą samą wartością w `rapira.toml`, a `rapira.toml` zawsze wygrywa z wartością domyślną. Taka kolejność pozwala trzymać stabilną konfigurację w pliku i nadpisać pojedynczą wartość w wierszu poleceń na jeden przebieg — inny port na czas testów, więcej workerów na większej maszynie — bez edytowania czegokolwiek.
+Flaga zawsze wygrywa z tą samą wartością w `rapira.toml`, a `rapira.toml` zawsze wygrywa z wartością domyślną. Taka kolejność pozwala trzymać stabilną konfigurację w pliku i nadpisać pojedynczą wartość w wierszu poleceń na jeden przebieg - inny port na czas testów, więcej workerów na większej maszynie - bez edytowania czegokolwiek.
 
-Czego nie ustawisz nigdzie, to spadnie do wartości domyślnych z poniższej tabeli. Ustawienia, których flagi nie wystawiają — skalowanie puli, logowanie, limity żądań — pochodzą z pliku, a pełną listę tego, co może znaleźć się w pliku konfiguracyjnym, znajdziesz w [Konfiguracji](/pl/docs/configuration).
+Czego nie ustawisz nigdzie, to spadnie do wartości domyślnych z poniższej tabeli. Ustawienia, których flagi nie wystawiają - skalowanie puli, logowanie, limity żądań - pochodzą z pliku, a pełną listę tego, co może znaleźć się w pliku konfiguracyjnym, znajdziesz w [Konfiguracji](/pl/docs/configuration).
 
 ## Opcje
 
@@ -39,7 +39,7 @@ Czego nie ustawisz nigdzie, to spadnie do wartości domyślnych z poniższej tab
 
 \* Wymagany, o ile plik konfiguracyjny nie ustawia `pool.entrypoint`. Gdy nie ma ani jednego, ani drugiego, `serve` zgłasza błąd i nie startuje.
 
-**`--listen`** przyjmuje trzy postacie. `127.0.0.1:8000` (domyślna) wiąże jeden interfejs — wyłącznie pętlę zwrotną, więc nic spoza maszyny się nie połączy. `:8080` to skrót od `0.0.0.0:8080`, czyli wszystkie interfejsy IPv4 — tak zwykle wiąże się serwer w kontenerze; dla IPv6 napisz `[::]:8080`. `unix:/run/rapira.sock` wiąże zamiast tego gniazdo uniksowe, pod reverse proxy na tej samej maszynie. Literały IPv6 zapisujesz w nawiasach kwadratowych: `[::1]:8000`. Sam numer portu *nie jest* adresem i zostanie odrzucony, bo nie mówi, czy wiązać tylko pętlę zwrotną, czy wszystkie interfejsy — `--listen 8080` to błąd, napisz `--listen :8080` albo `--listen 127.0.0.1:8080`. W części hostowej musi stać literał IP, bo nazwy hostów nigdy nie są rozwiązywane: `--listen localhost:8000` to błąd, napisz `--listen 127.0.0.1:8000`.
+**`--listen`** przyjmuje trzy postacie. `127.0.0.1:8000` (domyślna) wiąże jeden interfejs - wyłącznie pętlę zwrotną, więc nic spoza maszyny się nie połączy. `:8080` to skrót od `0.0.0.0:8080`, czyli wszystkie interfejsy IPv4 - tak zwykle wiąże się serwer w kontenerze; dla IPv6 napisz `[::]:8080`. `unix:/run/rapira.sock` wiąże zamiast tego gniazdo uniksowe, pod reverse proxy na tej samej maszynie. Literały IPv6 zapisujesz w nawiasach kwadratowych: `[::1]:8000`. Sam numer portu *nie jest* adresem i zostanie odrzucony, bo nie mówi, czy wiązać tylko pętlę zwrotną, czy wszystkie interfejsy - `--listen 8080` to błąd, napisz `--listen :8080` albo `--listen 127.0.0.1:8080`. W części hostowej musi stać literał IP, bo nazwy hostów nigdy nie są rozwiązywane: `--listen localhost:8000` to błąd, napisz `--listen 127.0.0.1:8000`.
 
 **`--processes`** domyślnie przyjmuje liczbę logicznych CPU. Przy domyślnym `pool.scaling = "static"` dokładnie tyle procesów workerów zostanie sforkowanych; jeśli plik konfiguracyjny ustawi `pool.scaling` na `dynamic` albo `ondemand`, ta sama liczba staje się sufitem, do którego te polityki się skalują. Co właściwie robią workery, a co proces master, opisuje [Model procesów](/pl/docs/process-model).
 
@@ -51,19 +51,19 @@ Czego nie ustawisz nigdzie, to spadnie do wartości domyślnych z poniższej tab
 
 ## Rozwiązywanie ścieżki skryptu wejściowego
 
-Skrypt można podać dwa razy — argumentem pozycyjnym `SCRIPT` albo kluczem `pool.entrypoint` w pliku konfiguracyjnym — a gdy pojawią się oba, wygrywa wiersz poleceń, natomiast pozostałe ustawienia z pliku dalej obowiązują. Tak czy inaczej Rapira zamienia ścieżkę na bezwzględną, zanim serwer cokolwiek sforkuje, bo katalog roboczy demona to nie ten katalog, do którego wdrożyłeś aplikację.
+Skrypt można podać dwa razy - argumentem pozycyjnym `SCRIPT` albo kluczem `pool.entrypoint` w pliku konfiguracyjnym - a gdy pojawią się oba, wygrywa wiersz poleceń, natomiast pozostałe ustawienia z pliku dalej obowiązują. Tak czy inaczej Rapira zamienia ścieżkę na bezwzględną, zanim serwer cokolwiek sforkuje, bo katalog roboczy demona to nie ten katalog, do którego wdrożyłeś aplikację.
 
 Obie ścieżki względne liczą się od innej bazy:
 
 - Względny `SCRIPT` z wiersza poleceń liczy się od **bieżącego katalogu**.
-- Względny `pool.entrypoint` liczy się od **katalogu samego pliku konfiguracyjnego** — dzięki temu plik konfiguracyjny razem z leżącą obok aplikacją można przenieść, skopiować albo zamontować w dowolnym miejscu jako całość, a ścieżka nadal rozwiąże się poprawnie.
+- Względny `pool.entrypoint` liczy się od **katalogu samego pliku konfiguracyjnego** - dzięki temu plik konfiguracyjny razem z leżącą obok aplikacją można przenieść, skopiować albo zamontować w dowolnym miejscu jako całość, a ścieżka nadal rozwiąże się poprawnie.
 
 ```toml
 [pool]
 entrypoint = "public/index.php"
 ```
 
-Gdy taki wpis leży w `/etc/rapira/rapira.toml`, skryptem wejściowym jest `/etc/rapira/public/index.php` — niezależnie od katalogu, z którego uruchomiłeś polecenie.
+Gdy taki wpis leży w `/etc/rapira/rapira.toml`, skryptem wejściowym jest `/etc/rapira/public/index.php` - niezależnie od katalogu, z którego uruchomiłeś polecenie.
 
 ## Przykłady
 
@@ -89,4 +89,4 @@ Skrypty wejściowe do poleceń `--mode classic` i `--mode worker` znajdziesz w [
 
 ## Zatrzymywanie serwera
 
-Pierwszy `SIGINT` albo `SIGTERM` — czyli `Ctrl-C` w terminalu lub sygnał od menedżera usług — pozwala dokończyć żądania będące w toku i porządnie zamyka rozszerzenia; drugi przerywa czekanie i wymusza wyjście. Sygnały trafiają do procesu master, a ich pełną tabelę, razem z przeładowaniem, znajdziesz w [Modelu procesów](/pl/docs/process-model).
+Pierwszy `SIGINT` albo `SIGTERM` - czyli `Ctrl-C` w terminalu lub sygnał od menedżera usług - pozwala dokończyć żądania będące w toku i porządnie zamyka rozszerzenia; drugi przerywa czekanie i wymusza wyjście. Sygnały trafiają do procesu master, a ich pełną tabelę, razem z przeładowaniem, znajdziesz w [Modelu procesów](/pl/docs/process-model).

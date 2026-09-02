@@ -23,9 +23,9 @@ Cada ajuste se resuelve consultando hasta tres capas, siempre en este orden:
 
 Solo las cuatro opciones de la tabla de abajo y el argumento `SCRIPT` tienen forma de línea de comandos; todo lo demás sale del archivo o del valor por defecto.
 
-Así que una opción siempre gana al mismo valor puesto en `rapira.toml`, y `rapira.toml` siempre gana al valor por defecto. Ese orden te permite dejar la configuración estable en el archivo y cambiar un único valor desde la línea de comandos para una ejecución suelta —otro puerto mientras pruebas, más workers en una máquina más grande— sin editar nada.
+Así que una opción siempre gana al mismo valor puesto en `rapira.toml`, y `rapira.toml` siempre gana al valor por defecto. Ese orden te permite dejar la configuración estable en el archivo y cambiar un único valor desde la línea de comandos para una ejecución suelta -otro puerto mientras pruebas, más workers en una máquina más grande- sin editar nada.
 
-Todo lo que no toques por ninguna de las dos vías cae en los valores por defecto de la tabla de abajo. Los ajustes que las opciones no exponen —escalado del pool, registros, límites de las peticiones— salen del archivo, y la lista completa de lo que cabe en un archivo de configuración está en [Configuración](/es/docs/configuration).
+Todo lo que no toques por ninguna de las dos vías cae en los valores por defecto de la tabla de abajo. Los ajustes que las opciones no exponen -escalado del pool, registros, límites de las peticiones- salen del archivo, y la lista completa de lo que cabe en un archivo de configuración está en [Configuración](/es/docs/configuration).
 
 ## Opciones
 
@@ -39,7 +39,7 @@ Todo lo que no toques por ninguna de las dos vías cae en los valores por defect
 
 \* Obligatorio salvo que el archivo de configuración defina `pool.entrypoint`. Si no hay ninguno de los dos, `serve` informa del error y no arranca.
 
-**`--listen`** admite tres formas. `127.0.0.1:8000`, la de por defecto, escucha en una sola interfaz —solo loopback—, así que nada de fuera de la máquina puede alcanzarla. `:8080` es la forma corta de `0.0.0.0:8080`: todas las interfaces IPv4, que es lo habitual dentro de un contenedor; para IPv6 escribe `[::]:8080`. `unix:/run/rapira.sock` abre un socket Unix en lugar de un puerto, pensado para un proxy inverso en la misma máquina. Los literales IPv6 van entre corchetes: `[::1]:8000`. Un puerto a secas *no* es una dirección y se rechaza, porque no dice si hay que escuchar solo en loopback o en todas las interfaces: `--listen 8080` da error, escribe `--listen :8080` o `--listen 127.0.0.1:8080`. Y el host tiene que ser un literal IP, porque los nombres no se resuelven nunca: `--listen localhost:8000` también da error; escribe `--listen 127.0.0.1:8000`.
+**`--listen`** admite tres formas. `127.0.0.1:8000`, la de por defecto, escucha en una sola interfaz -solo loopback-, así que nada de fuera de la máquina puede alcanzarla. `:8080` es la forma corta de `0.0.0.0:8080`: todas las interfaces IPv4, que es lo habitual dentro de un contenedor; para IPv6 escribe `[::]:8080`. `unix:/run/rapira.sock` abre un socket Unix en lugar de un puerto, pensado para un proxy inverso en la misma máquina. Los literales IPv6 van entre corchetes: `[::1]:8000`. Un puerto a secas *no* es una dirección y se rechaza, porque no dice si hay que escuchar solo en loopback o en todas las interfaces: `--listen 8080` da error, escribe `--listen :8080` o `--listen 127.0.0.1:8080`. Y el host tiene que ser un literal IP, porque los nombres no se resuelven nunca: `--listen localhost:8000` también da error; escribe `--listen 127.0.0.1:8000`.
 
 **`--processes`** vale por defecto el número de CPU lógicas. Con el `pool.scaling = "static"` de fábrica, ese es exactamente el número de procesos worker que se crean con fork; si el archivo de configuración pone `pool.scaling` en `dynamic` o en `ondemand`, ese mismo número se convierte en el techo hasta el que escalan esas políticas. Qué hacen en realidad los workers y el proceso maestro lo tienes en [Modelo de procesos](/es/docs/process-model).
 
@@ -51,7 +51,7 @@ Todo lo que no toques por ninguna de las dos vías cae en los valores por defect
 
 ## Resolución del script de entrada
 
-El script se puede indicar por dos vías —el argumento posicional `SCRIPT` o la clave `pool.entrypoint` del archivo de configuración— y, si están las dos, gana la línea de comandos mientras el resto de ajustes del archivo se siguen aplicando. En cualquiera de los dos casos, Rapira lo convierte en una ruta absoluta antes de que el servidor haga ningún fork, porque el directorio de trabajo de un demonio no es el directorio donde desplegaste.
+El script se puede indicar por dos vías -el argumento posicional `SCRIPT` o la clave `pool.entrypoint` del archivo de configuración- y, si están las dos, gana la línea de comandos mientras el resto de ajustes del archivo se siguen aplicando. En cualquiera de los dos casos, Rapira lo convierte en una ruta absoluta antes de que el servidor haga ningún fork, porque el directorio de trabajo de un demonio no es el directorio donde desplegaste.
 
 Las dos formas relativas se resuelven contra bases distintas:
 
@@ -89,4 +89,4 @@ En [Inicio rápido](/es/docs/intro/quickstart) tienes los scripts de entrada de 
 
 ## Parar el servidor
 
-El primer `SIGINT` o `SIGTERM` —un `Ctrl-C` en la terminal, o lo que mande tu sistema de init— deja terminar las peticiones en curso y apaga las extensiones de forma limpia; el segundo renuncia a esperar y fuerza la salida. Las señales van al proceso maestro, y la tabla completa, recargas incluidas, está en [Modelo de procesos](/es/docs/process-model).
+El primer `SIGINT` o `SIGTERM` -un `Ctrl-C` en la terminal, o lo que mande tu sistema de init- deja terminar las peticiones en curso y apaga las extensiones de forma limpia; el segundo renuncia a esperar y fuerza la salida. Las señales van al proceso maestro, y la tabla completa, recargas incluidas, está en [Modelo de procesos](/es/docs/process-model).

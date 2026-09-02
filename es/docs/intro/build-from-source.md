@@ -1,6 +1,6 @@
 ---
 title: Compilar desde el código
-description: "Cuándo y cómo compilar Rapira tú mismo — las herramientas de Rust y C, un PHP NTS con el SAPI embed y los detalles del enlazado en Linux y macOS."
+description: "Cuándo y cómo compilar Rapira tú mismo - las herramientas de Rust y C, un PHP NTS con el SAPI embed y los detalles del enlazado en Linux y macOS."
 ---
 
 # Compilar desde el código
@@ -110,4 +110,4 @@ El resultado es el mismo servidor que instalan los paquetes: [Inicio rápido](/e
 
 ## Trabajar en el propio Rapira
 
-`make test` ejecuta las dos suites —la que corre dentro del mismo proceso y la de extremo a extremo, que lanza el binario de verdad—, `make stubs` regenera la cabecera de arginfo a partir de `crates/php_sys/rapira.stub.php`, y CI ejecuta la compilación, `cargo fmt`, clippy y la cobertura en cada pull request.
+`make test` ejecuta las dos suites -la que corre dentro del mismo proceso y la de extremo a extremo, que lanza el binario de verdad-, `make stubs` regenera la cabecera de arginfo a partir de `crates/php_sys/rapira.stub.php`, y CI ejecuta la compilación, `cargo fmt`, clippy y la cobertura en cada pull request.

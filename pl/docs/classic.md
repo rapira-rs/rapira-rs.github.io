@@ -9,9 +9,9 @@ Tryb Classic wykonuje zwykły skrypt wejściowy PHP. Jest to ten sam plik `publi
 
 ## Świeży stan przy każdym żądaniu
 
-Każde żądanie dostaje pełny cykl żądania PHP: inicjalizacja żądania, twój skrypt wejściowy, zamknięcie żądania. Wszystko, co skrypt zbudował po drodze — zmienne globalne, statyczne właściwości, kontener DI, identity map ORM-a — zostaje sprzątnięte, zanim zacznie się następne żądanie, dokładnie tak jak pod php-fpm.
+Każde żądanie dostaje pełny cykl żądania PHP: inicjalizacja żądania, twój skrypt wejściowy, zamknięcie żądania. Wszystko, co skrypt zbudował po drodze - zmienne globalne, statyczne właściwości, kontener DI, identity map ORM-a - zostaje sprzątnięte, zanim zacznie się następne żądanie, dokładnie tak jak pod php-fpm.
 
-Wyciekły uchwyt, singleton zainicjalizowany do połowy, biblioteka chowająca dane żądania w statycznym polu — nic z tego nie wpłynie na następne żądanie, bo nic, co utworzył twój skrypt, nie przeżywa żądania, w którym zostało utworzone. Wyjątki są te same co w php-fpm: trwałe połączenia i stan trzymany przez rozszerzenia żyją w procesie workera, a nie w żądaniu. Kod, którego nikt nie pisał z myślą o długo żyjącym procesie, działa tu bez zmian. Funkcja `fastcgi_finish_request()` pochodzi z binarki php-fpm i pod Rapirą nie jest dostępna; Rapira udostępnia w zamian `rapira_finish_request()` z tą samą umową — odesłać odpowiedź do klienta wcześniej i pracować dalej — opisaną na stronie [HTTP](/pl/docs/http).
+Wyciekły uchwyt, singleton zainicjalizowany do połowy, biblioteka chowająca dane żądania w statycznym polu - nic z tego nie wpłynie na następne żądanie, bo nic, co utworzył twój skrypt, nie przeżywa żądania, w którym zostało utworzone. Wyjątki są te same co w php-fpm: trwałe połączenia i stan trzymany przez rozszerzenia żyją w procesie workera, a nie w żądaniu. Kod, którego nikt nie pisał z myślą o długo żyjącym procesie, działa tu bez zmian. Funkcja `fastcgi_finish_request()` pochodzi z binarki php-fpm i pod Rapirą nie jest dostępna; Rapira udostępnia w zamian `rapira_finish_request()` z tą samą umową - odesłać odpowiedź do klienta wcześniej i pracować dalej - opisaną na stronie [HTTP](/pl/docs/http).
 
 Aplikacja startuje od nowa przy każdym żądaniu: autoloader, konfiguracja, kontener, trasy. Więcej informacji znajdziesz w [Trybach wykonania](/pl/docs/execution-modes).
 
@@ -56,7 +56,7 @@ Z plikiem konfiguracyjnym serwer uruchamiasz poleceniem `rapira serve --config r
 
 Rapira nie mapuje adresów URL na skrypty PHP. Każde żądanie uruchamia wskazany przez ciebie skrypt wejściowy, niezależnie od ścieżki. Sam adres trafia do `$_SERVER['REQUEST_URI']`, a trasowaniem zajmuje się aplikacja. Jedyny wyjątek to [middleware plików statycznych](/pl/docs/static-files). Włączony, potrafi odpowiedzieć na `GET` albo `HEAD` plikiem spod swojego katalogu głównego. Każde żądanie, którego nie obsłuży, uruchamia skrypt wejściowy.
 
-Wynikają z tego wartości zmiennych CGI: `SCRIPT_FILENAME` to zawsze skrypt wejściowy, `SCRIPT_NAME` — jego nazwa pliku z ukośnikiem na początku (`/index.php`), a `DOCUMENT_ROOT` — katalog, w którym leży. Zasoby statyczne może zamiast tego serwować CDN albo reverse proxy stojące przed Rapirą. Takie proxy stawia strona [Wdrożenie produkcyjne](/pl/docs/deployment).
+Wynikają z tego wartości zmiennych CGI: `SCRIPT_FILENAME` to zawsze skrypt wejściowy, `SCRIPT_NAME` - jego nazwa pliku z ukośnikiem na początku (`/index.php`), a `DOCUMENT_ROOT` - katalog, w którym leży. Zasoby statyczne może zamiast tego serwować CDN albo reverse proxy stojące przed Rapirą. Takie proxy stawia strona [Wdrożenie produkcyjne](/pl/docs/deployment).
 
 ## OPcache
 

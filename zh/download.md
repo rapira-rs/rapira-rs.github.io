@@ -10,7 +10,7 @@ next: false
 ---
 
 <script setup>
-// DownloadBuilds 的标签——本页的界面文字。
+// DownloadBuilds 的标签--本页的界面文字。
 const labels = {
   os: '操作系统',
   arch: '架构',
@@ -30,7 +30,7 @@ const labels = {
 <template #dev-note>
 
 ::: warning
-此版本仅用于本地开发——生产环境请使用 Linux。
+此版本仅用于本地开发--生产环境请使用 Linux。
 :::
 
 </template>

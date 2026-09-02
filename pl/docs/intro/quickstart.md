@@ -37,11 +37,11 @@ Hello, world!
 Method: GET
 ```
 
-Proces nie ginie między żądaniami — Rapira raz forkuje swoje workery i w każdym z nich trzyma uruchomiony interpreter PHP. Znika za to stan twojego skryptu: zmienne, autoloader, wszystko, co zbudował framework.
+Proces nie ginie między żądaniami - Rapira raz forkuje swoje workery i w każdym z nich trzyma uruchomiony interpreter PHP. Znika za to stan twojego skryptu: zmienne, autoloader, wszystko, co zbudował framework.
 
 ## Tryb Worker
 
-Tryb Worker utrzymuje skrypt przy życiu. Startuje raz, a potem kręci się w pętli i prosi Rapirę o kolejne żądanie; Rapira wypełnia zmienne superglobalne i wywołuje twój handler. Kod PHP wygląda znajomo — nadal czytasz `$_GET` i wypisujesz odpowiedź przez `echo` — ale praca startowa wykonuje się raz na proces, a nie raz na żądanie. Więcej informacji znajdziesz w [Trybach wykonania](/pl/docs/execution-modes).
+Tryb Worker utrzymuje skrypt przy życiu. Startuje raz, a potem kręci się w pętli i prosi Rapirę o kolejne żądanie; Rapira wypełnia zmienne superglobalne i wywołuje twój handler. Kod PHP wygląda znajomo - nadal czytasz `$_GET` i wypisujesz odpowiedź przez `echo` - ale praca startowa wykonuje się raz na proces, a nie raz na żądanie. Więcej informacji znajdziesz w [Trybach wykonania](/pl/docs/execution-modes).
 
 Utwórz `worker.php` w katalogu głównym projektu:
 
@@ -79,13 +79,13 @@ curl '127.0.0.1:8000/?name=world'
 
 Puść tego `curla` kilka razy: licznik rośnie, bo żądania obsługuje wciąż ten sam proces. Domyślnie Rapira forkuje po jednym workerze na logiczny rdzeń CPU, więc żądanie może trafić do dowolnego z nich, a o tym, który je odbierze, decyduje jądro systemu. Każdy worker liczy po swojemu, a pid w odpowiedzi mówi, który z nich odpowiedział. Jeśli chcesz, żeby licznik rósł jednym ciągiem, uruchom serwer poleceniem `rapira serve --mode worker --processes 1 worker.php`. O tym, jak nadzorowana jest pula, mówi [model procesów](/pl/docs/process-model).
 
-Wszystko, co zbudujesz przed pętlą `while`, zostaje w pamięci przez całe życie workera: autoloader Composera, kontener DI, połączenia z bazą i cache'em, skompilowane trasy i szablony — wszystko to powstaje raz, przy starcie, a nie przy każdym żądaniu. Od nowa powstaje tylko stan związany z konkretnym żądaniem.
+Wszystko, co zbudujesz przed pętlą `while`, zostaje w pamięci przez całe życie workera: autoloader Composera, kontener DI, połączenia z bazą i cache'em, skompilowane trasy i szablony - wszystko to powstaje raz, przy starcie, a nie przy każdym żądaniu. Od nowa powstaje tylko stan związany z konkretnym żądaniem.
 
 ::: warning
 Stan, który zostaje między żądaniami, musi resetować sam skrypt workera. Statyczna właściwość, zmienna globalna czy otwarta transakcja zostawiona przez jedno żądanie czekają na następne. [Tryb Worker](/pl/docs/worker) opisuje, na co uważać i jak utrzymać workera w czystości.
 :::
 
-Wewnątrz handlera działają zwykłe funkcje — `header()`, `http_response_code()`, `echo` oraz `rapira_finish_request()`, które odsyła odpowiedź od razu i pozwala pracować dalej. Więcej informacji znajdziesz w [HTTP](/pl/docs/http).
+Wewnątrz handlera działają zwykłe funkcje - `header()`, `http_response_code()`, `echo` oraz `rapira_finish_request()`, które odsyła odpowiedź od razu i pozwala pracować dalej. Więcej informacji znajdziesz w [HTTP](/pl/docs/http).
 
 ## Plik konfiguracyjny
 
@@ -106,17 +106,17 @@ rapira serve --config rapira.toml
 ```
 
 ::: info
-Względną ścieżkę w `pool.entrypoint` Rapira liczy od katalogu samego pliku konfiguracyjnego, więc ten sam plik zadziała niezależnie od tego, w jakim katalogu akurat jesteś. Flagi wciąż mają pierwszeństwo przed plikiem — `rapira serve --config rapira.toml --processes 1` zachowa całą resztę i uruchomi tylko jeden worker.
+Względną ścieżkę w `pool.entrypoint` Rapira liczy od katalogu samego pliku konfiguracyjnego, więc ten sam plik zadziała niezależnie od tego, w jakim katalogu akurat jesteś. Flagi wciąż mają pierwszeństwo przed plikiem - `rapira serve --config rapira.toml --processes 1` zachowa całą resztę i uruchomi tylko jeden worker.
 :::
 
 Plik przyjmuje też tryby skalowania puli, recykling workerów, limity czasu żądań, logowanie i pidfile supervisora. Nieznane klucze są odrzucane, a nie ignorowane, więc literówka przerwie start serwera, zamiast po cichu nic nie zmienić. Pełny opis znajdziesz w [Konfiguracji](/pl/docs/configuration), a flagi w [Wierszu poleceń](/pl/docs/cli).
 
 ## Zatrzymywanie serwera
 
-Naciśnij `Ctrl-C`, a Rapira zacznie się wygaszać: przestanie przyjmować nową pracę, pozwoli dokończyć żądania będące już w toku, zamknie rozszerzenia i zakończy działanie. Drugie `Ctrl-C` pomija czekanie i wymusza wyjście, dzięki czemu zacięte żądanie nie blokuje serwera. `SIGTERM` działa tak samo i to dzięki temu restart z poziomu menedżera usług przebiega łagodnie. Pełną tabelę sygnałów — razem z przeładowaniem bez zrywania połączeń — znajdziesz w [Modelu procesów](/pl/docs/process-model).
+Naciśnij `Ctrl-C`, a Rapira zacznie się wygaszać: przestanie przyjmować nową pracę, pozwoli dokończyć żądania będące już w toku, zamknie rozszerzenia i zakończy działanie. Drugie `Ctrl-C` pomija czekanie i wymusza wyjście, dzięki czemu zacięte żądanie nie blokuje serwera. `SIGTERM` działa tak samo i to dzięki temu restart z poziomu menedżera usług przebiega łagodnie. Pełną tabelę sygnałów - razem z przeładowaniem bez zrywania połączeń - znajdziesz w [Modelu procesów](/pl/docs/process-model).
 
 ## Co dalej
 
-- [Tryb Worker](/pl/docs/worker) — pętla workera od podszewki: stan, wycieki, recykling i sposób na wystartowanie prawdziwej aplikacji przed pętlą.
-- [Konfiguracja](/pl/docs/configuration) — wszystkie klucze, które przyjmuje `rapira.toml`, wraz z wartościami domyślnymi.
-- [Frameworki](/pl/docs/frameworks/) — przewodniki integracyjne dla Symfony, Laravela i Yii3.
+- [Tryb Worker](/pl/docs/worker) - pętla workera od podszewki: stan, wycieki, recykling i sposób na wystartowanie prawdziwej aplikacji przed pętlą.
+- [Konfiguracja](/pl/docs/configuration) - wszystkie klucze, które przyjmuje `rapira.toml`, wraz z wartościami domyślnymi.
+- [Frameworki](/pl/docs/frameworks/) - przewodniki integracyjne dla Symfony, Laravela i Yii3.

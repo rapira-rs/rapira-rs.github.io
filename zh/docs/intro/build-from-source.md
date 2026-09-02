@@ -9,7 +9,7 @@ Rapira 可以在 Linux 和 macOS 上从源码构建。[安装](/zh/docs/intro/in
 
 ## 什么时候需要从源码构建
 
-- **你的平台没有预编译的二进制文件**——冷门的 CPU 架构，或者 Alpine 这类基于 musl 的发行版。
+- **你的平台没有预编译的二进制文件**--冷门的 CPU 架构，或者 Alpine 这类基于 musl 的发行版。
 - **你的发行版比软件包支持的更老。**发布的二进制是针对 glibc 2.34 构建的，能装上的最老的系统是 Debian 12、Ubuntu 22.04 和 RHEL 9（见[安装](/zh/docs/intro/installation)）。
 - **你需要另一套 PHP 扩展。**官方构建自带的 PHP 是照 [`ci/php-configure-flags.txt`](https://github.com/rapira-rs/rapira/blob/main/ci/php-configure-flags.txt) 里的参数列表编译的，而这份列表是刻意保持精简的：session、mbstring、OPcache、OpenSSL、curl、XML 家族，以及带 SQLite 的 PDO。如果你的应用要用 `pdo_mysql`、`intl` 或 `gd`，就得挑一个带这些扩展的 PHP 来构建 Rapira。
 - **你在开发 Rapira 本身**，或者想用上还没发布的东西。
@@ -24,10 +24,10 @@ Rapira 可以在 Linux 和 macOS 上从源码构建。[安装](/zh/docs/intro/in
 
 ## 带 embed SAPI 的 PHP
 
-Rapira 把解释器直接链接进自己的进程，而不是通过 socket 与它通信，因此 PHP 必须以共享库的形式存在：**8.4 或 8.5 版本，NTS（非线程安全），并且用 `--enable-embed=shared` 配置**——正是这个开关产出了 `libphp.so`（macOS 上是 `libphp.dylib`）。
+Rapira 把解释器直接链接进自己的进程，而不是通过 socket 与它通信，因此 PHP 必须以共享库的形式存在：**8.4 或 8.5 版本，NTS（非线程安全），并且用 `--enable-embed=shared` 配置**--正是这个开关产出了 `libphp.so`（macOS 上是 `libphp.dylib`）。
 
 ::: warning ZTS 构建会被拒绝
-线程安全（ZTS）的 PHP 会让构建带着明确的错误停下来——Rapira 只支持 NTS，因为它给每个 worker 进程配一个解释器。如果 `PATH` 上的 PHP 是 ZTS 构建，就装一个 NTS 的，再把 `PHP_CONFIG` 指向它（见下文）。
+线程安全（ZTS）的 PHP 会让构建带着明确的错误停下来--Rapira 只支持 NTS，因为它给每个 worker 进程配一个解释器。如果 `PATH` 上的 PHP 是 ZTS 构建，就装一个 NTS 的，再把 `PHP_CONFIG` 指向它（见下文）。
 :::
 
 有几个发行版已经把 embed SAPI 打好包了：
@@ -55,7 +55,7 @@ make -j"$(getconf _NPROCESSORS_ONLN)"
 make install
 ```
 
-在 macOS 上先把依赖装齐（`brew install pkg-config openssl@3 curl oniguruma libxml2 sqlite`），把它们的 `lib/pkgconfig` 目录加进 `PKG_CONFIG_PATH`，并在参数文件后面追加 `--with-iconv="$(xcrun --show-sdk-path)/usr"`——光写一个 `--with-iconv` 在那儿找不到 libiconv，而在 autoconf 里写在后面的那个说了算。
+在 macOS 上先把依赖装齐（`brew install pkg-config openssl@3 curl oniguruma libxml2 sqlite`），把它们的 `lib/pkgconfig` 目录加进 `PKG_CONFIG_PATH`，并在参数文件后面追加 `--with-iconv="$(xcrun --show-sdk-path)/usr"`--光写一个 `--with-iconv` 在那儿找不到 libiconv，而在 autoconf 里写在后面的那个说了算。
 
 ### 不带版本号的 `libphp.so`
 
@@ -110,4 +110,4 @@ DYLD_LIBRARY_PATH="$HOME/.local/php-nts/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_P
 
 ## 参与 Rapira 本身的开发
 
-`make test` 会把两套测试都跑一遍——进程内的那套，以及会拉起真实二进制的端到端那套；`make stubs` 从 `crates/php_sys/rapira.stub.php` 重新生成 arginfo 头文件；CI 则在每个 pull request 上跑构建、`cargo fmt`、clippy 和覆盖率。
+`make test` 会把两套测试都跑一遍--进程内的那套，以及会拉起真实二进制的端到端那套；`make stubs` 从 `crates/php_sys/rapira.stub.php` 重新生成 arginfo 头文件；CI 则在每个 pull request 上跑构建、`cargo fmt`、clippy 和覆盖率。

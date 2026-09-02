@@ -1,6 +1,6 @@
 ---
 title: Registros
-description: "Cómo registra Rapira — niveles, ajustes por target, diagnósticos de PHP, registro desde la aplicación, los formatos plain y JSON, y la variable RUST_LOG para depurar."
+description: "Cómo registra Rapira - niveles, ajustes por target, diagnósticos de PHP, registro desde la aplicación, los formatos plain y JSON, y la variable RUST_LOG para depurar."
 ---
 
 # Registros
@@ -21,7 +21,7 @@ format = "plain"  # Use plain or json. Default: plain.
 
 `level` es el suelo común a todos los targets a la vez: con `error` solo ves errores, `warn` añade las advertencias, y así hasta `trace`, que lo enseña todo. `format` elige la forma de cada entrada: líneas legibles para una persona o un objeto JSON por línea.
 
-Las dos claves son opcionales, y la sección entera también. El resto del archivo —la escucha, el pool, el supervisor— lo tienes en [Configuración](/es/docs/configuration).
+Las dos claves son opcionales, y la sección entera también. El resto del archivo -la escucha, el pool, el supervisor- lo tienes en [Configuración](/es/docs/configuration).
 
 ## Ajustes por target
 
@@ -63,10 +63,10 @@ Todo lo que informa PHP acaba en el target `php`, y cada diagnóstico saca su ni
 
 | Diagnóstico                                                                                    | Nivel   |
 | ---------------------------------------------------------------------------------------------- | ------- |
-| Errores fatales — `E_ERROR`, `E_PARSE`, `E_CORE_ERROR`, `E_COMPILE_ERROR`, `E_USER_ERROR`, `E_RECOVERABLE_ERROR` | `error` |
-| Advertencias — `E_WARNING`, `E_CORE_WARNING`, `E_COMPILE_WARNING`, `E_USER_WARNING`            | `warn`  |
-| Avisos — `E_NOTICE`, `E_USER_NOTICE`                                                           | `info`  |
-| Obsolescencias — `E_DEPRECATED`, `E_USER_DEPRECATED`                                           | `debug` |
+| Errores fatales - `E_ERROR`, `E_PARSE`, `E_CORE_ERROR`, `E_COMPILE_ERROR`, `E_USER_ERROR`, `E_RECOVERABLE_ERROR` | `error` |
+| Advertencias - `E_WARNING`, `E_CORE_WARNING`, `E_COMPILE_WARNING`, `E_USER_WARNING`            | `warn`  |
+| Avisos - `E_NOTICE`, `E_USER_NOTICE`                                                           | `info`  |
+| Obsolescencias - `E_DEPRECATED`, `E_USER_DEPRECATED`                                           | `debug` |
 
 Las obsolescencias se quedan en `debug` para que un proyecto con unos cuantos miles de obsolescencias en `vendor` no entierre las advertencias y los errores que se informan junto a ellas.
 
@@ -132,7 +132,7 @@ try {
 
 `\Rapira\log()` no lanza nunca: si el `jsonSerialize()` de un valor del contexto lanza una excepción, la descarta, escribe ese valor como `null` y deja intactas las demás claves.
 
-Conviene conocer dos límites al decidir qué poner en un contexto. Un valor que JSON no puede representar —un recurso, un closure, `NAN` o `INF`, una cadena que no es UTF-8 válido— se sustituye por un marcador en lugar de costarte la entrada, así que las claves de alrededor sí llegan. Y el contexto no tiene límite de tamaño: un array grande o una cadena larga se serializan enteros y producen una entrada igual de grande, así que pasa identificadores en vez de los objetos que identifican.
+Conviene conocer dos límites al decidir qué poner en un contexto. Un valor que JSON no puede representar -un recurso, un closure, `NAN` o `INF`, una cadena que no es UTF-8 válido- se sustituye por un marcador en lugar de costarte la entrada, así que las claves de alrededor sí llegan. Y el contexto no tiene límite de tamaño: un array grande o una cadena larga se serializan enteros y producen una entrada igual de grande, así que pasa identificadores en vez de los objetos que identifican.
 
 ## Formatos
 

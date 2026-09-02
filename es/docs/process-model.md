@@ -5,7 +5,7 @@ description: "Cómo ejecuta PHP Rapira: un maestro de un solo hilo abre el socke
 
 # Modelo de procesos
 
-Rapira se ejecuta como un proceso maestro y un pool de workers. El maestro mantiene todo lo que tiene que existir exactamente una vez —el socket de escucha, la imagen del motor de PHP, el pidfile— y después hace fork; de las peticiones se encargan los workers. Ninguna petición pasa jamás de un proceso a otro: los workers *son* copias del maestro, hechas con fork cuando PHP ya estaba en marcha, y cada uno recoge sus conexiones directamente del socket.
+Rapira se ejecuta como un proceso maestro y un pool de workers. El maestro mantiene todo lo que tiene que existir exactamente una vez -el socket de escucha, la imagen del motor de PHP, el pidfile- y después hace fork; de las peticiones se encargan los workers. Ninguna petición pasa jamás de un proceso a otro: los workers *son* copias del maestro, hechas con fork cuando PHP ya estaba en marcha, y cada uno recoge sus conexiones directamente del socket.
 
 El esquema es el mismo en los modos [Classic](/es/docs/classic), [Worker](/es/docs/worker) y Dispatcher. El modo de ejecución, que fija `pool.mode`, decide qué ocurre dentro de un worker con cada petición; no cambia cómo se construye el pool, ni cómo se supervisa, ni cómo se recarga. Consulta [Modos de ejecución](/es/docs/execution-modes) para más información.
 

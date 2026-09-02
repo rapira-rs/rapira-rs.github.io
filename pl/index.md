@@ -31,7 +31,7 @@ const httpFeatures = [
   { label: 'Trailers', ready: false },
 ]
 
-// Cztery sposoby połączenia serwera z PHP — po zakładce na każdy.
+// Cztery sposoby połączenia serwera z PHP - po zakładce na każdy.
 // Teksty zakładek leżą w slotach <TextTabs> poniżej.
 const interopTabs = [
   { name: 'FastCGI', slot: 'fastcgi', users: ['php-fpm', 'nginx', 'Angie'] },
@@ -55,7 +55,7 @@ Rapira dostarcza taki serwer: własny front HTTP napisany w Ruście na bibliotec
 
 <RapiraSection title="Zero interopu: Rust wywołuje PHP bezpośrednio" link="/pl/docs/process-model" link-text="Model procesów">
 
-Rapira jest napisana w Ruście, a PHP — w C. Rust wywołuje funkcje C natywnie. Wywołanie funkcji PHP z Rusta jest więc bezpośrednim wywołaniem funkcji. Interpreter jest wbudowany w proces serwera. Rapira steruje nim przez bezpośrednie bindingi, od startu silnika po obsługę każdego żądania.
+Rapira jest napisana w Ruście, a PHP - w C. Rust wywołuje funkcje C natywnie. Wywołanie funkcji PHP z Rusta jest więc bezpośrednim wywołaniem funkcji. Interpreter jest wbudowany w proces serwera. Rapira steruje nim przez bezpośrednie bindingi, od startu silnika po obsługę każdego żądania.
 
 Nie ma tu ani FastCGI, ani Goridge, ani CGO: żądanie nigdzie nie jest serializowane i nie opuszcza procesu. W trybie Classic i w trybie Worker Rapira wypełnia zmienne superglobalne bezpośrednio.
 
@@ -73,7 +73,7 @@ Workery PHP to osobne procesy, które odbierają żądania od serwera przez poto
 </template>
 <template #cgo>
 
-Interpreter PHP jest wbudowany w proces serwera, ale host jest napisany w Go, a Go nie potrafi wywoływać kodu C bezpośrednio. Każde wywołanie przechodzi przez CGO — warstwę, która dokłada narzut przy każdym przekroczeniu granicy języków.
+Interpreter PHP jest wbudowany w proces serwera, ale host jest napisany w Go, a Go nie potrafi wywoływać kodu C bezpośrednio. Każde wywołanie przechodzi przez CGO - warstwę, która dokłada narzut przy każdym przekroczeniu granicy języków.
 
 </template>
 <template #cabi>

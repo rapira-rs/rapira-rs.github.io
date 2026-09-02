@@ -8,7 +8,7 @@ description: "Una aplicación Yii3 en Rapira en modo Worker: el HttpApplicationR
 Yii3 está diseñado para ejecutarse en un proceso que no muere: su contenedor de DI trae un `StateResetter`, el runner expone su contenedor como API pública, y construir la aplicación una vez y reiniciar el estado de la petición después de cada respuesta es la forma que el framework ya tiene. El runner oficial para RoadRunner, [`yiisoft/yii-runner-roadrunner`](https://github.com/yiisoft/yii-runner-roadrunner), está construido igual. Esta página cubre el script de worker residente, la alternativa que reconstruye el runner en cada petición y qué se comprobó sobre enrutado, sesiones, subidas de archivos y gestión de errores.
 
 ::: info Verificado con
-- **PHP 8.5.8** — NTS, SAPI embed
+- **PHP 8.5.8** - NTS, SAPI embed
 - **Rapira 0.8.0**
 - Plantilla **yiisoft/app** 1.4, con **yii-runner-http 3.2.1** (router-fastroute 4.x)
 
@@ -73,9 +73,9 @@ while (\Rapira\handle_request($handler)) {
 
 Vamos por partes:
 
-**`src/bootstrap.php` es el arranque que trae la propia plantilla.** Carga el autoloader de Composer, lee el `.env` si está y llama a `Environment::prepare()`: exactamente lo que hace `public/index.php` antes de tocar el runner. La línea explícita de `vendor/autoload.php` que va justo encima es redundante —`require_once` convierte la segunda llamada en algo que no hace nada— y deja el worker legible como punto de entrada independiente.
+**`src/bootstrap.php` es el arranque que trae la propia plantilla.** Carga el autoloader de Composer, lee el `.env` si está y llama a `Environment::prepare()`: exactamente lo que hace `public/index.php` antes de tocar el runner. La línea explícita de `vendor/autoload.php` que va justo encima es redundante -`require_once` convierte la segunda llamada en algo que no hace nada- y deja el worker legible como punto de entrada independiente.
 
-**El runner se construye una sola vez, con los argumentos de `public/index.php`.** `rootPath`, `debug`, `checkEvents` y `environment` salen de `App\Environment` tal cual los pasa el script de entrada, así que el worker arranca la misma aplicación que el punto de entrada web. El `public/index.php` de la plantilla pasa un argumento más —un `temporaryErrorHandler` conectado a un logger con `StreamTarget`— y hace `require` de `c3.php` cuando `APP_C3` está activo. El worker verificado se salta las dos cosas. Ese manejador temporal solo cubre los errores que se producen mientras se construyen la configuración y el contenedor; si no le pasas ninguno, el runner recurre a un `ErrorHandler` con un `NullLogger` (`HttpApplicationRunner::createTemporaryErrorHandler()`), así que pásaselo aquí también si quieres que queden registrados los fallos al construir el contenedor.
+**El runner se construye una sola vez, con los argumentos de `public/index.php`.** `rootPath`, `debug`, `checkEvents` y `environment` salen de `App\Environment` tal cual los pasa el script de entrada, así que el worker arranca la misma aplicación que el punto de entrada web. El `public/index.php` de la plantilla pasa un argumento más -un `temporaryErrorHandler` conectado a un logger con `StreamTarget`- y hace `require` de `c3.php` cuando `APP_C3` está activo. El worker verificado se salta las dos cosas. Ese manejador temporal solo cubre los errores que se producen mientras se construyen la configuración y el contenedor; si no le pasas ninguno, el runner recurre a un `ErrorHandler` con un `NullLogger` (`HttpApplicationRunner::createTemporaryErrorHandler()`), así que pásaselo aquí también si quieres que queden registrados los fallos al construir el contenedor.
 
 **`getContainer()` es API pública**, así que el contenedor que capturas es el de la aplicación: el mismo que usará el runner en cada petición. El `StateResetter` se resuelve desde ahí dentro del handler.
 
@@ -159,7 +159,7 @@ Cada clave, con su valor por defecto y sus límites, está en la página de [Con
 
 Los dos patrones pasaron la misma batería de pruebas contra la plantilla `yiisoft/app`. Los resultados:
 
-**El enrutado funciona sin sobrescribir nada de `$_SERVER`.** Rapira pone en `SCRIPT_NAME` el nombre del script de entrada —`/worker.php`, no `/index.php`— y aun así FastRoute siguió emparejando rutas anidadas con query string. La raíz `/` renderizó la página de inicio de la plantilla y una ruta desconocida devolvió el 404 del propio framework. No hizo falta sobrescribir `SCRIPT_NAME`, `REQUEST_URI` ni `DOCUMENT_ROOT` en ningún sitio.
+**El enrutado funciona sin sobrescribir nada de `$_SERVER`.** Rapira pone en `SCRIPT_NAME` el nombre del script de entrada -`/worker.php`, no `/index.php`- y aun así FastRoute siguió emparejando rutas anidadas con query string. La raíz `/` renderizó la página de inicio de la plantilla y una ruta desconocida devolvió el 404 del propio framework. No hizo falta sobrescribir `SCRIPT_NAME`, `REQUEST_URI` ni `DOCUMENT_ROOT` en ningún sitio.
 
 **Las URL generadas salen limpias.** `UrlGeneratorInterface::generate()` produjo rutas normales de la aplicación: el nombre del script de worker no se cuela en ellas.
 
@@ -185,4 +185,4 @@ El mismo código, sin script de worker y con estado limpio en cada petición. Co
 
 El script de worker es un punto de entrada más y no sustituye al script de entrada normal. Conserva `public/index.php`: el modo Classic lo ejecuta y sigue siendo útil para trabajar en local con el servidor que trae PHP.
 
-El `public/index.php` de la plantilla tiene una rama `PHP_SAPI === 'cli-server'` que sirve archivos estáticos y reescribe `SCRIPT_NAME`. Está ahí por el servidor de desarrollo que trae PHP y bajo Rapira no se activa nunca, porque `PHP_SAPI` vale `rapira` (`fastcgi` en PHP 8.4 — ver [Instalación](/es/docs/intro/installation)), así que puede quedarse como está.
+El `public/index.php` de la plantilla tiene una rama `PHP_SAPI === 'cli-server'` que sirve archivos estáticos y reescribe `SCRIPT_NAME`. Está ahí por el servidor de desarrollo que trae PHP y bajo Rapira no se activa nunca, porque `PHP_SAPI` vale `rapira` (`fastcgi` en PHP 8.4 - ver [Instalación](/es/docs/intro/installation)), así que puede quedarse como está.

@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 import GitHubIcon from './GitHubIcon.vue'
 
-// Repository whose stars are displayed in the nav bar.
+// The navigation bar shows the star count for this repository.
 const repo = 'rapira-rs/rapira'
 
 const stars = ref<number | null>(null)
@@ -91,7 +91,7 @@ const formatStars = (count: number | null) => {
   color: var(--vp-c-text-3);
 }
 
-/* Responsive: hide text on small screens */
+/* Hide text on small screens. */
 @media (max-width: 768px) {
   .github-text {
     display: none;

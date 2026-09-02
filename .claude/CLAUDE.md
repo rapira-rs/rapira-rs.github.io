@@ -1,41 +1,41 @@
 # Rapira Documentation
 
-Documentation site for **Rapira**, built with [VitePress](https://vitepress.dev/). Multilingual: English (root) + Russian (`ru/`), Spanish (`es/`), Chinese (`zh/`), Polish (`pl/`).
+This repository contains the **Rapira** documentation site. The site uses [VitePress](https://vitepress.dev/). It supports English, Russian, Spanish, Chinese, and Polish.
 
 ## What Rapira Is
 
-**A PHP application server written in Rust**, MIT-licensed. It lives in the [`rapira-rs`](https://github.com/rapira-rs) GitHub organization, which describes itself as *"a PHP application server with extensions from the RoadRunner maintainers"* — that lineage is the project's main credibility claim.
+**Rapira is an MIT-licensed PHP application server written in Rust.** The [`rapira-rs`](https://github.com/rapira-rs) GitHub organization maintains it. The maintainers also maintain RoadRunner.
 
-**PHP runs with nothing in between.** It is embedded in the server process and the host calls the interpreter directly, so between Rust and PHP there is no FastCGI, no sockets and no serialization of any kind. RoadRunner reaches its PHP workers over Goridge and FrankenPHP embeds PHP through CGO; Rapira needs neither.
+**Rapira embeds PHP in the server process.** The host calls the interpreter directly. Rapira does not use FastCGI, sockets, serialization, Goridge, or CGO for this call.
 
-**Existing applications keep working.** The classic SAPI is supported, so an ordinary front controller runs as it is: Rapira takes php-fpm's place with no changes to the code, and runs faster doing it.
+**Existing applications continue to work.** The classic SAPI runs an ordinary entry script without code changes. Rapira replaces php-fpm and improves execution speed.
 
-**Three execution modes**: Classic, Worker, Dispatcher. These are the real names - the `[pool] mode` values of `rapira.toml` and the cases of the `Rapira\Mode` enum - so use them exactly, in English and in every translation. Classic and Worker are shipped and documented; Dispatcher is shipped and its guide is still pending. Never name the modes after FrankenPHP or RoadRunner on the site:
+**Rapira has three execution modes:** Classic, Worker, and Dispatcher. These names are the `[pool] mode` values and the `Rapira\Mode` enum cases. Use the exact names in every language. Classic and Worker have documentation. Dispatcher is available, but its guide is not complete. Do not name modes after FrankenPHP or RoadRunner.
 
 - **Classic** - the entry script runs from scratch on every request, exactly as it would under php-fpm.
-- **Worker** - the same shape, except the worker does not die: the superglobals are refilled for each request while the warmed-up process keeps running.
-- **Dispatcher** - the script takes units of work from the dispatcher and answers through them instead of the superglobals. How many units run at once is the script's choice: one at a time in a loop, or several concurrently, each on its own fiber. Concurrency through fibers belongs to this mode.
+- **Worker** - the process continues after each request. Rapira refills the superglobals for each request.
+- **Dispatcher** - the script gets work units from the dispatcher instead of using superglobals. The script can process one unit at a time. It can also process concurrent units with fibers.
 
-Any application can use any mode; what limits the choice is the application's own code, never the server. Global state that cannot survive a second request restricts an application to Classic; a library that is not fiber-safe rules out concurrent units in Dispatcher mode. State it that way - as a property of the application's code.
+The server makes every mode available to every application. The application code can restrict the available modes. Global state can restrict an application to Classic. A library without fiber support prevents concurrent Dispatcher work. Describe each restriction as a property of the application code.
 
-**The ladder/rung/climb metaphor for the modes is banned** — in English and in every translation, docs and home page alike. The modes are listed, not ranked; earlier drafts used "ladder"/"rung" vocabulary and it must not come back.
+**Do not rank the modes.** Do not use ladder, rung, or climb metaphors in any language. List the modes without ranking them.
 
-**The home page shows the mode list as** `Classic → Worker → Dispatcher`, with the line "How far can your app go?" under it in the same feature card. The card names the three modes and says nothing about what separates them, because a feature card holds no room for it. The description of each mode belongs in the documentation.
+**The home page shows this mode list:** `Classic → Worker → Dispatcher`. The same card asks, "Which modes can your application use?" Put mode descriptions in the documentation.
 
-The mode is selected in the config, but neither the config format nor the PHP-side API is stable yet — describe the modes by what they do, and check specific keys and function names before they reach the site.
+Configuration selects the mode. The configuration format and PHP API can still change. Describe mode behavior. Verify keys and function names before publication.
 
-**It is engineered.** A considered architecture and carefully written code, backed by years of building RoadRunner — the same maintainers. State this affirmatively and never mention vibe coding on the site: naming the thing you are not invites the reader to weigh the accusation, and the site does not need to argue with it. No performance numbers are published, so keep any claim about speed qualitative and never invent figures or percentages.
+**Experienced maintainers design and implement Rapira.** The same maintainers also build RoadRunner. State this fact directly. Do not mention vibe coding. Rapira does not publish performance measurements. Keep speed claims qualitative. Do not invent measurements.
 
-This positioning is what the home page carries: the lede comes from the `tagline` and `pitch` frontmatter fields of each locale's `index.md`, and the three feature cards — zero interop, php-fpm compatibility, the execution modes — from its `features` block. English is written first, then every translation follows.
+The home page uses the `tagline` and `pitch` fields from each locale's `index.md`. Its `features` block describes direct interoperability, php-fpm compatibility, and execution modes. Write the English text first. Then update every translation.
 
-**One deliberate exception:** the English `tagline` calls Rapira *post-modern* — a nod to the "Modern PHP" era of Composer and the PSRs, which an English-speaking reader catches at once. That reference does not exist in the other languages, so there is no "modern" to be "post" of, and the calque lands as art-criticism irony instead. Every translated `tagline` therefore stays plain — the equivalent of "PHP application server, written in Rust" — and this gap is intentional, not an out-of-sync translation to be fixed.
+Use a literal `tagline` in every language. Describe Rapira as a PHP application server written in Rust. Do not use the former *post-modern* wordplay.
 
 ## Structure
 
 ```
 docs/         # English (root)
 ├── index.md  # Home page (layout: home)
-├── download.md # Download page (picker over baked release data)
+├── download.md # Download page (selector for release data)
 ├── docs/     # Documentation pages (intro/ holds the entry page + getting started)
 ├── blog/     # Blog posts + index.md
 └── .vitepress/
@@ -52,7 +52,7 @@ docs/         # English (root)
         ├── builds.data.ts     # Release builds data loader (GitHub API at build time)
         ├── GitHubStars.vue
         ├── GitHubIcon.vue      # Shared GitHub mark (nav stars + hero action)
-        ├── RapiraHero.vue      # Home landing cover (wordmark + lede + actions)
+        ├── RapiraHero.vue      # Home page header (wordmark, description, and actions)
         ├── RapiraSection.vue    # Home feature segment (heading, text, aside, footer)
         ├── FeatureTags.vue      # Tag row for segment features (ready/pending)
         ├── TextTabs.vue         # Tab strip over short prose panels
@@ -67,51 +67,54 @@ zh/           # Chinese locale   │ index.md + docs/ + blog/
 pl/           # Polish locale    ┘
 ```
 
-English (root) is the **source of truth**. Every other locale mirrors its structure.
+English is the **canonical version**. Every other locale uses the same structure.
 
-The docs sidebar (five per-locale blocks in `.vitepress/config.mts`) has five groups — Introduction, Writing your app, Running the server, Framework integration, Contributing — with an identical group/item structure in every locale; only the labels are translated.
+The docs sidebar has one locale block for each language in `.vitepress/config.mts`. Every block has the same five groups and items. Only the labels differ.
 
-The Introduction group is backed by a folder: `docs/intro/` holds the entry page (`index.md`, "What is Rapira?", served at `/docs/intro/`) plus Installation, Quickstart and Build from source. There is no page at `/docs/` — the docs entry URL comes from `getDocsUrl()` in `.vitepress/locales.ts` and points at `/docs/intro/`. Every other docs page sits flat in `docs/`.
+The `docs/intro/` directory contains the Introduction group. It contains the entry page, Installation, Quickstart, and Build from source. The entry page is `index.md` at `/docs/intro/`. No page exists at `/docs/`. The `getDocsUrl()` function returns the entry URL. All other documentation pages are direct children of `docs/`.
 
 ## Style Guide
 
-**Tone:** Plain technical documentation, in the register of Zed's docs (zed.dev/docs). Write for newcomers — full sentences, explain concepts before showing code, no telegraphic style ("Register plugin. Call it."). Second person for the reader, third person for the software; contractions are fine.
+**Tone:** Use plain technical language that is suitable for new users. Use complete sentences. Explain concepts before code. Address the reader in second person. Refer to software in third person.
 
-**Register — binding for English and every translation:**
+**English standard:** Follow ASD-STE100 Simplified Technical English. Use active voice and approved words. Limit descriptive sentences to 25 words. Limit procedural sentences to 20 words. Put one instruction in each sentence. Use one term for each meaning. Use literal language. Do not use idioms, slang, wordplay, or decorative prose.
 
-- **Open with a definition.** The first sentence says what the subject is, with the product or feature as grammatical subject; optionally one scope sentence naming what the page covers; then the first `##`. Installation-type pages may skip the intro entirely. Never open with motivation, a problem statement, or the reader.
-- **Second person for what the reader owns or does; a plain article for everything else.** "You" and "your" belong to the reader's property, decisions and actions — "if your application needs an extension", "pick the minor version your application runs on", "point `PHPRC` at a real file". What belongs to the software takes a plain article: "serving a first request", "the binary finds its interpreter", "the license under `/usr/share/doc/`". Test before writing a possessive: swap "your X" for "a X" or "the X", and if nothing is lost, it was decoration. Binding for translations — «ваш первый запрос» fails the same test as "your first request".
-- **No metaphors, no analogies.** No ladder/rung/climb (banned outright, see above), no economic framing ("paid once at boot", "the price is"), no personification ("your code does not know the difference"), no punchlines or reveals ("…: nothing."). Standard technical idiom stays: boot, warm, spin up, drop-in replacement, sawtooth, graceful shutdown, backstop.
-- **No teasers or narrative transitions** ("and that is why the next section exists"), no editorializing ("worth knowing", "the entire point", "honestly", "actually"/"genuinely" as emphasis), no marketing adjectives, no rhetorical questions, no dramatized second person ("now your responsibility", "yours to manage").
-- **Background detail goes in `::: question` spoilers.** The body carries what the reader acts on — the steps, the choice between options, the facts a decision turns on. The mechanism under it — why an artifact is built that way, what the loader does with a path, why an identifier has the value it has — moves into a `::: question` block titled as the question the reader would ask ("Why is there a separate build per PHP version?"). Set `faqLevel: 2` in the frontmatter so each question collects at the end of the section that raised it. `ru/docs/intro/installation.md` is the worked example.
-- **Hedge about the software's state, never about knowledge:** "currently", "not yet" — never "probably", "generally", "in practice you'll almost always".
-- **Limitations are flat present-tense facts stated in place**, each paired with its workaround in the same paragraph. No apology, no drama.
-- **Choices:** give parallel criteria ("Use A if …; use B if …") or one plain paragraph per option; recommendations are stated flatly with the reason attached, never sold.
+**Register requirements for English and each translation:**
+
+- **Open with a definition.** Make the product or feature the subject of the first sentence. You can add one scope sentence. Then start the first `##` section. Installation pages can omit the introduction. Do not start with motivation, a problem, or the reader.
+- **Use second person only for reader actions and property.** Use "you" for an action that the reader performs. Use "your" only for reader property. Use an article for software property. Replace "your X" with "a X" or "the X" when the meaning does not change. Apply the same test in translations.
+- **Use literal language.** Do not use metaphors, analogies, economic framing, personification, punchlines, or wordplay. Prefer `start` to `boot` when both mean initialization. Prefer `cached` to `warm`. Prefer `create a process` to `spin up`. Prefer `compatible replacement` to `drop-in replacement`. Describe cyclic memory use directly instead of using `sawtooth`. Describe a scheduled fallback check instead of a `backstop`.
+- **Remove editorial language.** Do not use teasers, narrative transitions, marketing adjectives, rhetorical questions, or dramatic second person. Do not use emphasis words such as "honestly," "actually," or "genuinely."
+- **Put background detail in `::: question` blocks.** Keep actions, choices, and decision facts in the main text. Put implementation explanations in a question block. Give each block the question that it answers. Set `faqLevel: 2` so questions collect after the relevant section. See `ru/docs/intro/installation.md` for an example.
+- **Qualify only the software state.** Use "currently" or "not yet" when necessary. Do not use "probably", "generally", or similar knowledge hedges.
+- **State each limitation as a direct present-tense fact.** Give its workaround in the same paragraph. Do not add an apology or dramatic language.
+- **Choices:** Give parallel criteria or one paragraph for each option. State each recommendation and its reason directly.
 - **Headings:** noun phrases or gerunds, sentence case. No slogans, full sentences, questions, or second person.
-- **Cross-references:** inline links with the noun as link text; terminal references are "See [X] for more information." Pages stop after the last technical item — no summary or outro paragraphs; "Next steps" bullet lists only on hub pages.
-- **Do not over-sterilize.** Full subordinated sentences (~20 words on average) are the norm, not fragments; plain connective sentences between sections are fine. Translators must render the same plain register — never "improve" it into literary prose.
+- **Cross-references:** Use the subject noun as the link text. End references with "See [X] for more information." End each page after its last technical item. Use "Next steps" lists only on index pages.
+- **Sentence structure:** Use complete sentences and direct connections between sentences. Avoid fragments. Translations must preserve this direct style.
 
 **Code examples:**
 - List the options first, then a single code block with all examples (easier to read than many small blocks).
-- Keep examples compact — show structure, not implementation, when the implementation doesn't matter.
+- Keep examples compact. Show the structure when the implementation does not matter.
 - Show the contrast between approaches in examples.
 
 **Text structure:**
 - Avoid tautology in lists, fix typos.
 - Small sections are sometimes better integrated into an existing one.
 
-**Markdown callouts:** Use `::: tip`, `::: warning`, `::: info`, `::: danger` blocks — each renders with its own icon and color. `::: question` holds the background detail (see the Register block above and the FAQ section below).
+**Markdown callouts:** Use `::: tip`, `::: warning`, `::: info`, and `::: danger` blocks. Each type has an icon and color.
+Use `::: question` for background information. See the Register requirements and the FAQ section.
 
 ## Working with Content
 
 **Adding pages:**
 1. Create the page in English (`docs/page.md`) **and** in every locale (`ru/docs/page.md`, `es/docs/page.md`, `zh/docs/page.md`, `pl/docs/page.md`).
 2. Add the page to the sidebar in `.vitepress/config.mts` for **every** locale block.
-3. Internal links: `./page` or `/docs/page` (no `.html`; `cleanUrls` is on).
+3. Use `./page` or `/docs/page` for internal links. Do not add `.html` because `cleanUrls` is on.
 
 **Syncing translations:**
 - **CRITICAL:** When changing content (adding sections, examples, explanations), ALWAYS update the English version AND every locale.
-- This applies to content changes, not just translation-quality fixes.
+- This rule applies to all content changes, including translation fixes.
 - If you modify `docs/page.md`, you MUST also update the same page in each locale with a translated version (see the translation guideline at the bottom).
 - Exception: fixing only translation quality in one locale does not require touching the English version.
 
@@ -119,25 +122,25 @@ The Introduction group is backed by a folder: `docs/intro/` holds the entry page
 
 ## Locale Service
 
-`.vitepress/locales.ts` is the **single source of truth for locales**. It defines the `locales` array (code, prefix, blog title/description/labels, "back to blog" label) and every locale-aware helper.
+`.vitepress/locales.ts` is the **canonical locale configuration**. It defines the `locales` array and all locale-aware helper functions.
 
-**Always resolve locales and build locale-specific URLs through this service. Never hardcode `path.startsWith('/ru/')`, `lang === 'ru'` branches, or literal `/ru/blog/` URLs** — they silently break the moment a locale is added.
+**Always use this service to resolve locales and create locale-specific URLs.** Do not hardcode locale conditions or locale URLs. Hardcoded values do not support new locales.
 
 - Resolve a locale from a URL or src-relative path → `getLocaleByPath(path)`.
 - Resolve a locale from a `lang` code (e.g. `useData().lang`) → `getLocaleByCode(code)`.
 - Build URLs → `getDocsUrl(locale)`, `getDownloadUrl(locale)`, `getBlogUrl(locale)`, `getFeedFilename(locale)`, `getBlogFolder(locale)`.
 - Blog predicates → `isBlogPath(path)`, `isBlogIndexPath(path)`, `getBlogGlobPatterns()`.
-- Per-locale UI strings that belong to the service (blog title/description/label, back-to-blog label) live as fields on `LocaleConfig` — add a field there instead of scattering `lang ===` maps across components.
+- Put shared per-locale UI strings in `LocaleConfig`. Add a field instead of adding `lang ===` maps to components.
 
-Consumers already wired to it: `config.mts`, `rss.ts`, `theme/posts.data.ts`, `theme/index.ts`, `theme/RapiraHero.vue`, `theme/BlogPostHeader.vue`. Everything path/URL-driven (RSS, blog listing, back links) then updates automatically when a locale is added.
+The locale service supplies data to `config.mts`, `rss.ts`, and the locale-aware theme components. These consumers update automatically when you add a locale.
 
 ## Blog & RSS
 
-Blog posts live in `blog/` (EN) plus one folder per locale (`ru/blog/`, `es/blog/`, `zh/blog/`, `pl/blog/`). Each locale has its own index (`blog/index.md`) that renders `<BlogPosts folder="/blog/" />`, and its own RSS feed at `/feed.xml`, `/ru/feed.xml`, `/es/feed.xml`, … (generated by `.vitepress/rss.ts` at build time and served live in dev).
+English blog posts are in `blog/`. Each translation has a corresponding locale directory. Each locale has a `blog/index.md` file and an RSS feed. The `.vitepress/rss.ts` module creates the feeds during the build and development server startup.
 
 **Adding a post:**
-1. Create `blog/my-post.md` (EN) and the translated post in each locale's `blog/` folder.
-2. No sidebar entry needed — posts are listed automatically by date, newest first.
+1. Create `blog/my-post.md` for the English post. Create the translated post in each locale directory.
+2. Do not add a sidebar entry. The blog list sorts posts by date.
 
 **Required frontmatter:**
 ```yaml
@@ -148,139 +151,161 @@ description: "Short description for the blog list and RSS."
 author: Author Name
 ---
 ```
-- `title`, `date`, `description` — used by both the blog list and RSS.
-- `author` — optional; falls back to "Rapira Team".
-- `image` — optional; shown as the post hero and in `og:image`. Omit it if you have no asset (no broken image is rendered).
+- `title`, `date`, `description`: The blog list and RSS use these fields.
+- `author`: Optional. The default value is "Rapira Team".
+- `image`: Optional. The post header and `og:image` use this field. Omit it when no image exists.
 
-**Post assets structure:** each post gets its own folder `public/blog/<page-name>/` holding *all* of its images — the preview plus every in-article image. Reference them root-absolute (no `public/` prefix):
-- Preview: `public/blog/<page-name>/preview.jpg` → `image: /blog/<page-name>/preview.jpg`. One preview is normally shared by every locale (the same `image` path in all translations); for a localized image add a language suffix, e.g. `preview-ru.jpg`.
-- List thumbnail: `preview.thumb.jpg` next to the preview. `posts.data.ts` derives the path by swapping the extension for `.thumb.jpg`; thumbnails are generated by `npm run thumbnails` (`scripts/generate-thumbnails.mjs`, using `sharp`), which `npm run build` runs automatically. They are gitignored (regenerated on every build); if one is missing, `BlogPosts.vue` falls back to the full preview.
-- In-article images live in the same folder (`img-1.png`, …); locale-specific variants use a language suffix, e.g. `img-2-ru.jpg`.
-- `og:image` must be a raster (PNG/JPG), ideally 1200×630 — social networks don't render SVG.
+**Post assets structure:** Store all post images in `public/blog/<page-name>/`. Use root-absolute references without the `public/` prefix.
+- Preview: Use `public/blog/<page-name>/preview.jpg` and set `image: /blog/<page-name>/preview.jpg`. All locales normally use the same preview. Add a language suffix for a localized image.
+- List thumbnail: Put `preview.thumb.jpg` next to the preview. `posts.data.ts` replaces the preview extension with `.thumb.jpg`. The `npm run thumbnails` command creates thumbnails. The build runs this command. Git ignores generated thumbnails. `BlogPosts.vue` uses the full preview when a thumbnail is absent.
+- Store article images in the same folder (`img-1.png`, …). Add a language suffix to a locale-specific file, such as `img-2-ru.jpg`.
+- `og:image` must be a raster image (PNG or JPG), preferably 1200×630. Social networks do not render SVG.
 
-`lastUpdated` and the edit link are automatically disabled on blog posts.
+The theme disables `lastUpdated` and the edit link on blog posts.
 
 ## FAQ (`::: question`)
 
-Questions can be written anywhere in an article using `::: question` blocks — docs pages and blog posts alike. At build time they are extracted from their positions and grouped into collapsible spoilers. What belongs in one is the Register block's call; this section is the mechanics.
+Use `::: question` blocks for implementation explanations in documentation pages and blog posts. The build groups these blocks into collapsible sections. The Register section defines suitable content.
 
 **Syntax:**
 ```md
 ::: question Can I run the site without installing anything globally?
-Yes — `npm install` locally, then `npm run dev`.
+Run `npm install` locally. Then run `npm run dev`.
 :::
 ```
 
 **Frontmatter `faqLevel`** controls where questions render:
 ```yaml
-faqLevel: 1       # default — end of each h1 section (= end of page for most docs)
-faqLevel: 2       # end of each h2 section
-faqLevel: 0       # end of page (ignores headings)
-faqLevel: false   # no collection — questions stay in place as inline spoilers
+faqLevel: 1       # Default. Insert after each h1 section.
+faqLevel: 2       # Insert after each h2 section.
+faqLevel: 0       # Insert at the end of the page.
+faqLevel: false   # Keep questions at their source locations.
 ```
 
 **Plugin:** `.vitepress/faq.ts`. **Styles:** `.faq-section`, `.faq-item` in `theme/style.css`.
 
-## Home Landing Cover
+## Home Page Header
 
-The home pages (`index.md` in each locale) use `layout: home` **without** a `hero:` frontmatter block. The landing cover is a custom component, `theme/RapiraHero.vue`, injected via the `home-hero-before` layout slot. Top to bottom: the theme-aware RAPIRA wordmark (`public/rapira-bg-light.svg` / `rapira-bg-dark.svg`) centered on the page background — no card, frame or border — then the lede saying what the project is, then two frameless text actions, "Get Started" + "GitHub" (plain links styled via `.rapira-hero-action`, not `VPButton`; the GitHub one carries `GitHubIcon.vue`).
+Each locale home page uses `layout: home` without a `hero:` block. The `home-hero-before` slot contains `theme/RapiraHero.vue`. The component shows the RAPIRA wordmark first. It then shows the description and two text links. The links are "Get Started" and "GitHub."
 
-- **The lede copy lives in frontmatter**, not in the component: `tagline` (what Rapira is) and `pitch` (the line below it). Both are optional — each `<p>` is skipped when its field is missing. Keeping them in `index.md` means translators edit content, not Vue.
-- The "Get Started" and "Download" labels *are* per-locale UI strings in `RapiraHero.vue`, since they are UI rather than content; the URLs come from the locale service (`getDocsUrl`, `getDownloadUrl`). Add a `startLabels` and a `downloadLabels` entry when adding a locale.
-- The cover sets `user-select: none` (decoration, and a stray drag-select looks broken) and the wordmark is `draggable="false"`. `.rapira-lede` opts back into selection — it is prose worth copying.
+- **Put the page description in frontmatter.** Use `tagline` for the first line and `pitch` for the second line. Both fields are optional. Translators edit these fields in `index.md`.
+- `RapiraHero.vue` contains the locale-specific "Get Started" and "Download" labels. The locale service provides their URLs. Add both label entries when you add a locale.
+- The header sets `user-select: none`, and the wordmark sets `draggable="false"`. The `.rapira-lede` rule permits text selection for the description.
 - The `features:` frontmatter block still renders below the cover as usual.
 - Styles: `.rapira-hero*`, `.rapira-lede*` in `theme/style.css`.
 
 ## Home Feature Segments
 
-Below the `features:` cards each home page carries a series of full-width segments, written in the page's markdown as `<RapiraSection>` (`theme/RapiraSection.vue`, registered globally): a heading row spanning the segment's full width (`title` prop, optional `eyebrow` above it), then the markdown prose from the default slot plus an optional `link` + `link-text` under it. An optional `#aside` slot puts a second column on the right (cards, a code block, an image); without it the prose runs single-column at a capped measure. An optional `#footer` slot renders a full-width row under both columns (the networking segment puts its `FeatureTags` there). One shared frame keeps the series consistent; the aside is individual. Segments are separated by whitespace alone — no rules between them — so a new one only has to be appended before the sponsors block.
+Each home page contains `<RapiraSection>` components after the `features:` cards. Each component has a full-width heading from the `title` property. The optional `eyebrow` property appears above the title. The default slot contains the text. The optional `link` and `link-text` properties add a link. The optional `#aside` slot adds a second column. The optional `#footer` slot adds a row below both columns. Whitespace separates adjacent sections. Add new sections before the sponsors section.
 
-All copy lives in `index.md` — props and slot content, never in the component — so translators never open a `.vue` file. Data-driven asides declare their items in a `<script setup>` block on the page, the same pattern `CodeTabs` uses.
+Put all section text, properties, and slot content in `index.md`. Do not put page text in the component. Define data-driven aside items in the page's `<script setup>` block.
 
 Segment building blocks:
 
-- **`FeatureTags`** (HTTP-server segment, `#footer`) — a flat tag row (`items: [{ label, ready? }]`). `ready` defaults to true; a tag with `ready: false` is drawn dimmed, dashed and with a hollow dot: that is how the site shows a feature that is not shipped yet, and the drawing is left to say it — there is no caption spelling it out.
-- **`.rapira-section-art`** (`#aside`) - a decorative theme-aware image (`VPImage`) painted as the background of the aside column: absolutely positioned, fitted to the height the text gives the row, hidden together with its column on the stacked layout. No segment uses it currently: the HTTP-server segment runs single-column in every locale. The CSS support stays in `theme/style.css` for a future segment.
-- **`TextTabs`** (interop segment, `#aside`) — a tab strip over short prose panels, one per alternative being compared (`tabs: [{ name, slot, users? }]`). Each panel's prose goes in a `<template #…>` slot; `users` names the products built on that approach and is drawn as small tags under the prose. Panels share one grid cell, so the block keeps the height of its tallest panel and switching tabs never shifts the page. Styles are scoped in the component.
+- **`FeatureTags`** shows a row of tags in the HTTP section footer. The `ready` property defaults to true. A false value uses a dimmed, dashed tag with a hollow marker. The component does not add a status caption.
+- **`.rapira-section-art`** provides an optional image for the aside column. CSS positions the image and hides it in the single-column layout. No section currently uses this class. Keep its CSS for possible future use.
+- **`TextTabs`** shows one short text panel for each alternative. Put each panel in a `<template #…>` slot. The `users` field lists products that use the alternative. The component shows these products as tags. All panels share one grid cell to prevent layout movement.
 
-Frame styles are `.rapira-section*` in `theme/style.css` (they have to outrank `.vp-doc`, since the segments render inside the home page's markdown container); aside internals stay scoped in their own component.
+The `.rapira-section*` rules in `theme/style.css` define section styles. Their specificity must exceed `.vp-doc`. Keep aside-specific styles in the component.
 
-**Sponsors block:** each home page ends with a `<div class="sponsors-section">` showing the sponsor logo (`public/sponsors/logo-buhta.svg`, links to buhta.com) plus a "Become a Sponsor | Star on GitHub" CTA. "Become a Sponsor" points to the in-site sponsor page (`/sponsor`, `/ru/sponsor`, …); the heading and CTA text are translated inline per locale. Styles: `.sponsors-section`, `.sponsor-*` in `theme/style.css` (the logo is auto-inverted in dark mode). The sponsor pages themselves live at `sponsor.md` in each locale.
+**Sponsors block:** Each home page ends with `<div class="sponsors-section">`. It contains the sponsor logo and two links. "Become a Sponsor" links to the locale sponsor page. "Star on GitHub" links to GitHub. Translate the heading and link text in each locale. The `.sponsors-section` and `.sponsor-*` rules define the styles.
 
 ## Download Page
 
-`download.md` in every locale (`/download`, `/ru/download`, …) walks the visitor from OS (preselected from the User-Agent) through architecture, PHP version and package format down to one download button, with the asset's SHA-256 shown under it. The hero's "Download" action links here via `getDownloadUrl(locale)`.
+Each locale has a `download.md` page. The page selects an operating system, architecture, PHP version, and package format. It then shows a download button and SHA-256 value. The hero uses `getDownloadUrl(locale)` to link to this page.
 
-- **Data is baked at build time** by `.vitepress/theme/builds.data.ts`: at `npm run build` (and once per dev-server start) it fetches `releases/latest` of `rapira-rs/rapira` **and** `rapira-rs/rapira-windows` (Windows builds live in their own repo; production runs on Linux, so every non-Linux build is dev-only — the page says so in the `#dev-note` slot, shown while any non-Linux OS is selected), parses the asset names into (os, arch, php, format) and joins each asset with its hash from the release's `SHA256SUMS.txt`. Everything is derived from asset names, so a new PHP version or architecture appears without code changes; a fetch failure logs a warning and yields an empty list (the page then links to the releases) instead of failing the build. Freshness caveat: a release published between deploys reaches the page with the next deploy.
-- **`DownloadBuilds.vue`** renders the picker. All UI strings arrive through the `labels` prop from the page's `<script setup>`, so translators edit `download.md`, never the component. Styles are scoped in the component.
-- Both workflows pass `GITHUB_TOKEN` to the build step — anonymous API calls from shared Actions runner IPs hit the rate limit.
+- **`.vitepress/theme/builds.data.ts` creates release data during the build.** It requests the latest release from the Linux and Windows repositories. It parses each asset name into operating system, architecture, PHP version, and format. It associates each asset with its SHA-256 value. A request failure logs a warning and returns an empty list. The page then links to the releases. A new release appears after the next deployment.
+- **`DownloadBuilds.vue` renders the selector.** The page passes all UI strings through the `labels` property. Translators edit `download.md`, not the component.
+- Both workflows pass `GITHUB_TOKEN` to the build step. Anonymous requests from shared runner addresses can reach the API limit.
 
 ## Custom `:::` Blocks
 
-`.vitepress/info-block.ts` enhances `::: info`, `::: tip`, `::: warning`, `::: danger` blocks **without a custom title**: it drops the default heading and adds a `data-*-icon` attribute so CSS can draw an icon on the left border. Blocks with a custom title (`::: info My Title`) are left untouched.
+`.vitepress/info-block.ts` changes blocks that do not have a custom title. It removes the default heading. It adds a `data-*-icon` attribute for the CSS icon. It does not change blocks that have custom titles.
 
 ## Markdown Features
 
-Beyond standard Markdown, the `:::` callouts, and `::: question` spoilers, pages can use:
+Pages can use these features in addition to standard Markdown and `:::` blocks:
 
-- **Code blocks**: syntax highlighting + language label + copy button; line highlighting (```` ```rust{2,4} ````); focus / diff via inline `// [!code focus]`, `// [!code --]`, `// [!code ++]` markers; tabbed groups (`::: code-group` with fenced blocks inside, each labelled `` ```bash [npm] ``).
-- **File tabs**: `<CodeTabs :tabs="…">` (`theme/CodeTabs.vue`, registered globally) wraps several code blocks in an editor-style tab bar — one tab per file. The tab list is declared in a `<script setup>` block on the page (`{ name, slot, icon? }`) and each snippet goes in a `<template #slot>`. The icon is derived from the extension in `name`; the glyphs are drawn inline in the component, so a new language needs an accent colour there rather than an asset in `public/`. Use it for files that belong together (entry script + config); use `::: code-group` for alternative forms of the same thing (npm/pnpm/yarn).
-- **Mermaid diagrams**: a fenced ```` ```mermaid ```` block (via `vitepress-plugin-mermaid`).
-- **Badges**: `<Badge type="tip|warning|danger|info" text="…" />` for inline status labels.
-- **Tables**: standard GFM tables.
+- **Code blocks** support syntax highlighting, language labels, copy buttons, and highlighted lines.
+- Use inline markers for focused or changed lines: `// [!code focus]`, `// [!code --]`, and `// [!code ++]`.
+- Use `::: code-group` for alternative code blocks. Label each fenced block, for example, `` ```bash [npm] ``.
+- **File tabs** use the global `<CodeTabs :tabs="…">` component from `theme/CodeTabs.vue`.
+- Declare the file list in a page `<script setup>` block with `{ name, slot, icon? }`.
+- Put each file example in a `<template #slot>` element.
+- The component selects an icon from the file extension in `name`.
+- Add a language color in the component when you add support for a new file type.
+- Use file tabs for related files. Use `::: code-group` for alternative versions of one example.
+- **Mermaid diagrams** use a fenced ```` ```mermaid ```` block.
+- **Badges** use `<Badge type="tip|warning|danger|info" text="…" />`.
+- **Tables** use standard GFM syntax.
 
-**Live, rendered examples of all of the above live in `docs/contributing.md`** (and its per-locale translations) — the contributor cheat-sheet page. Update it when adding or changing an authoring feature.
+`docs/contributing.md` and its translations contain rendered examples. Update these pages when you change an authoring feature.
 
 ## Page Frontmatter
 
 Any page can set these in the YAML block at the top:
 
-- `title`, `description` — override `<title>` / meta description and the `og:` tags.
-- `outline` — the right-hand "On this page" menu: `[2, 3]` (default, H2–H3), `deep` (H2–H6), `2` (only H2), `false` (hidden).
-- `aside: false` — hide the right column; `sidebar: false` — hide the left sidebar.
-- `lastUpdated: false`, `editLink: false` — hide those on that page (auto-disabled on blog posts).
-- `prev` / `next` — relabel/redirect footer nav (`{ text, link }`) or hide with `false`.
-- `layout` — `doc` (default), `home` (landing), `page` (bare, no sidebar/outline).
-- `faqLevel` — where `::: question` blocks collect (see FAQ above).
+- `title`, `description`: Override `<title>`, the meta description, and the `og:` tags.
+- `outline`: Configure the right "On this page" menu. Use `[2, 3]`, `deep`, `2`, or `false`.
+- `aside: false`: Hide the right column.
+- `sidebar: false`: Hide the left sidebar.
+- `lastUpdated: false`, `editLink: false`: Hide these items on that page. Blog posts hide them automatically.
+- `prev` / `next`: Change a footer link or hide it with `false`.
+- `layout`: Use `doc` by default. Use `home` for a home page. Use `page` for no sidebar or outline.
+- `faqLevel`: Configure where `::: question` blocks collect. See FAQ above.
 - Blog posts additionally use `date`, `author`, `image` (see Blog & RSS).
-- Home pages additionally use `tagline` and `pitch` for the landing lede (see Home Landing Cover).
+- Home pages also use `tagline` and `pitch` for the introduction. See Home Page Header.
 
 ## CSS & Styling
 
-**Rule of thumb: reach for VitePress first, write CSS last.** `theme/style.css` must stay small — it is for the handful of things the default theme genuinely can't express, not a dumping ground for customization the framework already offers.
+**Use VitePress features before you write custom CSS.** Keep `theme/style.css` small. Add only styles that the default theme cannot provide.
 
-Before adding a single rule, in this order:
+Use this order before you add a rule:
 
-1. **CSS variables.** VitePress exposes a large set (`--vp-c-brand-*`, `--vp-c-bg-soft`, `--vp-c-divider`, `--vp-code-bg`, `--vp-custom-block-*-border/bg`, `--vp-layout-max-width`, …). Retheming means reassigning a variable in `:root` / `.dark`, not restyling a component. Never hardcode a color, background or border that a variable already covers — that breaks dark mode.
-2. **Built-in theme components.** Import from `vitepress/theme` instead of rebuilding markup: `VPButton`, `VPImage`, `VPBadge`, `VPTeamMembers`, etc. See `theme/RapiraHero.vue` — the wordmark is a `<VPImage>`, so the light/dark swap comes for free. Write your own markup only when no built-in matches the design (the hero's frameless text actions, for instance — `VPButton` always draws a pill).
-3. **Built-in classes and markdown features.** `.vp-doc`, `.custom-block`, `.VPFeature`, code groups, `:::` containers, `[!code focus]`, `vp-raw` — use them rather than styling raw elements.
-4. **Frontmatter and config.** Layout, hero, features, nav, sidebar, aside and outline are configured in `config.mts` or page frontmatter, not with CSS overrides.
-5. **Only then** write custom CSS — and only for something genuinely project-specific (e.g. `.rapira-hero*`, `.faq-*`).
+1. **CSS variables.** VitePress provides variables such as `--vp-c-brand-*`, `--vp-c-bg-soft`, and `--vp-c-divider`.
+   Change a variable in `:root` or `.dark` instead of restyling a component.
+   Do not set a color, background, or border when a theme variable provides the value.
+2. **Built-in theme components.** Import components such as `VPButton`, `VPImage`, `VPBadge`, and `VPTeamMembers` from `vitepress/theme`.
+   For example, `theme/RapiraHero.vue` uses `<VPImage>` to select the light or dark wordmark.
+   Write custom markup only when no built-in component has the required design.
+3. **Built-in classes and Markdown features.** Use `.vp-doc`, `.custom-block`, `.VPFeature`, code groups, `:::` containers, `[!code focus]`, and `vp-raw`.
+4. **Frontmatter and configuration.** Configure the layout, hero, features, navigation, sidebar, aside, and outline without CSS overrides.
+5. **Custom CSS.** Add custom CSS only for project-specific elements such as `.rapira-hero*` and `.faq-*`.
 
 When custom CSS is unavoidable:
 
-- Use existing variables for every color, spacing and radius value; introduce a new `--rapira-*` variable only for a value reused in several places.
+- Use existing variables for each color, space, and radius value.
+- Add a `--rapira-*` variable only when several rules use the value.
 - Prefix project-specific classes (`.rapira-*`, `.faq-*`) and keep them in the matching commented section of `style.css`.
-- Treat `!important` and overrides of internal `.VP*` classes as a smell: they break on VitePress upgrades. If you need one, add a short comment saying why the framework couldn't do it.
-- Verify in **both** light and dark themes before considering it done.
-- Deleting is preferred over adding: if a rule duplicates default theme behaviour, drop it.
+- Avoid `!important` and overrides of internal `.VP*` classes. VitePress updates can change these classes.
+- If an override is necessary, add a short comment that explains the reason.
+- Verify each change in **both** light and dark themes.
+- Delete a rule that duplicates default theme behavior.
 
 ## Typography
 
-The site does not use the Inter that VitePress ships. Text is set in **IBM Plex Sans** and code in **JetBrains Mono**, both OFL, both self-hosted — no request goes to a font CDN.
+The site uses self-hosted **IBM Plex Sans** for text and **JetBrains Mono** for code. Both fonts use the OFL license.
 
-- **Files:** `public/fonts/`, the variable cut of each face split by script (`latin`, `latin-ext`, `cyrillic`, `cyrillic-ext`, `greek`, `vietnamese`; Plex additionally in italic). The subsets carry a `unicode-range`, so a reader only downloads the scripts the page actually uses. Both OFL texts sit next to them. To refresh, re-download the same file names from `@fontsource-variable/ibm-plex-sans` and `@fontsource-variable/jetbrains-mono`.
-- **`@font-face` rules:** `theme/fonts.css`, imported from `theme/index.ts` ahead of `style.css`. They declare `format('woff2-variations')` — that keyword is what lets the browser interpolate a weight such as 350 instead of snapping to the nearest static instance.
-- **Families and weights:** the `TYPOGRAPHY` section at the top of `theme/style.css`. `--vp-font-family-base` / `--vp-font-family-mono` name the faces (plus a `:lang(zh)` variant that keeps `'Punctuation SC'` in front, since neither face covers Chinese), and the whole weight scale lives in `--rapira-fw-*` variables — one per role (`body`, `heading`, `nav`, `sidebar-group`, `sidebar-item`, `outline-title`, `outline-item`). VitePress hardcodes every weight in its own stylesheets, so those variables are applied through overrides right below; retune weights there and nowhere else.
-- Coding ligatures are off (`font-variant-ligatures: none` on `code`/`kbd`/`pre`/`samp`): documentation shows the characters the reader types.
-- The mermaid font is set separately in `config.mts` (`mermaid.fontFamily`) — it renders into an SVG and does not inherit the page variables.
+- **Files:** `public/fonts/` contains variable fonts for each supported script.
+- Each subset has a `unicode-range`. The browser downloads only the required subsets.
+- The directory also contains both OFL license files.
+- To update the fonts, download the same file names from the two `@fontsource-variable` packages.
+- **`@font-face` rules:** `theme/fonts.css` contains the rules. `theme/index.ts` imports this file before `style.css`.
+- The rules use `format('woff2-variations')`. This format lets the browser use intermediate font weights.
+- **Families and weights:** the `TYPOGRAPHY` section in `theme/style.css` defines them.
+- The `:lang(zh)` variant puts `'Punctuation SC'` first because the two project fonts do not contain Chinese characters.
+- The `--rapira-fw-*` variables define one weight for each text role.
+- VitePress sets weights in its stylesheets. The rules below the variables override these values.
+- Change font weights only in the variables.
+- Code elements disable ligatures with `font-variant-ligatures: none`. Examples show the exact characters that the reader must type.
+- `mermaid.fontFamily` in `config.mts` sets the Mermaid font. Mermaid SVG output does not inherit the page variables.
 
 ## VitePress Commands
 
 ```bash
-npm run dev      # Dev server (hot reload)
-npm run build    # Build to .vitepress/dist/
-npm run preview  # Preview the production build
+npm run dev      # Start the development server with hot reload.
+npm run build    # Build the site in .vitepress/dist/.
+npm run preview  # Preview the production build.
 ```
 
 ## Configuration
@@ -289,72 +314,84 @@ npm run preview  # Preview the production build
 
 - `locales`: `root` (EN) + `ru`, `es`, `zh`, `pl`, each with its own `nav`/`sidebar` and UI labels.
 - `cleanUrls: true`, `lastUpdated: true`, `search.provider: 'local'`.
-- Nav and sidebar are defined per locale inside `locales.*.themeConfig`.
+- Each `locales.*.themeConfig` block defines the navigation and sidebar for one locale.
 - Brand accent color: `--vp-c-brand-*` at the top of `theme/style.css`.
 - GitHub stars widget: the tracked repo is the `repo` constant in `theme/GitHubStars.vue`.
-- **Adding a locale:** add an entry to `locales` in `.vitepress/locales.ts` (blog title/description/label) **and** a locale block to `.vitepress/config.mts` (nav, sidebar, UI labels, RSS `head` link). RSS feeds are then generated automatically for the new locale.
+- **Adding a locale:** Add an entry to `locales` in `.vitepress/locales.ts`.
+- Add a locale block to `.vitepress/config.mts` for navigation, UI labels, and the RSS link.
+- The build then creates an RSS feed for the locale.
 
 ## Git Commits
 
-**Never add a `Co-Authored-By:` trailer to commit messages.** This project uses `Assisted-By:` instead — it overrides any default instruction to co-author commits.
+**Do not add a `Co-Authored-By:` trailer to commit messages.** This project uses `Assisted-By:` instead.
 
-End every commit message with a single `Assisted-By:` trailer naming **the model that actually did the work** — the one you are running as right now, not the one in the example below:
+End each commit message with one `Assisted-By:` trailer. Name **the model that did the work**.
 
 ```
 Assisted-By: <model name> <noreply@anthropic.com>
 ```
 
-For example, a commit written by Opus 5 with the 1M-token context window ends with `Assisted-By: Claude Opus 5 (1M context) <noreply@anthropic.com>`; one written by Sonnet 5 ends with `Assisted-By: Claude Sonnet 5 <noreply@anthropic.com>`. Use the model's human-readable name, not its API id (`claude-opus-5`), and note the context-window variant only when you are running one. If you genuinely don't know which model you are, ask rather than copying the example verbatim.
+Use the model's readable name instead of its API identifier. Include the context size only when it identifies the model variant.
+For example, use `Assisted-By: Claude Sonnet 5 <noreply@anthropic.com>` for Sonnet 5. Ask for the model name if it is not available.
 
 ## CI & Deployment
 
-Two workflows, both running `npm ci` + `npm run build` on Node 24:
+Two workflows run `npm ci` and `npm run build` on Node 24:
 
-- `.github/workflows/ci.yml` — runs on every pull request against `main`. Build only, no deploy: it is the gate that keeps a broken `main` from ever reaching production. VitePress fails the build on dead internal links, so this doubles as a link check.
-- `.github/workflows/deploy.yml` — runs on every push to `main` and publishes `.vitepress/dist` to GitHub Pages at **https://rapira.rs/**. It also listens for a `repository_dispatch` event (`rapira-release`, sent by the release workflows of `rapira-rs/rapira` and `rapira-rs/rapira-windows` with a fine-grained PAT) and runs twice a day as a backstop — the download page bakes release data in at build time, so the site must rebuild on releases, not only on docs changes.
+- `.github/workflows/ci.yml` runs on each pull request to `main`. It builds the site without deployment.
+- VitePress reports invalid internal links during this build.
+- `.github/workflows/deploy.yml` runs on each push to `main`. It publishes `.vitepress/dist` to **https://rapira.rs/**.
+- The workflow also accepts the `rapira-release` repository event from both release repositories.
+- A scheduled job runs twice each day if a release event does not start the workflow.
+- The build includes current release data in the download page. Therefore, each release requires a new site build.
 
-The Pages source must be set to **GitHub Actions** (Settings → Pages → Source). For the CI gate to actually block a merge, `Build` has to be a required status check in the branch protection rules for `main` (Settings → Branches).
+Set the Pages source to **GitHub Actions** in Settings → Pages → Source. Make `Build` a required check in the `main` branch protection rules.
 
-**Custom domain.** The site is served from `rapira.rs`, and that lives in two places that must always agree:
+**Custom domain.** Two settings define the `rapira.rs` domain. Keep their values equal.
 
-- `public/CNAME` — a one-line file copied verbatim into `dist`. Because we publish a build artifact rather than a branch, GitHub has no other way to learn the domain: delete this file and the custom domain resets on the next deploy.
-- `siteUrl` in `.vitepress/locales.ts` — the canonical origin used for every absolute URL (`og:`/`twitter:` tags in `config.mts`, links and `<guid>`s in `rss.ts`). Never hardcode the origin anywhere else.
+- `public/CNAME` contains one line. The build copies this file into `dist`.
+- GitHub Pages reads the custom domain from this file. Do not delete it.
+- `siteUrl` in `.vitepress/locales.ts` supplies the base for all absolute site URLs.
+- Use `siteUrl` for metadata, RSS links, and RSS identifiers. Do not put the base URL in other files.
 
-The `editLink.pattern` entries still point at `github.com/rapira-rs/…` — those are repository links, not site links, and must not follow the domain.
+The `editLink.pattern` entries use `github.com/rapira-rs/…`. These repository links do not use the site domain.
 
 ---
 
 # Translating the Documentation
 
-The docs are multilingual. **English (root) is the source of truth**; translations live in `ru/` (Russian), `es/` (Spanish), `zh/` (Simplified Chinese) and `pl/` (Polish). Keep every locale in sync with English (see "Syncing translations" above).
+The documentation has five languages. **English in the root is the canonical version.** Translations are in `ru/`, `es/`, `zh/`, and `pl/`.
+Keep each locale synchronized with English. See "Syncing translations" for the required process.
 
-## The one rule that matters most: translate *into* the target language, not *from* English
+## Translation method
 
-A word-for-word translation reads as a translation — stiff word order, English clause structure, calqued idioms. That always forces a costly second pass to make it sound natural. **Avoid the second pass by making the first pass already read as if a native technical writer wrote it from scratch.**
+A word-for-word translation can use incorrect word order and sentence structure. Write natural text in the target language during the first translation.
 
-Concretely, on the first pass:
-- **Re-think the sentence, don't transcode it.** Read the English, understand it, then say the same thing the way a native speaker would. Do not mirror the source's sentence and clause structure.
-- **Restructure freely.** Split or merge sentences, reorder clauses, and move emphasis to match the target language's natural rhythm and word order.
-- **Replace idioms with native equivalents**, never a literal calque.
-- **Prefer active voice and short, direct sentences** unless the target language conventionally prefers otherwise.
-- **Read it aloud in your head.** If it sounds translated, rewrite it *before* moving on — that is the whole point.
+Use these rules during the first translation:
+- Understand the English meaning before you write the translation.
+- Use the sentence structure and word order of the target language.
+- Split or combine sentences when the target language requires it.
+- Replace each English idiom with a literal phrase in the target language.
+- Prefer active voice and short sentences unless the target language requires a different structure.
+- Review the translation before you continue. Rewrite text that does not sound natural.
 
-Match the tone of the English source: informal but technically precise. Write for newcomers — context and motivation first, then the detail. Use the register a native technical audience expects, and keep it consistent within a locale.
+Use the same direct technical tone as the English text. Use a consistent technical register in each locale.
 
-## Buttons, links and other UI microcopy
+## Buttons, links, and other UI text
 
-Short strings suffer the most from flat, literal translation. Make them **lively and as short as the context allows**:
+Keep short UI text clear and concise:
 
-- **Use a verb, not a noun phrase.** A button is an action: «Поставить звезду», not «Звезда на GitHub»; "Give us a star", not "GitHub star".
-- **Drop what the context already says.** A link that points to GitHub does not need "on GitHub" in its text; an icon or the surrounding label already carries it. Redundant qualifiers make microcopy heavier and less human.
-- **Shortest natural phrasing wins.** If a shorter wording reads just as clearly, use it — «Поставить звезду», `Give us a star`, «Danos una estrella», 「点个星」, „Zostaw gwiazdkę".
-- When someone quotes a phrasing they want (in the task, in quotes), use it **verbatim** — don't pad it.
+- **Use a verb for an action.** Use «Поставить звезду» instead of «Звезда на GitHub».
+- **Remove information that the context supplies.** A GitHub icon can make "on GitHub" unnecessary.
+- **Use the shortest clear phrase.** Examples include «Поставить звезду», `Give us a star`, «Danos una estrella», 「点个星」, and „Zostaw gwiazdkę".
+- Use requested text **without changes** when a task gives the exact text in quotation marks.
 
-## What never gets translated
+## Content without translation
 
 - Code, identifiers (classes, methods, traits, crates, functions, attributes), package names, CLI flags, config keys.
 - Code examples stay unchanged.
-- Product/brand names (e.g. `Rapira`), though they may inflect where the language grammatically requires it (e.g. Polish `Rapiry`, Russian «Rapira» stays Latin).
+- Product and brand names, such as `Rapira`.
+- A language can inflect a brand name when its grammar requires inflection.
 
 ## Per-language notes
 
@@ -362,34 +399,40 @@ Examples below are intentionally written in each target language.
 
 ### Russian (`ru`)
 - Address the reader as «вы» (lowercase), never «ты».
-- Full sentences, never a telegraphic style: «Зарегистрируйте плагин и вызовите его», not «Зарегистрируйте плагин. Вызовите.»
+- Use complete sentences.
+- Put one instruction in each sentence: «Зарегистрируйте плагин. Затем вызовите его.»
 - End every list item with a period.
 - Prefer concrete wording over abstract CS jargon: «тот же самый экземпляр», not «идентичность по ссылке».
-- Don't calque "bridge" as «мост» — use «адаптер» or «интеграция» by context.
-- Avoid «в разы»; don't overuse dashes — where a line reads telegraphic, use commas, colons or conjunctions.
+- Translate "bridge" as «адаптер» or «интеграция», as the context requires.
+- Avoid «в разы».
+- Use commas, colons, or conjunctions instead of unnecessary dashes.
 - Avoid officialese: «проверить», not «осуществить проверку».
 
 ### Spanish (`es`)
-- Address the reader with informal "tú" (modern dev-doc convention) and keep it consistent.
-- Watch false friends: "library" → «biblioteca» (not «librería»); "actual" → «actualmente/real» (not «actual»); "to support" → «admitir/ser compatible con» (not «soportar»).
+- Address the reader with informal "tú". Use it consistently.
+- Translate "library" as «biblioteca», not «librería».
+- Translate "actual" as «actualmente» or «real», as the context requires.
+- Translate "to support" as «admitir» or «ser compatible con», as the context requires.
 - Use native punctuation, including opening marks: «¿Cómo…?», «¡…!».
-- Don't calque English structure: «una vez configurado…» reads better than a literal «después de que hayas configurado…».
+- Use Spanish sentence structure. For example, use «una vez configurado…».
 
 ### Simplified Chinese (`zh`)
-- Write natural Simplified Chinese; do not transcode English sentence structure.
-- Use full-width punctuation for Chinese text（，。？！：、), and keep code, identifiers and Latin terms in half-width ASCII.
+- Write natural Simplified Chinese. Do not copy English sentence structure.
+- Use full-width punctuation for Chinese text（，。？！：、).
+- Keep code, identifiers, and Latin terms in half-width ASCII.
 - Put a space between Chinese characters and adjacent Latin words or numbers: «使用 Rapira 运行 3 个测试».
-- Keep it concise, as Chinese technical writing tends to be; use a neutral/impersonal voice or «你» consistently.
+- Keep the text concise.
+- Use a neutral voice or «你» consistently.
 
 ### Polish (`pl`)
-- Address the reader informally in second person ("Uruchom…", "Zobacz…"), consistent with dev-doc convention.
+- Address the reader informally in second person, for example, "Uruchom…" and "Zobacz…".
 - Inflect the product name where grammar requires: «dokumentacja Rapiry», «pracę z Rapirą».
-- Keep native punctuation and spacing; don't calque English word order.
+- Use Polish punctuation and spacing.
+- Use Polish word order.
 - Avoid anglicisms where a natural Polish term exists.
 
-## Quality check before finalizing
+## Final quality check
 
-- Would a native developer phrase it this way?
-- Does it sound natural when read aloud — not like a translation?
-- Is the technical meaning fully preserved?
-- Do the sections, headings and structure still match the English source?
+- Confirm that the text sounds natural to a native developer.
+- Confirm that the translation preserves the full technical meaning.
+- Confirm that sections, headings, and structure match the English source.

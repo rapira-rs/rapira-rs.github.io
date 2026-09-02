@@ -15,8 +15,8 @@ Rapira 把所有内容都写进同一条流：服务器自身的生命周期事�
 
 ```toml
 [log]
-level = "error"   # error (default) | warn | info | debug | trace
-format = "plain"  # plain (default) | json
+level = "error"   # Use error, warn, info, debug, or trace. Default: error.
+format = "plain"  # Use plain or json. Default: plain.
 ```
 
 `level` 一次给所有目标定下同一条下限：`error` 只放行错误，`warn` 再添上警告，一路往下到 `trace`，那就是什么都放行。`format` 决定每条记录长什么样——是给人读的文本行，还是一行一个 JSON 对象。

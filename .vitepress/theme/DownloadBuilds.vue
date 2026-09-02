@@ -3,26 +3,24 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { data } from './builds.data'
 
 /**
- * The download picker over the build-time release data from `builds.data.ts`:
- * walks the visitor through the build coordinates — OS first (preselected
- * from the User-Agent), then architecture, PHP version and package format —
- * down to a single download button with the asset's SHA-256 under it.
+ * Selects a release asset from build-time data in `builds.data.ts`.
+ * The controls select the operating system, architecture, PHP, and format.
+ * The result contains a download button and SHA-256 value.
  *
- * All UI strings come in through the `labels` prop, so each locale's
- * `download.md` owns its copy and this component stays translation-free.
- * The `dev-note` slot renders while any non-Linux OS is selected — the page
- * puts its dev-only warning there, since production runs on Linux.
+ * The `labels` property supplies all translated UI text.
+ * Each locale defines the text in its `download.md`.
+ * The `dev-note` slot appears when the selected system is not Linux.
  */
 interface Labels {
   os: string
   arch: string
   php: string
   format: string
-  /** Download button text; the version number is appended after it. */
+  /** Download button text. The component adds the version number. */
   download: string
-  /** Shown when the build-time fetch produced no builds at all. */
+  /** Message shown when no build data is available. */
   error: string
-  /** Text of the releases-page link shown in the error state. */
+  /** Releases page link text for the error state. */
   releases: string
 }
 
@@ -55,8 +53,8 @@ const formatList = computed(() => FORMAT_ORDER.filter(f => builds.some(
   b => b.os === os.value && b.arch === arch.value && b.php === php.value && b.format === f,
 )))
 
-// Each list repairs its own selection when a choice higher up invalidates it.
-// PHP defaults to the newest version; arch and format to the first offered.
+// Update each selection when an earlier selection makes it invalid.
+// Select the newest PHP and the first available architecture and format.
 watch(osList, list => { if (!list.includes(os.value)) os.value = list[0] ?? '' }, { immediate: true })
 watch(archList, list => { if (!list.includes(arch.value)) arch.value = list[0] ?? '' }, { immediate: true })
 watch(phpList, list => { if (!list.includes(php.value)) php.value = list[list.length - 1] ?? '' }, { immediate: true })
@@ -69,8 +67,8 @@ const build = computed(() => builds.find(
 const sizeLabel = computed(() => build.value ? `${(build.value.size / 1048576).toFixed(1)} MB` : '')
 
 onMounted(() => {
-  // Preselect the visitor's OS. Runs after hydration, so the server-rendered
-  // markup (first OS in the list) stays consistent until the switch.
+  // Select the client operating system after hydration.
+  // Before this selection, rendered markup uses the first system in the list.
   const ua = navigator.userAgent
   const detected = /Windows/i.test(ua) ? 'windows' : /Mac/i.test(ua) ? 'macos' : 'linux'
   if (osList.value.includes(detected)) os.value = detected

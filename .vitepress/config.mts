@@ -446,7 +446,7 @@ gtag('config', 'G-Q7Z14B1SZ9');`],
   },
 
   themeConfig: {
-    // The wordmark replaces the site title in the nav bar; each locale inherits it.
+    // The wordmark replaces the navigation title for each locale.
     logo: {
       light: '/rapira-bg-light.svg',
       dark: '/rapira-bg-dark.svg',
@@ -460,7 +460,7 @@ gtag('config', 'G-Q7Z14B1SZ9');`],
   },
 
   transformPageData(pageData) {
-    // Disable lastUpdated and editLink for blog posts
+    // Disable `lastUpdated` and `editLink` for blog posts.
     const pagePath = '/' + pageData.relativePath.replace(/\.md$/, '')
     if (isBlogPath(pagePath) || isBlogPath(pagePath + '/')) {
       pageData.frontmatter.lastUpdated = false

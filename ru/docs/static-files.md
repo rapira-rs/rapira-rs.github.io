@@ -17,8 +17,8 @@ Rapira отдаёт файлы из каталога через middleware ст�
 middleware = ["static"]
 
 [http.static]
-root = "public"     # required; a relative path resolves against this file's directory
-forbid = [".php"]   # optional; an explicit list replaces this default
+root = "public"     # Required. Relative paths use this file's directory.
+forbid = [".php"]   # Optional. This list replaces the default.
 ```
 
 `middleware` задаёт цепочку middleware в том порядке, в каком они перечислены. Сейчас `static` — единственное имя, которое он принимает.

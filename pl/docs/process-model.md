@@ -95,9 +95,9 @@ Sygnały zatrzymują działający serwer, przeładowują go i każą mu zgłosi�
 Ustaw `supervisor.pidfile`, a twoje skrypty będą miały stałe miejsce, z którego odczytają pid procesu nadrzędnego:
 
 ```bash
-kill -USR2 $(cat /run/rapira.pid)   # rolling reload
-kill -USR1 $(cat /run/rapira.pid)   # status dump
-kill -TERM $(cat /run/rapira.pid)   # graceful stop
+kill -USR2 $(cat /run/rapira.pid)   # Replace workers one at a time.
+kill -USR1 $(cat /run/rapira.pid)   # Write pool status to the log.
+kill -TERM $(cat /run/rapira.pid)   # Stop after current requests finish.
 ```
 
 ::: warning

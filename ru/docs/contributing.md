@@ -128,7 +128,7 @@ echo (new App())->handle($_SERVER['REQUEST_URI']);
 <?php
 require __DIR__ . '/vendor/autoload.php';
 
-$app = new App(); // booted once, reused for every request
+$app = new App(); // The worker creates this object once and reuses it.
 
 $handler = static function () use ($app): void {
     echo $app->handle($_SERVER['REQUEST_URI']);
@@ -184,7 +184,7 @@ echo (new App())->handle($_SERVER['REQUEST_URI']);
 <?php
 require __DIR__ . '/vendor/autoload.php';
 
-$app = new App(); // booted once, reused for every request
+$app = new App(); // The worker creates this object once and reuses it.
 
 $handler = static function () use ($app): void {
     echo $app->handle($_SERVER['REQUEST_URI']);

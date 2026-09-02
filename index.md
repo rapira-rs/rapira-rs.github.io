@@ -2,22 +2,22 @@
 layout: home
 title: Rapira
 description: Rapira is a PHP application server written in Rust.
-tagline: A post-modern PHP application server, written in Rust.
-pitch: A considered architecture and carefully written code, with years of RoadRunner behind them.
+tagline: A PHP application server written in Rust.
+pitch: The RoadRunner maintainers design and implement Rapira.
 
 features:
-  - title: Zero interop
+  - title: Direct Rust and PHP calls
     details: "There is no layer between Rust and PHP: no FastCGI, no sockets, no Goridge, no CGO, no serialization of any kind."
   - title: php-fpm compatible
-    details: "The classic SAPI is supported: Rapira drops in where php-fpm was with no code changes, but runs faster."
+    details: "The Classic SAPI runs existing entry scripts without code changes. Rapira can replace php-fpm and reduce execution time."
   - title: Execution modes
-    details: "Classic → Worker → Dispatcher<br>How far can your app go?"
+    details: "Classic → Worker → Dispatcher<br>Which modes can your application use?"
     link: /docs/execution-modes
 ---
 
 <script setup>
-// What the HTTP front carries: `ready: false` marks what Rapira does not serve
-// yet - those tags are drawn dimmed.
+// `ready: false` identifies features that Rapira does not support.
+// The component shows these tags with a dim style.
 const httpFeatures = [
   { label: 'HTTP/1.1' },
   { label: 'Keep-alive' },
@@ -31,8 +31,8 @@ const httpFeatures = [
   { label: 'Trailers', ready: false },
 ]
 
-// Four ways to wire a server to PHP — one tab each.
-// The tab prose lives in the <TextTabs> slots below.
+// Each tab describes one connection between a server and PHP.
+// The <TextTabs> slots below contain the descriptions.
 const interopTabs = [
   { name: 'FastCGI', slot: 'fastcgi', users: ['php-fpm', 'nginx', 'Angie'] },
   { name: 'Goridge', slot: 'goridge', users: ['RoadRunner'] },
@@ -41,11 +41,11 @@ const interopTabs = [
 ]
 </script>
 
-<RapiraSection title="A built-in HTTP server, powered by hyper" link="/docs/http" link-text="HTTP requests and responses">
+<RapiraSection title="A built-in HTTP server that uses hyper" link="/docs/http" link-text="HTTP requests and responses">
 
-Paradoxically, PHP has never had a production-ready HTTP server of its own. The built-in one is a development tool, and php-fpm does not work without an external web server such as nginx.
+PHP does not include a production HTTP server. Its built-in server is a development tool. php-fpm requires a separate web server such as nginx.
 
-Rapira supplies that server: an HTTP front of its own, written in Rust on [hyper](https://hyper.rs). The hyper library is a low-level HTTP implementation for Rust. It reads each request from the connection and writes back the response that Rapira produces.
+Rapira includes an HTTP server that uses the Rust [hyper](https://hyper.rs) library. Hyper reads each request and writes the response from Rapira.
 
 <template #footer>
 <FeatureTags :items="httpFeatures" />
@@ -53,32 +53,34 @@ Rapira supplies that server: an HTTP front of its own, written in Rust on [hyper
 
 </RapiraSection>
 
-<RapiraSection title="Zero interop: Rust calls PHP directly" link="/docs/process-model" link-text="Process model">
+<RapiraSection title="Rust calls PHP directly" link="/docs/process-model" link-text="Process model">
 
-Rapira is written in Rust, and PHP is written in C. Rust calls C functions natively. Therefore, calling a PHP function from Rust is a direct function call. The interpreter is embedded in the server process. Rapira controls it through direct bindings, from engine boot through request handling.
+Rapira uses Rust, and PHP uses C. Rust calls C functions directly. Therefore, Rust can call a PHP function directly.
+Rapira embeds the interpreter in the server process. Direct bindings control interpreter initialization and request processing.
 
-There is no FastCGI, no Goridge, no CGO: a request is never serialized and never leaves the process. In Classic and Worker modes Rapira fills the superglobals directly.
+Rapira does not use FastCGI, Goridge, or CGO. It does not serialize requests or send them to another process.
+In Classic and Worker modes, Rapira fills the superglobals directly.
 
 <template #aside>
 <TextTabs :tabs="interopTabs">
 <template #fastcgi>
 
-PHP runs in separate processes, and the web server talks to them over a socket using a binary protocol: every request is packed into FastCGI records, sent across, unpacked on the other side — and the response makes the same trip back.
+PHP runs in separate processes. The web server sends FastCGI records through a socket. The PHP process parses each request and returns a serialized response.
 
 </template>
 <template #goridge>
 
-PHP workers are separate processes that receive requests from the server over pipes or sockets. Goridge is the protocol of that exchange: every request and response is serialized on one side and parsed on the other.
+PHP workers are separate processes. They receive serialized requests from the server through pipes or sockets. Goridge defines the format of this data.
 
 </template>
 <template #cgo>
 
-The PHP interpreter is embedded in the server process, but the host is written in Go, and Go cannot call C code directly. Every call goes through CGO — a layer that adds overhead on each crossing of the language boundary.
+The server process contains the PHP interpreter. However, its Go host cannot call C code directly. CGO processes each call between the two languages.
 
 </template>
 <template #cabi>
 
-An ABI is the binary contract between compiled languages. Rust supports the C ABI natively: a C function call from Rust compiles to the same machine code as a call from C itself.
+An ABI defines how compiled languages call each other. Rust supports the C ABI directly. Rust and C use the same machine instructions for these calls.
 
 </template>
 </TextTabs>

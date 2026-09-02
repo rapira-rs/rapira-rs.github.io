@@ -33,7 +33,7 @@ Classic 模式下，框架应用无需任何改动就能跑在 Rapira 上：让�
 // worker.php
 require __DIR__ . '/vendor/autoload.php';
 
-$app = new App(); // booted once, reused for every request
+$app = new App(); // The worker creates this object once and reuses it.
 
 $handler = static function () use ($app): void {
     header('Content-Type: text/plain');

@@ -26,49 +26,49 @@ rapira serve --config /etc/rapira/rapira.toml
 ```toml
 [http]
 listen = "127.0.0.1:8000"
-server_name = "localhost"             # optional; SERVER_NAME reported to PHP
-server_port = 8000                    # optional; defaults to the listen TCP port (80 for unix:)
-max_body_size_mb = 8                  # optional; larger request bodies get a 413
-write_timeout_secs = 30               # optional; closes the connection when a response write stalls
-keepalive_timeout_secs = 60           # optional; bounds an idle keepalive connection, one head read, one body frame
-unsafe_field_names = "drop"           # optional; drop (default) | reject
-middleware = ["static"]               # optional; the list order is the chain order
+server_name = "localhost"             # Optional. Sets SERVER_NAME for PHP.
+server_port = 8000                    # Optional. Uses the TCP listen port by default.
+max_body_size_mb = 8                  # Optional. Rapira returns 413 for larger request bodies.
+write_timeout_secs = 30               # Optional. Closes a connection after a response write times out.
+keepalive_timeout_secs = 60           # Optional. Limits idle periods and read operations.
+unsafe_field_names = "drop"           # Optional. Use "drop" or "reject". Default: "drop".
+middleware = ["static"]               # Optional. Rapira uses the list order.
 
-[http.static]                         # required when middleware lists "static"
-root = "public"                       # required; the directory must exist; relative → this file's directory
-forbid = [".php"]                     # optional; suffixes never served; an explicit list replaces the default
+[http.static]                         # Required when middleware contains "static".
+root = "public"                       # Required. Relative paths use this file's directory.
+forbid = [".php"]                     # Optional. Rapira does not serve these suffixes.
 
-[http.sendfile]                       # optional; containment root for sendFile(), Dispatcher mode only
-root = "public"                       # optional; defaults to the entrypoint's directory
+[http.sendfile]                       # Optional. Sets the sendFile() root in Dispatcher mode.
+root = "public"                       # Optional. Uses the entrypoint directory by default.
 
-[http.uploads]                        # optional; host-side multipart limits, Dispatcher mode only
-dir = "/var/spool/rapira"             # optional; defaults to the system temp directory
-max_file_size_mb = 2                  # optional; per file part
-max_field_size_kb = 256               # optional; per field part
-max_files = 20                        # optional; file parts per request
-max_parts = 1024                      # optional; parts per request
-max_part_headers = 32                 # optional; header fields per part
+[http.uploads]                        # Optional. Sets multipart limits in Dispatcher mode.
+dir = "/var/spool/rapira"             # Optional. Uses the system temporary directory by default.
+max_file_size_mb = 2                  # Optional. Limits one file part.
+max_field_size_kb = 256               # Optional. Limits one field part.
+max_files = 20                        # Optional. Limits file parts in one request.
+max_parts = 1024                      # Optional. Limits all parts in one request.
+max_part_headers = 32                 # Optional. Limits fields in one part.
 
 [pool]
-entrypoint = "index.php"              # relative → resolved against this file's directory
-mode = "dispatcher"                   # classic | worker | dispatcher (default)
-processes = 4                         # worker processes to fork (max_children for dynamic/ondemand scaling)
-scaling = "dynamic"                   # static (default) | dynamic | ondemand
-min_spare = 1                         # dynamic only: keep at least this many idle workers
-max_spare = 3                         # dynamic only: trim to at most this many idle workers (rejected under other scaling)
-max_requests = 0                      # recycle a worker after N requests (+jitter); 0 = unlimited
-process_idle_timeout_secs = 10        # ondemand: retire an idle worker after this long
-request_terminate_timeout_secs = 0    # kill a worker whose single request runs longer (wall clock); 0 = off
+entrypoint = "index.php"              # Relative paths use this file's directory.
+mode = "dispatcher"                   # Use "classic", "worker", or "dispatcher". Default: "dispatcher".
+processes = 4                         # Sets the worker count and the scaling maximum.
+scaling = "dynamic"                   # Use "static", "dynamic", or "ondemand". Default: "static".
+min_spare = 1                         # For dynamic scaling. Sets the minimum idle worker count.
+max_spare = 3                         # For dynamic scaling. Sets the maximum idle worker count.
+max_requests = 0                      # Replaces a worker after this request count. Zero disables the limit.
+process_idle_timeout_secs = 10        # For ondemand scaling. Removes workers after this idle time.
+request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
 
-[supervisor]                          # optional; master-process policy
-pidfile = "/run/rapira.pid"           # optional; relative paths resolve against this file's dir
-process_control_timeout_secs = 30     # graceful-stop budget before QUIT → TERM → KILL
+[supervisor]                          # Optional. Sets master process behavior.
+pidfile = "/run/rapira.pid"           # Optional. Relative paths use this file's directory.
+process_control_timeout_secs = 30     # Sets the stop timeout before QUIT, TERM, and KILL.
 
-[log]                                 # optional; verbosity and record shape
-level = "error"                       # error (default) | warn | info | debug | trace
-format = "plain"                      # plain (default) | json
+[log]                                 # Optional. Sets the level and record format.
+level = "error"                       # Use error, warn, info, debug, or trace. Default: error.
+format = "plain"                      # Use plain or json. Default: plain.
 
-[log.targets]                         # optional; per-target overrides on top of level
+[log.targets]                         # Optional. Overrides the level for each target.
 php = "debug"
 http = "warn"
 ```

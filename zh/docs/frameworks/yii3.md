@@ -60,8 +60,8 @@ $handler = static function () use ($runner, $container): void {
     try {
         $runner->run();
     } finally {
-        // The worker keeps serving after an escaped error; the reset has to
-        // run on that path too, or state leaks into the next request.
+        // The worker continues after an error leaves run().
+        // Reset state before the next request.
         $container->get(StateResetter::class)->reset();
     }
 };
@@ -103,7 +103,8 @@ require_once __DIR__ . '/vendor/autoload.php';
 require_once __DIR__ . '/src/bootstrap.php';
 
 $handler = static function (): void {
-    // A fresh runner per request; constructor arguments mirror public/index.php.
+    // Create one runner for each request.
+    // Use the same arguments as public/index.php.
     $runner = new HttpApplicationRunner(
         rootPath: __DIR__,
         debug: Environment::appDebug(),

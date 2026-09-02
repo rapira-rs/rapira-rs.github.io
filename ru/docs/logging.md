@@ -15,8 +15,8 @@ Rapira пишет всё в один поток: события жизненно
 
 ```toml
 [log]
-level = "error"   # error (default) | warn | info | debug | trace
-format = "plain"  # plain (default) | json
+level = "error"   # Use error, warn, info, debug, or trace. Default: error.
+format = "plain"  # Use plain or json. Default: plain.
 ```
 
 `level` — общий порог сразу для всех целей: `error` пропускает только ошибки, `warn` добавляет к ним предупреждения и так далее вплоть до `trace`, который показывает вообще всё. `format` задаёт вид каждой записи — читаемые человеком строки или по одному JSON-объекту на строку.

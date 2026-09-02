@@ -15,8 +15,8 @@ Los registros se configuran en la sección `[log]` de tu `rapira.toml`:
 
 ```toml
 [log]
-level = "error"   # error (default) | warn | info | debug | trace
-format = "plain"  # plain (default) | json
+level = "error"   # Use error, warn, info, debug, or trace. Default: error.
+format = "plain"  # Use plain or json. Default: plain.
 ```
 
 `level` es el suelo común a todos los targets a la vez: con `error` solo ves errores, `warn` añade las advertencias, y así hasta `trace`, que lo enseña todo. `format` elige la forma de cada entrada: líneas legibles para una persona o un objeto JSON por línea.

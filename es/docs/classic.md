@@ -5,7 +5,7 @@ description: "El modo Classic ejecuta un script de entrada de PHP normal desde c
 
 # Modo Classic
 
-El modo Classic ejecuta un script de entrada de PHP normal, también llamado front controller. Es el mismo `public/index.php` que ejecuta php-fpm. Rapira lo ejecuta desde cero en cada petición. Rapira ocupa el lugar de php-fpm y la aplicación no necesita ningún cambio. Las superglobales se rellenan, el script se ejecuta de arriba abajo y su salida se convierte en la respuesta.
+El modo Classic ejecuta un script de entrada de PHP normal. Es el mismo `public/index.php` que ejecuta php-fpm. Rapira lo ejecuta desde cero en cada petición. Rapira ocupa el lugar de php-fpm y la aplicación no necesita ningún cambio. Las superglobales se rellenan, el script se ejecuta de arriba abajo y su salida se convierte en la respuesta.
 
 ## Estado limpio en cada petición
 

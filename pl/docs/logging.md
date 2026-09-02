@@ -15,8 +15,8 @@ Logowaniem sterujesz w sekcji `[log]` swojego `rapira.toml`:
 
 ```toml
 [log]
-level = "error"   # error (default) | warn | info | debug | trace
-format = "plain"  # plain (default) | json
+level = "error"   # Use error, warn, info, debug, or trace. Default: error.
+format = "plain"  # Use plain or json. Default: plain.
 ```
 
 `level` to wspólna podłoga dla wszystkich celów naraz: `error` pokazuje same błędy, `warn` dokłada ostrzeżenia i tak dalej, aż do `trace`, przy którym widać wszystko. `format` decyduje o kształcie pojedynczego wpisu — czytelne dla człowieka linijki albo jeden obiekt JSON na linijkę.

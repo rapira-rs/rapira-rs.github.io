@@ -74,7 +74,7 @@ El valor por defecto de `pool.mode` es `dispatcher`. Fija el modo de forma expl√
 ```toml
 [pool]
 entrypoint = "public/index.php"
-mode = "classic"                      # "classic" | "worker" | "dispatcher" (the default)
+mode = "classic"                      # Use "classic", "worker", or "dispatcher". Default: "dispatcher".
 ```
 
 ```sh

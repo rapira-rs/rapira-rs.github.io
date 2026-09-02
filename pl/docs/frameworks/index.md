@@ -33,7 +33,7 @@ Każdy skrypt workera ma ten sam kształt, niezależnie od tego, jaki framework 
 // worker.php
 require __DIR__ . '/vendor/autoload.php';
 
-$app = new App(); // booted once, reused for every request
+$app = new App(); // The worker creates this object once and reuses it.
 
 $handler = static function () use ($app): void {
     header('Content-Type: text/plain');

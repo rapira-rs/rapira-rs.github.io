@@ -10,7 +10,7 @@ const filteredPosts = computed(() => {
   return posts.filter((post) => post.url.startsWith(props.folder))
 })
 
-// Prefer the derived thumbnail; if it 404s, swap to the full image.
+// Use the full image if the generated thumbnail request returns 404.
 function onImageError(event: Event, fallback: string | undefined) {
   const img = event.target as HTMLImageElement
   if (fallback && img.src !== fallback) {

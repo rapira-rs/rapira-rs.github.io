@@ -17,8 +17,8 @@ Rapira 用静态文件中间件提供某个目录里的文件，时机在请求�
 middleware = ["static"]
 
 [http.static]
-root = "public"     # required; a relative path resolves against this file's directory
-forbid = [".php"]   # optional; an explicit list replaces this default
+root = "public"     # Required. Relative paths use this file's directory.
+forbid = [".php"]   # Optional. This list replaces the default.
 ```
 
 `middleware` 按列表顺序放着整条中间件链，目前它只接受 `static` 这一个名字。

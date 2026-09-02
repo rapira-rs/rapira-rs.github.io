@@ -5,7 +5,7 @@ description: "Tryb Classic wykonuje zwykły skrypt wejściowy PHP od zera przy k
 
 # Tryb Classic
 
-Tryb Classic wykonuje zwykły skrypt wejściowy PHP, nazywany też front controllerem. Jest to ten sam plik `public/index.php`, który uruchamia php-fpm. Rapira wykonuje go od zera przy każdym żądaniu. Rapira zastępuje php-fpm, a aplikacja nie wymaga żadnych zmian. Zmienne superglobalne są wypełniane, skrypt wykonuje się od góry do dołu, a jego wyjście staje się odpowiedzią.
+Tryb Classic wykonuje zwykły skrypt wejściowy PHP. Jest to ten sam plik `public/index.php`, który uruchamia php-fpm. Rapira wykonuje go od zera przy każdym żądaniu. Rapira zastępuje php-fpm, a aplikacja nie wymaga żadnych zmian. Zmienne superglobalne są wypełniane, skrypt wykonuje się od góry do dołu, a jego wyjście staje się odpowiedzią.
 
 ## Świeży stan przy każdym żądaniu
 

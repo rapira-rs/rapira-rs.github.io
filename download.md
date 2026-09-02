@@ -10,32 +10,33 @@ next: false
 ---
 
 <script setup>
-// Labels for DownloadBuilds — this page's UI strings.
+// These labels contain the UI text for DownloadBuilds.
 const labels = {
   os: 'Operating system',
   arch: 'Architecture',
   php: 'PHP version',
   format: 'Format',
   download: 'Download Rapira',
-  error: 'This build of the site carries no release data.',
+  error: 'This site build does not contain release data.',
   releases: 'Open the releases',
 }
 </script>
 
 # Download Rapira
 
-Prebuilt binaries are published on the [GitHub releases](https://github.com/rapira-rs/rapira/releases) page. Pick your platform — the button below downloads its latest stable version.
+The [GitHub releases](https://github.com/rapira-rs/rapira/releases) page contains prebuilt binaries. Select a platform. The button downloads the latest stable version.
 
 <DownloadBuilds :labels="labels">
 <template #dev-note>
 
 ::: warning
-This build is for local development only — for production, use Linux.
+Use this build only for local development. Use Linux for production.
 :::
 
 </template>
 </DownloadBuilds>
 
-Container images are published at `ghcr.io/rapira-rs/rapira`, and a nightly channel carries a rolling `nightly` prerelease with tarballs plus `nightly-php8.4` and `nightly-php8.5` image tags. The picker above lists the release files only. See [Docker](/docs/intro/installation#docker) for more information.
+Container images are available at `ghcr.io/rapira-rs/rapira`. The nightly channel contains `nightly` archives and two image tags: `nightly-php8.4` and `nightly-php8.5`.
+The selector lists only release files. See [Docker](/docs/intro/installation#docker) for more information.
 
 You can also [build Rapira from source](/docs/intro/build-from-source).

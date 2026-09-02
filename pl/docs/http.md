@@ -134,7 +134,7 @@ echo "Order accepted\n";
 
 rapira_finish_request();
 
-// The client already has the response; this still runs.
+// This code runs after the client receives the response.
 $mailer->sendConfirmation($order);
 $metrics->flush();
 ```

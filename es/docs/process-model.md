@@ -95,9 +95,9 @@ Las señales paran un servidor en marcha, lo recargan y le hacen informar de su 
 Define `supervisor.pidfile` y tus scripts tendrán un sitio fijo del que leer el pid del maestro:
 
 ```bash
-kill -USR2 $(cat /run/rapira.pid)   # rolling reload
-kill -USR1 $(cat /run/rapira.pid)   # status dump
-kill -TERM $(cat /run/rapira.pid)   # graceful stop
+kill -USR2 $(cat /run/rapira.pid)   # Replace workers one at a time.
+kill -USR1 $(cat /run/rapira.pid)   # Write pool status to the log.
+kill -TERM $(cat /run/rapira.pid)   # Stop after current requests finish.
 ```
 
 ::: warning

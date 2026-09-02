@@ -21,7 +21,7 @@ Skrypt workera składa się z trzech części: tego, co podnosisz na samej górz
 // worker.php
 require __DIR__ . '/vendor/autoload.php';
 
-$app = new App(); // booted once, reused for every request
+$app = new App(); // The worker creates this object once and reuses it.
 
 $handler = static function () use ($app): void {
     header('Content-Type: text/plain');
@@ -68,7 +68,7 @@ Skrypt workera obsługuje więc dokładnie jeden handler naraz. Jeśli napiszesz
 while (\Rapira\handle_request($api)) {
 }
 
-// unreachable until shutdown
+// Code reaches this loop only during shutdown.
 while (\Rapira\handle_request($web)) {
 }
 ```
@@ -93,12 +93,12 @@ Sprzątanie zasobów należących do całego procesu rejestruj przy rozruchu, a 
 
 ```php
 register_shutdown_function(static function (): void {
-    // runs once, when the worker's cycle ends
+    // Runs once when the worker cycle ends.
 });
 
 $handler = static function (): void {
     register_shutdown_function(static function (): void {
-        // runs at the end of this request
+        // Runs at the end of this request.
     });
 };
 

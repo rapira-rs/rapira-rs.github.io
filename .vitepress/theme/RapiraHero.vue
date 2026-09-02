@@ -5,11 +5,11 @@ import { VPImage } from 'vitepress/theme'
 import GitHubIcon from './GitHubIcon.vue'
 import { getLocaleByCode, getDocsUrl, getDownloadUrl } from '../locales'
 
-// `tagline` and `pitch` come from each locale's index.md frontmatter, so the copy
-// lives with the content instead of being another per-locale map in here.
+// Each locale index.md supplies `tagline` and `pitch`.
+// This keeps translated text with the page content.
 const { lang, frontmatter } = useData()
 
-// Action button labels per locale (UI strings). URLs come from the locale service.
+// These are action labels for each locale. The locale service supplies URLs.
 const startLabels: Record<string, string> = {
   en: 'Get Started',
   ru: 'Быстрый старт',

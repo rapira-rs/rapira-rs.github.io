@@ -56,7 +56,8 @@ use Symfony\Component\HttpFoundation\Request;
 
 require __DIR__ . '/vendor/autoload.php';
 
-// public/index.php delegates this to symfony/runtime; here we do it once, up front.
+// public/index.php uses symfony/runtime for this operation.
+// The worker performs it once before the request loop.
 (new Dotenv())->usePutenv()->bootEnv(__DIR__ . '/.env');
 
 $kernel = new Kernel($_SERVER['APP_ENV'], (bool) $_SERVER['APP_DEBUG']);
@@ -71,11 +72,9 @@ $handler = static function () use ($kernel, $container): void {
         $response->send();
         $kernel->terminate($request, $response);
     } finally {
-        // The same reset Symfony runs between Messenger messages: every service
-        // tagged kernel.reset drops the state it accumulated during the request.
-        // In finally: handle() turns application exceptions into a response, but a
-        // failing send() or a throwing kernel.terminate listener escapes the handler,
-        // and the worker keeps serving — the reset has to run on that path too.
+        // Symfony uses the same reset between Messenger messages.
+        // Each service with the kernel.reset tag removes request state.
+        // The finally block also resets state when send() or terminate() throws.
         if ($container->has('services_resetter')) {
             $container->get('services_resetter')->reset();
         }

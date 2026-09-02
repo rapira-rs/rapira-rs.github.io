@@ -1,74 +1,82 @@
 ---
 title: Configuration
-description: "The complete rapira.toml reference: every key in [http], [pool], [supervisor] and [log], with its type, default and the rules that reject a bad value."
+description: "All rapira.toml keys, types, defaults, and validation rules."
 ---
 
 # Configuration
 
-Rapira does not need a configuration file to start. `rapira serve --mode worker app/worker.php` uses the default settings. Add a `rapira.toml` when you need a different address, worker count, recycling policy, pidfile, or log level. Point the server at the file, and it reads its settings from there:
+Rapira can start without a configuration file. `rapira serve --mode worker app/worker.php` uses the default settings.
+Create a `rapira.toml` to change the address, worker count, recycling policy, pidfile, or log level. Specify the file with this command:
 
 ```bash
 rapira serve --config /etc/rapira/rapira.toml
 ```
 
-The file has four sections, and every one of them is optional: `[http]` configures the listener, `[pool]` the worker processes, `[supervisor]` the master process, `[log]` what gets written to stderr. The one value Rapira has no default for is the PHP entry script — set `pool.entrypoint` here, or pass the script as a positional argument on the command line.
+The file has four optional sections. `[http]` configures the listener, and `[pool]` configures worker processes.
+`[supervisor]` configures the master process. `[log]` configures output to stderr.
+The PHP entry script has no default. Set `pool.entrypoint` or pass the script as a CLI argument.
 
 ::: info
-Settings are layered: a CLI flag beats the config file, which beats the built-in default. `--processes 8` therefore wins over `processes = 4` in the file, so a config you keep in version control can still be overridden for a single run. Environment variables are not part of that layering: apart from two that only affect logging, settings come from the file and the flags alone. The flags themselves are documented on the [CLI page](/docs/cli).
+CLI flags override configuration file values. Configuration file values override built-in defaults.
+For example, `--processes 8` overrides `processes = 4` for one run.
+Only two logging environment variables affect the settings. See the [CLI page](/docs/cli) for the available flags.
 :::
 
 ## A complete rapira.toml
 
-Every key Rapira understands, in one file. Nothing below is mandatory: delete any line and its default applies. Four keys are the exception. `pool.entrypoint` has no default to fall back on. `min_spare` and `max_spare` are required for as long as `scaling = "dynamic"` is set. `http.static.root` is required for as long as the `[http.static]` table is present.
+The following file contains each supported key. Most keys use their default when they are absent.
+`pool.entrypoint` has no default. Dynamic scaling requires `min_spare` and `max_spare`.
+The `[http.static]` table requires `http.static.root`.
 
-Two groups of keys must remain together, so a partial deletion stops the boot. Delete the `[http.static]` table and the `"static"` middleware entry together. Rapira rejects either item when the other item is absent. Delete `min_spare` and `max_spare` when you remove `scaling = "dynamic"`. Rapira rejects both spare keys under `static` and `ondemand` scaling.
+Some keys must occur together. The `[http.static]` table requires a `"static"` middleware entry, and that entry requires the table.
+Remove `min_spare` and `max_spare` when scaling is not `dynamic`. Rapira rejects these keys with `static` and `ondemand` scaling.
 
 ```toml
 [http]
 listen = "127.0.0.1:8000"
-server_name = "localhost"             # optional; SERVER_NAME reported to PHP
-server_port = 8000                    # optional; defaults to the listen TCP port (80 for unix:)
-max_body_size_mb = 8                  # optional; larger request bodies get a 413
-write_timeout_secs = 30               # optional; closes the connection when a response write stalls
-keepalive_timeout_secs = 60           # optional; bounds an idle keepalive connection, one head read, one body frame
-unsafe_field_names = "drop"           # optional; drop (default) | reject
-middleware = ["static"]               # optional; the list order is the chain order
+server_name = "localhost"             # Optional. Sets SERVER_NAME for PHP.
+server_port = 8000                    # Optional. Uses the TCP listen port by default.
+max_body_size_mb = 8                  # Optional. Rapira returns 413 for larger request bodies.
+write_timeout_secs = 30               # Optional. Closes a connection after a response write times out.
+keepalive_timeout_secs = 60           # Optional. Limits idle periods and read operations.
+unsafe_field_names = "drop"           # Optional. Use "drop" or "reject". Default: "drop".
+middleware = ["static"]               # Optional. Rapira uses the list order.
 
-[http.static]                         # required when middleware lists "static"
-root = "public"                       # required; the directory must exist; relative → this file's directory
-forbid = [".php"]                     # optional; suffixes never served; an explicit list replaces the default
+[http.static]                         # Required when middleware contains "static".
+root = "public"                       # Required. Relative paths use this file's directory.
+forbid = [".php"]                     # Optional. Rapira does not serve these suffixes.
 
-[http.sendfile]                       # optional; containment root for sendFile(), Dispatcher mode only
-root = "public"                       # optional; defaults to the entrypoint's directory
+[http.sendfile]                       # Optional. Sets the sendFile() root in Dispatcher mode.
+root = "public"                       # Optional. Uses the entrypoint directory by default.
 
-[http.uploads]                        # optional; host-side multipart limits, Dispatcher mode only
-dir = "/var/spool/rapira"             # optional; defaults to the system temp directory
-max_file_size_mb = 2                  # optional; per file part
-max_field_size_kb = 256               # optional; per field part
-max_files = 20                        # optional; file parts per request
-max_parts = 1024                      # optional; parts per request
-max_part_headers = 32                 # optional; header fields per part
+[http.uploads]                        # Optional. Sets multipart limits in Dispatcher mode.
+dir = "/var/spool/rapira"             # Optional. Uses the system temporary directory by default.
+max_file_size_mb = 2                  # Optional. Limits one file part.
+max_field_size_kb = 256               # Optional. Limits one field part.
+max_files = 20                        # Optional. Limits file parts in one request.
+max_parts = 1024                      # Optional. Limits all parts in one request.
+max_part_headers = 32                 # Optional. Limits fields in one part.
 
 [pool]
-entrypoint = "index.php"              # relative → resolved against this file's directory
-mode = "dispatcher"                   # classic | worker | dispatcher (default)
-processes = 4                         # worker processes to fork (max_children for dynamic/ondemand scaling)
-scaling = "dynamic"                   # static (default) | dynamic | ondemand
-min_spare = 1                         # dynamic only: keep at least this many idle workers
-max_spare = 3                         # dynamic only: trim to at most this many idle workers (rejected under other scaling)
-max_requests = 0                      # recycle a worker after N requests (+jitter); 0 = unlimited
-process_idle_timeout_secs = 10        # ondemand: retire an idle worker after this long
-request_terminate_timeout_secs = 0    # kill a worker whose single request runs longer (wall clock); 0 = off
+entrypoint = "index.php"              # Relative paths use this file's directory.
+mode = "dispatcher"                   # Use "classic", "worker", or "dispatcher". Default: "dispatcher".
+processes = 4                         # Sets the worker count and the scaling maximum.
+scaling = "dynamic"                   # Use "static", "dynamic", or "ondemand". Default: "static".
+min_spare = 1                         # For dynamic scaling. Sets the minimum idle worker count.
+max_spare = 3                         # For dynamic scaling. Sets the maximum idle worker count.
+max_requests = 0                      # Replaces a worker after this request count. Zero disables the limit.
+process_idle_timeout_secs = 10        # For ondemand scaling. Removes workers after this idle time.
+request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
 
-[supervisor]                          # optional; master-process policy
-pidfile = "/run/rapira.pid"           # optional; relative paths resolve against this file's dir
-process_control_timeout_secs = 30     # graceful-stop budget before QUIT → TERM → KILL
+[supervisor]                          # Optional. Sets master process behavior.
+pidfile = "/run/rapira.pid"           # Optional. Relative paths use this file's directory.
+process_control_timeout_secs = 30     # Sets the stop timeout before QUIT, TERM, and KILL.
 
-[log]                                 # optional; verbosity and record shape
-level = "error"                       # error (default) | warn | info | debug | trace
-format = "plain"                      # plain (default) | json
+[log]                                 # Optional. Sets the level and record format.
+level = "error"                       # Use error, warn, info, debug, or trace. Default: error.
+format = "plain"                      # Use plain or json. Default: plain.
 
-[log.targets]                         # optional; per-target overrides on top of level
+[log.targets]                         # Optional. Overrides the level for each target.
 php = "debug"
 http = "warn"
 ```
@@ -81,54 +89,62 @@ This section defines the listener and the server information reported to PHP. It
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `listen` | string | `"127.0.0.1:8000"` | The bind address, in one of three shapes: `host:port` with an IP literal (`127.0.0.1:8000`, `[::1]:8000`), `:port` for every interface, or `unix:/run/rapira.sock` for a Unix socket. A bare port and a hostname are both rejected — an address has to say which interface it means. |
+| `listen` | string | `"127.0.0.1:8000"` | The bind address. Use `host:port` with an IP address, `:port` for all interfaces, or `unix:/run/rapira.sock` for a Unix socket. Rapira rejects a port without an address and rejects host names. |
 | `server_name` | string | `"localhost"` | What PHP reads as `$_SERVER['SERVER_NAME']`. |
-| `server_port` | integer | the listen port, `80` for `unix:` | What PHP reads as `$_SERVER['SERVER_PORT']`. Set it when a proxy in front of Rapira terminates on a different port than the one Rapira binds. |
-| `max_body_size_mb` | integer | `8` | Largest request body Rapira will accept, in MiB (1024 × 1024 bytes). Anything bigger is answered `413`. Must be at least 1. |
-| `write_timeout_secs` | integer | `30` | How long one response write may make no progress. Rapira closes the connection when a client stops reading for longer than this. Must be at least 1, and at most `86400`. |
-| `keepalive_timeout_secs` | integer | `60` | How long a connection may make no progress on a request. It bounds an idle keepalive connection waiting for the next request, one request head read, and one request body frame read. A body that stalls past the limit is answered `408`. Must be at least 1, and at most `86400`. |
-| `unsafe_field_names` | `"drop"` \| `"reject"` | `"drop"` | What happens to a request field whose name is not `[A-Za-z0-9-]`: remove it before PHP sees it, logging each removal at `warn`, or answer `400`. Both the reasoning and the CGI mapping behind it are on the [HTTP page](/docs/http). |
-| `middleware` | list of strings | empty | Which middleware handles a request before PHP does. The list order is the chain order. `"static"` is the only name Rapira knows currently. A name listed twice is rejected, a listed name without its table is rejected, and a configured table that the list omits is rejected too, so the list is the single switch for each middleware. |
+| `server_port` | integer | the listen port, `80` for `unix:` | The value of `$_SERVER['SERVER_PORT']`. Set it when the proxy port differs from the Rapira port. |
+| `max_body_size_mb` | integer | `8` | The largest request body in MiB. Rapira returns `413` for a larger body. The minimum is 1. |
+| `write_timeout_secs` | integer | `30` | The maximum time without progress during a response write. Rapira then closes the connection. The range is 1 through `86400`. |
+| `keepalive_timeout_secs` | integer | `60` | The maximum time without request progress. It applies to idle connections, request headers, and request body frames. Rapira returns `408` after the limit. The range is 1 through `86400`. |
+| `unsafe_field_names` | `"drop"` \| `"reject"` | `"drop"` | Processing for a field name outside `[A-Za-z0-9-]`. Rapira can remove and log the field or return `400`. See the [HTTP page](/docs/http). |
+| `middleware` | list of strings | empty | Middleware that runs before PHP, in list order. Only `"static"` is available. Rapira rejects duplicate names and names without configuration tables. It also rejects unused middleware tables. |
 
-`server_name` and `server_port` only shape what PHP sees in `$_SERVER`; neither changes what the server binds, which is set by `listen` alone.
+`server_name` and `server_port` change only `$_SERVER` values. Only `listen` changes the bind address.
 
 ### The `[http.static]` table
 
-The `static` middleware answers a request from a directory on disk before the request reaches PHP. It handles `GET` and `HEAD`. Every other method goes to PHP. A path that names no file falls through to PHP. A path with a segment that starts with a dot falls through as well. A directory URL falls through too: the middleware serves no index file.
+The `static` middleware can return a file before PHP receives the request. It handles `GET` and `HEAD`.
+PHP receives other methods and paths that do not identify a file. PHP also receives hidden paths and directory paths.
+The middleware does not serve index files.
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `root` | string | none, required | The directory the middleware serves. A relative path resolves against the directory holding the config file. The directory has to exist when the server boots, and the server process needs permission to enter it. The boot fails otherwise. |
-| `forbid` | list of strings | `[".php"]` | File-name suffixes the middleware never serves. Each entry starts with a dot, holds at least two characters, and carries neither `/` nor whitespace. The match ignores case. An explicit list replaces the default, so `forbid = []` serves every file under the root, PHP sources included. |
+| `root` | string | none, required | The served directory. A relative path uses the configuration file directory as its base. The directory must exist and be accessible during initialization. |
+| `forbid` | list of strings | `[".php"]` | File name suffixes that the middleware does not serve. Each entry starts with a dot and has at least two characters. It cannot contain `/` or whitespace. Matching is not case-sensitive. An explicit list replaces the default. |
 
-Each worker process keeps served files in memory: at most 16MiB, and no single file above 256KiB. An entry stays fresh for one second, so a rewritten file reaches clients one second after the write.
+Each worker caches up to 16 MiB of served files. It does not cache a file larger than 256 KiB.
+A cache entry is valid for one second. Clients can receive a changed file after this interval.
 
 See [Static files](/docs/static-files) for more information.
 
 ### The `[http.sendfile]` table
 
-The sendfile root is the directory `sendFile()` reads from. Rapira canonicalizes both the root and the requested path, and rejects every path that resolves outside the root. `sendFile()` is a method of `Rapira\Http\Exchange`, and only Dispatcher mode hands an exchange to the script. This table therefore has an effect in Dispatcher mode only. Classic and Worker mode accept the table and never read it.
+The sendfile root is the directory that `sendFile()` can read. Rapira resolves the root and requested path to canonical paths.
+It rejects a path outside the root.
+`sendFile()` is a method of `Rapira\Http\Exchange`. Only Dispatcher mode gives an exchange to the script.
+Therefore, this table affects only Dispatcher mode. Classic and Worker modes accept but do not use it.
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `root` | string | the directory holding `pool.entrypoint` | The only directory `sendFile()` may read. A relative path resolves against the directory holding the config file. |
 
-A root that does not exist when the server boots cannot be canonicalized, and `sendFile()` then rejects every path. Create the directory before you start the server.
+Rapira cannot resolve a root that does not exist during initialization. In this condition, `sendFile()` rejects every path.
+Create the directory before you start the server.
 
 ### The `[http.uploads]` table
 
-The `[http.uploads]` table bounds host-side `multipart/form-data` parsing. Rapira parses a multipart body in the host in Dispatcher mode only. Classic and Worker mode parse it in PHP, where `php.ini` owns the limits, so this table under either mode stops the boot.
+The `[http.uploads]` table sets limits for host-side `multipart/form-data` parsing. Only Dispatcher mode parses multipart bodies in the host.
+Classic and Worker modes parse them in PHP and use `php.ini` limits. Rapira rejects this table in these two modes.
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `dir` | string | the system temp directory | Spool root for file parts. A relative path resolves against the directory holding the config file. Rapira creates the directory at boot, checks that it is writable, and gives each worker its own `rapira-spool-<pid>` subdirectory that the worker removes when it exits. |
+| `dir` | string | the system temp directory | Storage directory for file parts. A relative path uses the configuration file directory as its base. Rapira creates and checks this directory. Each worker creates a `rapira-spool-<pid>` subdirectory and removes it during shutdown. |
 | `max_file_size_mb` | integer | `2` | Largest single file part, in MiB. |
 | `max_field_size_kb` | integer | `256` | Largest single field part, in KiB. |
-| `max_files` | integer | `20` | File parts one request may carry. |
-| `max_parts` | integer | `1024` | Parts one request may carry, file parts and field parts together. |
-| `max_part_headers` | integer | `32` | Header fields one part may carry. |
+| `max_files` | integer | `20` | File parts permitted in one request. |
+| `max_parts` | integer | `1024` | File and field parts permitted in one request. |
+| `max_part_headers` | integer | `32` | Header fields permitted in one part. |
 
-Every one of these limits must be at least 1. A request over any of them is answered `413`.
+Each limit must be at least 1. Rapira returns `413` when a request exceeds a limit.
 
 ## The `[pool]` section
 
@@ -136,59 +152,72 @@ Workers run PHP. This section defines what they run, how many run, and when the 
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `entrypoint` | string | none — required | The PHP script every worker runs. A relative path resolves against the directory holding the config file. A `SCRIPT` argument on the command line overrides it, and one of the two must be present or the server refuses to boot. |
-| `mode` | `"classic"` \| `"worker"` \| `"dispatcher"` | `"dispatcher"` | How a worker runs the entry script. `classic` re-runs the script from scratch on every request. `worker` keeps the script resident and refills the superglobals for each request. `dispatcher` keeps the script resident and gives it a dispatcher object that the script pulls each request from. The `--mode` flag on the command line overrides this key in both directions. See [execution modes](/docs/execution-modes). |
-| `processes` | integer | one per logical CPU | How many worker processes to fork. Under `dynamic` and `ondemand` scaling this is the ceiling rather than the count. Must be at least 1. |
-| `scaling` | `"static"` \| `"dynamic"` \| `"ondemand"` | `"static"` | How the pool sizes itself. `static` keeps `processes` workers alive at all times; `dynamic` scales between the spare thresholds, capped by `processes`; `ondemand` forks only when there is work and lets idle workers retire. |
-| `min_spare` | integer | none | `dynamic` scaling only, and required there: keep at least this many workers idle and ready. |
-| `max_spare` | integer | none | `dynamic` scaling only, and required there: trim back to at most this many idle workers. The pair must satisfy `1 <= min_spare <= max_spare <= processes`; setting either under another scaling value is an error. |
-| `max_requests` | integer | `0` | Recycle a worker after it has served this many requests, plus a little jitter so the whole pool never turns over at once. `0` means never. |
-| `process_idle_timeout_secs` | integer | `10` | Read by `ondemand` scaling: how long a worker may sit idle before the master retires it. |
-| `request_terminate_timeout_secs` | integer | `0` | Wall-clock budget for a single request. A worker still working on one past that is killed and replaced. `0` disables the check. |
+| `entrypoint` | string | none, required | The PHP script that each worker runs. A relative path uses the configuration file directory as its base. A `SCRIPT` CLI argument overrides this key. You must set one value. |
+| `mode` | `"classic"` \| `"worker"` \| `"dispatcher"` | `"dispatcher"` | How a worker runs the entry script. `classic` starts a new PHP request each time. `worker` retains the script and refills the superglobals. `dispatcher` gives a dispatcher object to the retained script. The `--mode` flag overrides this key. See [execution modes](/docs/execution-modes). |
+| `processes` | integer | one per logical CPU | The worker count. With `dynamic` and `ondemand` scaling, it is the maximum count. The minimum is 1. |
+| `scaling` | `"static"` \| `"dynamic"` \| `"ondemand"` | `"static"` | The pool size policy. `static` retains `processes` workers. `dynamic` uses the spare limits. `ondemand` creates workers for requests and removes idle workers. |
+| `min_spare` | integer | none | Required with `dynamic` scaling. The master keeps at least this many idle workers. |
+| `max_spare` | integer | none | Required with `dynamic` scaling. The master keeps no more than this many idle workers. The values must satisfy `1 <= min_spare <= max_spare <= processes`. |
+| `max_requests` | integer | `0` | The request limit before worker replacement. Rapira varies the limit slightly to prevent simultaneous replacements. `0` disables the limit. |
+| `process_idle_timeout_secs` | integer | `10` | Read by `ondemand` scaling: how long a worker may remain idle before the master removes it. |
+| `request_terminate_timeout_secs` | integer | `0` | Wall-clock limit for one request. Rapira terminates and replaces a worker that exceeds this limit. `0` disables the check. |
 
-`mode` and `scaling` are separate axes: `mode` sets what a worker does with the entry script, `scaling` sets how many workers exist.
+`mode` controls entry script execution. `scaling` controls the worker count.
 
-The spare bounds are checked against the effective `processes` value, so a `--processes` flag on the command line lowers the ceiling `max_spare` has to fit under.
+Rapira checks the spare limits against the effective `processes` value. Therefore, `--processes` can reduce the permitted `max_spare` value.
 
 ## The `[supervisor]` section
 
-Policy for the master process — the one that owns the listen socket, supervises the workers and receives your signals. It is also what an init system talks to, so these are the keys a unit file usually sets; see [deployment](/docs/deployment).
+This section defines the master process policy. The master owns the listen socket, supervises workers, and receives signals.
+The init system controls the master. See [deployment](/docs/deployment) for a unit file.
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `pidfile` | string | none | Where the master writes its own pid. A relative path resolves against the directory holding the config file. That pid is the one signals go to — the [process model page](/docs/process-model) has the full table of what each signal does. |
-| `process_control_timeout_secs` | integer | `30` | How long the master lets a worker finish gracefully before escalating QUIT → TERM → KILL. |
+| `pidfile` | string | none | The file for the master process identifier. A relative path uses the configuration file directory as its base. Send process signals to this identifier. See [process model](/docs/process-model). |
+| `process_control_timeout_secs` | integer | `30` | How long the master lets a worker finish before it sends QUIT, TERM, and KILL. |
 
 ## The `[log]` section
 
-Rapira writes everything to stderr, one write per record, so master and worker output never interleaves mid-line. This section decides how verbose that stream is and what shape each record has; [logging](/docs/logging) covers the individual targets, the formats and how PHP diagnostics map onto levels.
+Rapira writes each log record to stderr with one operation. Therefore, master and worker output cannot combine within a line.
+This section controls the log level and format. See [logging](/docs/logging) for targets, formats, and PHP diagnostic levels.
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `level` | `"error"` \| `"warn"` \| `"info"` \| `"debug"` \| `"trace"` | `"error"` | Verbosity, applied to every target at once. |
-| `format` | `"plain"` \| `"json"` | `"plain"` | Record shape: human-readable lines (colored when stderr is a terminal), or one JSON object per line for a log collector. |
-| `[log.targets]` | table of target → level | empty | Per-target overrides on top of `level`. Each key names one of the targets Rapira emits under: `php` carries PHP's own output, `http` carries the HTTP front. A key matches by prefix, so `php` also covers `php_sys::callbacks` and everything below it. [Logging](/docs/logging) lists every target. |
+| `format` | `"plain"` \| `"json"` | `"plain"` | The record format. Plain output contains readable lines and can use colors. JSON output contains one object per line. |
+| `[log.targets]` | table of target → level | empty | Log level overrides for targets. `php` contains PHP output, and `http` contains HTTP server output. Keys match target prefixes. See [Logging](/docs/logging). |
 
-A `[log.targets]` key has to look like a module path: letters, digits and `_` `:` `.` `-`, starting with a letter, digit or `_`. The keys are assembled into a filter string, so anything outside that shape would be read as filter syntax instead of a target name and is rejected up front.
+A `[log.targets]` key uses letters, digits, `_`, `:`, `.`, or `-`. It must start with a letter, digit, or `_`.
+Rapira rejects other characters because the log filter can interpret them as syntax.
 
-`RUST_LOG` and `NO_COLOR` are the only environment variables Rapira reads, and both are log-only: `RUST_LOG` replaces the whole filter for one run, so a noisy debugging session needs no config edit, and `NO_COLOR` strips the color from the `plain` format when it holds any non-empty value, even when stderr is a terminal.
+Rapira reads only the `RUST_LOG` and `NO_COLOR` environment variables. Both variables affect only logs.
+`RUST_LOG` replaces the complete filter for one run. `NO_COLOR` disables plain output colors when its value is not empty.
 
-## Unknown keys are rejected
+## Unknown key rejection
 
-Rapira parses `rapira.toml` strictly. Every table and every key inside it has to be one the server knows, so `[htttp]` or `lissten = ":8000"` is a boot failure that names what it could not recognise, not a line silently ignored. Every key also has exactly one table: `max_requests` belongs to `[pool]` and nowhere else, `pidfile` to `[supervisor]` and nowhere else, and putting one under the wrong table fails just like a typo would.
+Rapira accepts only documented tables and keys. For example, `[htttp]` or `lissten = ":8000"` causes initialization to fail.
+The error identifies the unknown name. Rapira does not ignore it.
+Each key belongs to one table. For example, `max_requests` belongs to `[pool]`, and `pidfile` belongs to `[supervisor]`.
 
-Values are checked in the same way. Rapira rejects `level = "verbose"`, `format = "pretty"` and `unsafe_field_names = "allow"`. It does not silently replace them with defaults, so a misspelling cannot downgrade a security setting. Numeric values also have limits. `pool.processes`, `http.max_body_size_mb`, both `[http]` timeouts and every `[http.uploads]` limit must be at least 1. Every `*_secs` key has a maximum value of `86400`, which is one day.
+Rapira also validates values. It rejects unsupported values instead of replacing them with defaults.
+For example, it rejects `level = "verbose"`, `format = "pretty"`, and `unsafe_field_names = "allow"`.
+Numeric values have limits. Worker counts, body sizes, HTTP timeouts, and upload limits must be at least 1.
+Each `*_secs` key has a maximum of `86400`, which is one day.
 
 ::: warning
-Validation happens before anything starts, so an unrecognised key stops the boot instead of quietly degrading the run. Editing `rapira.toml` on a machine that is currently serving leaves the running process untouched, but the next start is the one that has to succeed.
+Rapira validates the file before initialization. An unknown key prevents the server from starting.
+Changes to `rapira.toml` do not affect a running process. Rapira validates the changed file during the next start.
 :::
 
 ## Relative paths
 
-Five keys hold a filesystem path: `pool.entrypoint`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root` and `http.uploads.dir`. Each path resolves against the directory that contains the config file, not the current working directory. For example, set `entrypoint = "app/worker.php"` in `/etc/rapira/rapira.toml`. The resulting script path is `/etc/rapira/app/worker.php`, regardless of where you run `rapira serve`.
+Five keys contain file system paths: `pool.entrypoint`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root`, and `http.uploads.dir`.
+Each relative path uses the configuration file directory as its base.
+For example, set `entrypoint = "app/worker.php"` in `/etc/rapira/rapira.toml`. The resulting path is `/etc/rapira/app/worker.php`.
 
-The positional `SCRIPT` argument works the other way round. It is a command-line value, so a relative path there resolves against the current working directory.
+The positional `SCRIPT` argument uses the current directory as the base for a relative path.
 
 ::: tip
-Keep `rapira.toml` inside the application and write its paths relative to it. Moving the directory then moves the whole configuration with it, and nothing depends on which directory the service happens to start in.
+Keep `rapira.toml` inside the application. Write its paths relative to the file.
+You can then move the application directory without changing the paths.
 :::

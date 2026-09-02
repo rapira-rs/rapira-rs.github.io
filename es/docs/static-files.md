@@ -17,8 +17,8 @@ El middleware se activa con dos partes de `rapira.toml`: el nombre `static` en l
 middleware = ["static"]
 
 [http.static]
-root = "public"     # required; a relative path resolves against this file's directory
-forbid = [".php"]   # optional; an explicit list replaces this default
+root = "public"     # Required. Relative paths use this file's directory.
+forbid = [".php"]   # Optional. This list replaces the default.
 ```
 
 `middleware` guarda la cadena de middleware en el orden de la lista. Por ahora, `static` es el único nombre que admite.

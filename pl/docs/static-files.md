@@ -17,8 +17,8 @@ Middleware włączają dwa fragmenty `rapira.toml`: nazwa `static` na liście mi
 middleware = ["static"]
 
 [http.static]
-root = "public"     # required; a relative path resolves against this file's directory
-forbid = [".php"]   # optional; an explicit list replaces this default
+root = "public"     # Required. Relative paths use this file's directory.
+forbid = [".php"]   # Optional. This list replaces the default.
 ```
 
 `middleware` trzyma łańcuch middleware w kolejności listy. `static` to na razie jedyna nazwa, jaką ten klucz przyjmuje.

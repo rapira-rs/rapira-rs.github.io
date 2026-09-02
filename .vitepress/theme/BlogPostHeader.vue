@@ -5,7 +5,7 @@ import { getLocaleByCode, getBlogUrl } from '../locales'
 
 const { frontmatter, lang } = useData()
 
-// Resolve everything locale-aware through the locale service — never hardcode '/ru/' etc.
+// Use the locale service for all locale URLs. Do not add fixed locale paths.
 const locale = computed(() => getLocaleByCode(lang.value))
 const blogUrl = computed(() => getBlogUrl(locale.value))
 const backTitle = computed(() => locale.value.blogBackLabel)

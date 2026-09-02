@@ -21,7 +21,7 @@ Worker 模式让 PHP 进程在多次请求之间保持存活：脚本把应用�
 // worker.php
 require __DIR__ . '/vendor/autoload.php';
 
-$app = new App(); // booted once, reused for every request
+$app = new App(); // The worker creates this object once and reuses it.
 
 $handler = static function () use ($app): void {
     header('Content-Type: text/plain');
@@ -68,7 +68,7 @@ rapira serve --mode worker app/worker.php
 while (\Rapira\handle_request($api)) {
 }
 
-// unreachable until shutdown
+// Code reaches this loop only during shutdown.
 while (\Rapira\handle_request($web)) {
 }
 ```
@@ -93,12 +93,12 @@ while (\Rapira\handle_request($web)) {
 
 ```php
 register_shutdown_function(static function (): void {
-    // runs once, when the worker's cycle ends
+    // Runs once when the worker cycle ends.
 });
 
 $handler = static function (): void {
     register_shutdown_function(static function (): void {
-        // runs at the end of this request
+        // Runs at the end of this request.
     });
 };
 

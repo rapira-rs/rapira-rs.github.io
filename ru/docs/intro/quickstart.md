@@ -48,7 +48,7 @@ Method: GET
 ```php
 <?php
 
-// Outside the loop, so it survives every request this worker serves.
+// This value remains available for each request in this worker.
 $handled = 0;
 
 $handler = static function () use (&$handled): void {

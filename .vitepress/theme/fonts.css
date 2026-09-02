@@ -1,13 +1,10 @@
-/* Self-hosted faces: IBM Plex Sans for text, JetBrains Mono for code. Both are
-   the variable cut (one axis, wght) split by script, the same way VitePress
-   ships Inter — a reader who never meets a Cyrillic character never downloads
-   the Cyrillic file. The .woff2 files and both OFL texts are in public/fonts/;
-   refresh them from @fontsource-variable/ibm-plex-sans and
-   @fontsource-variable/jetbrains-mono.
+/* IBM Plex Sans supplies text, and JetBrains Mono supplies code.
+   Script-specific variable font files reduce downloads.
+   The .woff2 files and OFL licenses are in public/fonts/.
+   Update them from the two @fontsource-variable packages.
 
-   'woff2-variations' rather than plain 'woff2' — the format keyword is what
-   tells the browser the file carries an axis, so a weight such as 350 is
-   interpolated instead of snapped to the nearest static instance. */
+   The 'woff2-variations' format identifies the weight axis.
+   It lets the browser use intermediate weights such as 350. */
 
 /* ===== IBM PLEX SANS (text, wght 100–700) ===== */
 

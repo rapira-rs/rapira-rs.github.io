@@ -48,7 +48,7 @@ Worker 模式会让脚本一直活着：它只启动一次，随后在循环里�
 ```php
 <?php
 
-// Outside the loop, so it survives every request this worker serves.
+// This value remains available for each request in this worker.
 $handled = 0;
 
 $handler = static function () use (&$handled): void {

@@ -1,16 +1,16 @@
 /**
  * FAQ plugin for markdown-it.
  *
- * Adds `::: question` container — questions can be written anywhere in the article,
- * but are collected and rendered as `<details>` accordions grouped by heading level.
+ * Adds the `::: question` container.
+ * The plugin collects questions and renders `<details>` elements by heading level.
  *
- * Frontmatter `faqLevel` controls grouping:
- *   1 (default) — end of each h1 section (= end of page for single-h1 docs)
- *   2           — end of each h2 section
- *   0           — end of page regardless of headings
- *   false       — no collection, questions render in place as inline spoilers
+ * Frontmatter `faqLevel` controls grouping.
+ *   1 (default): Insert after each h1 section.
+ *   2: Insert after each h2 section.
+ *   0: Insert at the end of the page.
+ *   false: Keep questions at their source locations.
  *
- * No external dependencies — block rule is implemented inline (same logic as markdown-it-container).
+ * The inline block rule uses the markdown-it-container algorithm.
  */
 import type MarkdownIt from 'markdown-it'
 
@@ -52,7 +52,7 @@ function buildFaqTokens(
 }
 
 export function faqPlugin(md: MarkdownIt) {
-  // Block rule: parse ::: question blocks (same approach as markdown-it-container)
+  // Parse `::: question` blocks with the markdown-it-container algorithm.
   md.block.ruler.before('fence', 'container_question', (state, startLine, endLine, silent) => {
     const start = state.bMarks[startLine] + state.tShift[startLine]
     const max = state.eMarks[startLine]
@@ -121,7 +121,7 @@ export function faqPlugin(md: MarkdownIt) {
     return true
   }, { alt: ['paragraph', 'reference', 'blockquote', 'list'] })
 
-  // Inline renderers: used when faqLevel: false (questions stay in place)
+  // Use inline renderers when `faqLevel` is false.
   md.renderer.rules['container_question_open'] = (tokens, idx) => {
     const title = tokens[idx].info.slice('question'.length).trim()
     return `<details class="faq-item">\n<summary>${md.renderInline(title)}</summary>\n<div class="faq-answer">\n`
@@ -130,18 +130,18 @@ export function faqPlugin(md: MarkdownIt) {
     return `</div>\n</details>\n`
   }
 
-  // Core rule: collect question blocks and group them by heading level
+  // Collect question blocks and group them by heading level.
   md.core.ruler.push('faq-collect', (state) => {
     const tokens = state.tokens
     const faqLevel = state.env?.frontmatter?.faqLevel
 
-    // faqLevel: false → questions render in place, skip collection
+    // Do not collect questions when `faqLevel` is false.
     if (faqLevel === false) return
 
     const level = (faqLevel ?? 1) as number
     const questions: FaqQuestion[] = []
 
-    // Phase 1: Extract questions, replace with lightweight markers
+    // First, replace extracted questions with markers.
     let i = 0
     while (i < tokens.length) {
       if (tokens[i].type === 'container_question_open') {
@@ -171,10 +171,10 @@ export function faqPlugin(md: MarkdownIt) {
 
     if (questions.length === 0) return
 
-    // Phase 2: Build new token array, inserting FAQ blocks at section boundaries
-    // level=0 → tag "h0" matches nothing → all questions flush at the end
-    // level=1 → flush before each h1 (typically one per page → end of page)
-    // level=2 → flush before each h2
+    // Then insert FAQ blocks at section boundaries.
+    // Level 0 puts all questions at the end.
+    // Level 1 inserts questions before each h1.
+    // Level 2 inserts questions before each h2.
     const tag = `h${level}`
     const newTokens: any[] = []
     let sectionQuestions: FaqQuestion[] = []
@@ -193,7 +193,7 @@ export function faqPlugin(md: MarkdownIt) {
       newTokens.push(token)
     }
 
-    // Flush remaining questions at the end
+    // Insert remaining questions at the end.
     if (sectionQuestions.length > 0) {
       newTokens.push(...buildFaqTokens(state, sectionQuestions, md))
     }

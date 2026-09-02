@@ -1,6 +1,6 @@
 ---
 title: Budowanie ze źródeł
-description: "Kiedy i jak samodzielnie skompilować Rapirę — narzędzia Rusta i C, PHP w wersji NTS z SAPI embed oraz szczegóły linkowania na Linuksie i macOS."
+description: "Kiedy i jak samodzielnie skompilować Rapirę - narzędzia Rusta i C, PHP w wersji NTS z SAPI embed oraz szczegóły linkowania na Linuksie i macOS."
 ---
 
 # Budowanie ze źródeł
@@ -9,7 +9,7 @@ Rapira kompiluje się ze źródeł na Linuksie i macOS. Samodzielne budowanie po
 
 ## Kiedy budować ze źródeł
 
-- **Dla twojej platformy nie ma gotowej binarki** — nietypowa architektura procesora albo dystrybucja oparta na musl, na przykład Alpine.
+- **Dla twojej platformy nie ma gotowej binarki** - nietypowa architektura procesora albo dystrybucja oparta na musl, na przykład Alpine.
 - **Twoja dystrybucja jest starsza, niż obsługują pakiety.** Wydania powstają na glibc 2.34, więc najstarsze systemy, na których się zainstalują, to Debian 12, Ubuntu 22.04 i RHEL 9 (zobacz [Instalację](/pl/docs/intro/installation)).
 - **Potrzebujesz innego zestawu rozszerzeń PHP.** Wydania zawierają PHP skompilowane z listy flag w pliku [`ci/php-configure-flags.txt`](https://github.com/rapira-rs/rapira/blob/main/ci/php-configure-flags.txt), celowo krótkiej: session, mbstring, OPcache, OpenSSL, curl, rodzina XML, PDO z SQLite. Jeśli twoja aplikacja potrzebuje `pdo_mysql`, `intl` albo `gd`, zbuduj Rapirę na PHP, które je ma.
 - **Pracujesz nad samą Rapirą** albo chcesz coś, czego jeszcze nie wydaliśmy.
@@ -24,10 +24,10 @@ Poza zwykłym wyposażeniem do kompilacji potrzebujesz trzech rzeczy:
 
 ## PHP z SAPI embed
 
-Rapira linkuje interpreter do własnego procesu, zamiast sięgać po niego przez gniazdo, więc PHP musi istnieć jako biblioteka współdzielona: **w wersji 8.4 lub 8.5, NTS (non-thread-safe), skonfigurowanej z `--enable-embed=shared`** — to właśnie ta flaga daje `libphp.so` (na macOS `libphp.dylib`).
+Rapira linkuje interpreter do własnego procesu, zamiast sięgać po niego przez gniazdo, więc PHP musi istnieć jako biblioteka współdzielona: **w wersji 8.4 lub 8.5, NTS (non-thread-safe), skonfigurowanej z `--enable-embed=shared`** - to właśnie ta flaga daje `libphp.so` (na macOS `libphp.dylib`).
 
 ::: warning Wersje ZTS są odrzucane
-PHP zbudowane jako thread-safe (ZTS) przerywa budowanie jawnym błędem — Rapira działa wyłącznie z NTS, bo uruchamia jeden interpreter na proces workera. Jeśli PHP z twojego `PATH` jest wersją ZTS, zainstaluj NTS i wskaż ją przez `PHP_CONFIG` (patrz niżej).
+PHP zbudowane jako thread-safe (ZTS) przerywa budowanie jawnym błędem - Rapira działa wyłącznie z NTS, bo uruchamia jeden interpreter na proces workera. Jeśli PHP z twojego `PATH` jest wersją ZTS, zainstaluj NTS i wskaż ją przez `PHP_CONFIG` (patrz niżej).
 :::
 
 Kilka dystrybucji ma SAPI embed gotowe w pakietach:
@@ -47,7 +47,7 @@ Formuła `php` z Homebrew powstaje bez niego, więc nie ma z czym linkować. Na 
 
 Skompiluj PHP samodzielnie, gdy twoja dystrybucja nie ma pakietu embed, gdy pracujesz na macOS albo gdy w gotowym pakiecie brakuje rozszerzeń, których potrzebuje twoja aplikacja.
 
-Plik `ci/php-configure-flags.txt` w repozytorium to wzorcowa linia `configure` — dokładnie ta sama lista, z której powstają wydania. Podaj ją `configure` w rozpakowanym drzewie źródeł PHP i dopisz rozszerzenia, których potrzebuje twoja aplikacja:
+Plik `ci/php-configure-flags.txt` w repozytorium to wzorcowa linia `configure` - dokładnie ta sama lista, z której powstają wydania. Podaj ją `configure` w rozpakowanym drzewie źródeł PHP i dopisz rozszerzenia, których potrzebuje twoja aplikacja:
 
 ```bash
 ./configure --prefix="$HOME/.local/php-nts" $(tr '\n' ' ' < /path/to/rapira/ci/php-configure-flags.txt)
@@ -55,11 +55,11 @@ make -j"$(getconf _NPROCESSORS_ONLN)"
 make install
 ```
 
-Na macOS zacznij od zależności (`brew install pkg-config openssl@3 curl oniguruma libxml2 sqlite`), dorzuć ich katalogi `lib/pkgconfig` do `PKG_CONFIG_PATH`, a za listą flag dopisz `--with-iconv="$(xcrun --show-sdk-path)/usr"` — samo `--with-iconv` nie znajdzie tam libiconv, a w autoconfie wygrywa ostatnia postać flagi.
+Na macOS zacznij od zależności (`brew install pkg-config openssl@3 curl oniguruma libxml2 sqlite`), dorzuć ich katalogi `lib/pkgconfig` do `PKG_CONFIG_PATH`, a za listą flag dopisz `--with-iconv="$(xcrun --show-sdk-path)/usr"` - samo `--with-iconv` nie znajdzie tam libiconv, a w autoconfie wygrywa ostatnia postać flagi.
 
 ### Nazwa `libphp.so` bez wersji
 
-Budowanie linkuje `-lphp` i przegląda przy tym wyłącznie katalogi `lib` i `lib64` w prefiksie PHP, więc w jednym z nich musi leżeć plik o dokładnie takiej nazwie: `libphp.so` (albo `libphp.dylib`). Debian i Ubuntu dostarczają tylko wersjonowane `libphp8.4.so`, a Alpine ma wprawdzie nazwę bez wersji, ale trzyma plik w `lib/phpXX`, który nie jest przeszukiwany — w obu przypadkach linkowanie nie przejdzie, dopóki nie położysz w `lib` albo `lib64` dowiązania o zwykłej nazwie:
+Budowanie linkuje `-lphp` i przegląda przy tym wyłącznie katalogi `lib` i `lib64` w prefiksie PHP, więc w jednym z nich musi leżeć plik o dokładnie takiej nazwie: `libphp.so` (albo `libphp.dylib`). Debian i Ubuntu dostarczają tylko wersjonowane `libphp8.4.so`, a Alpine ma wprawdzie nazwę bez wersji, ale trzyma plik w `lib/phpXX`, który nie jest przeszukiwany - w obu przypadkach linkowanie nie przejdzie, dopóki nie położysz w `lib` albo `lib64` dowiązania o zwykłej nazwie:
 
 ```bash
 sudo ln -sf /usr/lib/libphp8.4.so /usr/lib/libphp.so        # Debian/Ubuntu
@@ -102,12 +102,12 @@ PHP_CONFIG=$HOME/.local/php-nts/bin/php-config cargo build --release
 W czasie działania Rapira ładuje `libphp.so` (na macOS `libphp.dylib`) dynamicznie. Jeśli biblioteka leży w standardowym miejscu, nie musisz nic robić; w przeciwnym razie wskaż ją loaderowi:
 
 ```bash
-LD_LIBRARY_PATH="$HOME/.local/php-nts/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ./target/release/rapira serve worker.php         # Linux
-DYLD_LIBRARY_PATH="$HOME/.local/php-nts/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" ./target/release/rapira serve worker.php   # macOS
+LD_LIBRARY_PATH="$HOME/.local/php-nts/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ./target/release/rapira serve --mode worker worker.php         # Linux
+DYLD_LIBRARY_PATH="$HOME/.local/php-nts/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" ./target/release/rapira serve --mode worker worker.php   # macOS
 ```
 
 Efektem jest ten sam serwer, który instalują pakiety: [Szybki start](/pl/docs/intro/quickstart) przeprowadzi cię przez pierwszy skrypt, [Wiersz poleceń](/pl/docs/cli) wylicza, co przyjmuje `serve`, a [Konfiguracja](/pl/docs/configuration) opisuje `rapira.toml`.
 
 ## Praca nad samą Rapirą
 
-`make test` uruchamia oba zestawy testów — ten działający w procesie i ten end-to-end, który odpala prawdziwą binarkę — `make stubs` regeneruje nagłówek arginfo z `crates/php_sys/rapira.stub.php`, a CI przy każdym pull requeście buduje projekt i przepuszcza go przez `cargo fmt`, clippy oraz pomiar pokrycia.
+`make test` uruchamia oba zestawy testów - ten działający w procesie i ten end-to-end, który odpala prawdziwą binarkę - `make stubs` regeneruje nagłówek arginfo z `crates/php_sys/rapira.stub.php`, a CI przy każdym pull requeście buduje projekt i przepuszcza go przez `cargo fmt`, clippy oraz pomiar pokrycia.

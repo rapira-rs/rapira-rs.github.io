@@ -1,23 +1,48 @@
 ---
 title: HTTP requests and responses
-description: How Rapira turns an HTTP request into PHP superglobals and a PHP response back into bytes on the wire — field-name mapping, repeated fields, body limits, buffering, and rapira_finish_request().
+description: "How Rapira maps HTTP requests to PHP and returns PHP responses, including fields, body limits, response framing, and rapira_finish_request()."
+faqLevel: 2
 ---
 
 # HTTP requests and responses
 
-Rapira's HTTP front is built on [Pingora](https://github.com/cloudflare/pingora) and ships inside the binary. It accepts connections on the socket the master bound, parses the request, hands it to PHP, and writes back whatever PHP produced. There is no upstream: every request is answered locally, by your code.
+The HTTP server converts a client connection into a PHP request. It converts the PHP response into network data.
+The server uses the [hyper](https://hyper.rs) library inside the Rapira binary. It accepts HTTP/1.1 and HTTP/1.0 on the master socket.
+It parses each request, sends it to PHP, and writes the PHP response. It does not proxy requests to another server.
+Middleware can answer a request before PHP runs. Rapira uses this method to serve [static files](/docs/static-files).
 
-This page covers the parts where the translation between HTTP and PHP is not one-to-one: which header field lands in which `$_SERVER` key, what happens when a client sends the same field twice, how big a request body may be, and how your response is framed on the way out.
+This page describes the differences between the HTTP and PHP representations. It explains request validation, `$_SERVER` field mapping, repeated fields, and request-body limits. It also explains how the HTTP server frames a response.
 
 ::: info
-The front terminates plaintext HTTP. If you need TLS, terminate it in a proxy in front of Rapira — see [Deployment](/docs/deployment).
+The HTTP server accepts plain HTTP. Use a proxy to terminate TLS. See [Deployment](/docs/deployment).
 :::
+
+## Request checks
+
+The HTTP server checks each request before PHP runs. It answers a request that fails a check without calling PHP.
+
+Rapira returns `501` for a `CONNECT` request. The HTTP server does not create tunnels.
+
+Rapira accepts an absolute-form request target, such as `GET http://host.example/admin?x=1 HTTP/1.1`. The target authority replaces the `Host` field.
+Rapira first removes user information from the authority. This prevents a conflict in `$_SERVER['HTTP_HOST']`.
+PHP receives the origin-form path and query in `$_SERVER['REQUEST_URI']`.
+
+`http.keepalive_timeout_secs` limits each read from the client. It applies to an idle connection and the request headers.
+Rapira returns `408` when request body reading does not progress before the limit. It then closes the connection.
+The default is 60 seconds.
+
+```toml
+[http]
+keepalive_timeout_secs = 60
+```
 
 ## From a header name to a `$_SERVER` key
 
-CGI has one rule for exposing request fields to a script: take the field name, uppercase it, replace every `-` with `_`, and prepend `HTTP_` ([RFC 3875 §4.1.18](https://www.rfc-editor.org/rfc/rfc3875#section-4.1.18)). So `X-Forwarded-For` becomes `HTTP_X_FORWARDED_FOR`, and that is the key your code reads.
+CGI converts a request field name to uppercase. It replaces each `-` with `_` and adds `HTTP_`.
+See [RFC 3875 §4.1.18](https://www.rfc-editor.org/rfc/rfc3875#section-4.1.18). Thus, `X-Forwarded-For` becomes `HTTP_X_FORWARDED_FOR`.
 
-PHP then applies a second rewrite of its own when it registers the variable: `.` also becomes `_`. Two mappings, both collapsing different characters onto the same underscore, and the result is that three different names on the wire arrive at exactly one key:
+PHP applies another conversion when it registers the variable. It also replaces `.` with `_`.
+Therefore, these three network field names map to one PHP key:
 
 | On the wire       | In PHP                              |
 | ----------------- | ----------------------------------- |
@@ -26,75 +51,121 @@ PHP then applies a second rewrite of its own when it registers the variable: `.`
 | `X.Forwarded.For` | `$_SERVER['HTTP_X_FORWARDED_FOR']`  |
 
 ::: warning
-This aliasing is a security problem. If a trusted proxy in front of Rapira sets `X-Forwarded-For`, a client that sends `X_Forwarded_For` reaches the same `$_SERVER` key — and the proxy's own header filter, which strips the spelling with dashes, never sees the underscore one. The client can set a value that your application treats as coming from the proxy.
+This aliasing causes a security risk. A proxy can set `X-Forwarded-For`, while a client sends `X_Forwarded_For`.
+Both names map to the same `$_SERVER` key. A proxy filter for the hyphenated name might not remove the name with underscores.
+The application could then trust a value from the client.
 :::
 
 ## Names that alias a CGI variable
 
-Because of that, Rapira screens request field names before any other layer sees them. A name is accepted when every byte is in `[A-Za-z0-9-]`. `_` and `.` are the characters that alias — both collapse onto the same `$_SERVER` key as the dash spelling. The rule is an allowlist rather than a denylist of those two bytes, so a legal but unusual character like `~` is refused as well, and the screen stays correct if either mapping ever widens. `http.unsafe_field_names` decides what happens to a name it refuses:
+Rapira checks request field names before other processing. It accepts only bytes in `[A-Za-z0-9-]`.
+Both `_` and `.` can map to the same `$_SERVER` key as `-`. The allowed character list also rejects other characters, such as `~`.
+`http.unsafe_field_names` controls rejected names:
 
-- **`drop`** (the default) — the field is removed before PHP sees it, and each removal is logged at `warn` on the `http` target.
-- **`reject`** — the request is answered `400` and nothing is served.
+- **`drop`** is the default. Rapira removes the field before PHP receives it and logs each removal at `warn`.
+- **`reject`** makes Rapira return `400`.
 
 ```toml
 [http]
 unsafe_field_names = "drop"
 ```
 
-There is no third option that turns the screen off and no per-name exception, because the aliasing the screen prevents is a security problem — see [Configuration](/docs/configuration) for where the key sits among the rest of the settings.
+You cannot disable the check or add exceptions for individual names. See [Configuration](/docs/configuration) for the complete setting reference.
 
-If your clients legitimately send a name with an underscore in it, the fix is to rename it to the `-` spelling. The screen treats a proxy's own fields the same way, since Rapira cannot tell an underscore-spelled field written by a trusted proxy from one forged by a client, so a proxy that sets `X_Forwarded_For` has it dropped before PHP runs. A proxy in front of Rapira can do that rewrite in one line of its own configuration, and then the name is ordinary and passes untouched.
+Change a required field name with underscores to use hyphens. Rapira applies the same rule to fields from a proxy.
+It cannot determine whether a client or trusted proxy sent a field with underscores. Configure the proxy to change the name before sending it.
 
 ::: tip
-`drop` logs every removal at `warn`, but the default log level is `error`, so those lines are invisible until you raise it. If a header is unexpectedly missing from `$_SERVER`, turn the level up and look at the `http` target first — [Logging](/docs/logging) shows how.
+`drop` logs each removal at `warn`, but the default log level is `error`. Set the `http` target to `warn` to see these records.
+See [Logging](/docs/logging) for more information.
 :::
 
 ## Fields sent more than once
 
-HTTP lets a client repeat a field, and CGI has room for only one value per variable, so the repeats have to be folded into a single value before PHP sees anything. Rapira folds them the way the field's own grammar says it may be folded:
+HTTP permits repeated fields, but CGI provides one value for each variable. Rapira combines repeated values according to the field syntax:
 
-- **List fields** — the values are joined with `, `, which is the recombination [RFC 9110 §5.3](https://www.rfc-editor.org/rfc/rfc9110#section-5.3) permits for a field defined as a comma-separated list. Two `Accept` lines become `text/*, image/*`.
-- **`Cookie`** — also a list, but not a comma one. Its repeats are joined with `; `, the cookie-string form PHP's parser expects, so `$_COOKIE` comes out right.
-- **Single-value fields** — `Authorization`, `Proxy-Authorization`, `Content-Type`, `Content-Length`, `Referer` and `From` keep the **first** line only, and the extra ones are dropped with a `warn`. Joining them would corrupt them: a second `Authorization` folded into the first lands inside the credential PHP is about to base64-decode. A repeated `Content-Length` is answered `400` before folding runs, so only the other five ever reach this rule.
-- **`Host`** — more than one `Host` line is answered `400`, never folded. [RFC 9112 §3.2](https://www.rfc-editor.org/rfc/rfc9112#section-3.2) makes that a MUST, and the layer terminating the connection is the only one that can give the correct answer.
+- **List fields:** Rapira joins values with a comma and a space. [RFC 9110 §5.3](https://www.rfc-editor.org/rfc/rfc9110#section-5.3) permits this format for comma-separated fields.
+- For example, two `Accept` lines become `text/*, image/*`.
+- **`Cookie`:** Rapira joins values with a semicolon and a space, which is the format that the PHP cookie parser expects.
+- **Single-value fields:** Rapira keeps the first `Authorization`, `Proxy-Authorization`, `Content-Type`, `Referer`, or `From` line.
+- It removes additional lines and writes a `warn` record. Combining these fields would change their values.
+- Rapira returns `400` for repeated `Content-Length` fields before this processing.
+- **`Host`:** Rapira returns `400` for more than one `Host` line. It does not combine the values.
+- [RFC 9112 §3.2](https://www.rfc-editor.org/rfc/rfc9112#section-3.2) requires this behavior.
 
-Field values reach PHP as raw bytes throughout. A latin1 cookie or a signed header keeps every octet the client sent, because a UTF-8 conversion in the middle would corrupt exactly the values that must not change.
+PHP receives field values as unmodified bytes. Thus, a Latin-1 cookie or signed field retains each byte that the client sent.
 
 ## Request bodies
 
-A request body is read into memory before PHP runs, and `http.max_body_size_mb` caps how much of it Rapira holds. The default is 8 MiB — the same figure as PHP's own `post_max_size` default. A body over the cap is answered `413`, and because the rest of it is still on the wire, that response also closes the connection instead of trying to reuse it.
+Rapira reads the request body into memory before PHP runs. `http.max_body_size_mb` limits the memory for one body.
+The default is 8 MiB, which equals the PHP `post_max_size` default.
+Rapira returns `413` for a larger body and closes the connection. It does not read the remaining body data.
 
-The limit is checked twice:
+Rapira checks the limit twice:
 
-- Against the declared `Content-Length`, before a single byte of body is read.
-- Again while the body arrives, chunk by chunk. A chunked request declares no length up front, so this second check is what bounds its memory use.
+- Rapira first checks the declared `Content-Length` before it reads body data.
+- It checks again as body chunks arrive. This second check limits chunked requests that have no declared length.
 
-`Expect: 100-continue` is honored for HTTP/1.1 requests — Rapira writes the interim `100 Continue` and the client then sends the body it was holding back. The order matters: the `Content-Length` check runs *first*, so a client that announces an oversized body is told `413` before it uploads anything. An HTTP/1.0 request's expectation is ignored, as [RFC 9110 §10.1.1](https://www.rfc-editor.org/rfc/rfc9110#section-10.1.1) requires.
+Rapira supports `Expect: 100-continue` for HTTP/1.1 requests. It sends `100 Continue` before the client sends the body.
+Rapira checks `Content-Length` first. Therefore, it can return `413` before the client uploads a body that is too large.
+Rapira ignores the expectation for HTTP/1.0, as [RFC 9110 §10.1.1](https://www.rfc-editor.org/rfc/rfc9110#section-10.1.1) requires.
 
 ```toml
 [http]
 max_body_size_mb = 8
 ```
 
-## How the response goes out
+## Response transmission
 
-Everything PHP writes is buffered until the request finishes, and only then does the response head go on the wire. This is what the buffering is for: the server knows the exact body length, so it can send a real `Content-Length`. Without a framed body, HTTP/1.1 has to fall back to close-delimiting — the connection ends the response, which means a new connection for every single request. With a `Content-Length`, keep-alive works and the connection stays up.
+The HTTP server does not buffer the response body. It writes the response head when PHP commits it. It then writes each body frame as PHP produces it.
+The mode controls when PHP produces this data. In Classic and Worker modes, PHP normally passes the complete response when the request ends.
+A call to `rapira_finish_request()` passes it earlier. In Dispatcher mode, PHP passes the head and each body chunk as the code writes them.
 
-Framing is therefore the server's job, not PHP's. A `Content-Length` or `Transfer-Encoding` your code sets is dropped and replaced by what the buffered body actually measures, so a stale length can never desynchronize the connection. Responses that have no body by definition — `204` and `304` — get no `Content-Length` at all.
+The server controls response framing. It removes `Transfer-Encoding` and `Content-Length` fields set by PHP.
+This prevents an incorrect length from changing message boundaries.
+In Classic and Worker modes, the server sets the length of the complete PHP body.
+In Dispatcher mode, the server uses the `Content-Length` that PHP declares in the head. It sends this value as its own field and compares the body length with it.
+It closes the connection for a short body. It cuts a long body at the declared length.
 
-Hop-by-hop fields belong to a single connection rather than to the response, so PHP does not get to set them either ([RFC 9110 §7.6.1](https://www.rfc-editor.org/rfc/rfc9110#section-7.6.1)). These are stripped from whatever your code emitted:
+The HTTP server frames a response that declares no length. It uses chunked transfer coding for an HTTP/1.1 client.
+It closes the connection after it sends the body to an HTTP/1.0 client.
+
+The server omits `Content-Length` from `204` and `304` responses. It also omits this field and the body from `HEAD` responses.
+
+The server removes connection-specific fields that PHP sets. [RFC 9110 §7.6.1](https://www.rfc-editor.org/rfc/rfc9110#section-7.6.1) defines this behavior.
+It removes these fields:
 
 `Connection`, `Keep-Alive`, `Upgrade`, `Trailer`, `TE`, `Proxy-Connection`, plus the two framing fields `Content-Length` and `Transfer-Encoding`.
 
-If PHP does send a `Connection` header, the fields it names are stripped as well — that is what a `Connection` value means — and that removal runs before Rapira inserts its own `Content-Length`, so a `Connection: content-length` cannot remove the framing from the response.
+When PHP sends `Connection`, Rapira also removes each field that it names. This occurs before Rapira adds its own `Content-Length`.
+Therefore, `Connection: content-length` cannot remove response framing.
 
-Everything else passes through as PHP wrote it, repeats included: `Set-Cookie`, `Vary` and `Link` may legitimately appear several times and all of them are sent. A header that cannot be represented on the wire at all is dropped with a log line rather than failing the response, so the rest of the response is still sent.
+Rapira sends other PHP fields without changes, including repeated `Set-Cookie`, `Vary`, and `Link` fields.
+It removes an invalid network field and writes a log record. It still sends the remaining response.
+
+Rapira removes interim response heads and trailers from PHP. It creates the `100 Continue` response for an `Expect` request itself.
+
+A truncated reply closes the connection without a complete terminator. A worker can terminate before the body ends.
+The body can also be shorter than the length that PHP declared. A fatal error or uncaught exception can end a script after it writes output.
+Each case produces an incomplete message. The client can detect this incomplete message.
+
+An error response from the HTTP server has no body. It includes `cache-control: private, no-store` and `connection: close`.
+Examples are `413` for a large body and `501` for `CONNECT`.
+
+::: question Why does the HTTP server set the framing fields instead of PHP?
+The HTTP server compares the response body size with its declared length. It closes the connection when the body is too short.
+This prevents the client from reading the next response as part of the current response.
+The server removes a PHP `Content-Length` because that field could bypass the byte count.
+:::
 
 ## Finishing the response early
 
-A handler often has work left once the response is ready: a webhook to fire, a queue entry to write, a cache to warm. The client does not have to wait for it.
+A handler can have work after the response is ready. Examples include sending a webhook, writing a queue entry, or updating cached data.
+The client does not have to wait for this work.
 
-`rapira_finish_request()` ends the response at that point. The buffered output is flushed, the response is handed to the front and goes out to the client, and your handler keeps running with the client already holding the whole response. It is the same contract as `fastcgi_finish_request()`, so code written for php-fpm behaves the way it always did:
+`rapira_finish_request()` ends the response at that point. PHP flushes its output buffers and gives the response to the HTTP server.
+The HTTP server sends the response while the handler continues. The function has the same contract as `fastcgi_finish_request()`.
+Therefore, code written for php-fpm keeps the same behavior:
 
 ```php
 <?php
@@ -104,16 +175,23 @@ echo "Order accepted\n";
 
 rapira_finish_request();
 
-// The client already has the response; this still runs.
+// This code runs after the client receives the response.
 $mailer->sendConfirmation($order);
 $metrics->flush();
 ```
 
-The signature is `rapira_finish_request(): bool`. It is declared, along with everything else Rapira exposes to PHP, in [`crates/php_sys/rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php) — point your IDE at that file for completion and type hints.
+The signature is `rapira_finish_request(): bool`.
+[`crates/php_sys/rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php) declares it and the other PHP APIs.
+Configure the IDE to use this file for completion and type information.
 
-The function is registered for the whole process and acts on the request being served, so classic mode supports it as well: the behavior is the same whether the script is resident or re-run per request. See [Execution modes](/docs/execution-modes) for what else changes between modes.
+Rapira registers the function for the complete process. The function acts on the current request.
+Therefore, Classic mode also supports it. Resident and per-request scripts get the same behavior.
+See [execution modes](/docs/execution-modes) for more information about the differences between the modes.
 
-Two things to keep in mind:
+The function has two important limits:
 
-- **Output after the call is not sent.** The response is closed, so an `echo` that follows is discarded — it is not queued for a later flush. Anything the client must see has to be written before the call.
-- **The worker is still busy.** Finishing the response frees the *client*, not the process. This worker does not pick up the next request until your handler returns, so the work you moved after the call is work the next request still waits for — see [Process model](/docs/process-model) for how many workers there are to wait on. The call lowers client latency but adds no concurrency, so heavy work belongs in a queue.
+- **Output after the call is not sent.** Rapira discards output after it closes the response.
+- Write all required client output before the call.
+- **The worker continues to run the handler.** It cannot accept its next request until the handler returns.
+- The call can reduce client wait time but does not add concurrency. Put long operations in a queue.
+- See [Process model](/docs/process-model) for worker concurrency.

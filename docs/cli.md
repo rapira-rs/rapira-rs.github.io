@@ -1,6 +1,6 @@
 ---
 title: Command line
-description: Every option rapira serve accepts, how CLI flags layer over the config file, and how entry-script paths are resolved.
+description: Options for rapira serve, configuration precedence, and entry script path resolution.
 ---
 
 # Command line
@@ -11,21 +11,25 @@ Rapira ships as a single binary with one subcommand:
 rapira serve [OPTIONS] [SCRIPT]
 ```
 
-`serve` is what boots the server: it starts PHP, registers the built-in extensions and begins answering requests. Running bare `rapira` with no arguments prints the help and exits, and `rapira serve --help` lists the options below straight from the binary. `rapira --version` tells you which build you have.
+The `serve` command starts PHP, registers the built-in extensions, and accepts requests.
+Run `rapira` without arguments to show help. Run `rapira serve --help` to list the available options.
+Run `rapira --version` to show the installed version.
 
-A config file is optional: a single command with a script path is a complete, working server, and the file is there for when the flags are not enough.
+A configuration file is optional. A command with a script path can start the server with default settings.
 
-## How settings layer
+## Configuration precedence
 
-A setting is resolved from up to three layers, consulted in this order:
+Rapira reads settings in this order:
 
 **CLI flags > config file > built-in defaults.**
 
-Only the four flags in the table below and the `SCRIPT` argument have a command-line form; everything else comes from the file or the default.
+Only the four flags in the table and the `SCRIPT` argument have CLI forms. Other settings use the file or default value.
 
-So a flag always wins over the same value in `rapira.toml`, and `rapira.toml` always wins over the default. That ordering lets you keep the stable configuration in the file and override one value on the command line for a single run — a different port while you test, more workers on a bigger box — without editing anything.
+A flag overrides the corresponding value in `rapira.toml`. A value in `rapira.toml` overrides the default.
+This order lets you change one value for one run. For example, you can test another port without editing the file.
 
-Anything you don't set at all falls through to the defaults in the table below. Settings the flags don't expose — pool scaling, logging, request limits — come from the file, and the full list of what a config file can hold lives on [Configuration](/docs/configuration).
+Unset options use the defaults in the table. The configuration file controls settings without flags, such as pool scaling, logging, and request limits.
+See [Configuration](/docs/configuration) for all file settings.
 
 ## Options
 
@@ -33,57 +37,72 @@ Anything you don't set at all falls through to the defaults in the table below. 
 | ----------------- | ---------------- | ------------------------------------------------------------------------------------------------ |
 | `--config <PATH>` | none             | Load settings from a `rapira.toml`.                                                              |
 | `--listen <ADDR>` | `127.0.0.1:8000` | Bind address: `host:port`, `:port` (all interfaces), or `unix:<path>`.                           |
-| `--processes <N>` | CPU count        | Worker processes to fork.                                                                        |
-| `--classic`       | off              | Re-run the script from scratch on every request instead of keeping it resident.                  |
+| `--processes <N>` | CPU count        | Number of worker processes.                                                                       |
+| `--mode <MODE>`   | `dispatcher`     | Run mode: `classic`, `worker` or `dispatcher`. Overrides `pool.mode` from the config file.       |
 | `SCRIPT`          | required*        | The PHP entry script. Overrides `pool.entrypoint` from the config file.                          |
 
 \* Required unless the config file sets `pool.entrypoint`. With neither, `serve` reports an error and does not start.
 
-**`--listen`** takes three shapes. `127.0.0.1:8000` (the default) binds one interface — loopback only, so nothing outside the machine can reach it. `:8080` is shorthand for `0.0.0.0:8080` — every IPv4 interface, which is the usual binding in a container; for IPv6 write `[::]:8080`. `unix:/run/rapira.sock` binds a Unix socket instead, for a reverse proxy on the same host. IPv6 literals go in brackets: `[::1]:8000`. A bare port is *not* an address and is rejected because it doesn't say whether to bind loopback only or every interface — `--listen 8080` is an error, write `--listen :8080` or `--listen 127.0.0.1:8080`. The host part has to be an IP literal — hostnames are never resolved, so `--listen localhost:8000` is an error; write `--listen 127.0.0.1:8000`.
+**`--listen`** accepts three address formats. `127.0.0.1:8000` binds the loopback interface. Remote systems cannot connect to this address.
+`:8080` is equal to `0.0.0.0:8080` and binds all IPv4 interfaces. Use `[::]:8080` for all IPv6 interfaces.
+`unix:/run/rapira.sock` creates a Unix socket for a local reverse proxy. Put IPv6 literals in brackets, as in `[::1]:8000`.
+Rapira rejects a port without an address. Use `--listen :8080` or `--listen 127.0.0.1:8080`.
+Rapira does not resolve host names in this option. Use `127.0.0.1:8000` instead of `localhost:8000`.
 
-**`--processes`** defaults to the number of logical CPUs. Under the default static pool that is exactly how many worker processes get forked; when the config file switches the pool to `dynamic` or `ondemand`, the same number becomes the ceiling those modes scale up to. See [Process model](/docs/process-model) for what the workers and the master actually do.
+**`--processes`** defaults to the logical CPU count. Static scaling uses it as the exact worker count.
+Dynamic and ondemand scaling use it as the maximum worker count. See [Process model](/docs/process-model) for more information.
 
-**`--classic`** picks the mode the app runs in. Without it the entry script is loaded once and stays resident, which is [SAPI Worker](/docs/worker) mode; with it, the script is re-included per request exactly as it would be under php-fpm, which is [Classic](/docs/classic) mode. If you are not sure which one your application can use, [Execution modes](/docs/execution-modes) describes all four modes.
+**`--mode`** selects the execution mode. `dispatcher` is the default and gets each request from the host.
+`worker` retains the entry script and runs a handler for each request. `classic` starts a new PHP request for each HTTP request.
+The flag overrides the mode in the configuration file.
+See [Classic mode](/docs/classic), [Worker mode](/docs/worker), and [Execution modes](/docs/execution-modes) for more information.
 
 ::: info
-`--classic` is a switch that only turns on. There is no `--no-classic`, so `classic = true` in a config file cannot be turned off from the command line — remove the key from the file instead.
+`pool.scaling` and `pool.mode` are separate keys. `pool.scaling` sets the policy that sizes the pool. `pool.processes` sets the worker count the policy applies, and `--processes` overrides it. `pool.mode` sets what a worker does with a request. `pool.scaling` has no flag. Set it in the config file.
 :::
 
 ## Entry script resolution
 
-The script can be given twice — as the positional `SCRIPT` argument or as `pool.entrypoint` in the config file — and if both are present, the command line wins while every other setting in the file still applies. Either way Rapira turns it into an absolute path before the server forks anything, because a daemon's working directory is not the directory you deployed into.
+Specify the script with the `SCRIPT` argument or `pool.entrypoint`. The argument overrides `pool.entrypoint`, but other file settings still apply.
+Rapira converts the script path to an absolute path before it creates workers. This prevents later changes to the working directory from affecting it.
 
 The two relative forms resolve against different bases:
 
 - A relative `SCRIPT` on the command line resolves against **the current directory**.
-- A relative `pool.entrypoint` resolves against **the config file's own directory** — so a config file and the application next to it can be moved, copied or mounted anywhere as a unit and the path still resolves.
+- A relative `pool.entrypoint` resolves against **the configuration file directory**.
 
 ```toml
 [pool]
 entrypoint = "public/index.php"
 ```
 
-With that in `/etc/rapira/rapira.toml`, the entry script is `/etc/rapira/public/index.php` — regardless of the current directory you ran the command from.
+This setting in `/etc/rapira/rapira.toml` resolves to `/etc/rapira/public/index.php`. The current directory does not affect it.
 
 ## Examples
 
 Common invocations:
 
 ```bash
-rapira serve app/worker.php
-rapira serve --classic public/index.php
-rapira serve --listen :8080 --processes 8 app/worker.php
-rapira serve --listen unix:/run/rapira.sock app/worker.php
+rapira serve app/dispatcher.php
+rapira serve --mode worker app/worker.php
+rapira serve --mode classic public/index.php
+rapira serve --listen :8080 --processes 8 app/dispatcher.php
+rapira serve --listen unix:/run/rapira.sock app/dispatcher.php
 rapira serve --config /etc/rapira/rapira.toml
 rapira serve --config /etc/rapira/rapira.toml --listen 127.0.0.1:9000
 ```
 
-The first command takes no `--listen`, so the server comes up on the default address and one more line is enough to send it a request. See [Quickstart](/docs/intro/quickstart) for a worker script to run with it.
+The first command does not set `--listen`. Therefore, the server uses the default address.
+Send a request with this command:
 
 ```bash
 curl http://127.0.0.1:8000/
 ```
 
+[Quickstart](/docs/intro/quickstart) gives the entry scripts for the `--mode classic` and `--mode worker` commands. For a Dispatcher entry script, use `dispatcher-sync.php` or `dispatcher-async.php` from the repository [`examples/`](https://github.com/rapira-rs/rapira/tree/main/examples) directory.
+
 ## Stopping the server
 
-The first `SIGINT` or `SIGTERM` — a `Ctrl-C` in the terminal, or what your init system sends — drains in-flight requests and shuts extensions down cleanly; a second one stops waiting and forces the exit. Signals go to the master process, and the complete table of them, reloads included, is on [Process model](/docs/process-model).
+The first `SIGINT` or `SIGTERM` lets current requests finish. It then shuts down extensions and exits.
+A second signal stops the wait and forces an exit. Send signals to the master process.
+See [Process model](/docs/process-model) for the complete signal table.

@@ -1,40 +1,51 @@
 ---
 title: Yii3
-description: Running a Yii3 application on Rapira in worker mode — the resident HttpApplicationRunner with StateResetter, the per-request runner, and what was verified about routing, sessions, uploads and errors.
+description: Running Yii3 in Worker mode with a resident HttpApplicationRunner, StateResetter, or a new runner for each request.
 ---
 
 # Yii3
 
-Yii3 is designed to run in a process that stays alive: its DI container ships a `StateResetter`, the runner exposes its container through public API, and building the application once and resetting the per-request state after each response is the shape the framework already has. The official RoadRunner runner, [`yiisoft/yii-runner-roadrunner`](https://github.com/yiisoft/yii-runner-roadrunner), is built the same way. This page covers the resident worker script, the per-request alternative, and what was verified about routing, sessions, uploads and error handling.
+Yii3 supports persistent processes. Its dependency injection container provides `StateResetter`, and the runner provides public access to the container.
+A worker can initialize the application once and reset request state after each response.
+The official [`yiisoft/yii-runner-roadrunner`](https://github.com/yiisoft/yii-runner-roadrunner) runner uses the same design.
+This page describes a persistent worker, a per-request alternative, and integration test results.
 
 ::: info Verified with
-- **PHP 8.5.8** — NTS, embed SAPI
-- **Rapira 0.6.0**
+- **PHP 8.5.8**: NTS, embed SAPI
+- **Rapira 0.8.0**
 - **yiisoft/app** template 1.4, with **yii-runner-http 3.2.1** (router-fastroute 4.x)
 
-Both worker scripts on this page were run against that stack and passed the full battery: routing, generated URLs, form and JSON posts, sessions, uploads, error handling and 200 sequential requests.
+Tests ran both worker scripts with this software. They covered routing, URLs, request bodies, sessions, uploads, errors, and 200 sequential requests.
 :::
 
-## Yii3 and worker mode
+## Yii3 and Worker mode
 
 A resident worker needs two pieces of public API.
 
-`ApplicationRunner::getContainer()` returns the container the application runs on, so nothing has to be subclassed and no private state has to be reached into. `Yiisoft\Di\StateResetter` is a normal service in that container: components register their own reset callbacks with it, and one `reset()` call puts them back to how they started, which is the framework's own answer to a service that holds request state.
+`ApplicationRunner::getContainer()` returns the application container. The worker does not need a subclass or access to private state.
+`Yiisoft\Di\StateResetter` is a service in that container. Components register callbacks that reset their request state.
+One `reset()` call runs these callbacks.
 
-A service of your own that holds request state has to register a callback too: add a `'reset' => function (): void { … }` key to that service's DI definition, the same way `yiisoft/session` and `yiisoft/router` declare theirs. The closure is bound to the instance, so it can restore private state without rebuilding the object. What Rapira itself resets between requests, and what it leaves alone, is documented on the [frameworks overview](/docs/frameworks/) and in [Worker mode](/docs/worker).
+An application service that contains request state must also register a callback.
+Add a `'reset' => function (): void { … }` key to its dependency injection definition.
+`yiisoft/session` and `yiisoft/router` use the same method. The closure can reset private state without creating a new object.
+See the [frameworks overview](/docs/frameworks/) and [Worker mode](/docs/worker) for state lifetime information.
 
-The resident pattern is then three steps: build the runner once, run it per request, reset the container's state afterwards.
+The persistent design has three steps. Create the runner once. Run it for each request. Reset the container after each request.
 
 ## Prerequisites
 
-- Rapira installed — see [Installation](/docs/intro/installation).
+- Rapira installed. See [Installation](/docs/intro/installation).
 - A Yii3 application: either a fresh [`yiisoft/app`](https://github.com/yiisoft/app) project or one you already have.
 
-Nothing has to be installed on the PHP side: the worker script below is the only new file in the project, and it sits at the project root next to `composer.json`, because the runner's `rootPath` is the project root. You also need an ordinary PHP CLI on the machine for Composer — Rapira ships PHP as a library (`libphp`), not as a `php` command, so those steps run on your system PHP, which Rapira neither uses nor touches.
+The worker script is the only new PHP file. Put it in the project root next to `composer.json`.
+The runner uses the project root as its `rootPath`.
+Install a PHP CLI for Composer. Rapira supplies PHP as a library, not as a `php` command.
+Composer uses the system PHP CLI. Rapira does not use or change this CLI.
 
 ## The resident worker
 
-This is the recommended shape. Save it as `worker.php` in the project root:
+This is the recommended design. Save it as `worker.php` in the project root:
 
 ```php
 <?php
@@ -42,11 +53,8 @@ This is the recommended shape. Save it as `worker.php` in the project root:
 declare(strict_types=1);
 
 use App\Environment;
-use Rapira\Plugin\Http\HttpHandlerConfig;
 use Yiisoft\Di\StateResetter;
 use Yiisoft\Yii\Runner\Http\HttpApplicationRunner;
-
-use function Rapira\create_plugin_handler;
 
 require_once __DIR__ . '/vendor/autoload.php';
 require_once __DIR__ . '/src/bootstrap.php';
@@ -59,42 +67,55 @@ $runner = new HttpApplicationRunner(
 );
 $container = $runner->getContainer();
 
-$http = create_plugin_handler(new HttpHandlerConfig());
-
 $handler = static function () use ($runner, $container): void {
     try {
         $runner->run();
     } finally {
-        // The worker keeps serving after an escaped error; the reset has to
-        // run on that path too, or state leaks into the next request.
+        // The worker continues after an error leaves run().
+        // Reset state before the next request.
         $container->get(StateResetter::class)->reset();
     }
 };
 
-while ($http->handleRequest($handler)) {
+while (\Rapira\handle_request($handler)) {
     gc_collect_cycles();
 }
 ```
 
-Walking through it:
+The script contains these operations:
 
-**`src/bootstrap.php` is the template's own bootstrap.** It loads Composer's autoloader, reads `.env` when it is there, and calls `Environment::prepare()`, exactly what `public/index.php` does before it touches the runner. The explicit `vendor/autoload.php` line above it is redundant — `require_once` makes the second call a no-op — and keeps the worker readable as a standalone entry point.
+**`src/bootstrap.php` initializes the template.** It loads the Composer autoloader, reads `.env` when present, and calls `Environment::prepare()`.
+The standard `public/index.php` performs the same operations before it uses the runner.
+The explicit `vendor/autoload.php` line is not required because `src/bootstrap.php` also loads it. `require_once` prevents a second load.
 
-**The runner is constructed once, with the arguments from `public/index.php`.** `rootPath`, `debug`, `checkEvents` and `environment` come from `App\Environment` exactly as the front controller passes them, so the worker boots the same application the web entry point does. The template's `public/index.php` passes one more argument — a `temporaryErrorHandler` wired to a `StreamTarget` logger — and requires `c3.php` when `APP_C3` is on. The verified worker omits both. The temporary handler only covers errors raised while the configuration and container are being built; without one the runner falls back to an `ErrorHandler` with a `NullLogger` (`HttpApplicationRunner::createTemporaryErrorHandler()`), so pass it here too if you want container-build failures logged.
+**The worker creates the runner once with arguments from `public/index.php`.**
+It passes `rootPath`, `debug`, `checkEvents`, and `environment` from `App\Environment`. Therefore, it initializes the same application.
+The template also passes `temporaryErrorHandler` with a `StreamTarget` logger. It loads `c3.php` when you enable `APP_C3`.
+The tested worker omits both parts.
+The temporary handler logs errors during configuration and container creation.
+Without it, `HttpApplicationRunner::createTemporaryErrorHandler()` creates an `ErrorHandler` with a `NullLogger`.
+Pass the template handler to log container creation failures.
 
-**`getContainer()` is public API**, so the container you capture is the application's container — the one the runner will use for every request. `StateResetter` is resolved from it inside the handler.
+**`getContainer()` is public API.** It returns the application container that the runner uses for each request.
+The handler gets `StateResetter` from this container.
 
-**Per request: `run()`, then `reset()`.** `run()` is the same call the front controller makes; `reset()` walks the container's registered reset callbacks and puts the stateful services back to their initial state before the next request arrives.
+**Per request: `run()`, then `reset()`.** The entry script also calls `run()`. Then, `reset()` runs the registered reset callbacks in the container. These callbacks restore stateful services before the next request arrives.
 
-**`run()` re-executes its whole sequence on every call.** Each call registers the error handler, runs `runBootstrap()`, runs `checkEvents()`, and then handles the request; the runner is re-entrant by design, and that repetition was verified harmless over 200 consecutive calls. The events check only does work when its flag is true, and the template ties that flag to `Environment::appDebug()`, so with debug off it is a no-op on every call.
+**`run()` repeats its complete sequence on each call.** It registers the error handler, calls `runBootstrap()`, calls `checkEvents()`, and handles the request.
+Tests confirmed this repeated sequence during 200 calls.
+The event check runs only when its flag is true. The template gets this flag from `Environment::appDebug()`.
 
-**A resident runner reads each request fresh.** `run()` does not capture the request at construction time. Every call resolves `RequestFactory` from the container and builds a new PSR-7 `ServerRequest` from `$_SERVER`, `$_GET`, `$_POST`, `$_COOKIE`, `$_FILES` and `php://input`, and Rapira refills those superglobals before each iteration of the loop ([Worker mode](/docs/worker) covers that contract).
+**A persistent runner reads the current request.** `run()` does not store a request during runner creation.
+Each call gets `RequestFactory` and creates a PSR-7 `ServerRequest`.
+It uses the superglobals and `php://input`. Rapira fills these values before each loop iteration.
+See [Worker mode](/docs/worker) for this contract.
 
-**Memory stays flat.** Across 200 sequential requests the worker's resident set did not grow in any meaningful way, because the application is built once and the reset is cheap, so there is no per-request boot to garbage-collect.
+**Memory use remained stable.** Tests found no significant process memory increase during 200 sequential requests.
+The application initializes once, and each request runs one reset.
 
-## The simpler alternative: a fresh runner per request
+## A new runner for each request
 
-To avoid resident state entirely, build the runner *inside* the handler. Everything the application creates then belongs to one request:
+Create the runner *inside* the handler to avoid persistent container state. Application objects then belong to one request:
 
 ```php
 <?php
@@ -102,18 +123,14 @@ To avoid resident state entirely, build the runner *inside* the handler. Everyth
 declare(strict_types=1);
 
 use App\Environment;
-use Rapira\Plugin\Http\HttpHandlerConfig;
 use Yiisoft\Yii\Runner\Http\HttpApplicationRunner;
-
-use function Rapira\create_plugin_handler;
 
 require_once __DIR__ . '/vendor/autoload.php';
 require_once __DIR__ . '/src/bootstrap.php';
 
-$http = create_plugin_handler(new HttpHandlerConfig());
-
 $handler = static function (): void {
-    // A fresh runner per request; constructor arguments mirror public/index.php.
+    // Create one runner for each request.
+    // Use the same arguments as public/index.php.
     $runner = new HttpApplicationRunner(
         rootPath: __DIR__,
         debug: Environment::appDebug(),
@@ -123,26 +140,33 @@ $handler = static function (): void {
     $runner->run();
 };
 
-while ($http->handleRequest($handler)) {
+while (\Rapira\handle_request($handler)) {
     gc_collect_cycles();
 }
 ```
 
-The container is rebuilt every time, so there are fewer moving parts, no reset to get wrong, and no container state carried from one request into the next; `static` properties, globals and whatever the bootstrap set up stay resident under any worker and have to be reset by your own code. This also passed the full battery.
+Each request creates a new container, so the worker does not reset container state.
+However, static properties, globals, and initialization state remain in the worker. Application code must reset this state.
+Tests also confirmed this design.
 
-The container boots on every request, which takes the boot time each time and generates a container's worth of garbage. The worker's memory grows as those containers pile up before PHP reclaims them in bulk, the ordinary profile of a per-request boot rather than a leak. Pair this pattern with `pool.max_requests` so a worker is retired and replaced periodically; the [frameworks overview](/docs/frameworks/) explains the memory shapes and [Configuration](/docs/configuration) documents the key.
+The container initializes for each request. This adds initialization time and creates objects that PHP must later release.
+Memory can increase until PHP releases several old containers together. This cyclic pattern is not necessarily a memory leak.
+Set `pool.max_requests` to replace workers periodically.
+See the [frameworks overview](/docs/frameworks/) for this memory pattern. See [Configuration](/docs/configuration) for the setting.
 
-The autoloader and the template's bootstrap still stay resident and the request loop still lives in the worker script, so this is still a worker, one that discards its application between requests, not [classic mode](/docs/classic).
+The autoloader and template bootstrap remain resident. The request loop also remains in the worker script. Therefore, this design is still a worker that discards its application between requests. It is not [Classic mode](/docs/classic).
 
-Use the resident runner unless you have a reason not to: it is the framework's own long-running design, memory stays flat, and the reset is one call. Use the per-request runner if your bootstrap has ordering constraints you would rather not reason about — code that must run before the container is built, or per-request bootstrap work that a `StateResetter` callback cannot undo. Switching from one to the other later changes only the worker script.
+Use the persistent runner by default. It follows the framework design, had stable memory use in tests, and requires one reset call.
+Use a per-request runner when initialization order or request setup prevents a complete `StateResetter` callback.
+Changing between these designs requires changes only to the worker script.
 
 ## Running it
 
 ```bash
-rapira serve worker.php
+rapira serve --mode worker worker.php
 ```
 
-Worker mode is the default, so no flag is needed. See [CLI](/docs/cli) for the remaining flags.
+`--mode worker` selects Worker mode. See [CLI](/docs/cli) for the remaining flags.
 
 For production, put it in a `rapira.toml`:
 
@@ -152,6 +176,7 @@ listen = "127.0.0.1:8000"
 
 [pool]
 entrypoint = "/srv/app/worker.php"
+mode = "worker"
 processes = 8
 max_requests = 500
 request_terminate_timeout_secs = 30
@@ -161,36 +186,46 @@ level = "info"
 format = "json"
 ```
 
-Every key, with its default and its bounds, is on the [Configuration](/docs/configuration) page; [Deployment](/docs/deployment) has the systemd unit and the reverse proxy in front of it.
+See [Configuration](/docs/configuration) for each key, default, and limit. See [Deployment](/docs/deployment) for systemd and reverse proxy configuration.
 
-## What was verified
+## Test results
 
-Both patterns were run through the same battery against the `yiisoft/app` template. The results:
+Tests applied the same checks to both designs with the `yiisoft/app` template. The results follow.
 
-**Routing works with no `$_SERVER` overrides.** Rapira sets `SCRIPT_NAME` to the entry script's file name — `/worker.php`, not `/index.php` — and FastRoute still matched nested paths with query strings. The root `/` rendered the template's home page, and an unknown path produced the framework's own 404. No overrides of `SCRIPT_NAME`, `REQUEST_URI` or `DOCUMENT_ROOT` were needed anywhere.
+**Routing operates without `$_SERVER` overrides.** Rapira sets `SCRIPT_NAME` to `/worker.php`, which is the entry script name.
+FastRoute matched nested paths with query strings. The root path returned the template home page.
+An unknown path returned the framework `404` response. Tests did not change `SCRIPT_NAME`, `REQUEST_URI`, or `DOCUMENT_ROOT`.
 
-**Generated URLs are clean.** `UrlGeneratorInterface::generate()` produced ordinary application paths — the worker script's file name does not leak into them.
+**Generated URLs do not include the worker file name.** `UrlGeneratorInterface::generate()` returned ordinary application paths.
 
-**Sessions are per request and properly isolated.** A client with a cookie jar saw its counter go 1, 2 across requests; a fresh client hitting the same endpoint immediately after got a new session starting at 1 again. That holds in the resident pattern too, where the container survives.
+**Yii3 isolates each client session.** One client retained its counter between requests.
+A second client received a new session. This also applied to the persistent container design.
 
-**Form posts, JSON bodies and uploads all arrive.** `$_POST` fields, a JSON payload read from `php://input`, and a multipart upload with its temporary file readable during the request — the PSR-7 `ServerRequest` yii-runner-http builds from the superglobals carries all of it.
+**The application receives form data, JSON bodies, and uploads.** `$_POST` contained form fields, and `php://input` contained the JSON body.
+The temporary upload file was readable during the request. The PSR-7 `ServerRequest` contained all these values.
 
-**A thrown exception is a 500, and the worker keeps serving.** An action that throws is caught by `ErrorCatcher`, which renders the error response as it would anywhere else; the exception is logged, and the very next request is answered normally by the same worker process. An uncaught exception is a per-request failure in Rapira, not a worker-level one — see [Worker mode](/docs/worker) for what does and does not take a worker down.
+**An action exception returns `500`, and the worker continues.** `ErrorCatcher` creates the error response and logs the exception.
+The same worker processes the next request normally. See [Worker mode](/docs/worker) for errors that terminate a worker.
 
 ## CSRF
 
-The app template puts `CsrfTokenMiddleware` in its default middleware chain, and the token lives in the session — the one piece of state the battery did exercise, per request and isolated per client. Nothing in the worker loop touches the token flow, so a POST needs its token here as anywhere else. If posts start coming back rejected after the move to a worker, check the token first; the fix is the usual one (render the token into the form, send it back), not a change to the worker script.
+The application template includes `CsrfTokenMiddleware`, and the session contains the token. Tests confirmed token isolation for each client.
+The worker loop does not change CSRF processing. Each POST still requires its token.
+If Worker mode rejects a POST, first verify that the form contains and sends the token. Do not change the worker script for this error.
 
-## Classic mode as a fallback
+## Classic mode alternative
 
-Yii3 also runs as an ordinary front controller:
+Yii3 also runs with an ordinary entry script:
 
 ```bash
-rapira serve --classic public/index.php
+rapira serve --mode classic public/index.php
 ```
 
-Same code, no worker script, fresh state per request. See [Classic mode](/docs/classic) for more information.
+This command uses the standard application code without a worker script. Each request has new application state.
+See [Classic mode](/docs/classic) for more information.
 
-The worker script is an additional entry point rather than a replacement for the front controller, so keep `public/index.php`: it is the entry script classic mode runs, and it stays useful for local work with PHP's built-in server.
+The worker script is an additional entry point, not a replacement for the standard entry script. Keep `public/index.php` because Classic mode uses it. It is also useful for local work with PHP's built-in server.
 
-The template's `public/index.php` contains a `PHP_SAPI === 'cli-server'` branch that serves static files and rewrites `SCRIPT_NAME`. It exists for PHP's built-in development server and never triggers under Rapira, where `PHP_SAPI` is `rapira` (`fastcgi` on PHP 8.4 — see [Installation](/docs/intro/installation)), so it can stay as it is.
+The template `public/index.php` contains a `PHP_SAPI === 'cli-server'` condition. It serves static files and changes `SCRIPT_NAME` for the PHP development server.
+Rapira does not run this condition because `PHP_SAPI` is `fastcgi` on PHP 8.4 and `rapira` on PHP 8.5.
+See [Installation](/docs/intro/installation) for more information. The condition can remain unchanged.

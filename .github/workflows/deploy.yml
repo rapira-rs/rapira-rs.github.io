@@ -4,12 +4,12 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-  # The download page bakes release data in at build time, so the site has to
-  # rebuild when Rapira releases, not only when the docs change. The release
-  # workflows of rapira-rs/rapira and rapira-rs/rapira-windows send this event
+  # The download page includes release data during the build.
+  # Therefore, each Rapira release requires a new site build.
+  # The rapira and rapira-windows release workflows send this event
   # (`gh api repos/rapira-rs/rapira-rs.github.io/dispatches -f event_type=rapira-release`
-  # with a fine-grained PAT for this repo); the twice-daily run is the
-  # backstop for a missed dispatch.
+  # with a fine-grained PAT for this repository).
+  # The scheduled run covers a release event that did not start the workflow.
   repository_dispatch:
     types: [rapira-release]
   schedule:
@@ -25,7 +25,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Build job
+  # Build the site.
   build:
     runs-on: ubuntu-latest
     steps:
@@ -46,8 +46,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # GITHUB_TOKEN: the download page bakes in release data at build time, and
-      # anonymous API calls from shared runner IPs hit the rate limit.
+      # The download page includes release data during the build.
+      # The token prevents shared runner requests from reaching the anonymous API limit.
       - name: Build with VitePress
         run: npm run build
         env:
@@ -58,7 +58,7 @@ jobs:
         with:
           path: .vitepress/dist
 
-  # Deployment job
+  # Deploy the site.
   deploy:
     environment:
       name: github-pages

@@ -10,7 +10,7 @@ next: false
 ---
 
 <script setup>
-// Etykiety dla DownloadBuilds — teksty interfejsu tej strony.
+// Etykiety dla DownloadBuilds - teksty interfejsu tej strony.
 const labels = {
   os: 'System operacyjny',
   arch: 'Architektura',
@@ -24,16 +24,18 @@ const labels = {
 
 # Pobierz Rapirę
 
-Gotowe kompilacje publikujemy w [wydaniach na GitHubie](https://github.com/rapira-rs/rapira/releases). Wybierz platformę — przycisk poniżej pobierze najnowszą stabilną wersję dla niej.
+Gotowe kompilacje publikujemy w [wydaniach na GitHubie](https://github.com/rapira-rs/rapira/releases). Wybierz platformę - przycisk poniżej pobierze najnowszą stabilną wersję dla niej.
 
 <DownloadBuilds :labels="labels">
 <template #dev-note>
 
 ::: warning
-Ta kompilacja służy wyłącznie do lokalnego developmentu — na produkcję użyj Linuksa.
+Ta kompilacja służy wyłącznie do lokalnego developmentu - na produkcję użyj Linuksa.
 :::
 
 </template>
 </DownloadBuilds>
+
+Obrazy kontenerów publikujemy w `ghcr.io/rapira-rs/rapira`, a kanał nocnych kompilacji daje kroczącą wersję wstępną `nightly` z tarballami oraz tagi obrazów `nightly-php8.4` i `nightly-php8.5`. Lista powyżej obejmuje wyłącznie pliki z wydań. Więcej informacji znajdziesz w sekcji [Docker](/pl/docs/intro/installation#docker).
 
 Rapirę możesz też [zbudować ze źródeł](/pl/docs/intro/build-from-source).

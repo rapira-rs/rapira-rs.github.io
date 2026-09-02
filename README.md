@@ -1,14 +1,14 @@
 # Rapira documentation
 
-Documentation site for [Rapira](https://github.com/rapira-rs/rapira), built with [VitePress](https://vitepress.dev/).
+This repository contains the [Rapira](https://github.com/rapira-rs/rapira) documentation site. The site uses [VitePress](https://vitepress.dev/).
 
 ## Local development
 
 ```bash
-npm install       # install dependencies (once)
-npm run dev       # dev server with hot reload
-npm run build     # build static site into .vitepress/dist
-npm run preview   # preview the production build
+npm install       # Install dependencies once.
+npm run dev       # Start the development server with hot reload.
+npm run build     # Build the static site in .vitepress/dist.
+npm run preview   # Preview the production build.
 ```
 
 ## Structure
@@ -28,6 +28,5 @@ ru/                   # Russian locale (index.md + docs/ + blog/)
 
 ## Deployment
 
-Every push to `main` is built and deployed to GitHub Pages automatically via
-`.github/workflows/deploy.yml`. The Pages source must be set to **GitHub Actions**
-(Settings → Pages → Build and deployment → Source).
+The `.github/workflows/deploy.yml` workflow builds each push to `main`. It deploys the result to GitHub Pages.
+Set the Pages source to **GitHub Actions** in Settings → Pages → Build and deployment → Source.

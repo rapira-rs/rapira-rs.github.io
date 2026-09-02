@@ -1,21 +1,20 @@
 import { defineLoader } from 'vitepress'
 
 /**
- * Build-time data for the download page: the latest stable release of every
- * build repo, its assets parsed into (os, arch, php, format) coordinates and
- * joined with their SHA-256 sums from the release's SHA256SUMS.txt.
+ * Creates download page data from the latest stable releases.
+ * It parses each asset into operating system, architecture, PHP, and format.
+ * It adds SHA-256 values from the release checksum file.
  *
- * Runs at `npm run build` and once per dev-server start, so the page is fully
- * static — no GitHub API calls, rate limits or CORS in the visitor's browser.
- * The price is freshness: a new release reaches the site with the next
- * deploy. A failed fetch logs a warning and yields an empty list (the page
- * then shows its error state) rather than failing the whole docs build.
+ * It runs during each build and development server start.
+ * The client does not make GitHub API requests.
+ * A new deployment adds new release data.
+ * A failed request logs a warning and returns an empty list.
  */
 
-/** Every repo that publishes builds. Windows builds live in their own repo. */
+/** Repositories that publish builds. Windows uses a separate repository. */
 const REPOS = ['rapira-rs/rapira', 'rapira-rs/rapira-windows']
 
-/** A hung GitHub request must fail the fetch, not stall the whole build. */
+/** Maximum GitHub request duration before failure. */
 const FETCH_TIMEOUT_MS = 15_000
 
 export interface Build {
@@ -27,7 +26,7 @@ export interface Build {
   name: string
   url: string
   size: number
-  /** SHA-256 of the asset, from the release's SHA256SUMS.txt ('' if absent). */
+  /** Asset SHA-256 from the release checksum file, or an empty string. */
   sha256: string
 }
 
@@ -38,8 +37,9 @@ export interface BuildsData {
 declare const data: BuildsData
 export { data }
 
-// The three asset naming schemes the releases use. Everything is derived from
-// the file name, so a new PHP version or architecture shows up by itself.
+// Parse the three release asset name formats.
+// A new PHP version needs no change.
+// A new architecture needs a new pattern alternative here and an entry in DownloadBuilds.vue.
 function parseAsset(name: string): Pick<Build, 'os' | 'arch' | 'php' | 'format'> | null {
   let m = name.match(/^rapira-v[\d.]+-php([\d.]+)-(linux|macos|windows)-(x86_64|aarch64)\.(tar\.gz|zip)$/)
   if (m) return { php: m[1], os: m[2], arch: m[3], format: m[4] }
@@ -50,7 +50,7 @@ function parseAsset(name: string): Pick<Build, 'os' | 'arch' | 'php' | 'format'>
   return null
 }
 
-/** Lines are `<hash>  <filename>` (sha256sum format); returns filename → hash. */
+/** Convert `sha256sum` lines into a map from file name to hash. */
 function parseChecksums(text: string): Map<string, string> {
   const sums = new Map<string, string>()
   for (const line of text.split('\n')) {
@@ -61,8 +61,8 @@ function parseChecksums(text: string): Map<string, string> {
 }
 
 async function loadRepo(repo: string): Promise<Build[]> {
-  // In GitHub Actions the runners share API rate limits by IP, so the
-  // workflow passes GITHUB_TOKEN; locally the anonymous limit is plenty.
+  // GitHub Actions runners share API limits by IP address.
+  // The workflow supplies `GITHUB_TOKEN` to prevent anonymous limit errors.
   const headers: Record<string, string> = { 'User-Agent': 'rapira-docs-build' }
   if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`
 

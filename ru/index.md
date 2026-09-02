@@ -1,7 +1,7 @@
 ---
 layout: home
 title: Rapira
-description: Rapira — сервер приложений для PHP, написанный на Rust.
+description: Rapira - сервер приложений для PHP, написанный на Rust.
 tagline: Сервер для PHP-приложений, написанный на Rust.
 pitch: Продуманная архитектура и выверенный код, подкреплённые годами работы над RoadRunner.
 
@@ -11,36 +11,27 @@ features:
   - title: Совместимость с php-fpm
     details: "Поддерживается классический SAPI: Rapira встаёт на место php-fpm без правок в коде, но работает быстрее."
   - title: Режимы работы
-    details: "Classic → Worker → Async<br>На что способно ваше приложение?"
+    details: "Classic → Worker → Dispatcher<br>Какие режимы может использовать ваше приложение?"
     link: /ru/docs/execution-modes
 ---
 
 <script setup>
-import { VPImage } from 'vitepress/theme'
-
-// Баннер Pingora справа от текста — декорация, по варианту на тему.
-// Файлы кладутся в public/ под этими именами.
-const pingoraBanner = {
-  light: '/pingora-banner-light.png',
-  dark: '/pingora-banner-dark.png',
-  alt: 'Pingora',
-}
-
-// Что Pingora приносит в бинарник: `ready: false` — ещё не реализовано в Rapira,
+// Что несёт HTTP-фронт: `ready: false` - ещё не реализовано в Rapira,
 // такие теги рисуются приглушёнными.
 const httpFeatures = [
   { label: 'HTTP/1.1' },
-  { label: 'HTTP/2' },
-  { label: 'HTTP/3' },
   { label: 'Keep-alive' },
-  { label: 'Early Hints' },
+  { label: 'Статические файлы' },
+  { label: 'HTTP/2', ready: false },
+  { label: 'HTTP/3', ready: false },
+  { label: 'TLS 1.3', ready: false },
+  { label: 'TLS 1.2', ready: false },
+  { label: 'ALPN', ready: false },
+  { label: 'Early Hints', ready: false },
   { label: 'Trailers', ready: false },
-  { label: 'TLS 1.3' },
-  { label: 'TLS 1.2' },
-  { label: 'ALPN' },
 ]
 
-// Четыре способа связать сервер с PHP — по табу на каждый.
+// Четыре способа связать сервер с PHP - по табу на каждый.
 // Тексты табов лежат в слотах <TextTabs> ниже.
 const interopTabs = [
   { name: 'FastCGI', slot: 'fastcgi', users: ['php-fpm', 'nginx', 'Angie'] },
@@ -50,17 +41,11 @@ const interopTabs = [
 ]
 </script>
 
-<RapiraSection title="Встроенный HTTP-сервер, усиленный Pingora" link="/ru/docs/http" link-text="HTTP-запросы и ответы">
+<RapiraSection title="Встроенный HTTP-сервер, построенный на hyper" link="/ru/docs/http" link-text="HTTP-запросы и ответы">
 
 Парадоксально, но у PHP нет своего production-ready HTTP-сервера. Встроенный годится только для разработки, а php-fpm не работает без внешнего веб-сервера вроде nginx.
 
-Теперь такой сервер у PHP есть: современный, быстрый, построенный на [Pingora](https://github.com/cloudflare/pingora). Этим фреймворком Cloudflare обслуживает заметную часть трафика всего интернета.
-
-<template #aside>
-<div class="rapira-section-art">
-<VPImage :image="pingoraBanner" draggable="false" />
-</div>
-</template>
+Такой сервер даёт Rapira: собственный HTTP-фронт, написанный на Rust поверх [hyper](https://hyper.rs). Библиотека hyper - это низкоуровневая реализация HTTP для Rust: она читает каждый запрос из соединения и пишет обратно ответ, который построила Rapira.
 
 <template #footer>
 <FeatureTags :items="httpFeatures" />
@@ -70,30 +55,31 @@ const interopTabs = [
 
 <RapiraSection title="Нулевой интероп: Rust вызывает PHP напрямую" link="/ru/docs/process-model" link-text="Модель процессов">
 
-Rapira написана на Rust, PHP — на C. Rust вызывает C-функции нативно, поэтому интероп между двумя языками не стоит ничего: вызов PHP-функции из Rust — это обычный вызов функции. Интерпретатор встроен в процесс сервера, и Rapira управляет им через прямые биндинги — от запуска движка до обработки каждого запроса.
+Rapira написана на Rust, PHP - на C. Rust вызывает функции C напрямую. Поэтому Rust может вызвать функцию PHP напрямую.
+Rapira встраивает интерпретатор в процесс сервера. Прямые биндинги управляют инициализацией интерпретатора и обработкой запроса.
 
-Здесь нет ни FastCGI, ни Goridge, ни CGO: запрос нигде не сериализуется и не покидает процесс. В режиме SAPI Rapira заполняет суперглобалы напрямую.
+Здесь нет ни FastCGI, ни Goridge, ни CGO: запрос нигде не сериализуется и не покидает процесс. В режимах Classic и Worker Rapira заполняет суперглобалы напрямую.
 
 <template #aside>
 <TextTabs :tabs="interopTabs">
 <template #fastcgi>
 
-PHP работает в отдельных процессах, а веб-сервер общается с ними по сокету бинарным протоколом: каждый запрос упаковывается в FastCGI-записи, передаётся, разбирается на другой стороне — и ответ проделывает тот же путь обратно.
+PHP работает в отдельных процессах, а веб-сервер общается с ними по сокету бинарным протоколом: каждый запрос упаковывается в FastCGI-записи, передаётся, разбирается на другой стороне - и ответ проделывает тот же путь обратно.
 
 </template>
 <template #goridge>
 
-PHP-воркеры — отдельные процессы, которые получают запросы от сервера через пайпы или сокеты. Goridge — протокол этого обмена: каждый запрос и ответ сериализуется на одной стороне и разбирается на другой.
+PHP-воркеры - отдельные процессы, которые получают запросы от сервера через пайпы или сокеты. Goridge - протокол этого обмена: каждый запрос и ответ сериализуется на одной стороне и разбирается на другой.
 
 </template>
 <template #cgo>
 
-Интерпретатор PHP встроен в процесс сервера, но хост написан на Go, а Go не вызывает C-код напрямую. Каждый вызов проходит через CGO — прослойку с накладными расходами на каждое пересечение границы языков.
+Интерпретатор PHP встроен в процесс сервера, но хост написан на Go, а Go не вызывает C-код напрямую. Каждый вызов проходит через CGO - прослойку с накладными расходами на каждое пересечение границы языков.
 
 </template>
 <template #cabi>
 
-ABI — двоичный контракт между компилируемыми языками. Rust поддерживает C ABI нативно: вызов C-функции из Rust — это тот же машинный код, что и вызов из самого C.
+ABI - двоичный контракт между компилируемыми языками. Rust поддерживает C ABI нативно: вызов C-функции из Rust - это тот же машинный код, что и вызов из самого C.
 
 </template>
 </TextTabs>

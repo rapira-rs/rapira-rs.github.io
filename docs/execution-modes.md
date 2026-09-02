@@ -1,65 +1,123 @@
 ---
 title: Execution modes
-description: What Rapira's four execution modes — Classic, SAPI Worker, PSR Worker and Async — do, and what decides which one an application can use.
+description: "Classic, Worker, and Dispatcher behavior, selection, and runtime identification."
+faqLevel: 2
 ---
 
 # Execution modes
 
-Rapira runs PHP in one of four execution modes. Two of them ship today; the other two are planned.
+Rapira runs PHP in one of three execution modes. All three ship today.
 
 | Mode | Status | Description |
 | --- | --- | --- |
-| [Classic](/docs/classic) | Shipped | The entry script runs from scratch on every request, as under php-fpm. |
-| [SAPI Worker](/docs/worker) | Shipped | A resident script boots once and handles requests in a loop; the superglobals are refilled for each request. |
-| PSR Worker | Planned | The worker pulls each request through an API call and can work with a PSR-7 message instead of the superglobals. |
-| Async | Planned | The worker handles several requests concurrently in one interpreter, using fibers. |
+| [Classic](/docs/classic) | Available | The entry script runs in a new PHP request each time, as under php-fpm. |
+| [Worker](/docs/worker) | Available | A persistent script handles requests in a loop. Rapira refills the superglobals for each request. |
+| Dispatcher | Available | The worker gets each request through an API call and uses a request object instead of the superglobals. |
 
-The modes are listed in order of how much control PHP has over the request lifecycle. The names describe whether the worker stays alive between requests and what contract it speaks. Each mode keeps more of the process warm when a request arrives than the one before it, and places more requirements on the code.
+The mode names are `pool.mode` values and `Rapira\Mode` enum cases. Classic removes application request state after each request.
+Worker and Dispatcher retain one initialized application for many requests. Application state and API dependencies determine which modes an application can use.
 
-## Classic <Badge type="tip" text="shipped" />
+## Classic <Badge type="tip" text="available" />
 
-The entry script runs from scratch on every request, exactly as it would under php-fpm: superglobals are filled in, the front controller boots, the response goes out, everything is torn down. Nothing the script created is carried over, so application state cannot leak from one request into the next. The same exceptions as php-fpm apply: persistent connections and extension-level state live in the worker process, not in the request.
+The entry script runs in a new PHP request each time, as it does under php-fpm. Rapira fills the superglobals and runs the script.
+It then sends the response and removes the request state. Persistent connections and extension state are exceptions because they exist in the worker process.
 
-An existing application runs as it is, because Rapira takes php-fpm's place with no changes to your code. PHP is embedded in the server process, so there is no FastCGI hop between the HTTP front and the interpreter.
+An existing application can run without code changes when Rapira replaces php-fpm. Rapira embeds PHP in the server process and does not use FastCGI.
 
 See [Classic mode](/docs/classic) for more information.
 
-## SAPI Worker <Badge type="tip" text="shipped" />
+## Worker <Badge type="tip" text="available" />
 
-SAPI Worker mode has the same shape as Classic — you still read the superglobals, still `echo` your response — except the worker is not torn down at the end of a request. A resident script boots everything once, then loops: the server refills `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE` and the rest for each new request, runs your handler, and hands you the next one. Autoloader, DI container, configuration, database connections — anything created outside the loop stays warm.
+Worker mode uses the same request and response interfaces as Classic. The application reads superglobals and can use `echo` for the response.
+The worker remains active after a request. It initializes the script once and then enters a loop.
+For each request, Rapira refills the superglobals and runs the handler. Objects outside the loop remain available.
 
-The boot runs once per worker instead of once per request, and for a modern application that boot is often the most expensive part of the request. The process no longer starts clean on every request, so whatever your application leaves in static properties, singletons or global state is still there on the next one. Rapira can recycle a worker after a set number of requests, so a slow leak in your application or one of its dependencies does not become an outage while you track it down.
+Application initialization runs once per worker instead of once per request. This can reduce request execution time.
+However, static properties, singletons, and global state remain for the next request.
+Rapira can replace a worker after a specified request count. This replacement limits the effect of a memory leak.
 
-See [Worker mode](/docs/worker) for the worker script and its loop, [Configuration](/docs/configuration) for the recycling limit, and [HTTP](/docs/http) for how requests and responses are handled.
+See [Worker mode](/docs/worker) for the worker script and its loop. See [Configuration](/docs/configuration) for the replacement limit.
+See [HTTP](/docs/http) for how Rapira handles requests and responses.
 
-## PSR Worker <Badge type="warning" text="planned" />
+## Dispatcher <Badge type="tip" text="available" />
 
-Control is inverted: instead of waiting to be called, the worker pulls a request from Rapira through an API call and decides what to do with it. It can fill the superglobals for compatibility, or skip them entirely and work with a PSR-7 message it passes straight to a framework's HTTP kernel. It serves one request at a time, the same as SAPI Worker.
+In Dispatcher mode, the worker script requests each work unit through an API call. `Rapira\get_dispatcher()` returns the dispatcher for the pool.
+`receive(int $timeout = -1)` waits for the next unit. The timeout is in microseconds, and `-1` disables it.
+An elapsed timeout throws `Rapira\Exception\TimeoutException`. `tryReceive()` returns the next unit or `null` without waiting.
+With the HTTP plugin, each unit is a `Rapira\Http\Exchange`.
+Its `getRequest()` method returns a `Rapira\Http\Request`. The request contains the method, target, headers, body, and peer addresses.
+The `writeHead()`, `writeBody()`, and `sendFile()` methods write the response.
 
-The request stops being ambient global state and becomes a value you can pass around, wrap, or hand to a middleware stack.
+The application can pass the request object to functions or middleware. Rapira does not fill the superglobals in this mode.
+An application that reads superglobals needs Worker mode. Alternatively, an adapter can copy request data to the required variables.
+The `pool.mode` key or `--mode` flag selects the mode.
+
+The script controls the number of active work units. A simple loop handles one unit at a time.
+It calls `receive()`, answers the request, and calls `receive()` again.
+A concurrent script starts a [Fiber](https://www.php.net/manual/en/language.fibers.php) for each request. It calls `tryReceive()` while fibers are active.
+When no fiber is active, the loop waits in `receive()`. This design keeps several requests active in one interpreter.
+Concurrency is cooperative. Another request progresses only when the running code suspends its fiber.
+Process one unit at a time when a library does not support fibers.
 
 ::: info
-PSR Worker mode is not implemented. Nothing about it ships today, and neither its configuration nor its PHP-side API has been designed, so there are no function names or config keys to show yet.
+Dispatcher is the default `pool.mode`. A dedicated guide is not available yet.
+The [`rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php) IDE stub documents the `Dispatcher` and `Work` interfaces.
+The [`rapira_http.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira_http.stub.php) stub documents the HTTP types.
+The [`examples/`](https://github.com/rapira-rs/rapira/tree/main/examples) directory contains `dispatcher-sync.php` and `dispatcher-async.php`.
 :::
 
-## Async <Badge type="warning" text="planned" />
+## Reading the mode at runtime
 
-Async mode uses the same API as PSR Worker mode, except the worker asks for more than one request at once and handles them concurrently inside a single interpreter. PHP 8.1 fibers are what make that possible: a request that is waiting on I/O can yield while another one makes progress, without threads and without a second process.
+`Rapira\get_mode()` returns the process mode as a `Rapira\Mode` enum case. The cases are `Classic`, `Worker`, and `Dispatcher`.
+The case matches the initial `pool.mode` for the complete process lifetime. Use `===` to compare enum cases.
+The function takes no arguments and does not throw. An entry script can use it to support more than one mode.
 
-Async has the strictest requirements of the four modes, because concurrency inside one interpreter means every library in the request path has to work correctly when it is suspended halfway through.
+```php
+<?php
+// entry.php
 
-::: info
-Async mode is not implemented either. There is nothing to install and nothing to configure. The section above describes the planned direction, not something you can run today.
+use Rapira\Mode;
+
+$app = require __DIR__ . '/bootstrap.php';
+
+match (\Rapira\get_mode()) {
+    Mode::Classic => $app->handleOnce(),
+    Mode::Worker => $app->runWorkerLoop(),
+    Mode::Dispatcher => $app->runDispatcherLoop(),
+};
+```
+
+::: question Why does the mode never change while a process runs?
+The host reads `pool.mode` and fixes the mode before it starts the interpreter. Every request in that worker reports the same case. Changing the mode requires a server restart.
 :::
 
 ## Mode selection
 
-Rapira runs SAPI Worker mode by default, and Classic is opt-in. All four modes are open to any application, and what limits the choice is the application's own stack. Global state that cannot survive a second request keeps an application on Classic. A library that is not fiber-safe rules out Async. A framework with a runtime integration makes SAPI Worker mode available with almost no work; see [Frameworks](/docs/frameworks/) for the ones with a documented integration.
+The default `pool.mode` is `dispatcher`. Set the mode explicitly in `rapira.toml`, or with `--mode` on the command line.
 
-The mode is set per server instance, not per route, so one instance cannot serve some routes from a worker and the rest from Classic. If part of your application is not worker-safe, run that part behind its own Rapira instance in Classic mode.
+```toml
+[pool]
+entrypoint = "public/index.php"
+mode = "classic"                      # Use "classic", "worker", or "dispatcher". Default: "dispatcher".
+```
 
-Switching to a worker mode costs work on the PHP side, because a worker needs a resident entry script that Classic does not. Switching back does not: turn Classic on with a flag on the command line or a single key in the config file, point Rapira at your ordinary front controller, and you get the same server, the same binary and the same [process model](/docs/process-model) underneath. See [Configuration](/docs/configuration) and the [CLI reference](/docs/cli) for more details.
+```sh
+rapira serve --mode classic public/index.php
+```
+
+Rapira makes all three modes available to each application. Application code and dependencies can restrict the selection.
+Use Classic when global state cannot remain between requests. Code that reads superglobals cannot use Dispatcher without an adapter.
+Some framework integrations provide Worker mode support. See [Frameworks](/docs/frameworks/) for documented integrations.
+
+The mode applies to a complete server instance, not to individual routes. One instance cannot use different modes for different routes.
+Run incompatible routes in a separate Classic mode instance.
+
+Worker and Dispatcher require a persistent entry script. Classic does not.
+To select Classic, set `mode = "classic"` or pass `--mode classic`. Then specify the ordinary entry script.
+The server, binary, and [process model](/docs/process-model) do not change.
+See [Configuration](/docs/configuration) and the [CLI reference](/docs/cli) for more information.
 
 ::: tip
-Start on Classic if you are replacing php-fpm and want everything working first. Switch to SAPI Worker once you know your application boots cleanly and holds no state that it should not keep between requests.
+Start with Classic when you replace php-fpm. Verify that the application operates correctly.
+Select Worker after you confirm that the application initializes correctly and does not retain request state.
 :::

@@ -1,28 +1,35 @@
 ---
 title: Classic mode
-description: Classic mode runs an ordinary PHP front controller from scratch on every request, the way php-fpm does, with fresh state each time.
+description: Classic mode runs an ordinary PHP entry script with new state for each request.
 ---
 
 # Classic mode
 
-Classic mode executes an ordinary PHP front controller — the same `public/index.php` you already point php-fpm at — from scratch for every request that arrives. Rapira takes php-fpm's place and the application needs no changes: the superglobals are filled in, the script runs top to bottom, and whatever it prints becomes the response.
+Classic mode executes an ordinary PHP entry script. This can be the same `public/index.php` file that php-fpm runs.
+Rapira starts a new PHP request for each HTTP request. It fills the superglobals and executes the script. Script output becomes the response.
+Rapira can replace php-fpm without changes to the application.
 
-## Fresh state on every request
+## New state for each request
 
-Every request gets a complete PHP request cycle: request startup, your entry script, request shutdown. Everything the script built along the way — globals, static properties, the DI container, the ORM's identity map — is torn down before the next request begins, exactly as it would be under php-fpm.
+Each request has a complete PHP request cycle. The cycle includes request initialization, entry script execution, and request shutdown.
+PHP removes request state before the next request. This state includes globals, static properties, the dependency injection container, and the ORM identity map.
 
-A leaked handle, a singleton left half-initialized, a library that stashes request data in a static — none of it affects the next request, because nothing your script created survives the request it was created in. The same exceptions as php-fpm apply: persistent connections and extension-level state live in the worker process, not in the request. Code that was never written with a long-lived process in mind runs here unchanged. `fastcgi_finish_request()` comes from the php-fpm binary and is not available under Rapira, which exposes `rapira_finish_request()` with the same contract — flush the response to the client early, keep working after it — documented on the [HTTP](/docs/http) page.
+Objects and request data cannot affect a later request. Persistent connections and extension state are exceptions because they exist in the worker process.
+Applications that do not support persistent processes can run in Classic mode.
+Rapira does not provide the php-fpm `fastcgi_finish_request()` function. Use `rapira_finish_request()` to send a response before the script ends.
+See [HTTP](/docs/http) for more information.
 
-The application boots again for every request: autoloader, config, container, routes. See [execution modes](/docs/execution-modes) for more information.
+The application initializes its autoloader, configuration, container, and routes for each request. See [execution modes](/docs/execution-modes) for more information.
 
-## Turning it on
+## Mode selection
 
-There are two ways to select the mode, and they do the same thing:
+Select Classic mode with one of these settings:
 
-- `--classic` on the command line, next to the entry script.
-- `classic = true` in the `[pool]` section of a `rapira.toml`.
+- `--mode classic` on the command line, next to the entry script.
+- `mode = "classic"` in the `[pool]` section of a `rapira.toml`.
 
-The flag only ever turns the mode *on* — there is no `--no-classic`, so a config file that sets `classic = true` stays classic no matter what the command line says. Everything else follows the usual precedence, where CLI flags win over the config file; the full key list lives on the [configuration](/docs/configuration) page.
+`--mode` overrides `pool.mode` in the configuration file. Other CLI flags also override the corresponding configuration values.
+See [configuration](/docs/configuration) for the complete key list.
 
 A classic entry script is ordinary PHP:
 
@@ -34,40 +41,54 @@ echo "Hello, " . ($_GET['name'] ?? 'anonymous') . "!\n";
 echo "Method: {$_SERVER['REQUEST_METHOD']}\n";
 ```
 
-Point Rapira at it either way:
+Select the mode with the CLI or the configuration file:
 
 ::: code-group
 
 ```bash [CLI]
-rapira serve --classic public/index.php
+rapira serve --mode classic public/index.php
 ```
 
 ```toml [rapira.toml]
 [pool]
 entrypoint = "public/index.php"
-classic = true
+mode = "classic"
 ```
 
 :::
 
-With the config file, the run command is `rapira serve --config rapira.toml`. A relative `pool.entrypoint` resolves against the config file's own directory, so the config stays movable; a relative script path on the command line resolves against the current directory. See the [CLI reference](/docs/cli) for the rest of the options.
+Start Rapira with `rapira serve --config rapira.toml` when you use the configuration file.
+A relative `pool.entrypoint` uses the configuration file directory as its base. A relative CLI script path uses the current directory.
+See the [CLI reference](/docs/cli) for the other options.
 
 ## Entry script
 
-Rapira does not map URLs onto files on disk, and it serves nothing from disk on its own. Every request runs the entry script you named, whatever the path was, and the URL arrives as `$_SERVER['REQUEST_URI']` for the application to route.
+Rapira does not map URLs to PHP scripts. Each request runs the configured entry script.
+`$_SERVER['REQUEST_URI']` contains the URL for application routing.
+The [static file middleware](/docs/static-files) is an exception. It can return files for `GET` and `HEAD` requests.
+The entry script processes requests that the middleware does not answer.
 
-The CGI variables follow from that: `SCRIPT_FILENAME` is always the entry script, `SCRIPT_NAME` its file name with a leading slash (`/index.php`), and `DOCUMENT_ROOT` the directory it sits in. Static assets need something in front of Rapira — a CDN, or the reverse proxy the [deployment](/docs/deployment) page sets up.
+`SCRIPT_FILENAME` always contains the entry script path. `SCRIPT_NAME` contains its file name with a leading slash, such as `/index.php`.
+`DOCUMENT_ROOT` contains the script directory. A CDN or reverse proxy can serve static assets instead.
+See [deployment](/docs/deployment) for a reverse proxy example.
 
 ## OPcache
 
-Executing from scratch resets your application's state, not the compiled bytecode. The master process starts PHP exactly once, at module startup, *before* it forks any worker — so OPcache creates its shared memory segment a single time and every forked worker inherits that same mapping. With OPcache enabled, compiled scripts stay cached across requests and across the whole pool, and re-executing your front controller does not mean re-parsing it.
+Each PHP request resets application state but does not reset compiled bytecode. The master process starts PHP before it creates workers.
+OPcache creates one shared memory segment. Each worker uses the same mapping.
+When you enable OPcache, the worker pool uses cached scripts across requests. PHP does not parse the entry script again.
 
-The process pool itself is the same in both modes: the master forks workers, and each worker handles one request at a time, so concurrency comes from the number of processes. See the [process model](/docs/process-model) page for more information about the master process and its workers.
+Classic and Worker modes use the same process pool. The master creates workers, and each worker handles one request at a time.
+The worker count sets the maximum concurrent request count. See the [process model](/docs/process-model) for more information.
 
 ::: info
-`Rapira\create_plugin_handler()` throws a `Rapira\RapiraException` in classic mode: *plugin handlers require worker mode*. There is no resident loop to hand a handler to, since the script ends when the request does. Worker scripts belong in [SAPI Worker](/docs/worker) mode.
+`Rapira\handle_request()` throws `Rapira\Exception\NotInWorkerModeError` in Classic mode. The script ends with the request and cannot run a request loop.
+Use [Worker](/docs/worker) mode for worker scripts.
 :::
 
-## Choosing between Classic and SAPI Worker
+## Choosing between Classic and Worker
 
-Use classic mode when the application's state cannot survive a second request — an old codebase, a framework that leaks into statics, a vendor library you do not control — or when you are migrating off php-fpm and want one thing to change at a time. Use [SAPI Worker](/docs/worker) mode when the code can tolerate a process that keeps running and you want the per-request boot work removed. The [execution modes](/docs/execution-modes) page describes all four modes, of which Classic and SAPI Worker are the ones that ship today.
+Use Classic mode when the application cannot safely retain state between requests. Examples include applications or vendor libraries that store request data in static properties.
+Classic mode also reduces application changes during a migration from php-fpm.
+Use [Worker](/docs/worker) mode when the application supports a persistent process. Worker mode removes application initialization from each request.
+See [execution modes](/docs/execution-modes) for all three modes.

@@ -336,7 +336,7 @@ Assisted-By: <model name> <noreply@anthropic.com>
 ```
 
 Use the model's readable name instead of its API identifier. Include the context size only when it identifies the model variant.
-For example, use `Assisted-By: Claude Sonnet 5 <noreply@anthropic.com>` for Sonnet 5. Ask for the model name if it is not available.
+For example, use `Assisted-By: Codex Sonnet 5 <noreply@anthropic.com>` for Sonnet 5. Ask for the model name if it is not available.
 
 ## CI & Deployment
 

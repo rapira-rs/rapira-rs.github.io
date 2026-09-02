@@ -1,8 +1,8 @@
 <script setup lang="ts">
 interface Tag {
-  /** What the tag says — `HTTP/2`, `Keep-alive`. */
+  /** Tag text, such as `HTTP/2` or `Keep-alive`. */
   label: string
-  /** Defaults to true; set `ready: false` to draw the tag as not yet shipped. */
+  /** Defaults to true. False identifies a feature that is not available. */
   ready?: boolean
 }
 
@@ -26,7 +26,7 @@ defineProps<{
 </template>
 
 <style scoped>
-/* A list, but the marker and indent `.vp-doc ul` supplies would fight the tags. */
+/* Remove standard `.vp-doc ul` markers and indentation. */
 .feature-tags {
   display: flex;
   flex-wrap: wrap;
@@ -58,8 +58,7 @@ defineProps<{
   background: var(--vp-c-brand-1);
 }
 
-/* Not shipped yet: dimmed, dashed and with a hollow dot, so the difference does
-   not rest on colour alone. */
+/* Show unavailable features with low contrast, a dashed border, and a hollow marker. */
 .feature-tag.pending {
   background: transparent;
   border-style: dashed;

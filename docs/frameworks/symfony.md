@@ -1,49 +1,63 @@
 ---
 title: Symfony
-description: How to run a Symfony application on Rapira in worker mode — the worker script, the services resetter between requests, and how .env values reach the container.
+description: Running Symfony in Worker mode with a worker script, service resets between requests, and .env values in the container.
 ---
 
 # Symfony
 
-Symfony's structure fits a resident worker: a kernel you boot, a `Request` you hand it, a `Response` it hands back. Under Rapira the kernel boots once when the worker starts, and every request after that is a `handle()` call on a container that is already warm. Almost nothing in the application changes — what changes is the twenty lines that replace `public/index.php`. This page covers that file, the reset between requests, and how `.env` values reach the container.
+Symfony supports a persistent worker. The application initializes a kernel, passes it a `Request`, and receives a `Response`.
+Rapira initializes the kernel once for each worker. Each request then calls `handle()` on the initialized container.
+The application code does not change. A worker script replaces `public/index.php`.
+This page describes that file, request state resets, and `.env` values.
 
 ::: info Verified with
-- **PHP 8.5.8** — NTS, embed SAPI
-- **Rapira 0.6.0**
-- **Symfony 7.4** (`symfony/framework-bundle` v7.4.15) — full battery in `dev` and in `prod`
-- **Symfony 8.1** (`symfony/framework-bundle` v8.1.2) — full battery in `dev`
+- **PHP 8.5.8**: NTS, embed SAPI
+- **Rapira 0.8.0**
+- **Symfony 7.4** (`symfony/framework-bundle` v7.4.15), tested in `dev` and `prod`
+- **Symfony 8.1** (`symfony/framework-bundle` v8.1.2), tested in `dev`
 
-Both apps are a plain `symfony/skeleton` running under a single worker process, and both ran the **same `worker.php`** — byte for byte, no per-version branch. The battery covers routing, a 404, query strings, generated URLs, form posts, JSON bodies, sessions across requests, a file upload, an uncaught exception, and 200 sequential requests in a row.
+Both base applications used the `symfony/skeleton` package and one worker. Both used the **same `worker.php`** without version conditions.
+Tests covered routing, errors, requests, sessions, uploads, and 200 sequential requests.
 :::
 
-## Behavior in worker mode
+## Behavior in Worker mode
 
-The kernel boots at the top of the script, outside the loop, and stays resident for the life of the worker process: the autoloader, the compiled container, the router, the event dispatcher and every connection your bundles opened are built once instead of once per request. That is what [SAPI Worker mode](/docs/worker) provides; see [Execution modes](/docs/execution-modes) for more information.
+The kernel initializes outside the loop and remains for the worker lifetime. The autoloader, container, router, event dispatcher, and connections initialize once.
+See [Worker mode](/docs/worker) and [Execution modes](/docs/execution-modes) for more information.
 
 Per request the handler does four things and then cleans up:
 
-1. `Request::createFromGlobals()` — Rapira refills `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE` and `$_FILES` for each request before calling your handler, so Symfony's normal constructor reads exactly what it reads under php-fpm.
-2. `$kernel->handle($request)` — routing, controller, response, unchanged.
-3. `$response->send()` — the output becomes the HTTP response ([HTTP](/docs/http) covers how it is framed on the way out).
-4. `$kernel->terminate($request, $response)` — the post-response listeners run, same as always.
+1. `Request::createFromGlobals()` reads superglobals that Rapira fills for the current request.
+2. `$kernel->handle($request)` runs routing and the controller. It returns the response.
+3. `$response->send()` writes the HTTP response. See [HTTP](/docs/http) for transmission details.
+4. `$kernel->terminate($request, $response)` runs post-response listeners.
 
-Then the handler resets the stateful services through the container's `services_resetter` — the same reset Symfony runs between Messenger messages, and it is what a long-lived kernel uses to drop per-request accumulation.
+The handler then uses `services_resetter` to reset stateful services. Symfony uses the same service between Messenger messages.
 
-Sessions run as native PHP sessions, exactly as under php-fpm: `session_start()` per request, the cookie goes out with the response, and the data is read back on the next one. Isolation between clients was verified: a second client with a fresh cookie jar gets its own session.
+Sessions use the native PHP session functions. Each request calls `session_start()`, and the response contains the session cookie.
+The next request reads the stored session. Tests confirmed that separate clients receive separate sessions.
 
-One kernel lives in one worker process, and workers are separate OS processes — nothing is shared between them in userland. See [Process model](/docs/process-model) for how many there are and how they are supervised.
+Each worker process has one kernel. Workers do not share application objects.
+See [Process model](/docs/process-model) for worker counts and supervision.
 
 ## Prerequisites
 
-You need [Rapira installed](/docs/intro/installation) and a Symfony application — a fresh `composer create-project symfony/skeleton my-app` or the one you already have. Nothing about the application has to be prepared specially; the worker script goes next to `composer.json` and everything else stays where it is. You also need an ordinary PHP CLI on the machine for Composer and `bin/console` — Rapira ships PHP as a library (`libphp`), not as a `php` command, so those steps run on your system PHP, which Rapira neither uses nor touches.
+Install [Rapira](/docs/intro/installation) and create or select a Symfony application. Put the worker script next to `composer.json`.
+Install a PHP CLI for Composer and `bin/console`. Rapira supplies PHP as a library, not as a `php` command.
+Composer and `bin/console` use the system PHP CLI. Rapira does not use or change this CLI.
 
-Two extensions matter, because the skeleton hard-requires them in `composer.json` (`ext-ctype`, `ext-iconv`) *and* `replace`s the corresponding polyfills — so they have to be real extensions, not PHP shims. Both PHP builds need them: the system CLI too, or `composer create-project` and `composer install` fail their platform check before Rapira is ever involved. The PHP bundled in every Rapira release has both: `ctype` and `iconv` are in the build's configure line, and the full extension list is on the [Installation](/docs/intro/installation) page. If you compile Rapira against a PHP of your own instead, keep both enabled — [Build from source](/docs/intro/build-from-source) shows where that list is set.
+The base application requires the `ctype` and `iconv` extensions. It also replaces their PHP polyfills, so both must be native extensions.
+The system PHP CLI also needs them for Composer platform checks. Each Rapira release includes both extensions.
+See [Installation](/docs/intro/installation) for the complete extension list.
+Enable both extensions when you compile PHP. See [Build from source](/docs/intro/build-from-source).
 
-The worker file below also uses `symfony/dotenv`, which the skeleton ships. If your deployment sets real environment variables and has no `.env` at all, drop that line and the component with it. The worker does not go through `symfony/runtime` — it bootstraps `.env` and constructs the kernel itself — but keep the package installed, because `bin/console` and `public/index.php` still use it.
+The worker also uses the `symfony/dotenv` component from the base application.
+Remove the Dotenv call and component when the deployment provides all environment variables.
+The worker reads `.env` and creates the kernel without `symfony/runtime`. Keep `symfony/runtime` because `bin/console` and `public/index.php` use it.
 
 ## The worker script
 
-Put this at the project root as `worker.php`. It is the file that was verified, verbatim, on both majors:
+Save this file as `worker.php` in the project root. Tests used it with both Symfony versions:
 
 ```php
 <?php
@@ -51,22 +65,18 @@ Put this at the project root as `worker.php`. It is the file that was verified, 
 declare(strict_types=1);
 
 use App\Kernel;
-use Rapira\Plugin\Http\HttpHandlerConfig;
 use Symfony\Component\Dotenv\Dotenv;
 use Symfony\Component\HttpFoundation\Request;
 
-use function Rapira\create_plugin_handler;
-
 require __DIR__ . '/vendor/autoload.php';
 
-// public/index.php delegates this to symfony/runtime; here we do it once, up front.
+// public/index.php uses symfony/runtime for this operation.
+// The worker performs it once before the request loop.
 (new Dotenv())->usePutenv()->bootEnv(__DIR__ . '/.env');
 
 $kernel = new Kernel($_SERVER['APP_ENV'], (bool) $_SERVER['APP_DEBUG']);
 $kernel->boot();
 $container = $kernel->getContainer();
-
-$http = create_plugin_handler(new HttpHandlerConfig());
 
 $handler = static function () use ($kernel, $container): void {
     $request = Request::createFromGlobals();
@@ -76,43 +86,56 @@ $handler = static function () use ($kernel, $container): void {
         $response->send();
         $kernel->terminate($request, $response);
     } finally {
-        // The same reset Symfony runs between Messenger messages: every service
-        // tagged kernel.reset drops the state it accumulated during the request.
-        // In finally: handle() turns application exceptions into a response, but a
-        // failing send() or a throwing kernel.terminate listener escapes the handler,
-        // and the worker keeps serving — the reset has to run on that path too.
+        // Symfony uses the same reset between Messenger messages.
+        // Each service with the kernel.reset tag removes request state.
+        // The finally block also resets state when send() or terminate() throws.
         if ($container->has('services_resetter')) {
             $container->get('services_resetter')->reset();
         }
     }
 };
 
-while ($http->handleRequest($handler)) {
+while (\Rapira\handle_request($handler)) {
     gc_collect_cycles();
 }
 ```
 
-Most of it is ordinary Symfony bootstrapping. Four lines are specific to this setup:
+Most operations use standard Symfony initialization. Four parts are specific to this worker:
 
-**`(new Dotenv())->usePutenv()->bootEnv(...)`.** In a normal app you never write this, because `public/index.php` delegates it to `symfony/runtime`. Here the worker owns the bootstrap, so it loads `.env` itself — once, before the kernel exists. `usePutenv()` is required: without it the app returns 500 in `prod`, while `dev` keeps working. See [`$_ENV` and `variables_order`](#env-and-variables-order) for more information.
+**`(new Dotenv())->usePutenv()->bootEnv(...)`.** The standard `public/index.php` delegates this operation to `symfony/runtime`.
+The worker reads `.env` once before it creates the kernel. Use `usePutenv()` because the application otherwise returns `500` in `prod`.
+See [`$_ENV` and `variables_order`](#env-and-variables-order) for more information.
 
-**The kernel is built and booted before the loop.** `new Kernel(...)`, `boot()` and `getContainer()` all run at worker startup, so `$_SERVER['APP_ENV']` is read while Dotenv's values are still in place, and the container is warm before the first request ever arrives. Everything inside the `while` loop then works against that one container.
+**The kernel initializes before the loop.** `new Kernel(...)`, `boot()`, and `getContainer()` run during worker initialization.
+Thus, the kernel reads `$_SERVER['APP_ENV']` before a request can clear Dotenv values. Each request uses the same container.
 
-**`$container->has('services_resetter')` before `get()`.** The service id `services_resetter` is public in both 7.4 and 8.1, which is why the same file works on both — the *class* behind it moved namespaces between the majors (`Symfony\Component\DependencyInjection\ServicesResetter` in 7.4, `Symfony\Component\HttpKernel\DependencyInjection\ServicesResetter` in 8.1), and addressing the service by id makes that difference disappear. The `has()` guard keeps the script from fataling on a container that does not define it.
+**`$container->has('services_resetter')` before `get()`.** The `services_resetter` identifier is public in both supported versions.
+Its implementation class uses different namespaces in versions 7.4 and 8.1. The service identifier avoids a version condition.
+The `has()` check prevents an error when a container does not define the service.
 
-**The loop and `gc_collect_cycles()`.** `handleRequest()` blocks until a request arrives, runs your handler, and returns `true` — or `false` when the server is shutting down, which is what ends the loop. Collecting cycles once per turn keeps that work between requests instead of in the middle of one. See [Worker mode](/docs/worker) for the full contract.
+**The loop and `gc_collect_cycles()`.** `\Rapira\handle_request()` waits for a request, runs the handler, and returns `true`.
+It returns `false` during worker shutdown and ends the loop. The script collects cycles between requests.
+See [Worker mode](/docs/worker) for the complete contract.
 
-If the resetter is not enough, there are two heavier options: `$container->reset()` wipes every service that has been instantiated, and `$kernel->reboot(null)` throws the container away and builds a new one — after which the `$container` the handler captured is stale, so re-fetch it with `$kernel->getContainer()` if you go that route. Both discard the warm state worker mode gives you, so use them while you are tracking down a leak, not as a default.
+If the resetter is insufficient, use `$container->reset()` or `$kernel->reboot(null)`. The first option removes each created service.
+The second option removes the container and creates a new one.
+After `$kernel->reboot(null)`, get the new container with `$kernel->getContainer()`. The handler must not use the previous container.
+Both options remove cached application state. Use them to find a memory leak, not as the default configuration.
 
 ## `$_ENV` and `variables_order`
 
 ::: warning
-With a plain `bootEnv()` — no `usePutenv()` — a Symfony app in `APP_ENV=prod` returns **500 on the very first request**, and on every request after it, with `EnvNotFoundException: Environment variable not found: "DEFAULT_URI"`. The same application in `dev` does not fail.
+With `bootEnv()` but no `usePutenv()`, a Symfony application in `prod` returns **500** for each request.
+The exception is `EnvNotFoundException: Environment variable not found: "DEFAULT_URI"`. The same application in `dev` does not fail.
 :::
 
-The cause is in PHP. Under the ini defaults the verification ran with (`variables_order = "GPCS"`, `auto_globals_jit = On`), PHP re-arms the JIT flag for `$_ENV` on **every** request. The first file compiled during that request which mentions `$_ENV` triggers `php_auto_globals_create_env`, and that re-imports the superglobal from the real process environment — wiping everything `Dotenv->bootEnv()` put there at worker bootstrap. In the probe, `$_ENV` went from a populated array to empty in the middle of a request.
+PHP causes this result. With `variables_order = "GPCS"` and `auto_globals_jit = On`, PHP resets the `$_ENV` JIT flag for each request.
+The first compiled file that uses `$_ENV` calls `php_auto_globals_create_env`. This function imports `$_ENV` from the process environment again.
+This operation removes values that `Dotenv->bootEnv()` added during initialization. Tests observed `$_ENV` become empty during a request.
 
-Why only `prod`: in `prod` the first request is what lazily compiles the container and service files, so the wipe lands *before* `RequestContext` resolves `%env(DEFAULT_URI)%` — and by then there is nothing left to resolve. In `dev` the debug container resolves env lookups eagerly during `$kernel->boot()`, at bootstrap, and caches the values, so the wipe happens after the answer was already recorded. The behavior is the same in `dev`; it simply has no effect there.
+In `prod`, the first request compiles container and service files. PHP clears `$_ENV` before `RequestContext` resolves `%env(DEFAULT_URI)%`.
+In `dev`, the container resolves and caches environment values during `$kernel->boot()`. PHP clears `$_ENV` after this resolution.
+The reset occurs in both environments, but only `prod` uses the cleared value.
 
 The fix is the one line in the script above:
 
@@ -120,35 +143,46 @@ The fix is the one line in the script above:
 (new Dotenv())->usePutenv()->bootEnv(__DIR__ . '/.env');
 ```
 
-`usePutenv()` makes Dotenv write the values into the *real* process environment as well, which is precisely what the re-import reads back — so the values survive it — and Symfony's `EnvVarProcessor` falls back to `getenv()` anyway. Rapira runs NTS PHP in a pre-fork process model, one interpreter per process, so the usual `putenv()` thread-safety warnings do not apply here.
+`usePutenv()` writes Dotenv values into the process environment. The later import reads these values.
+Symfony `EnvVarProcessor` can also read them with `getenv()`.
+Rapira runs one NTS PHP interpreter in each process. Therefore, concurrent PHP threads do not call `putenv()`.
 
-The other option in production is to set real environment variables (a systemd `Environment=`, your container runtime, your orchestrator) and keep `.env` as a development convenience. Either way the values live somewhere the mid-request re-import cannot erase.
+In production, you can set environment variables through systemd, the container runtime, or the orchestrator.
+Use `.env` only for development. Both methods prevent a request from removing the values.
 
-This applies to any resident-worker PHP runtime — any framework that reads `$_ENV` lazily is exposed to it. The [Frameworks](/docs/frameworks/) page covers it alongside the other two resident-process behaviors — a bootstrap object's destructor and `register_shutdown_function()` both firing once, at the end of the first request.
+This behavior applies to each persistent PHP runtime that reads `$_ENV` during a request.
+See [Frameworks](/docs/frameworks/) for this and other persistent process behaviors.
 
 ## Running it
 
 ```bash
-rapira serve worker.php
+rapira serve --mode worker worker.php
 curl -i http://127.0.0.1:8000/
 ```
 
-Worker mode is the default, and `127.0.0.1:8000` is the default listen address. `rapira serve` stays in the foreground and `Ctrl-C` drains it.
+`--mode worker` selects Worker mode. `127.0.0.1:8000` is the default listen address.
+`rapira serve` remains in the foreground. Press Ctrl-C to stop it.
 
-The entry script is `worker.php` rather than `index.php`, so `$_SERVER['SCRIPT_NAME']` is `/worker.php`. Symfony's `Request` looks for that name at the start of the URI, does not find it, and degrades the base URL to `""`. `getPathInfo()` returns the real path, routing matches, and `generateUrl()` produces clean paths with no `/worker.php` prefix anywhere in them. No `$_SERVER` overrides and no `Request::setTrustedProxies()` workarounds are needed for this.
+The entry script is `worker.php`, so `$_SERVER['SCRIPT_NAME']` is `/worker.php`. Symfony does not find this value at the start of the URI.
+It then sets the base URL to `""`. `getPathInfo()` returns the request path, and routing operates correctly.
+`generateUrl()` creates paths without a `/worker.php` prefix. You do not need `$_SERVER` overrides or `Request::setTrustedProxies()` for this behavior.
 
-## Going to production
+## Production
 
-Set `APP_ENV=prod`, install without dev dependencies, and warm the cache before the server starts. `php bin/console cache:warmup` was verified to boot the app clean, and it moves container compilation out of the first request:
+Set `APP_ENV=prod`. Install without development dependencies.
+Create the cache before the server starts. Tests confirmed that `php bin/console cache:warmup` initializes the application correctly.
+It also compiles the container before the first request:
 
 ```bash
 composer install --no-dev --optimize-autoloader
 APP_ENV=prod php bin/console cache:warmup
 ```
 
-Check `DEFAULT_URI` while you are there. The skeleton's `config/packages/routing.yaml` sets `router.default_uri` to `%env(DEFAULT_URI)%` in **every** environment, and `.env` ships it as `http://localhost`, which is the value URLs generated outside an HTTP request (console commands, emails) are built from. Point it at your real origin.
+Check `DEFAULT_URI` during configuration. The base application sets `router.default_uri` to `%env(DEFAULT_URI)%` in each environment.
+The default is `http://localhost`. Console commands and email code use this value to create URLs outside an HTTP request.
+Set it to the application origin.
 
-A small `rapira.toml` to run it:
+Use this minimal `rapira.toml`:
 
 ```toml
 [http]
@@ -156,33 +190,50 @@ listen = "127.0.0.1:8000"
 
 [pool]
 entrypoint = "worker.php"
+mode = "worker"
 processes = 4
 max_requests = 500
 request_terminate_timeout_secs = 30
 ```
 
-`max_requests` recycles a worker after that many requests, so a slow leak somewhere in your dependency tree can never grow without bound; it bounds a leak rather than fixing it. `request_terminate_timeout_secs` puts a wall-clock ceiling on a single request, because a resident worker would otherwise stay blocked in a hung request indefinitely. Run it with `rapira serve --config rapira.toml`. Every key, and the rest of them, is on the [Configuration](/docs/configuration) page; a relative `entrypoint` resolves against the config file's own directory.
+`max_requests` replaces a worker after the specified request count. It limits the effect of a memory leak but does not correct it.
+`request_terminate_timeout_secs` limits the elapsed time of one request.
+Start the server with `rapira serve --config rapira.toml`.
+A relative `entrypoint` uses the configuration file directory as its base. See [Configuration](/docs/configuration) for all settings.
 
 ## What resets between requests
 
-`services_resetter` calls `reset()` on every service tagged `kernel.reset`. Which services those are depends on the bundles you have installed — buffered log handlers, debug data collectors and similar per-request accumulators register the tag themselves, so the single call reaches all of them.
+`services_resetter` calls `reset()` on each service with the `kernel.reset` tag. Installed bundles determine which services have the tag.
+Examples include buffered log handlers and debug data collectors. These services register the tag themselves.
 
-What it does not cover is state you keep yourself: static properties, memoized globals, a registry some library fills lazily, an `ini_set()` you never undid. Those survive the request under any resident worker and have to be reset by your own code. The [Frameworks](/docs/frameworks/) page has the table of what survives and what does not.
+It does not reset application static properties, global values, library registries, or persistent `ini_set()` changes.
+This state remains in each persistent worker. Reset it in application code.
+See [Frameworks](/docs/frameworks/) for the state lifetime table.
 
-With the resetter in place the verification saw resident memory stay flat across 200 sequential requests, in `dev` and in `prod` alike — the kernel holds a constant working set rather than growing per request. If memory grows in your application, something in your own code or in a bundle is holding on to requests.
+Tests with the resetter found stable process memory during 200 sequential requests in `dev` and `prod`.
+If memory increases, application code or a bundle can be retaining request state.
 
 ## Work after the response
 
-If you want the client freed before the post-response listeners run, call [`rapira_finish_request()`](/docs/http) between `$response->send()` and `$kernel->terminate($request, $response)` — the response goes out, and `terminate()` keeps running on a worker the client is no longer waiting on. The worker itself is still busy until your handler returns, so this is a latency tool, not a way to get concurrency.
+Call [`rapira_finish_request()`](/docs/http) between `$response->send()` and `$kernel->terminate()` to send the response before post-response listeners run.
+The worker continues to run `terminate()` until the handler returns. This can reduce client wait time but does not add concurrency.
 
-## The development loop
+## Development
 
-`rapira serve` runs in the foreground and your application is booted once, so **changed PHP code is not picked up until the workers are replaced**. While you are actively editing, the simplest thing is to stop and start the server, or to run the front controller in [classic mode](/docs/classic) instead, where the script is executed from scratch every time and every save is live:
+`rapira serve` runs in the foreground and initializes the application once. Therefore, **replace the worker to load changed PHP code**.
+Restart the server after each edit during development. Alternatively, use [Classic mode](/docs/classic).
+Classic mode reads the entry script for each request:
 
 ```bash
-rapira serve --classic public/index.php
+rapira serve --mode classic public/index.php
 ```
 
-That is the same application in classic mode: it boots on every request, so edits take effect immediately, at the cost of a full boot per request. For a running production server, a rolling reload (`SIGUSR2` on the master) is how deployed code takes over without dropping connections — unless you run `opcache.validate_timestamps = 0`, where the master's OPcache segment outlives the pool and a deploy needs a full restart instead; see [Process model](/docs/process-model) and [running in production](/docs/deployment).
+The same application initializes for each request in Classic mode. Therefore, saved changes take effect immediately.
+In production, `SIGUSR2` replaces workers without dropping connections.
+With `opcache.validate_timestamps = 0`, the master retains old opcodes during worker replacement. Use a complete restart in this configuration.
+See [process model](/docs/process-model) and [running in production](/docs/deployment) for more information.
 
-An uncaught exception is handled inside Symfony: the framework answers it with its own `500` — the full exception page in `dev`, a generic error page in `prod` — and the same worker process, its pid unchanged across the failure, picks up the next request. What survives an exception is leaked or corrupted service state, which the reset at the end of the handler drops. Where the trace ends up depends on your logger; a stock skeleton ships none. What does reach Rapira's log on stderr is anything that escapes PHP itself, like the `EnvNotFoundException` above — [Logging](/docs/logging) shows how to turn the level up.
+Symfony handles an uncaught application exception and returns its own `500` response. `dev` shows the exception page, while `prod` shows a general error page.
+The same worker processes the next request. The final reset removes changed service state after the exception.
+The configured Symfony logger controls exception output. The base application does not include a logger.
+Rapira logs PHP errors that leave the framework, such as the `EnvNotFoundException` above. See [Logging](/docs/logging) for level configuration.

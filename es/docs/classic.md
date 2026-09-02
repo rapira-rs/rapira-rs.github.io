@@ -1,17 +1,17 @@
 ---
-title: Modo clásico
-description: "El modo clásico ejecuta un front controller de PHP normal desde cero en cada petición, igual que php-fpm, con el estado limpio cada vez."
+title: Modo Classic
+description: "El modo Classic ejecuta un script de entrada de PHP normal desde cero en cada petición, igual que php-fpm, con el estado limpio cada vez."
 ---
 
-# Modo clásico
+# Modo Classic
 
-El modo clásico ejecuta un front controller de PHP normal y corriente —el mismo `public/index.php` al que ya apuntas con php-fpm— desde cero en cada petición que llega. Rapira ocupa el lugar de php-fpm y la aplicación no necesita ningún cambio: las superglobales se rellenan, el script se ejecuta de arriba abajo y lo que imprima se convierte en la respuesta.
+El modo Classic ejecuta un script de entrada de PHP normal. Es el mismo `public/index.php` que ejecuta php-fpm. Rapira lo ejecuta desde cero en cada petición. Rapira ocupa el lugar de php-fpm y la aplicación no necesita ningún cambio. Las superglobales se rellenan, el script se ejecuta de arriba abajo y su salida se convierte en la respuesta.
 
 ## Estado limpio en cada petición
 
-Cada petición pasa por un ciclo de PHP completo: arranque de la petición, tu script de entrada y cierre de la petición. Todo lo que el script haya construido por el camino —variables globales, propiedades estáticas, el contenedor de DI, el mapa de identidad del ORM— se destruye antes de que empiece la siguiente, exactamente igual que bajo php-fpm.
+Cada petición pasa por un ciclo de PHP completo: arranque de la petición, tu script de entrada y cierre de la petición. Todo lo que el script haya construido por el camino -variables globales, propiedades estáticas, el contenedor de DI, el mapa de identidad del ORM- se destruye antes de que empiece la siguiente, exactamente igual que bajo php-fpm.
 
-Un descriptor que se escapa, un singleton que se queda inicializado a medias, una biblioteca que se guarda datos de la petición en una propiedad estática: nada de eso afecta a la petición siguiente, porque nada de lo que crea tu script sobrevive a la petición en la que se creó. Valen las mismas excepciones que con php-fpm: las conexiones persistentes y el estado que vive dentro de una extensión están en el proceso worker, no en la petición. El código que nunca se escribió pensando en un proceso de larga vida funciona aquí sin cambios. `fastcgi_finish_request()` viene del binario de php-fpm y no está disponible bajo Rapira, que ofrece `rapira_finish_request()` con el mismo contrato —enviar la respuesta al cliente cuanto antes y seguir trabajando después—, documentada en la página de [HTTP](/es/docs/http).
+Un descriptor que se escapa, un singleton que se queda inicializado a medias, una biblioteca que se guarda datos de la petición en una propiedad estática: nada de eso afecta a la petición siguiente, porque nada de lo que crea tu script sobrevive a la petición en la que se creó. Valen las mismas excepciones que con php-fpm: las conexiones persistentes y el estado que vive dentro de una extensión están en el proceso worker, no en la petición. El código que nunca se escribió pensando en un proceso de larga vida funciona aquí sin cambios. `fastcgi_finish_request()` viene del binario de php-fpm y no está disponible bajo Rapira, que ofrece `rapira_finish_request()` con el mismo contrato -enviar la respuesta al cliente cuanto antes y seguir trabajando después-, documentada en la página de [HTTP](/es/docs/http).
 
 La aplicación vuelve a arrancar en cada petición: autoloader, configuración, contenedor, rutas. Consulta la página de [modos de ejecución](/es/docs/execution-modes) para más información.
 
@@ -19,10 +19,10 @@ La aplicación vuelve a arrancar en cada petición: autoloader, configuración, 
 
 Hay dos maneras de elegir el modo, y las dos hacen lo mismo:
 
-- `--classic` en la línea de comandos, junto al script de entrada.
-- `classic = true` en la sección `[pool]` de un `rapira.toml`.
+- `--mode classic` en la línea de comandos, junto al script de entrada.
+- `mode = "classic"` en la sección `[pool]` de un `rapira.toml`.
 
-La opción solo sirve para *activar* el modo: no existe `--no-classic`, así que un archivo de configuración con `classic = true` se queda en clásico diga lo que diga la línea de comandos. En todo lo demás manda la precedencia de siempre, en la que las opciones de línea de comandos ganan al archivo de configuración; la lista completa de claves está en la página de [configuración](/es/docs/configuration).
+`--mode` tiene prioridad sobre `pool.mode`, así que la línea de comandos elige el modo aunque el archivo de configuración indique otro. En todo lo demás manda la precedencia de siempre, en la que las opciones de línea de comandos ganan al archivo de configuración; la lista completa de claves está en la página de [configuración](/es/docs/configuration).
 
 Un script de entrada clásico es PHP normal:
 
@@ -39,13 +39,13 @@ Apunta Rapira hacia él de cualquiera de las dos formas:
 ::: code-group
 
 ```bash [CLI]
-rapira serve --classic public/index.php
+rapira serve --mode classic public/index.php
 ```
 
 ```toml [rapira.toml]
 [pool]
 entrypoint = "public/index.php"
-classic = true
+mode = "classic"
 ```
 
 :::
@@ -54,20 +54,20 @@ Con el archivo de configuración, el comando para arrancar es `rapira serve --co
 
 ## Script de entrada
 
-Rapira no traduce URLs a archivos del disco ni sirve nada del disco por su cuenta. Cada petición ejecuta el script de entrada que le indicaste, venga la ruta que venga, y la URL llega en `$_SERVER['REQUEST_URI']` para que la enrute tu aplicación.
+Rapira no traduce URLs a scripts PHP. Cada petición ejecuta el script de entrada que le indicaste, venga la ruta que venga, y la URL llega en `$_SERVER['REQUEST_URI']` para que la enrute tu aplicación. La única excepción es el [middleware de archivos estáticos](/es/docs/static-files): cuando está activado, puede responder a un `GET` o a un `HEAD` con un archivo que haya bajo su raíz. Toda petición que él no responda ejecuta el script de entrada.
 
-De ahí salen las variables CGI: `SCRIPT_FILENAME` es siempre el script de entrada, `SCRIPT_NAME` su nombre de archivo con una barra delante (`/index.php`) y `DOCUMENT_ROOT` el directorio donde está. Los archivos estáticos necesitan algo por delante de Rapira: una CDN o el proxy inverso que monta la página de [puesta en producción](/es/docs/deployment).
+De ahí salen las variables CGI: `SCRIPT_FILENAME` es siempre el script de entrada, `SCRIPT_NAME` su nombre de archivo con una barra delante (`/index.php`) y `DOCUMENT_ROOT` el directorio donde está. Una CDN o un proxy inverso por delante de Rapira también pueden servir los archivos estáticos en su lugar. La página de [puesta en producción](/es/docs/deployment) monta un proxy de esos.
 
 ## OPcache
 
-Ejecutar desde cero reinicia el estado de tu aplicación, no el bytecode compilado. El proceso maestro arranca PHP una sola vez, al iniciar el módulo y *antes* de hacer fork de ningún worker, así que OPcache crea su segmento de memoria compartida una única vez y todos los workers heredan ese mismo mapeo. Con OPcache activado, los scripts compilados siguen en caché de una petición a otra y en todo el pool: volver a ejecutar tu front controller no significa volver a parsearlo.
+Ejecutar desde cero reinicia el estado de la aplicación, no el bytecode compilado. El proceso maestro arranca PHP una sola vez, antes de hacer fork de ningún worker. Por tanto, OPcache crea un único segmento de memoria compartida y todos los workers heredan ese mismo mapeo. Con OPcache activado, los scripts compilados siguen en caché de una petición a otra y en todo el pool. Volver a ejecutar el script de entrada no significa volver a parsearlo.
 
 El pool de procesos en sí es el mismo en los dos modos: el maestro hace fork de los workers y cada worker atiende una petición cada vez, así que la concurrencia sale del número de procesos. Consulta la página de [modelo de procesos](/es/docs/process-model) para más información sobre el proceso maestro y sus workers.
 
 ::: info
-`Rapira\create_plugin_handler()` lanza una `Rapira\RapiraException` en modo clásico: *plugin handlers require worker mode*. No hay ningún bucle residente al que entregarle un handler, porque el script termina cuando termina la petición. Los scripts de worker son cosa del modo [SAPI Worker](/es/docs/worker).
+`Rapira\handle_request()` lanza `Rapira\Exception\NotInWorkerModeError` en modo Classic. El script termina cuando termina la petición, así que no hay ningún bucle al que entregarle un handler. Los scripts de worker son cosa del modo [Worker](/es/docs/worker).
 :::
 
-## Elegir entre Classic y SAPI Worker
+## Elegir entre Classic y Worker
 
-Usa el modo clásico cuando el estado de tu aplicación no sobreviva a una segunda petición —código antiguo, un framework que se filtra en propiedades estáticas, una biblioteca de terceros que no controlas— o cuando estés migrando desde php-fpm y prefieras cambiar una cosa cada vez. Usa el modo [SAPI Worker](/es/docs/worker) cuando tu código aguante un proceso que no muere y quieras quitar de en medio el arranque de cada petición. La página de [modos de ejecución](/es/docs/execution-modes) describe los cuatro modos, de los que Classic y SAPI Worker son los disponibles hoy.
+Usa el modo Classic cuando el estado de tu aplicación no sobreviva a una segunda petición: código antiguo, un framework que se filtra en propiedades estáticas o una biblioteca de terceros que no controlas. Úsalo también cuando estés migrando desde php-fpm y prefieras cambiar una cosa cada vez. Usa el modo [Worker](/es/docs/worker) cuando tu código aguante un proceso que no muere. El modo Worker quita de en medio el arranque de cada petición. La página de [modos de ejecución](/es/docs/execution-modes) describe los tres modos.

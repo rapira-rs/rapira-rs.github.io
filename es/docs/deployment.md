@@ -5,9 +5,11 @@ description: "Cómo ejecutar Rapira en un servidor: una unidad de systemd, la di
 
 # En producción
 
-Ejecutar Rapira en un servidor añade lo que un `rapira serve app/worker.php` local no necesita: arrancar al encender la máquina, volver después de una caída, recargar el código nuevo sin tirar ninguna petición y unos registros que puedas leer más tarde. Esta página cubre una unidad de systemd, un sitio para la configuración, un proxy delante y los ajustes que ponen límites a unos workers de vida larga.
+Ejecutar Rapira en un servidor añade lo que un `rapira serve --mode worker app/worker.php` local no necesita: arrancar al encender la máquina, volver después de una caída, recargar el código nuevo sin tirar ninguna petición y unos registros que puedas leer más tarde. Esta página cubre una unidad de systemd, un sitio para la configuración, un proxy delante y los ajustes que ponen límites a unos workers de vida larga.
 
 Casi nada de esto está compilado en el binario. Nada en Rapira depende de dónde tengas la configuración ni de qué supervise el proceso, así que la disposición de más abajo es una convención que establece esta página y que asume el resto de la documentación. Antes de nada, mete el binario en la máquina: de eso se encarga [Instalación](/es/docs/intro/installation).
+
+Rapira se publica también como imagen de contenedor en `ghcr.io/rapira-rs/rapira`, que copias dentro de tu propia imagen con `COPY --from`. En un contenedor, la política de reinicio de tu runtime de contenedores sustituye a la unidad de systemd de aquí abajo; la disposición de la configuración, el proxy, el formato de los registros y los ajustes del pool de esta página se quedan igual. Consulta [Docker](/es/docs/intro/installation#docker) para más información.
 
 ## Una unidad de systemd
 
@@ -45,15 +47,15 @@ sudo systemctl enable --now rapira
 
 Seis de esas líneas necesitan explicación:
 
-- `Type=exec` — Rapira se ejecuta en **primer plano** y nunca hace fork para pasar a segundo plano. No hay modo demonio ni hace falta: el proceso que arranca systemd *es* el maestro, así que `$MAINPID` es justo el pid al que quieres mandar señales.
-- `ExecReload` — convierte `systemctl reload rapira` en un `SIGUSR2` al maestro, que es la recarga sin cortes de la que se habla más abajo.
-- `KillMode=mixed` — por defecto systemd manda la señal de parada a todos los procesos del cgroup, y un worker se toma un `SIGTERM` como una muerte inmediata. Con `mixed` la señal va solo al maestro, que a partir de ahí hace el vaciado ordenado con `SIGQUIT` que se describe más abajo; el `SIGKILL` de `TimeoutStopSec` sigue cubriendo al grupo entero. Sin esta línea, `systemctl stop` y `systemctl restart` se llevan por delante las peticiones en curso.
-- `Restart=on-failure` — un vaciado limpio termina con código cero y se queda parado, así que esto solo levanta el servidor otra vez tras una caída o un arranque fallido.
-- `RuntimeDirectory=rapira` — systemd crea `/run/rapira` al arrancar y lo borra al parar. Ahí es donde viven el pidfile y el socket Unix de los ejemplos de más abajo.
-- `Environment=PHPRC` — dónde busca PHP su `php.ini`; lo cuenta la sección siguiente.
+- `Type=exec` - Rapira se ejecuta en **primer plano** y nunca hace fork para pasar a segundo plano. No hay modo demonio ni hace falta: el proceso que arranca systemd *es* el maestro, así que `$MAINPID` es justo el pid al que quieres mandar señales.
+- `ExecReload` - convierte `systemctl reload rapira` en un `SIGUSR2` al maestro, que es la recarga sin cortes de la que se habla más abajo.
+- `KillMode=mixed` - por defecto systemd manda la señal de parada a todos los procesos del cgroup, y un worker se toma un `SIGTERM` como una muerte inmediata. Con `mixed` la señal va solo al maestro, que a partir de ahí hace el vaciado ordenado con `SIGQUIT` que se describe más abajo; el `SIGKILL` de `TimeoutStopSec` sigue cubriendo al grupo entero. Sin esta línea, `systemctl stop` y `systemctl restart` se llevan por delante las peticiones en curso.
+- `Restart=on-failure` - un vaciado limpio termina con código cero y se queda parado, así que esto solo levanta el servidor otra vez tras una caída o un arranque fallido.
+- `RuntimeDirectory=rapira` - systemd crea `/run/rapira` al arrancar y lo borra al parar. Ahí es donde viven el pidfile y el socket Unix de los ejemplos de más abajo.
+- `Environment=PHPRC` - dónde busca PHP su `php.ini`; lo cuenta la sección siguiente.
 
 ::: tip Ejecución con un usuario que no sea root
-Añade `User=` y `Group=` al bloque `[Service]`: systemd le cambia el dueño del `RuntimeDirectory` a esa cuenta, así que el pidfile y el socket Unix de dentro de `/run/rapira/` siguen funcionando. Las rutas de fuera —`/run/rapira.pid` y compañía— están en un directorio que pertenece a root y no se podrán abrir.
+Añade `User=` y `Group=` al bloque `[Service]`: systemd le cambia el dueño del `RuntimeDirectory` a esa cuenta, así que el pidfile y el socket Unix de dentro de `/run/rapira/` siguen funcionando. Las rutas de fuera -`/run/rapira.pid` y compañía- están en un directorio que pertenece a root y no se podrán abrir.
 :::
 
 Dos aplicaciones en una misma máquina llevan dos configuraciones, dos unidades y dos direcciones de escucha; para eso usa una unidad plantilla de systemd (`rapira@.service`). Cada instancia arranca su propio PHP y su propio pool de workers, y no comparte nada con la otra instancia salvo la máquina.
@@ -68,7 +70,10 @@ Un `pool.entrypoint` relativo se resuelve contra el directorio **del archivo de 
 
 ## Detrás de un proxy inverso
 
-El listener de Rapira habla HTTP en claro y la configuración no tiene ninguna sección de TLS. Termina el TLS en el proxy que ya tienes montado —nginx, Caddy, HAProxy, un balanceador de tu nube— y deja que llegue a Rapira por loopback o por un socket Unix. Puedes escuchar en una interfaz pública, pero ese listener sigue sirviendo HTTP en claro.
+Rapira acepta HTTP sin cifrar y no ofrece ajustes de TLS.
+Un [proxy de terminación TLS](https://en.wikipedia.org/wiki/TLS_termination_proxy) recibe HTTPS del cliente, descifra la conexión y envía HTTP sin cifrar a Rapira.
+Usa nginx, Caddy, HAProxy o un balanceador de carga en la nube para esta tarea.
+Conecta el proxy a Rapira mediante la interfaz de bucle invertido o un socket Unix. Una dirección pública de Rapira también usa HTTP sin cifrar.
 
 ```toml
 [http]
@@ -80,6 +85,8 @@ El socket Unix se crea con permisos `0666`, así que cualquier proceso local con
 
 Los campos reenviados tienen que llegar a Rapira con la grafía normal, la del guion: `X-Forwarded-For`, nunca `X_Forwarded_For`. Las variantes con guion bajo o con punto caen en la misma clave de `$_SERVER` que la buena, que es justo por donde un cliente sobrescribiría lo que tu proxy acaba de poner, así que Rapira las descarta antes de que PHP las vea. La [página de HTTP](/es/docs/http) explica la correspondencia y el ajuste `http.unsafe_field_names` que la gobierna.
 
+Cuando activas el [middleware de archivos estáticos](/es/docs/static-files), Rapira sirve él mismo los archivos estáticos, así que el proxy no tiene que guardar una segunda copia del document root. Poner delante un proxy o una CDN sigue siendo una opción.
+
 ## Despliegues sin cortes
 
 Despliega el código nuevo y luego:
@@ -90,7 +97,7 @@ sudo systemctl reload rapira
 
 Eso es un `SIGUSR2` al maestro, que responde con una **recarga progresiva**: el pool se reemplaza de worker en worker y las peticiones en curso llegan hasta el final; no se pierde nada mientras ningún worker se pase de `process_control_timeout_secs`. Al que se pasa se le escala a `SIGTERM` y luego a `SIGKILL`, y su petición en curso se pierde (lo tienes más abajo). Cómo solapa el relevo al worker nuevo con el viejo lo tienes en [Modelo de procesos](/es/docs/process-model).
 
-Sin systemd —un entrypoint de contenedor, un script de despliegue— mándale la señal al maestro tú mismo. Define `supervisor.pidfile` y tendrás el pid a mano; eso sí, fuera de systemd nadie crea `/run/rapira`, así que crea antes el directorio o elige una ruta que exista: el maestro se niega a arrancar si no puede escribir ese archivo.
+Sin systemd -un entrypoint de contenedor, un script de despliegue- mándale la señal al maestro tú mismo. Define `supervisor.pidfile` y tendrás el pid a mano; eso sí, fuera de systemd nadie crea `/run/rapira`, así que crea antes el directorio o elige una ruta que exista: el maestro se niega a arrancar si no puede escribir ese archivo.
 
 ```toml
 [supervisor]
@@ -102,7 +109,7 @@ process_control_timeout_secs = 30
 kill -USR2 "$(cat /run/rapira/rapira.pid)"
 ```
 
-Ese archivo lo escribe solo el maestro —los workers no lo pueden tocar— y el maestro lo borra en todos los caminos de salida que controla, así que uno que se queda ahí significa que el maestro murió sin ejecutar su propio apagado: un `SIGKILL`, una caída dura o la máquina apagándose.
+Ese archivo lo escribe solo el maestro -los workers no lo tocan- y el maestro lo borra en todos los caminos de salida que controla, así que uno que se queda ahí significa que el maestro murió sin ejecutar su propio apagado: un `SIGKILL`, una caída dura o la máquina apagándose.
 
 `process_control_timeout_secs` es el tiempo que le da el maestro a un worker para que termine antes de escalar, y también limita cada paso de una recarga progresiva, para que un worker atascado no pare el relevo entero; la secuencia de escalada y la tabla completa de señales están en [Modelo de procesos](/es/docs/process-model). Mantenlo holgadamente por debajo del `TimeoutStopSec` de systemd, o será el tiempo de espera de systemd el que se agote primero y mate al maestro a media escalada.
 
@@ -130,7 +137,7 @@ Para sacarlos de la máquina, apunta tu colector al journal de la unidad o ejecu
 
 ## Reciclado de workers y tiempos límite de petición
 
-En [modo worker](/es/docs/execution-modes) el proceso se queda residente, así que una fuga lenta que bajo php-fpm pasa desapercibida se va acumulando petición tras petición. De eso te protegen dos ajustes:
+En [modo Worker](/es/docs/execution-modes) el proceso se queda residente, así que una fuga lenta que bajo php-fpm pasa desapercibida se va acumulando petición tras petición. De eso te protegen dos ajustes:
 
 ```toml
 [pool]
@@ -140,4 +147,4 @@ request_terminate_timeout_secs = 30
 
 `max_requests` jubila al worker tras ese número de peticiones y crea otro nuevo con fork, con algo de jitter para que el pool entero no se recicle a la vez. No arregla ninguna fuga; lo que hace es evitar que una fuga que nadie ha encontrado acabe en una caída del servicio. `request_terminate_timeout_secs` es un techo de tiempo real para una sola petición: al worker que se lo salte se le mata y se le vuelve a crear, así que una petición atascada no ocupa un worker de forma permanente. Los dos vienen desactivados de fábrica; actívalos antes de salir a producción.
 
-El resto del pool —el dimensionado static, dynamic y ondemand, el backoff al recrear procesos y qué hace el maestro cuando muere un worker— está en [Modelo de procesos](/es/docs/process-model).
+El resto del pool -el dimensionado static, dynamic y ondemand, el backoff al recrear procesos y qué hace el maestro cuando muere un worker- está en [Modelo de procesos](/es/docs/process-model).

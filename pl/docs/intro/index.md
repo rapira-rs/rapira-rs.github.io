@@ -1,26 +1,29 @@
 ---
 title: Czym jest Rapira?
-description: "Rapira to szybki i bezpieczny serwer aplikacji PHP napisany w Ruście: przyjmuje żądania HTTP bezpośrednio i obsługuje tryb klasyczny, workera oraz dyspozytora."
+description: Rapira to serwer aplikacji PHP napisany w języku Rust. Obsługuje tryby Classic, Worker i Dispatcher.
 ---
 
 # Czym jest Rapira
 
-Rapira to szybki i bezpieczny serwer aplikacji PHP napisany w Ruście.
+Rapira to serwer aplikacji PHP napisany w języku Rust.
 
-Projektując ją, wykorzystaliśmy lata doświadczeń z utrzymywania RoadRunnera: współpraca z PHP miała być możliwie wydajna i stabilna, a codzienna praca — i przy programowaniu, i na produkcji — nie miała kosztować zbędnego wysiłku.
+Opiekunowie projektu RoadRunner projektują i implementują Rapirę. Rapira wywołuje PHP bezpośrednio w procesie serwera.
 
-Rapira nie kończy się na HTTP. W planach mamy obsługę wszystkich popularnych wtyczek RoadRunnera, a o nowościach piszemy na naszym [blogu](/pl/blog/).
+Rapira obsługuje obecnie HTTP. Projekt planuje obsługę większej liczby funkcji wtyczek RoadRunnera.
+Na [blogu](/pl/blog/) znajdują się aktualności projektu.
 
 ## HTTP
 
-Pierwszym zadaniem serwera PHP jest obsługa żądań HTTP. Dzięki technologii Cloudflare Rapira przyjmuje je bezpośrednio, bez nginxa czy Apache'a, i obsługuje wszystkie współczesne standardy HTTP oraz szyfrowania.
+Rapira zawiera serwer HTTP, który używa biblioteki [hyper](https://hyper.rs). Serwer przyjmuje bezpośrednio nieszyfrowane połączenia HTTP.
+Serwer nie kończy TLS. [Proxy kończące TLS](https://en.wikipedia.org/wiki/TLS_termination_proxy) przyjmuje HTTPS od klienta, odszyfrowuje połączenie i wysyła nieszyfrowany HTTP do Rapiry.
+Konfigurację proxy opisuje [Wdrożenie produkcyjne](/pl/docs/deployment).
 
-Po stronie PHP dostępne są wszystkie modele pracy:
+Rapira obsługuje trzy tryby wykonania PHP:
 
-- Klasyczny (SAPI) — każde żądanie uruchamia aplikację od zera, tak samo jak pod php-fpm.
-- Worker (SAPI Worker) — aplikacja startuje raz, a potem w pętli obsługuje żądanie za żądaniem przez interfejs SAPI (superglobale PHP wypełniają się na nowo przy każdym żądaniu).
-- Dyspozytor — aplikacja nie kończy pracy, a żądania i odpowiedzi przechodzą przez osobne API. W tym trybie możesz obsługiwać je pojedynczo, jedno po drugim (jak w RoadRunnerze), albo współbieżnie, korzystając z [fiberów](https://www.php.net/manual/language.fibers.php).
+- Classic: Rapira inicjalizuje aplikację dla każdego żądania, tak jak php-fpm.
+- Worker: Rapira inicjalizuje aplikację raz. Pętla obsługuje żądania, a Rapira ponownie wypełnia superglobale PHP dla każdego żądania.
+- Dispatcher: Rapira inicjalizuje aplikację raz. Skrypt pobiera obiekty żądań przez wywołanie API. Może przetwarzać żądania kolejno lub współbieżnie za pomocą [włókien](https://www.php.net/manual/en/language.fibers.php).
 
 ::: info
-Na stronie [Tryby wykonania](/pl/docs/execution-modes) znajdziesz szczegółowe porównanie trybów i wskazówki, który wybrać.
+Strona [Tryby wykonania](/pl/docs/execution-modes) opisuje działanie trybów i kryteria wyboru.
 :::

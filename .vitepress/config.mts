@@ -24,7 +24,7 @@ export default withMermaid(defineConfig({
     },
   },
 
-  srcExclude: ['CLAUDE.md', 'README.md'],
+  srcExclude: ['AGENTS.md', 'CLAUDE.md', 'README.md'],
   ignoreDeadLinks: [/feed\.xml$/],
 
   vite: {
@@ -85,6 +85,7 @@ gtag('config', 'G-Q7Z14B1SZ9');`],
               items: [
                 { text: 'Command line', link: '/docs/cli' },
                 { text: 'Configuration', link: '/docs/configuration' },
+                { text: 'Static files', link: '/docs/static-files' },
                 { text: 'Process model', link: '/docs/process-model' },
                 { text: 'Logging', link: '/docs/logging' },
                 { text: 'Running in production', link: '/docs/deployment' },
@@ -143,8 +144,8 @@ gtag('config', 'G-Q7Z14B1SZ9');`],
               text: 'Разработка приложения',
               items: [
                 { text: 'Режимы выполнения', link: '/ru/docs/execution-modes' },
-                { text: 'Классический режим', link: '/ru/docs/classic' },
-                { text: 'Режим воркера', link: '/ru/docs/worker' },
+                { text: 'Режим Classic', link: '/ru/docs/classic' },
+                { text: 'Режим Worker', link: '/ru/docs/worker' },
                 { text: 'Запросы и ответы HTTP', link: '/ru/docs/http' },
               ],
             },
@@ -153,6 +154,7 @@ gtag('config', 'G-Q7Z14B1SZ9');`],
               items: [
                 { text: 'Командная строка', link: '/ru/docs/cli' },
                 { text: 'Конфигурация', link: '/ru/docs/configuration' },
+                { text: 'Статические файлы', link: '/ru/docs/static-files' },
                 { text: 'Модель процессов', link: '/ru/docs/process-model' },
                 { text: 'Логирование', link: '/ru/docs/logging' },
                 { text: 'Запуск в продакшене', link: '/ru/docs/deployment' },
@@ -225,8 +227,8 @@ gtag('config', 'G-Q7Z14B1SZ9');`],
               text: 'Escribir tu aplicación',
               items: [
                 { text: 'Modos de ejecución', link: '/es/docs/execution-modes' },
-                { text: 'Modo clásico', link: '/es/docs/classic' },
-                { text: 'Modo worker', link: '/es/docs/worker' },
+                { text: 'Modo Classic', link: '/es/docs/classic' },
+                { text: 'Modo Worker', link: '/es/docs/worker' },
                 { text: 'Peticiones y respuestas HTTP', link: '/es/docs/http' },
               ],
             },
@@ -235,6 +237,7 @@ gtag('config', 'G-Q7Z14B1SZ9');`],
               items: [
                 { text: 'Línea de comandos', link: '/es/docs/cli' },
                 { text: 'Configuración', link: '/es/docs/configuration' },
+                { text: 'Archivos estáticos', link: '/es/docs/static-files' },
                 { text: 'Modelo de procesos', link: '/es/docs/process-model' },
                 { text: 'Registros', link: '/es/docs/logging' },
                 { text: 'En producción', link: '/es/docs/deployment' },
@@ -307,7 +310,7 @@ gtag('config', 'G-Q7Z14B1SZ9');`],
               text: '编写应用',
               items: [
                 { text: '执行模式', link: '/zh/docs/execution-modes' },
-                { text: '经典模式', link: '/zh/docs/classic' },
+                { text: 'Classic 模式', link: '/zh/docs/classic' },
                 { text: 'Worker 模式', link: '/zh/docs/worker' },
                 { text: 'HTTP 请求与响应', link: '/zh/docs/http' },
               ],
@@ -317,6 +320,7 @@ gtag('config', 'G-Q7Z14B1SZ9');`],
               items: [
                 { text: '命令行', link: '/zh/docs/cli' },
                 { text: '配置', link: '/zh/docs/configuration' },
+                { text: '静态文件', link: '/zh/docs/static-files' },
                 { text: '进程模型', link: '/zh/docs/process-model' },
                 { text: '日志', link: '/zh/docs/logging' },
                 { text: '生产环境部署', link: '/zh/docs/deployment' },
@@ -389,8 +393,8 @@ gtag('config', 'G-Q7Z14B1SZ9');`],
               text: 'Tworzenie aplikacji',
               items: [
                 { text: 'Tryby wykonania', link: '/pl/docs/execution-modes' },
-                { text: 'Tryb klasyczny', link: '/pl/docs/classic' },
-                { text: 'Tryb workera', link: '/pl/docs/worker' },
+                { text: 'Tryb Classic', link: '/pl/docs/classic' },
+                { text: 'Tryb Worker', link: '/pl/docs/worker' },
                 { text: 'Żądania i odpowiedzi HTTP', link: '/pl/docs/http' },
               ],
             },
@@ -399,6 +403,7 @@ gtag('config', 'G-Q7Z14B1SZ9');`],
               items: [
                 { text: 'Wiersz poleceń', link: '/pl/docs/cli' },
                 { text: 'Konfiguracja', link: '/pl/docs/configuration' },
+                { text: 'Pliki statyczne', link: '/pl/docs/static-files' },
                 { text: 'Model procesów', link: '/pl/docs/process-model' },
                 { text: 'Logi', link: '/pl/docs/logging' },
                 { text: 'Wdrożenie produkcyjne', link: '/pl/docs/deployment' },
@@ -441,7 +446,7 @@ gtag('config', 'G-Q7Z14B1SZ9');`],
   },
 
   themeConfig: {
-    // The wordmark replaces the site title in the nav bar; each locale inherits it.
+    // The wordmark replaces the navigation title for each locale.
     logo: {
       light: '/rapira-bg-light.svg',
       dark: '/rapira-bg-dark.svg',
@@ -455,7 +460,7 @@ gtag('config', 'G-Q7Z14B1SZ9');`],
   },
 
   transformPageData(pageData) {
-    // Disable lastUpdated and editLink for blog posts
+    // Disable `lastUpdated` and `editLink` for blog posts.
     const pagePath = '/' + pageData.relativePath.replace(/\.md$/, '')
     if (isBlogPath(pagePath) || isBlogPath(pagePath + '/')) {
       pageData.frontmatter.lastUpdated = false

@@ -11,36 +11,27 @@ features:
   - title: 兼容 php-fpm
     details: "支持经典 SAPI：Rapira 直接顶替 php-fpm，代码不用改，但跑得更快。"
   - title: 运行模式
-    details: "Classic → Worker → Async<br>你的应用能走到哪一步？"
+    details: "Classic → Worker → Dispatcher<br>你的应用可以使用哪些模式？"
     link: /zh/docs/execution-modes
 ---
 
 <script setup>
-import { VPImage } from 'vitepress/theme'
-
-// 文字右侧的 Pingora 横幅——纯装饰，明暗主题各一张，
-// 文件按下面的名字放进 public/。
-const pingoraBanner = {
-  light: '/pingora-banner-light.png',
-  dark: '/pingora-banner-dark.png',
-  alt: 'Pingora',
-}
-
-// Pingora 带进二进制的能力：`ready: false` 表示 Rapira 尚未提供，
+// HTTP 接入层提供的能力：`ready: false` 表示 Rapira 尚未提供，
 // 这些标签会显示为灰色。
 const httpFeatures = [
   { label: 'HTTP/1.1' },
-  { label: 'HTTP/2' },
-  { label: 'HTTP/3' },
   { label: 'Keep-alive' },
-  { label: 'Early Hints' },
+  { label: '静态文件' },
+  { label: 'HTTP/2', ready: false },
+  { label: 'HTTP/3', ready: false },
+  { label: 'TLS 1.3', ready: false },
+  { label: 'TLS 1.2', ready: false },
+  { label: 'ALPN', ready: false },
+  { label: 'Early Hints', ready: false },
   { label: 'Trailers', ready: false },
-  { label: 'TLS 1.3' },
-  { label: 'TLS 1.2' },
-  { label: 'ALPN' },
 ]
 
-// 服务器与 PHP 之间的四种衔接方式——一种一个标签页，
+// 服务器与 PHP 之间的四种衔接方式--一种一个标签页，
 // 各标签页的文字放在下面 <TextTabs> 的插槽里。
 const interopTabs = [
   { name: 'FastCGI', slot: 'fastcgi', users: ['php-fpm', 'nginx', 'Angie'] },
@@ -50,17 +41,11 @@ const interopTabs = [
 ]
 </script>
 
-<RapiraSection title="内置 HTTP 服务器，由 Pingora 驱动" link="/zh/docs/http" link-text="HTTP 请求与响应">
+<RapiraSection title="内置 HTTP 服务器，由 hyper 驱动" link="/zh/docs/http" link-text="HTTP 请求与响应">
 
 说来矛盾，PHP 一直没有一个生产可用的自带 HTTP 服务器：内置的那个只是开发工具，php-fpm 又离不开 nginx 这样的外部 Web 服务器。
 
-现在有了：一个现代、快速、基于 [Pingora](https://github.com/cloudflare/pingora) 构建的服务器。Cloudflare 正是用这个框架承载着全网相当可观的一部分流量。
-
-<template #aside>
-<div class="rapira-section-art">
-<VPImage :image="pingoraBanner" draggable="false" />
-</div>
-</template>
+Rapira 把这个服务器补上了：它自带一个 HTTP 接入层，用 Rust 基于 [hyper](https://hyper.rs) 写成。hyper 是 Rust 的底层 HTTP 实现，它从连接上读出每个请求，再把 Rapira 产出的响应写回去。
 
 <template #footer>
 <FeatureTags :items="httpFeatures" />
@@ -70,9 +55,10 @@ const interopTabs = [
 
 <RapiraSection title="零中间层：Rust 直接调用 PHP" link="/zh/docs/process-model" link-text="进程模型">
 
-Rapira 用 Rust 编写，PHP 用 C 编写。Rust 原生调用 C 函数，两种语言之间的互操作没有任何开销：从 Rust 调用一个 PHP 函数，就是一次普通的函数调用。解释器内嵌在服务器进程里，Rapira 通过直接绑定驱动它——从启动引擎到处理每一个请求。
+Rapira 用 Rust 编写，PHP 用 C 编写。Rust 直接调用 C 函数。因此，Rust 可以直接调用 PHP 函数。
+Rapira 把解释器内嵌在服务器进程中。直接绑定控制解释器的初始化和请求处理。
 
-这里没有 FastCGI，没有 Goridge，也没有 CGO：请求从不序列化，也从不离开进程。在 SAPI 模式下，Rapira 直接写入超全局变量。
+这里没有 FastCGI，没有 Goridge，也没有 CGO：请求从不序列化，也从不离开进程。在 Classic 模式和 Worker 模式下，Rapira 直接写入超全局变量。
 
 <template #aside>
 <TextTabs :tabs="interopTabs">

@@ -11,36 +11,27 @@ features:
   - title: Compatible con php-fpm
     details: "Admite el SAPI clásico: Rapira ocupa el lugar de php-fpm sin tocar el código, pero va más rápido."
   - title: Modos de ejecución
-    details: "Classic → Worker → Async<br>¿Hasta dónde llega tu aplicación?"
+    details: "Classic → Worker → Dispatcher<br>¿Qué modos puede usar tu aplicación?"
     link: /es/docs/execution-modes
 ---
 
 <script setup>
-import { VPImage } from 'vitepress/theme'
-
-// El banner de Pingora a la derecha del texto — decoración, una variante por
-// tema. Los archivos van en public/ con estos nombres.
-const pingoraBanner = {
-  light: '/pingora-banner-light.png',
-  dark: '/pingora-banner-dark.png',
-  alt: 'Pingora',
-}
-
-// Lo que Pingora aporta al binario: `ready: false` marca lo que Rapira todavía
-// no sirve — esas etiquetas se dibujan atenuadas.
+// Lo que lleva el frontal HTTP: `ready: false` marca lo que Rapira todavía
+// no sirve; esas etiquetas se dibujan atenuadas.
 const httpFeatures = [
   { label: 'HTTP/1.1' },
-  { label: 'HTTP/2' },
-  { label: 'HTTP/3' },
   { label: 'Keep-alive' },
-  { label: 'Early Hints' },
+  { label: 'Archivos estáticos' },
+  { label: 'HTTP/2', ready: false },
+  { label: 'HTTP/3', ready: false },
+  { label: 'TLS 1.3', ready: false },
+  { label: 'TLS 1.2', ready: false },
+  { label: 'ALPN', ready: false },
+  { label: 'Early Hints', ready: false },
   { label: 'Trailers', ready: false },
-  { label: 'TLS 1.3' },
-  { label: 'TLS 1.2' },
-  { label: 'ALPN' },
 ]
 
-// Cuatro formas de conectar un servidor con PHP — una pestaña por cada una.
+// Cuatro formas de conectar un servidor con PHP - una pestaña por cada una.
 // Los textos de las pestañas van en los slots de <TextTabs> más abajo.
 const interopTabs = [
   { name: 'FastCGI', slot: 'fastcgi', users: ['php-fpm', 'nginx', 'Angie'] },
@@ -50,17 +41,11 @@ const interopTabs = [
 ]
 </script>
 
-<RapiraSection title="Servidor HTTP integrado, potenciado por Pingora" link="/es/docs/http" link-text="Peticiones y respuestas HTTP">
+<RapiraSection title="Servidor HTTP integrado, potenciado por hyper" link="/es/docs/http" link-text="Peticiones y respuestas HTTP">
 
 Resulta paradójico, pero PHP nunca ha tenido un servidor HTTP propio listo para producción: el integrado es solo una herramienta de desarrollo, y php-fpm no funciona sin un servidor web externo como nginx.
 
-Ahora ya lo tiene: un servidor moderno y rápido, construido sobre [Pingora](https://github.com/cloudflare/pingora). Con ese framework Cloudflare atiende una parte considerable del tráfico de todo internet.
-
-<template #aside>
-<div class="rapira-section-art">
-<VPImage :image="pingoraBanner" draggable="false" />
-</div>
-</template>
+Rapira aporta ese servidor: un frontal HTTP propio, escrito en Rust sobre [hyper](https://hyper.rs). La biblioteca hyper es una implementación de HTTP de bajo nivel para Rust. Lee cada petición de la conexión y devuelve por ella la respuesta que produce Rapira.
 
 <template #footer>
 <FeatureTags :items="httpFeatures" />
@@ -70,9 +55,9 @@ Ahora ya lo tiene: un servidor moderno y rápido, construido sobre [Pingora](htt
 
 <RapiraSection title="Interop cero: Rust llama a PHP directamente" link="/es/docs/process-model" link-text="Modelo de procesos">
 
-Rapira está escrita en Rust; PHP, en C. Rust llama a las funciones de C de forma nativa, así que la interoperabilidad entre ambos lenguajes no cuesta nada: llamar a una función de PHP desde Rust es una llamada de función normal. El intérprete va incrustado en el proceso del servidor, y Rapira lo controla mediante bindings directos: desde arrancar el motor hasta atender cada petición.
+Rapira está escrita en Rust; PHP, en C. Rust llama a las funciones de C de forma nativa. Por tanto, llamar a una función de PHP desde Rust es una llamada directa. El intérprete va incrustado en el proceso del servidor. Rapira lo controla mediante bindings directos, desde el arranque del motor hasta cada petición.
 
-Aquí no hay FastCGI, ni Goridge, ni CGO: la petición no se serializa en ningún punto y nunca sale del proceso. En modo SAPI, Rapira rellena las superglobales directamente.
+Aquí no hay FastCGI, ni Goridge, ni CGO: la petición no se serializa en ningún punto y nunca sale del proceso. En los modos Classic y Worker, Rapira rellena las superglobales directamente.
 
 <template #aside>
 <TextTabs :tabs="interopTabs">

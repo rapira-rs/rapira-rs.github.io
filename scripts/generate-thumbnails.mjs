@@ -9,7 +9,7 @@ const docsRoot = path.resolve(__dirname, '..')
 
 const THUMB_WIDTH = 400
 
-// Blog folders per locale (keep in sync with locales.ts).
+// Keep these locale blog directories synchronized with locales.ts.
 const blogFolders = ['blog', 'ru/blog', 'es/blog', 'zh/blog', 'pl/blog']
 
 async function generateThumbnails() {
@@ -29,7 +29,7 @@ async function generateThumbnails() {
       const { data: frontmatter } = matter(content)
 
       if (frontmatter.image) {
-        // Images live in the public/ folder.
+        // The public/ folder contains the images.
         const imagePath = path.join(docsRoot, 'public', frontmatter.image)
         if (existsSync(imagePath)) {
           if (!images.includes(imagePath)) images.push(imagePath)

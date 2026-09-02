@@ -1,13 +1,11 @@
 /**
- * Locale service — the single source of truth for locales in the docs.
+ * Canonical locale configuration for the documentation.
  *
- * Every place that needs to know "which locale is this page/file in?" or
- * "what is the blog/docs/feed URL for locale X?" MUST go through this module.
- * Do NOT hardcode checks like `path.startsWith('/ru/')` anywhere else — such
- * code silently breaks the moment a new locale is added. Add the locale here
- * once, and every consumer keeps working.
+ * Use this module to identify a page locale and create locale URLs.
+ * Do not add checks such as `path.startsWith('/ru/')` to other modules.
+ * Such checks do not support new locales.
  *
- * Resolving a locale:
+ * Locale resolution:
  *   - from a URL or src-relative file path → `getLocaleByPath()`
  *   - from a `lang` code (e.g. VitePress `useData().lang`) → `getLocaleByCode()`
  *
@@ -17,10 +15,8 @@
 /**
  * Canonical origin of the published site, without a trailing slash.
  *
- * Used wherever an absolute URL is required — `og:` / `twitter:` tags and the
- * RSS feeds. Keep it in sync with `public/CNAME`: that file is what tells
- * GitHub Pages which custom domain to serve, this constant is what the
- * generated markup points at. Changing the domain means changing both.
+ * Metadata and RSS feeds use this value for absolute URLs.
+ * Keep it equal to the domain in `public/CNAME`.
  */
 export const siteUrl = 'https://rapira.rs'
 
@@ -76,7 +72,7 @@ export const locales: LocaleConfig[] = [
   },
 ]
 
-/** The default (root) locale — English. */
+/** The default root locale is English. */
 export const defaultLocale: LocaleConfig = locales[0]
 
 // ── Locale resolution ────────────────────────────────────────────────
@@ -95,7 +91,7 @@ export function getLocaleByCode(code: string): LocaleConfig {
   return locales.find(l => l.code === code) ?? defaultLocale
 }
 
-// ── URL / path helpers (always locale-aware) ─────────────────────────
+// ── Locale URL and path functions ────────────────────────────────────
 
 /** Docs entry URL for a locale, e.g. '/docs/intro/' or '/ru/docs/intro/'. */
 export function getDocsUrl(locale: LocaleConfig): string {

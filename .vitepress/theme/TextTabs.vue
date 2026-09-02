@@ -2,17 +2,17 @@
 import { ref } from 'vue'
 
 /**
- * A tab strip over short prose panels — one tab per alternative being
- * compared. The tab list is declared in the page's `<script setup>` and each
- * panel's prose goes in a `<template #…>` slot, so all copy stays in the
- * page's markdown, the same pattern `CodeTabs` uses.
+ * Shows one text panel for each alternative.
+ * The page `<script setup>` block declares the tabs.
+ * Each `<template #…>` slot contains one panel.
+ * This keeps translatable text in the Markdown page.
  */
 interface Tab {
-  /** Tab label — the name of the approach being described. */
+  /** Tab label for the described alternative. */
   name: string
   /** Name of the `<template #…>` slot holding this tab's prose. */
   slot: string
-  /** Products built on the approach; drawn as small tags under the prose. */
+  /** Products that use the alternative. The panel shows them as tags. */
   users?: string[]
 }
 
@@ -37,8 +37,8 @@ const activeIndex = ref(0)
       >{{ tab.name }}</button>
     </div>
     <div class="text-tabs-body">
-      <!-- Panels share one grid cell, so the block keeps the height of its
-           tallest panel and switching tabs never shifts the page. -->
+      <!-- One grid cell contains all panels.
+           The tallest panel sets the height and prevents layout movement. -->
       <div
         v-for="(tab, index) in tabs"
         :key="tab.slot"
@@ -105,8 +105,7 @@ const activeIndex = ref(0)
   visibility: visible;
 }
 
-/* The prose arrives from a markdown slot, so it carries `.vp-doc` paragraph
-   styling — scale it down to the panel. */
+/* Override `.vp-doc` paragraph styles for this small panel. */
 .text-tabs-panel :deep(p) {
   margin: 0 0 12px;
   font-size: 14px;

@@ -1,13 +1,11 @@
-/* Reserve space for scrollbar to prevent layout shift */
+/* Reserve scrollbar space to prevent layout movement. */
 html {
   scrollbar-gutter: stable;
 }
 
-/* Custom scrollbar. Firefox has no pseudo-elements for it, so it gets the two
-   `scrollbar-*` properties; WebKit and Chromium get the pseudo-elements, which
-   allow the rounded, inset thumb. The track stays transparent so it takes the
-   colour of whatever it sits over, and a transparent border clipped to the
-   padding box insets the thumb, leaving a gap on both sides. */
+/* Firefox uses the `scrollbar-*` properties.
+   WebKit and Chromium use pseudo-elements for the inset thumb.
+   A transparent track shows its parent background. */
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--rapira-scrollbar-thumb) transparent;
@@ -34,22 +32,20 @@ html {
   background-clip: padding-box;
 }
 
-/* The corner where a horizontal and a vertical bar meet — e.g. a wide code
-   block — otherwise shows the browser's default grey square. */
+/* Make the intersection of horizontal and vertical scrollbars transparent. */
 ::-webkit-scrollbar-corner {
   background: transparent;
 }
 
-/* Brand palette — steel blue, derived from the logo's ink (#0E121B, hue ~215°).
-   The wordmark itself is monochrome, so the accent is the one colour we add;
-   the neutrals below are biased toward it so nothing reads as warm grey. */
+/* The steel blue brand palette uses the logo hue near 215 degrees.
+   Neutral colors use a small amount of the same blue. */
 :root {
   --vp-c-brand-1: #2c6e9b;
   --vp-c-brand-2: #24597d;
   --vp-c-brand-3: #1c455f;
   --vp-c-brand-soft: rgba(44, 110, 155, 0.14);
 
-  /* Cool neutrals */
+  /* Neutral colors. */
   --vp-c-bg-alt: #f4f6fa;
   --vp-c-bg-soft: #f4f6fa;
   --vp-c-bg-elv: #ffffff;
@@ -57,19 +53,18 @@ html {
   --vp-c-gutter: #e2e7ef;
   --vp-c-border: #ccd4e0;
 
-  /* Accent glow, shared by the feature and sponsor card hovers */
+  /* Feature and sponsor hover shadow. */
   --rapira-glow: rgba(44, 110, 155, 0.2);
 
-  /* Scrollbar: a hair darker than the border so the thumb reads on the page
-     background, and the brand accent once the pointer is on it. */
+  /* Scrollbar colors for normal and hover states. */
   --rapira-scrollbar-thumb: #c3ccd8;
   --rapira-scrollbar-thumb-hover: var(--vp-c-brand-1);
 
-  /* Frosted nav bar: translucent --vp-nav-bg-color + this blur */
+  /* Translucent navigation background and blur. */
   --rapira-nav-blur: blur(12px);
   --vp-nav-bg-color: rgba(255, 255, 255, 0.72);
 
-  /* Tip follows the brand; info/warning/danger stay semantic */
+  /* Tip blocks use the brand color. Other blocks use semantic colors. */
   --vp-custom-block-tip-border: var(--vp-c-brand-1);
   --vp-custom-block-tip-bg: var(--vp-c-brand-soft);
 
@@ -89,8 +84,7 @@ html {
   --vp-c-brand-3: #3a7599;
   --vp-c-brand-soft: rgba(111, 179, 222, 0.16);
 
-  /* Dark mode sits close to the logo's ink (#0e121b) — same blue cast, a step
-     lighter, which keeps the softened text from reading as harsh on it. */
+  /* Dark backgrounds use a lighter form of the logo color. */
   --vp-c-bg: #1e2229;
   --vp-c-bg-alt: #171a20;
   --vp-c-bg-soft: #272c35;
@@ -99,8 +93,7 @@ html {
   --vp-c-gutter: #171a20;
   --vp-c-border: #414957;
 
-  /* Softer than the default near-white: the alpha comes down and the tint drops
-     the default's warm cast, so the text sits on the same cool axis as the bg. */
+  /* Dark mode text uses low-opacity blue-white values. */
   --vp-c-text-1: rgba(233, 236, 243, 0.8);
   --vp-c-text-2: rgba(233, 236, 243, 0.58);
   --vp-c-text-3: rgba(233, 236, 243, 0.36);
@@ -110,10 +103,10 @@ html {
   --rapira-scrollbar-thumb: #3b4250;
   --rapira-scrollbar-thumb-hover: var(--vp-c-brand-1);
 
-  /* Matches the dark --vp-c-bg (#1e2229) */
+  /* This base color matches dark `--vp-c-bg`. */
   --vp-nav-bg-color: rgba(30, 34, 41, 0.72);
 
-  /* Brand-3 rather than brand-1: the tip icon carries white text */
+  /* The darker brand value provides contrast with the white tip icon. */
   --vp-custom-block-tip-border: var(--vp-c-brand-3);
 
   --vp-custom-block-info-border: #33526f;
@@ -126,7 +119,7 @@ html {
   --vp-custom-block-danger-bg: rgba(200, 70, 70, 0.11);
 }
 
-/* Show theme toggle and language switcher directly in nav bar */
+/* Show the theme and language controls in the navigation bar. */
 .VPNavBarAppearance,
 .VPNavBarTranslations {
   display: flex !important;
@@ -137,8 +130,7 @@ html {
   display: none !important;
 }
 
-/* The wordmark is wide (769:103), so it runs shorter than the default 24px
-   logo height — and shorter still on mobile, where the nav bar is crowded. */
+/* Use a reduced height for the wide 769:103 wordmark. */
 :root {
   --vp-nav-logo-height: 20px;
 }
@@ -149,7 +141,7 @@ html {
   }
 }
 
-/* Hide translations and appearance from hamburger menu (already in nav bar) */
+/* Hide controls from the menu because the navigation bar contains them. */
 .VPNavScreen .appearance,
 .VPNavScreen .translations {
   display: none !important;
@@ -160,17 +152,16 @@ html {
   display: none;
 }
 
-/* Frosted nav bar: the background is translucent, so content stays visible —
-   blurred — as it scrolls underneath. VitePress paints that background in three
-   different places (the bar, or .content-body once a sidebar is present) and has
-   no variable for the blur, so the filter mirrors its selectors. */
+/* Blur content below the translucent navigation background.
+   VitePress puts this background on different elements with a sidebar.
+   These selectors put the filter on the same element as the background. */
 .VPNavBar:not(.home) {
   -webkit-backdrop-filter: var(--rapira-nav-blur);
   backdrop-filter: var(--rapira-nav-blur);
 }
 
 @media (min-width: 960px) {
-  /* With a sidebar the background moves to .content-body… */
+  /* With a sidebar, `.content-body` contains the background. */
   .VPNavBar:not(.home) {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
@@ -181,7 +172,7 @@ html {
     backdrop-filter: var(--rapira-nav-blur);
   }
 
-  /* …without one it is back on the bar itself. */
+  /* Without a sidebar, the navigation bar contains the background. */
   .VPNavBar:not(.has-sidebar):not(.home.top) {
     -webkit-backdrop-filter: var(--rapira-nav-blur);
     backdrop-filter: var(--rapira-nav-blur);
@@ -193,7 +184,7 @@ html {
   }
 }
 
-/* Wider content for all pages */
+/* Increase the content width for all pages. */
 .VPDoc .container {
   max-width: 1200px !important;
 }
@@ -206,25 +197,21 @@ html {
   max-width: 1300px !important;
 }
 
-/* Horizontal rule spacing */
+/* Set horizontal rule spacing. */
 .VPDoc.has-aside .content-container hr {
   margin: 2.5rem 0 !important;
 }
 
-/* Prev/next pager: the external-link icon is an ::after on the link itself, and
-   the title inside it is block-level, so the icon is pushed onto its own line.
-   An inline title puts the two back together. */
+/* Keep an external-link icon and its page title on one line. */
 .pager-link.vp-external-link-icon .title {
   display: inline;
 }
 
 /* ===== TYPOGRAPHY ===== */
 
-/* IBM Plex Sans for text, JetBrains Mono for code, both self-hosted — the
-   @font-face rules are in fonts.css. Plex replaces the Inter that VitePress
-   ships: open apertures and a smaller x-height carry long paragraphs better,
-   and its Cyrillic was drawn rather than adapted. The stock stacks stay behind
-   each one as the fallback while the file loads. */
+/* Use self-hosted IBM Plex Sans for text and JetBrains Mono for code.
+   fonts.css contains the @font-face rules.
+   System font stacks provide fallback fonts during loading. */
 :root {
   --vp-font-family-base: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif,
     'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
@@ -233,27 +220,25 @@ html {
 
 }
 
-/* Neither face covers Chinese, so the zh locale keeps VitePress's CJK
-   punctuation font in front and falls through to the system CJK stack. */
+/* The project fonts do not contain Chinese characters.
+   Use the VitePress punctuation font and system CJK fonts for Chinese. */
 :root:where(:lang(zh)) {
   --vp-font-family-base: 'Punctuation SC', 'IBM Plex Sans', ui-sans-serif,
     system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
     'Segoe UI Symbol', 'Noto Color Emoji';
 }
 
-/* Both faces are variable, so weights are free to sit between the named steps.
-   VitePress has no variables of its own for them — every weight is hardcoded in
-   its base stylesheet and its components — so the whole scale is collected
-   here, one variable per role, and tuned in this block alone. Plex axis runs
-   100–700 and its stems are lighter than Inter's at the same number, so the
-   body sits at 400 and still reads lighter than the Inter 350 it replaced. */
+/* Define one font weight variable for each text role.
+   VitePress sets font weights directly in its stylesheets.
+   Rules below apply these variables to the VitePress elements.
+   IBM Plex Sans supports weights from 100 through 700. */
 :root {
-  /* Documents */
+  /* Document text. */
   --rapira-fw-body: 350;
   --rapira-fw-heading: 550;
   --rapira-fw-link: 400;
 
-  /* Chrome: nav bar, search, menus, tabs, badges, footers, pagination */
+  /* Navigation, search, menus, tabs, badges, footers, and pagination. */
   --rapira-fw-ui: 450;
   --rapira-fw-ui-title: 550;
   --rapira-fw-sidebar-group: 600;
@@ -261,19 +246,13 @@ html {
   --rapira-fw-outline-title: 550;
   --rapira-fw-outline-item: 400;
 
-  /* Code sets its own weight: a monospace face packs the same stem into a
-     fixed advance width, so it reads heavier than the prose around it. */
+  /* Use a lower weight because the monospace font appears heavier. */
   --rapira-fw-code: 300;
 }
 
-/* Text size, the same story as the weights: VitePress puts 16px on the body and
-   then hardcodes a px size on every other piece of an article, so there is no
-   single place to turn. The variables below hold the stock values unchanged —
-   raise one and the rules under it carry the change through.
-
-   The stock line-heights are in px as well and do not follow the type, so a
-   sizeable jump here wants its leading revisited: `.vp-doc p` is 28px, the
-   headings 40/32/28/24px, all in the default theme. */
+/* Define text size variables because VitePress sets sizes on each element.
+   Rules below apply these variables to the VitePress elements.
+   Check line heights after a large size change. */
 :root {
   --rapira-fs-body: 17px;
   --rapira-fs-h1: 28px;
@@ -284,25 +263,20 @@ html {
   --rapira-fs-quote: 17px;
   --rapira-fs-table: 15px;
 
-  /* ::: blocks carry variables of their own in the default theme; they are
-     restated at their stock values so the whole scale reads in one place. */
+  /* Keep custom block sizes with the other text size variables. */
   --vp-custom-block-font-size: 15px;
   --vp-custom-block-code-font-size: 15px;
 
-  /* Left sidebar, every level */
+  /* Left sidebar. */
   --rapira-fs-sidebar: 15px;
 
-  /* Nav bar: the links, the menus they open and the site title, then the search
-     field and the stars button, which the theme keeps a step smaller. */
+  /* Navigation bar, menus, title, search, and star count. */
   --rapira-fs-nav: 15px;
   --rapira-fs-nav-title: 17px;
   --rapira-fs-nav-small: 14px;
 
-  /* Code. The theme sizes it in em, so it used to ride on the body; in px it
-     stands on its own and the pair of faces can be balanced by eye —
-     JetBrains Mono has the larger x-height and looks a step bigger than Plex at
-     the same number. The tab strips above a block (::: code-group and
-     CodeTabs) share one size. */
+  /* Fixed pixel values keep code sizes independent from body text.
+     Code blocks and their tabs use the same size. */
   --rapira-fs-code: 13px;
   --rapira-fs-code-tabs: 13px;
   --vp-code-font-size: var(--rapira-fs-code);
@@ -366,17 +340,14 @@ body {
   font-size: var(--rapira-fs-code-tabs);
 }
 
-/* Headings keep their own weight for the code inside them — a light stem in a
-   550 heading would read as a mistake. */
+/* Code inside headings inherits the heading weight. */
 .vp-doc [class*='language-'] code,
 .vp-doc :not(pre, h1, h2, h3, h4, h5, h6) > code,
 .custom-block code {
   font-weight: var(--rapira-fw-code);
 }
 
-/* Documentation shows the characters the reader will type, so the coding
-   ligatures the face is known for are off: '!=' has to stay two glyphs, not
-   turn into '≠'. Drop this rule to get them back. */
+/* Disable ligatures so examples show the exact input characters. */
 code,
 kbd,
 pre,
@@ -397,18 +368,14 @@ body {
   font-weight: var(--rapira-fw-heading);
 }
 
-/* Links carry their own weight in the default theme, a step above the text they
-   sit in. Colour already marks them, so the step is smaller here. */
+/* Use a distinct link weight in addition to the link color. */
 .vp-doc a,
 .vp-doc .custom-block a {
   font-weight: var(--rapira-fw-link);
 }
 
-/* The default theme hardcodes a weight in nearly every component of the chrome,
-   most of them 500, and each one is a scoped style — the attribute selector Vue
-   adds puts them out of reach of a plain class, hence the extra ancestor on
-   every selector below rather than !important. The two lists are the whole set:
-   UI text, then the titles that stand above it. */
+/* Override scoped VitePress font weights with more specific selectors.
+   The first list contains UI text, and the second list contains UI titles. */
 .VPNavBar .VPNavBarMenuLink,
 .VPNavBar .VPFlyout .text,
 .VPNavBar .DocSearch-Button .DocSearch-Button-Placeholder,
@@ -464,7 +431,7 @@ body {
 
 /* ===== HOME PAGE STYLES ===== */
 
-/* Landing cover: wordmark centered on the page background, actions below */
+/* Center the wordmark above the home page actions. */
 .rapira-hero {
   box-sizing: border-box;
   display: flex;
@@ -472,7 +439,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 4rem;
-  /* Decorative cover: nothing here is worth selecting, and a stray drag-select looks broken */
+  /* Disable selection for decorative cover elements. */
   -webkit-user-select: none;
   user-select: none;
   width: calc(100% - 48px);
@@ -481,8 +448,7 @@ body {
   padding: 48px 32px 76px;
 }
 
-/* Wordmark and lede read as one block, so they sit tighter than the 4rem
-   that separates them from the actions below */
+/* Use less space between the wordmark and description than before the actions. */
 .rapira-hero-head {
   display: flex;
   flex-direction: column;
@@ -497,14 +463,12 @@ body {
   justify-content: center;
 }
 
-/* What the project is, stated under the wordmark. Unlike the rest of the cover
-   this is prose worth copying, so it opts back into selection. */
+/* Permit text selection in the project description. */
 .rapira-lede {
   max-width: 720px;
   text-align: center;
-  /* Inherited by both paragraphs: evens out the line lengths so a translation
-     never drops its last word alone on a line. Ignored by older browsers,
-     which just get today's ragged wrap. */
+  /* Balance line lengths in both description paragraphs.
+     Older browsers ignore this optional property. */
   text-wrap: balance;
   -webkit-user-select: text;
   user-select: text;
@@ -537,8 +501,8 @@ body {
   justify-content: center;
 }
 
-/* Text-only actions: no frame, no background — just links that act as buttons.
-   Plain text colour at rest, brand accent on hover. */
+/* Display action links without a frame or background.
+   Use the brand color during hover. */
 .rapira-hero-action {
   display: inline-flex;
   align-items: center;
@@ -547,15 +511,14 @@ body {
   font-weight: var(--rapira-fw-body);
   line-height: 32px;
   color: var(--vp-c-text-1);
-  /* A border, not text-decoration: the link is a flex box, so an underline would
-     only be drawn under the text and skip the icon. */
+  /* Use a border to underline both the text and icon. */
   border-bottom: 1px solid currentColor;
   padding-bottom: 4px;
   text-decoration: none;
   transition: color 0.25s;
 }
 
-/* Icon rides the text size, so it stays in proportion on mobile too */
+/* Size the icon relative to the action text. */
 .rapira-hero-action .github-icon {
   width: 0.95em;
   height: 0.95em;
@@ -589,7 +552,7 @@ body {
   }
 }
 
-/* Features section */
+/* Feature cards. */
 .VPFeatures {
   padding-top: 48px !important;
   padding-bottom: 48px !important;
@@ -631,16 +594,14 @@ body {
 
 /* ===== HOME SEGMENTS (RapiraSection) ===== */
 
-/* Feature segments below the cards: text on the left, whatever the segment needs
-   on the right. They live in the home page's markdown, so every rule here has to
-   outrank the `.vp-doc` styles that container applies — hence the `.vp-doc`
-   prefix on the ones that touch a plain element. */
-/* Segments are separated by whitespace alone — no rules between them. */
+/* Feature sections use text on the left and optional content on the right.
+   `.vp-doc` prefixes override the Markdown container styles.
+   Space separates adjacent sections. */
 .rapira-section {
   padding: 64px 0;
 }
 
-/* The heading runs the full width of the segment; the two columns sit under it. */
+/* Put the full-width heading above both columns. */
 .rapira-section-head {
   margin-bottom: 40px;
 }
@@ -652,15 +613,13 @@ body {
   align-items: center;
 }
 
-/* Single-column segments keep the prose at a readable measure. */
+/* Limit text width in sections without a second column. */
 .rapira-section-body:not(.has-aside) .rapira-section-text {
   max-width: 780px;
 }
 
-/* Decorative art in the aside — an illustration, not content: nothing to select,
-   nothing to announce. It is painted as a background of the column: absolutely
-   positioned and fitted into whatever height the text gives the row, so the
-   image never drives the size of the segment. */
+/* Treat second-column art as decoration instead of content.
+   Absolute positioning prevents the image from setting the section height. */
 .rapira-section-aside:has(> .rapira-section-art) {
   align-self: stretch;
   position: relative;
@@ -679,8 +638,7 @@ body {
   object-fit: contain;
 }
 
-/* On a stacked (narrow) layout the decoration goes away entirely, together with
-   its column, so it leaves no empty gap behind. */
+/* Hide decorative art and its column in the narrow layout. */
 @media (max-width: 959px) {
   .rapira-section-aside:has(> .rapira-section-art) {
     display: none;
@@ -855,10 +813,8 @@ body {
   transition: all 0.3s ease;
 }
 
-/* A block inside a tabbed frame — `::: code-group` or `<CodeTabs>` — sits flush
-   against the tab bar, so it gives up the margin, rounding and shadow a
-   standalone block gets. The rule above is `!important`, so this one has to be
-   too, or the frame ends up with the block's 24px margin inside it. */
+/* Remove standalone block styles from code inside a tab frame.
+   The preceding rule requires the matching `!important` values. */
 .vp-doc .vp-code-group div[class*="language-"],
 .vp-doc .code-tab-panel div[class*="language-"] {
   margin: 0 !important;
@@ -876,7 +832,7 @@ body {
   box-shadow: none !important;
 }
 
-/* Prevent inline code from wrapping */
+/* Prevent line breaks in inline code. */
 .vp-doc :not(pre) > code {
   white-space: nowrap;
 }
@@ -909,7 +865,7 @@ body {
   border-left-color: var(--vp-custom-block-warning-border) !important;
 }
 
-/* Icon blocks — shared styles */
+/* Shared icon block styles. */
 .vp-doc .custom-block[data-info-icon],
 .vp-doc .custom-block[data-tip-icon],
 .vp-doc .custom-block[data-danger-icon],
@@ -937,7 +893,7 @@ body {
   text-align: center;
 }
 
-/* Icon blocks — individual icons and colors */
+/* Individual icon block content and colors. */
 .vp-doc .custom-block[data-info-icon]::before {
   content: 'i';
   background: var(--vp-custom-block-info-border);
@@ -961,8 +917,8 @@ body {
   background: var(--vp-custom-block-warning-border);
 }
 
-/* Amber and light blue are too pale for white glyphs, so those two icons get
-   ink instead. In dark mode both dots are dark again and white reads fine. */
+/* Use dark glyphs on the light amber and blue backgrounds.
+   Use white glyphs on the dark mode backgrounds. */
 .vp-doc .custom-block[data-info-icon]::before,
 .vp-doc .custom-block[data-warning-icon]::before {
   color: #0e121b;

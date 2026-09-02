@@ -2,11 +2,11 @@
 import { computed, ref } from 'vue'
 
 interface Tab {
-  /** Tab label, normally a file name — `worker.php`, `rapira.toml`. */
+  /** Tab label, usually a file name such as `worker.php`. */
   name: string
   /** Name of the `<template #…>` slot holding this tab's code block. */
   slot: string
-  /** Icon alias; derived from the label's extension when omitted. */
+  /** Optional icon alias. The file name extension supplies the default. */
   icon?: string
 }
 
@@ -16,14 +16,14 @@ const props = defineProps<{
 
 const activeIndex = ref(0)
 
-// The glyph is drawn inline rather than loaded from `public/`: one shape serves
-// every file type, so all a language needs is its accent colour — no light/dark
-// asset pairs to keep in sync, and a typo in an alias cannot 404.
+// Draw one inline glyph for all file types.
+// Each supported language needs only an accent color.
+// This method does not require light and dark assets.
 const SHEET = 'M4.5 1.5h4l3 3v9a1 1 0 0 1-1 1h-6a1 1 0 0 1-1-1v-11a1 1 0 0 1 1-1Z'
 const FOLD = 'M8.5 1.5v3h3'
 
-// Accent colours follow GitHub's language palette, so they read as the language
-// they mark. `null` means the glyph inherits the tab's own colour.
+// Accent colors use the GitHub language palette.
+// `null` makes the glyph inherit the tab color.
 const accents: Record<string, string | null> = {
   php: '#8892bf',
   rust: '#d0894f',
@@ -135,8 +135,7 @@ const icons = computed(() => props.tabs.map((tab) => {
   color: var(--vp-c-text-2);
 }
 
-/* The open tab carries the code area's background, so the two merge into one
-   surface instead of the tab reading as a button. */
+/* Use the code background for the selected tab and code area. */
 .code-tab.active {
   background: var(--vp-code-block-bg);
   color: var(--vp-c-text-1);
@@ -153,9 +152,8 @@ const icons = computed(() => props.tabs.map((tab) => {
   stroke-linejoin: round;
 }
 
-/* The margin, rounding and shadow a code block normally carries are dropped in
-   style.css, next to the rule that adds them. Only the language label is this
-   component's business: the tab already names the file. */
+/* style.css removes standard code block margins, radius, and shadow here.
+   Hide the language label because the tab identifies the file. */
 .code-tab-panel :deep(div[class*='language-'] > span.lang) {
   display: none;
 }

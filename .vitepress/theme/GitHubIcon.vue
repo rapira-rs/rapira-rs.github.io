@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// The GitHub mark, shared by the nav star counter and the landing actions.
-// Size and colour come from the surrounding CSS (currentColor + em-based sizing).
+// The navigation counter and home page actions use this GitHub mark.
+// Surrounding CSS sets its color and size.
 </script>
 
 <template>

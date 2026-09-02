@@ -1,19 +1,27 @@
 ---
 title: Running in production
-description: How to run Rapira on a server — a systemd unit, config layout, a reverse proxy in front, zero-downtime reloads, JSON logs and worker recycling.
+description: A production systemd unit, configuration layout, reverse proxy, reload process, JSON logs, and worker replacement.
 ---
 
 # Running in production
 
-Running Rapira on a server adds what a local `rapira serve app/worker.php` does not need: starting at boot, coming back after a crash, reloading new code without dropping a request, and logs you can read afterwards. This page covers a systemd unit, a place for the config, a proxy in front, and the settings that bound long-lived workers.
+Production deployments must keep Rapira available after restarts and code changes. They start Rapira during system initialization and restart it after failures.
+They also reload code without dropped requests and preserve logs. This page describes a systemd unit, a reverse proxy, and persistent worker settings.
 
-Almost none of this is compiled into the binary. Nothing in Rapira depends on where your config lives or on what supervises the process, so the layout below is a convention this page establishes and the rest of the docs assume. Get the binary onto the machine first — that part is on [Installation](/docs/intro/installation).
+Rapira does not define a deployment layout. It does not require a specific configuration path or process supervisor. This page establishes the convention that the other documentation uses. Install the binary first, as described in [Installation](/docs/intro/installation).
+
+Rapira is also available as the `ghcr.io/rapira-rs/rapira` container image. Copy its files into an application image with `COPY --from`.
+A container uses the restart policy of its runtime instead of the systemd unit. The other configuration settings do not change.
+See [Docker](/docs/intro/installation#docker) for more information.
 
 ## A systemd unit
 
-Rapira takes php-fpm's place, and its master already supervises the pool — it forks, reaps, respawns with backoff, recycles workers and scales the pool. Keeping that one master process alive is systemd's only job, so there is nothing for a separate process manager like supervisord to do.
+Rapira can replace php-fpm. Its master process creates, monitors, replaces, and removes workers. It also changes the pool size.
+Systemd only has to monitor the master process. A separate process manager is not necessary.
 
-The `.deb` and `.rpm` packages install the binary and the PHP runtime it embeds, and nothing else — **no service unit and no `php.ini`** ([Installation](/docs/intro/installation) lists the exact files). Both are site policy, and a package that shipped them would overwrite your edits on every upgrade.
+The `.deb` and `.rpm` packages install the binary and the embedded PHP runtime. They do not install a service unit or `php.ini`.
+These files contain site-specific settings. Package updates must not replace them.
+See [Installation](/docs/intro/installation) for the installed files.
 
 Write your own into `/etc/systemd/system/rapira.service`:
 
@@ -36,39 +44,51 @@ Environment=PHPRC=/etc/rapira
 WantedBy=multi-user.target
 ```
 
-Then load it and switch it on:
+Load and enable the unit:
 
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable --now rapira
 ```
 
-Six of those lines need explanation:
+These six settings require explanation:
 
-- `Type=exec` — Rapira runs in the **foreground** and never forks itself into the background. There is no daemon mode and none is needed: the process systemd starts *is* the master, so `$MAINPID` is exactly the pid you want to signal.
-- `ExecReload` — turns `systemctl reload rapira` into a `SIGUSR2` to the master, which is the zero-downtime reload described below.
-- `KillMode=mixed` — systemd's default sends the stop signal to every process in the cgroup, and a worker takes `SIGTERM` as an immediate kill. `mixed` sends it to the master alone, which then runs the graceful `SIGQUIT` drain described below; the `SIGKILL` at `TimeoutStopSec` still covers the whole group. Without this line, `systemctl stop` and `systemctl restart` drop in-flight requests.
-- `Restart=on-failure` — a clean drain exits zero and stays stopped, so this only brings the server back after a crash or a failed boot.
-- `RuntimeDirectory=rapira` — systemd creates `/run/rapira` on start and removes it on stop. It is where the pidfile and the Unix socket in the examples below live.
-- `Environment=PHPRC` — where PHP looks for its `php.ini`, see the next section.
+- `Type=exec`: Rapira runs in the **foreground**. The process that systemd starts is the master, so `$MAINPID` identifies it.
+- `ExecReload`: `systemctl reload rapira` sends `SIGUSR2` to the master. This signal starts the reload process described below.
+- `KillMode=mixed`: systemd sends the stop signal only to the master. The master then sends `SIGQUIT` to workers and waits for them. After `TimeoutStopSec`, systemd sends `SIGKILL` to the complete group. Without `KillMode=mixed`, a stop can terminate current requests.
+- `Restart=on-failure`: systemd restarts Rapira after a failure. It does not restart Rapira after a normal stop.
+- `RuntimeDirectory=rapira`: systemd creates `/run/rapira` during start and removes it during stop. The following examples put the pidfile and Unix socket in this directory.
+- `Environment=PHPRC`: PHP uses this directory to find `php.ini`.
 
 ::: tip Running as a non-root user
-Add `User=` and `Group=` to the `[Service]` block — systemd chowns the `RuntimeDirectory` to that account, so the pidfile and the Unix socket under `/run/rapira/` keep working. Paths outside it, `/run/rapira.pid` and friends, sit in a root-owned directory and will fail to open.
+Add `User=` and `Group=` to the `[Service]` block. Systemd gives that account ownership of `RuntimeDirectory`.
+The account can then create the pidfile and Unix socket in `/run/rapira/`. It usually cannot create files directly in `/run`.
 :::
 
-Two applications on one host take two configs, two units and two listen addresses; use a systemd template unit (`rapira@.service`) for that. Each instance boots its own PHP and its own worker pool, and shares nothing with the other instance except the machine.
+Two applications on one host require separate configuration files, units, and listen addresses. A systemd template unit such as `rapira@.service` can define them.
+Each instance initializes PHP and creates a separate worker pool.
 
-## Where the config lives
+## Configuration paths
 
-The convention is `/etc/rapira/rapira.toml` for Rapira's own settings, and a `php.ini` sitting next to it, found through `PHPRC=/etc/rapira`. Neither path is compiled in. `--config` takes any path you like, and `PHPRC` isn't a Rapira feature at all — Rapira leaves PHP's ini search alone, so PHP looks in `$PHPRC` first exactly as it would under any other SAPI. Point both somewhere else if your distro or your Ansible role uses different paths.
+This guide uses `/etc/rapira/rapira.toml` for Rapira settings. It puts `php.ini` in the same directory and sets `PHPRC=/etc/rapira`.
+Rapira does not contain these paths in the binary. The `--config` option accepts any file path.
+PHP uses `PHPRC` to find its configuration. Use different paths when the system configuration requires them.
 
-Rapira runs without a `php.ini` at all — its built-in ini defaults keep PHP's diagnostics in the log rather than in your responses, as [Logging](/docs/logging) explains. Write your own in `/etc/rapira` when you want OPcache tuning, a memory limit or a timezone; whatever it sets wins.
+Rapira can run without a `php.ini`. Its defaults write PHP diagnostics to the log instead of HTTP responses.
+Create `/etc/rapira/php.ini` to configure OPcache, a memory limit, or a time zone. See [Logging](/docs/logging) for diagnostic settings.
 
-A relative `pool.entrypoint` resolves against the **config file's** directory, not the working directory. With the layout above, `entrypoint = "index.php"` would mean `/etc/rapira/index.php`, which is not where your app is. In production, give the entrypoint an absolute path and the question never comes up. `supervisor.pidfile` follows the same rule — both config paths hang off the config file's directory. What *does* resolve against the working directory is the positional `SCRIPT` argument and any relative path your PHP code opens at runtime, and Rapira never chdirs — systemd starts the service in `/` unless you set `WorkingDirectory=`, which is why the unit above does (PHP's own ini search includes `.`, so it looks there too). Every key, with its default, is on [Configuration](/docs/configuration).
+A relative `pool.entrypoint` uses the **configuration file directory** as its base. In this layout, `entrypoint = "index.php"` means `/etc/rapira/index.php`.
+Use an absolute entry point path in production. `supervisor.pidfile` uses the same resolution rule.
+The positional `SCRIPT` argument and PHP file operations use the working directory. Rapira does not change this directory.
+Systemd uses `/` by default, so the unit sets `WorkingDirectory=/srv/app`. PHP also searches this directory for an ini file.
+See [Configuration](/docs/configuration) for all keys and defaults.
 
 ## Behind a reverse proxy
 
-Rapira's listener speaks plain HTTP and the config has no TLS section. Terminate TLS at the proxy you already run — nginx, Caddy, HAProxy, a cloud load balancer — and let it reach Rapira over loopback or a Unix socket. You can bind to a public interface, but that listener still serves plain HTTP.
+Rapira accepts plain HTTP and does not provide TLS settings.
+A [TLS termination proxy](https://en.wikipedia.org/wiki/TLS_termination_proxy) accepts HTTPS from a client, decrypts the connection, and sends plain HTTP to Rapira.
+Use nginx, Caddy, HAProxy, or a cloud load balancer for this task.
+Connect the proxy to Rapira through loopback or a Unix socket. A public Rapira address also uses plain HTTP.
 
 ```toml
 [http]
@@ -76,9 +96,16 @@ listen = "127.0.0.1:8000"
 # listen = "unix:/run/rapira/rapira.sock"
 ```
 
-The Unix socket is created with mode `0666`, so any local process that can traverse the runtime directory can connect to it and send requests to your application. Rapira has no setting for that mode, so the directory's permissions are the only thing limiting who reaches the socket. If it matters, restrict the directory: with the unit above, `RuntimeDirectoryMode=0750` plus a `Group=` the proxy's user belongs to keeps everyone else out of `/run/rapira`.
+Rapira creates the Unix socket with mode `0666`. Any process that can access the runtime directory can connect to the socket.
+Rapira does not configure the socket mode. Use directory permissions to restrict access.
+For this unit, set `RuntimeDirectoryMode=0750`. Set `Group=` to a group that includes the proxy account.
 
-Forwarded fields must reach Rapira with the ordinary `-` spelling — `X-Forwarded-For`, never `X_Forwarded_For`. Underscore and dot spellings fold onto the same `$_SERVER` key as the proper one, which is how a client would otherwise overwrite what your proxy just set, so Rapira drops them before PHP sees them. The [HTTP page](/docs/http) explains the mapping and the `http.unsafe_field_names` setting that governs it.
+Forward fields with hyphens, such as `X-Forwarded-For`. Do not use names such as `X_Forwarded_For`.
+Names with underscores or dots can map to the same `$_SERVER` key. Rapira removes these names before PHP receives them.
+The [HTTP page](/docs/http) explains the mapping and `http.unsafe_field_names`.
+
+Rapira can serve static assets with the [static file middleware](/docs/static-files). The proxy does not need a second copy of the document root.
+A proxy or CDN can serve the assets instead.
 
 ## Zero-downtime deploys
 
@@ -88,9 +115,13 @@ Deploy the new code, then:
 sudo systemctl reload rapira
 ```
 
-That's a `SIGUSR2` to the master, which answers it with a **rolling reload**: the pool is replaced one worker at a time and in-flight requests run to completion — nothing is dropped unless a worker overruns `process_control_timeout_secs`, which escalates it to `SIGTERM` and then `SIGKILL`, and that worker's in-flight request is lost (see below). How the roll overlaps the fresh worker with the old one is on [Process model](/docs/process-model).
+This command sends `SIGUSR2` to the master. The master replaces one worker at a time and lets current requests finish.
+If a worker exceeds `process_control_timeout_secs`, the master sends `SIGTERM` and then `SIGKILL`. This termination ends the current request.
+See [Process model](/docs/process-model) for the worker replacement sequence.
 
-Without systemd — a container entrypoint, a deploy script — signal the master directly. Set `supervisor.pidfile` and the pid is right there — nothing creates `/run/rapira` outside systemd, so make the directory first or pick a path that exists; the master refuses to boot if it can't write the file.
+Send the signal directly when systemd does not manage the process. Set `supervisor.pidfile` to record the master process identifier.
+Create the pidfile directory before you start Rapira. Alternatively, select an existing directory.
+The master does not start if it cannot write the file.
 
 ```toml
 [supervisor]
@@ -102,17 +133,22 @@ process_control_timeout_secs = 30
 kill -USR2 "$(cat /run/rapira/rapira.pid)"
 ```
 
-Only the master ever writes that file — workers can't touch it — and the master unlinks it on every exit path it controls, so a stale one means the master died without running its own shutdown: a `SIGKILL`, a hard crash, or the machine going down.
+Only the master writes the pidfile. It removes the file during a controlled exit.
+A remaining file can indicate `SIGKILL`, a process failure, or a system failure.
 
-`process_control_timeout_secs` is how long the master waits for a worker to finish before it escalates, and it caps each step of a rolling reload too, so one wedged worker can't stall the whole roll — the escalation sequence and the full signal table are on [Process model](/docs/process-model). Keep it comfortably under systemd's `TimeoutStopSec`, otherwise systemd's own timeout expires first and it kills the master mid-escalation.
+`process_control_timeout_secs` limits each wait for a worker during shutdown and reload. After the limit, the master sends the next termination signal.
+Set this value below the systemd `TimeoutStopSec` value. Otherwise, systemd can terminate the master before the sequence finishes.
+See [Process model](/docs/process-model) for the signal sequence.
 
 ::: warning What a reload does not do
-The master keeps the settings it booted with, and the OPcache shared memory belongs to the master too, so it outlives every worker generation. Changing `rapira.toml` needs `systemctl restart rapira`. And if you've set `opcache.validate_timestamps = 0`, a reload will keep serving the old opcodes — restart instead.
+The master retains its initial settings and OPcache shared memory during a reload. Restart Rapira after you change `rapira.toml`.
+Also restart it when `opcache.validate_timestamps = 0`. A reload does not replace the cached opcodes in this configuration.
 :::
 
 ## Logs
 
-Rapira writes every log record to **stderr**, one write per record, so master and worker output never interleave mid-line. A systemd unit's stderr goes to the journal with no configuration at all, so the only thing left to choose is the format. Use JSON in production:
+Rapira writes each log record to **stderr** with one operation. Therefore, records cannot combine within a line.
+Systemd sends stderr to the journal. Use JSON format in production:
 
 ```toml
 [log]
@@ -120,17 +156,21 @@ level = "info"
 format = "json"
 ```
 
-One object per line, `timestamp` in RFC 3339 UTC, plus `level`, `message` and `target`; newlines inside a message are escaped so a record is always exactly one line. That is the shape log collectors expect, and journald passes it through unchanged.
+Each line contains one object with `timestamp`, `level`, `message`, and `target`. The timestamp uses RFC 3339 UTC.
+Rapira escapes newline characters in messages. Journald sends the object to log collectors without changes.
 
 ```bash
 journalctl -u rapira -f
 ```
 
-To ship them off the box, point your collector at the unit's journal, or run Rapira with its stderr piped straight into the agent if you'd rather skip journald. Either way the record is already structured, so the collector does not have to parse it with regexes. For per-target levels and the `RUST_LOG` override that replaces the whole filter for one debugging session, see [Logging](/docs/logging).
+Configure a log collector to read the unit journal. Alternatively, send Rapira stderr directly to the collector.
+The collector can parse each record as JSON without regular expressions.
+See [Logging](/docs/logging) for target levels and the `RUST_LOG` override.
 
 ## Recycling and request timeouts
 
-In [worker mode](/docs/execution-modes) the process stays resident, so a slow leak that goes unnoticed under php-fpm accumulates across requests. Two settings guard against it:
+In [Worker mode](/docs/execution-modes), the process retains application state between requests. A memory leak can therefore increase process memory over time.
+Use these two settings to limit the effect:
 
 ```toml
 [pool]
@@ -138,6 +178,9 @@ max_requests = 500
 request_terminate_timeout_secs = 30
 ```
 
-`max_requests` retires a worker after that many requests and forks a fresh one, with a bit of jitter added so the whole pool doesn't recycle in lockstep. It is not a fix for a leak; it keeps an undiscovered leak from turning into an outage. `request_terminate_timeout_secs` is a wall-clock ceiling on a single request: a worker that exceeds it is killed and respawned, so one stuck request does not occupy a worker permanently. Both are off by default; turn them on before you go live.
+`max_requests` replaces a worker after the specified request count. Rapira varies each count slightly to prevent simultaneous worker replacement.
+This setting limits the effect of a memory leak but does not correct it.
+`request_terminate_timeout_secs` limits the elapsed time for one request. Rapira terminates and replaces a worker that exceeds the limit.
+Both settings have a default value of zero. Enable them for production.
 
-[Process model](/docs/process-model) covers the rest of the pool — static, dynamic and ondemand sizing, respawn backoff, and what the master does when a worker dies.
+See [Process model](/docs/process-model) for pool sizing, replacement delays, and worker failure processing.

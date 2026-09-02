@@ -1,13 +1,13 @@
 ---
 title: Modelo de procesos
-description: "Cómo ejecuta PHP Rapira: un maestro de un solo hilo abre el socket, arranca PHP una vez y hace fork de los workers. Modos del pool, reciclaje, recargas y la tabla completa de señales."
+description: "Cómo ejecuta PHP Rapira: un maestro de un solo hilo abre el socket, arranca PHP una vez y hace fork de los workers. Escalado del pool, reciclaje, recargas y la tabla completa de señales."
 ---
 
 # Modelo de procesos
 
-Rapira se ejecuta como un proceso maestro y un pool de workers. El maestro mantiene todo lo que tiene que existir exactamente una vez —el socket de escucha, la imagen del motor de PHP, el pidfile— y después hace fork; de las peticiones se encargan los workers. Ninguna petición pasa jamás de un proceso a otro: los workers *son* copias del maestro, hechas con fork cuando PHP ya estaba en marcha, y cada uno recoge sus conexiones directamente del socket.
+Rapira se ejecuta como un proceso maestro y un pool de workers. El maestro mantiene todo lo que tiene que existir exactamente una vez -el socket de escucha, la imagen del motor de PHP, el pidfile- y después hace fork; de las peticiones se encargan los workers. Ninguna petición pasa jamás de un proceso a otro: los workers *son* copias del maestro, hechas con fork cuando PHP ya estaba en marcha, y cada uno recoge sus conexiones directamente del socket.
 
-El esquema es el mismo tanto si ejecutas el modo [Classic](/es/docs/classic) como el modo [SAPI Worker](/es/docs/worker). El [modo de ejecución](/es/docs/execution-modes) decide qué ocurre dentro de un worker con cada petición; no cambia cómo se construye el pool, ni cómo se supervisa, ni cómo se recarga.
+El esquema es el mismo en los modos [Classic](/es/docs/classic), [Worker](/es/docs/worker) y Dispatcher. El modo de ejecución, que fija `pool.mode`, decide qué ocurre dentro de un worker con cada petición; no cambia cómo se construye el pool, ni cómo se supervisa, ni cómo se recarga. Consulta [Modos de ejecución](/es/docs/execution-modes) para más información.
 
 ## Maestro y workers
 
@@ -33,7 +33,7 @@ flowchart TB
   S -. accept .-> W3
 ```
 
-Cada worker ejecuta un intérprete de PHP NTS detrás de su propio runtime HTTP asíncrono y acepta conexiones en el socket que ha heredado. Delante del pool no hay ningún repartidor: todos los workers están aparcados en `accept()` sobre el mismo socket, y el kernel le entrega cada conexión entrante a uno solo de ellos.
+Cada worker ejecuta un intérprete de PHP NTS detrás de su propia pila HTTP asíncrona. Esa pila es hyper sobre un runtime de tokio propio, con dos hilos de ejecución. El worker acepta conexiones en el socket que ha heredado. Ningún proceso reparte las conexiones entre los workers: todos están aparcados en `accept()` sobre el mismo socket, y el kernel le entrega cada conexión entrante a uno solo de ellos.
 
 El maestro no atiende ni una petición. No tiene pila HTTP en absoluto: es un único hilo bloqueado en `poll(2)` sobre un self-pipe, esperando señales, muertes de sus hijos, sus propios temporizadores y, en modo `ondemand`, también a que el socket de escucha esté listo. El proceso que tiene que sobrevivir para reiniciar todo lo demás hace lo mínimo imprescindible.
 
@@ -52,11 +52,11 @@ Con el pool ya en marcha, el maestro ejecuta un tick de mantenimiento más o men
 - **Escalado.** Con `dynamic`, ese mismo tick decide si hace fork de más workers o si jubila a los que están ociosos; con `ondemand` solo jubila a los que llevan ociosos más tiempo del permitido, porque ahí el fork lo dispara una conexión que llega. Lo tienes más abajo.
 - **Un pipe en el otro sentido.** Cada worker se queda con el extremo de lectura de un pipe en el que el maestro no escribe nunca. Si el maestro muere, el pipe da EOF y cada worker se drena solo, así que un `kill -9` al maestro no puede dejar workers huérfanos ocupando el puerto.
 
-## Modos del pool
+## Escalado del pool
 
-`pool.mode` elige cómo se dimensiona el pool. En los tres modos el número que manda es `pool.processes` —una cifra exacta con `static` y un techo con los otros dos— y por defecto vale un worker por CPU lógica.
+`pool.scaling` elige cómo se dimensiona el pool. Es una clave distinta de `pool.mode`, que fija el modo de ejecución dentro de un worker. Con las tres políticas el número que manda es `pool.processes`, una cifra exacta con `static` y un techo con las otras dos, y por defecto vale un worker por CPU lógica.
 
-| Modo | Cuántos workers | Claves que aplican |
+| Escalado | Cuántos workers | Claves que aplican |
 | --- | --- | --- |
 | `static` (por defecto) | Exactamente `pool.processes`, forkeados al arrancar y mantenidos en esa cifra. | `processes` |
 | `dynamic` | Los que pida la demanda, hasta `pool.processes`; el maestro mantiene la cifra de *ociosos* dentro de la banda de reserva. | `min_spare`, `max_spare` |
@@ -68,15 +68,15 @@ Con el pool ya en marcha, el maestro ejecuta un tick de mantenimiento más o men
 
 ```toml
 [pool]
-mode = "dynamic"
+scaling = "dynamic"
 processes = 8
 min_spare = 1
 max_spare = 3
 ```
 
-Los límites tienen que cumplir `1 <= min_spare <= max_spare <= processes`; son obligatorios con `dynamic` y se rechazan en los demás modos, porque ponerlos donde no van es un error de configuración y no una clave que se ignora en silencio.
+Los límites tienen que cumplir `1 <= min_spare <= max_spare <= processes`; son obligatorios con `dynamic` y se rechazan con las demás políticas. Ponerlos donde no van es un error de configuración y no una clave que se ignora en silencio.
 
-**`ondemand`** no forkea nada al arrancar. Aquí es el propio maestro quien vigila el socket de escucha y, cuando llega una conexión y no hay ningún worker ocioso que la coja, forkea uno y deja que el hijo la acepte. Un worker que lleve ocioso más de `pool.process_idle_timeout_secs` vuelve a jubilarse. Un pool ocioso no consume nada, pero la primera petición tras un rato sin tráfico espera a un fork: usa `ondemand` en entornos de pruebas y sitios con muy pocas visitas, y cualquiera de los otros modos con tráfico constante.
+**`ondemand`** no forkea nada al arrancar. Aquí es el propio maestro quien vigila el socket de escucha y, cuando llega una conexión y no hay ningún worker ocioso que la coja, forkea uno y deja que el hijo la acepte. Un worker que lleve ocioso más de `pool.process_idle_timeout_secs` vuelve a jubilarse. Un pool ocioso no consume nada, pero la primera petición tras un rato sin tráfico espera a un fork. Usa `ondemand` en entornos de pruebas y sitios con muy pocas visitas, y cualquiera de las otras políticas con tráfico constante.
 
 La referencia completa de claves está en la página de [configuración](/es/docs/configuration).
 
@@ -95,9 +95,9 @@ Las señales paran un servidor en marcha, lo recargan y le hacen informar de su 
 Define `supervisor.pidfile` y tus scripts tendrán un sitio fijo del que leer el pid del maestro:
 
 ```bash
-kill -USR2 $(cat /run/rapira.pid)   # rolling reload
-kill -USR1 $(cat /run/rapira.pid)   # status dump
-kill -TERM $(cat /run/rapira.pid)   # graceful stop
+kill -USR2 $(cat /run/rapira.pid)   # Replace workers one at a time.
+kill -USR1 $(cat /run/rapira.pid)   # Write pool status to the log.
+kill -TERM $(cat /run/rapira.pid)   # Stop after current requests finish.
 ```
 
 ::: warning
@@ -114,7 +114,7 @@ Un segundo `SIGTERM` o `SIGINT` se salta la espera y fuerza la salida al instant
 
 `SIGUSR2` (o `SIGHUP`) sustituye el pool entero por workers nuevos, que es la forma de tirar la aplicación ya arrancada de un worker residente y volver a construirla con el código que has desplegado.
 
-En modo Classic el script de entrada se ejecuta desde cero en cada petición, así que no hay nada residente que sustituir y el código nuevo entra en juego sin recarga, salvo que hayas puesto `opcache.validate_timestamps = 0`: entonces el segmento de OPcache del maestro sigue sirviendo los opcodes viejos hasta un reinicio completo. En modo SAPI Worker la aplicación arranca una vez y se queda en memoria, con lo que el código desplegado no entra en juego hasta que hay una recarga progresiva: conviértela en un paso más de tu despliegue. Consulta [En producción](/es/docs/deployment) para más información.
+En modo Classic el script de entrada se ejecuta desde cero en cada petición. No hay nada residente que sustituir, así que el código nuevo entra en juego sin recarga. Si has puesto `opcache.validate_timestamps = 0`, el segmento de OPcache del maestro sigue sirviendo los opcodes viejos hasta un reinicio completo. En los modos Worker y Dispatcher la aplicación arranca una vez y se queda en memoria, con lo que el código desplegado no entra en juego hasta que hay una recarga progresiva. Conviértela en un paso más de tu despliegue. Consulta [En producción](/es/docs/deployment) para más información.
 
 La recarga nunca te baja de la capacidad con la que estabas sirviendo, porque solapa en vez de reiniciar: el maestro levanta un worker nuevo, espera a que ese worker esté aceptando de verdad y solo entonces drena uno viejo. Cuando el viejo se ha ido, su plaza pasa al siguiente worker nuevo, y así hasta el final de la generación. Cada drenaje es la misma escalada ordenada de `SIGQUIT` → `SIGTERM` → `SIGKILL` que una parada, acotada por el mismo tiempo de control, aplicada a ese único worker.
 

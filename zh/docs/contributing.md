@@ -1,8 +1,8 @@
 # 参与文档贡献
 
-本页介绍文档引擎支持的全部编写功能——下面的每个区块都由你会写的同样的 Markdown 生成，编辑页面时可以把它当作速查表。
+本页介绍文档引擎支持的全部编写功能--下面的每个区块都由你会写的同样的 Markdown 生成，编辑页面时可以把它当作速查表。
 
-想预览自己的改动，先执行一次 `npm install`，然后运行 `npm run dev`，打开它输出的本地地址即可。译文按语言分目录存放——`ru/`、`es/`、`zh/`、`pl/`——结构与英文版一致，英文是内容的基准。
+想预览自己的改动，先执行一次 `npm install`，然后运行 `npm run dev`，打开它输出的本地地址即可。译文按语言分目录存放--`ru/`、`es/`、`zh/`、`pl/`--结构与英文版一致，英文是内容的基准。
 
 ## 提示块
 
@@ -19,7 +19,7 @@
 需要留意的地方。
 :::
 ::: danger
-真正的风险——请谨慎操作。
+真正的风险--请谨慎操作。
 :::
 ```
 
@@ -36,7 +36,7 @@
 :::
 
 ::: danger
-真正的风险——请谨慎操作。
+真正的风险--请谨慎操作。
 :::
 
 在类型后面可以直接写自定义标题：
@@ -55,7 +55,7 @@ fn main() {
 }
 ```
 
-把读者的注意力引到具体的行——高亮、聚焦，或展示改动：
+把读者的注意力引到具体的行--高亮、聚焦，或展示改动：
 
 ```rust{3}
 fn main() {
@@ -128,14 +128,13 @@ echo (new App())->handle($_SERVER['REQUEST_URI']);
 <?php
 require __DIR__ . '/vendor/autoload.php';
 
-$http = create_plugin_handler(new HttpHandlerConfig());
 $app = new App(); // 只启动一次，供后续所有请求复用
 
 $handler = static function () use ($app): void {
     echo $app->handle($_SERVER['REQUEST_URI']);
 };
 
-while ($http->handleRequest($handler)) {
+while (\Rapira\handle_request($handler)) {
 }
 ```
 
@@ -146,6 +145,7 @@ while ($http->handleRequest($handler)) {
 ```toml
 [pool]
 entrypoint = "worker.php"
+mode = "worker"
 processes = 4
 ```
 
@@ -185,14 +185,13 @@ echo (new App())->handle($_SERVER['REQUEST_URI']);
 <?php
 require __DIR__ . '/vendor/autoload.php';
 
-$http = create_plugin_handler(new HttpHandlerConfig());
 $app = new App(); // 只启动一次，供后续所有请求复用
 
 $handler = static function () use ($app): void {
     echo $app->handle($_SERVER['REQUEST_URI']);
 };
 
-while ($http->handleRequest($handler)) {
+while (\Rapira\handle_request($handler)) {
 }
 ```
 
@@ -203,6 +202,7 @@ while ($http->handleRequest($handler)) {
 ```toml
 [pool]
 entrypoint = "worker.php"
+mode = "worker"
 processes = 4
 ```
 
@@ -241,7 +241,7 @@ flowchart LR
 ---
 title: 自定义标题         # 覆盖 H1，用于 <title> / og:title
 description: 简短摘要      # meta description 和 og:description
-outline: [2, 3]           # “本页目录”菜单——见下文
+outline: [2, 3]           # “本页目录”菜单--见下文
 aside: false              # 完全隐藏右侧栏
 lastUpdated: false        # 隐藏本页的“最后更新于”时间
 editLink: false           # 隐藏“编辑此页面”链接
@@ -255,7 +255,7 @@ next:                     # 或者重命名 / 重定向页脚链接
 **outline** 控制右侧的“本页目录”：
 
 ```yaml
-outline: [2, 3]   # 默认——H2 和 H3
+outline: [2, 3]   # 默认--H2 和 H3
 outline: deep     # 所有层级，H2–H6
 outline: 2        # 仅 H2
 outline: false    # 隐藏

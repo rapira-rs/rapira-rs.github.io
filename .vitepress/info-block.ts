@@ -1,11 +1,11 @@
 /**
  * Custom block icon plugin for markdown-it.
  *
- * For `::: info`, `::: tip` and `::: danger` blocks without a custom title:
- * - Removes the default heading ("INFO" / "TIP" / "DANGER")
- * - Adds `data-*-icon` attribute so CSS can render an icon on the left border
+ * Changes `::: info`, `::: tip`, and `::: danger` blocks without a custom title.
+ * It removes the default heading.
+ * It adds a `data-*-icon` attribute for the CSS border icon.
  *
- * Blocks with custom titles (`::: info My Title`) are left untouched.
+ * It does not change blocks with custom titles.
  */
 import type MarkdownIt from 'markdown-it'
 

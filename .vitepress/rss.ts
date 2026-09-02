@@ -19,7 +19,7 @@ interface FeedConfig {
   lang: string
 }
 
-// Generate feed configs from locales
+// Create feed configurations for each locale.
 const feeds: FeedConfig[] = locales.map(locale => ({
   title: locale.blogTitle,
   description: locale.blogDescription,
@@ -77,13 +77,13 @@ export async function generateRss(config: SiteConfig) {
     const outDir = config.outDir
     const filePath = path.join(outDir, feedConfig.filename)
 
-    // Ensure directory exists
+    // Create the output directory if necessary.
     mkdirSync(path.dirname(filePath), { recursive: true })
 
-    // Generate RSS
+    // Create the RSS document.
     let rssContent = feed.rss2()
 
-    // Add dc namespace
+    // Add the Dublin Core namespace.
     if (!rssContent.includes('xmlns:dc=')) {
       rssContent = rssContent.replace(
         '<rss version="2.0"',
@@ -91,11 +91,11 @@ export async function generateRss(config: SiteConfig) {
       )
     }
 
-    // Add dc:creator for each post
+    // Add `dc:creator` to each post.
     for (const post of filteredPosts) {
       const author = post.frontmatter.author || defaultAuthor
       const url = `${baseUrl}${post.url}`
-      // Insert dc:creator after </description> for this item
+      // Insert `dc:creator` after this item description.
       rssContent = rssContent.replace(
         new RegExp(`(<guid isPermaLink="false">${url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}</guid>)`),
         `$1\n            <dc:creator><![CDATA[${author}]]></dc:creator>`
@@ -107,7 +107,7 @@ export async function generateRss(config: SiteConfig) {
   }
 }
 
-// Generate RSS content for dev server (without createContentLoader)
+// Create development server RSS without `createContentLoader`.
 function generateRssContent(feedConfig: FeedConfig, docsRoot: string): string {
   const feed = new Feed({
     title: feedConfig.title,
@@ -124,7 +124,7 @@ function generateRssContent(feedConfig: FeedConfig, docsRoot: string): string {
 
   const blogPath = path.join(docsRoot, feedConfig.blogFolder)
 
-  // Read markdown files directly
+  // Read Markdown files directly.
   const posts: Array<{
     url: string
     frontmatter: Record<string, any>
@@ -143,10 +143,10 @@ function generateRssContent(feedConfig: FeedConfig, docsRoot: string): string {
       posts.push({ url, frontmatter })
     }
   } catch (e) {
-    // Blog folder might not exist
+    // Ignore a locale without a blog directory.
   }
 
-  // Sort by date
+  // Sort posts by date.
   posts.sort((a, b) => {
     const dateA = new Date(a.frontmatter.date || 0).getTime()
     const dateB = new Date(b.frontmatter.date || 0).getTime()
@@ -170,10 +170,10 @@ function generateRssContent(feedConfig: FeedConfig, docsRoot: string): string {
     })
   }
 
-  // Generate RSS
+  // Create the RSS document.
   let rssContent = feed.rss2()
 
-  // Add dc namespace
+  // Add the Dublin Core namespace.
   if (!rssContent.includes('xmlns:dc=')) {
     rssContent = rssContent.replace(
       '<rss version="2.0"',
@@ -181,7 +181,7 @@ function generateRssContent(feedConfig: FeedConfig, docsRoot: string): string {
     )
   }
 
-  // Add dc:creator for each post
+  // Add `dc:creator` to each post.
   for (const post of posts) {
     const author = post.frontmatter.author || defaultAuthor
     const url = `${baseUrl}${post.url}`
@@ -194,21 +194,21 @@ function generateRssContent(feedConfig: FeedConfig, docsRoot: string): string {
   return rssContent
 }
 
-// Vite plugin for dev server RSS
+// Provide RSS through the Vite development server.
 export function rssPlugin(): Plugin {
   let docsRoot: string
 
   return {
     name: 'vitepress-rss-dev',
     configResolved(config) {
-      // Get docs root from VitePress config
+      // Get the documentation root from VitePress.
       docsRoot = config.root
     },
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const url = req.url || ''
 
-        // Check if requesting RSS feed
+        // Process RSS feed requests.
         const feedConfig = feeds.find(f => url === `/${f.filename}`)
 
         if (feedConfig) {

@@ -2,19 +2,17 @@
 import { computed, useSlots } from 'vue'
 
 /**
- * A full-width home-page segment: a heading row, then the prose — with an
- * optional `aside` slot that puts anything (cards, a code block, an image)
- * in a second column on the right. Without it the text runs single-column.
+ * Shows a full-width home page section.
+ * An optional `aside` slot creates a second column for related content.
  *
- * The frame is shared by every segment so they read as one series. Copy comes
- * from the page — props for the headings, the default slot for the prose — so
- * translators edit `index.md` and never this component.
+ * The page supplies headings and text through properties and slots.
+ * Translators change `index.md`, not this component.
  */
 defineProps<{
-  /** Small label above the title, naming the area (`Networking`, …). */
+  /** Optional category label above the title. */
   eyebrow?: string
   title: string
-  /** Optional link under the text; both props are needed for it to render. */
+  /** Optional link below the text. Rendering requires both properties. */
   link?: string
   linkText?: string
 }>()

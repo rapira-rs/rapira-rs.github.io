@@ -1,30 +1,31 @@
 # Contributing to the docs
 
-This page documents every authoring feature the documentation engine supports — every block below is rendered from the same Markdown you'll write, so keep it handy as a cheat-sheet while editing pages.
+This page documents the authoring features of the documentation site. Each example renders from the displayed Markdown.
 
-To preview your edits, run `npm install` once, then `npm run dev` and open the local URL it prints. Translations live in per-language folders — `ru/`, `es/`, `zh/`, `pl/` — mirroring the English structure, and English is the source of truth.
+Run `npm install` once. Then run `npm run dev`.
+Open the local URL that the command prints. Translation directories have the same structure as the canonical English files.
 
 ## Callout blocks
 
-Wrap text in a fenced `:::` container to get a colored, icon-marked callout:
+Put text in a fenced `:::` container to create a callout with a color and icon:
 
 ```md
 ::: tip
-Handy advice worth highlighting.
+Useful advice.
 :::
 ::: info
 Neutral, contextual information.
 :::
 ::: warning
-Something to watch out for.
+A condition that requires attention.
 :::
 ::: danger
-A real risk — proceed carefully.
+A condition that can cause damage.
 :::
 ```
 
 ::: tip
-Handy advice worth highlighting.
+Useful advice.
 :::
 
 ::: info
@@ -32,17 +33,17 @@ Neutral, contextual information.
 :::
 
 ::: warning
-Something to watch out for.
+A condition that requires attention.
 :::
 
 ::: danger
-A real risk — proceed carefully.
+A condition that can cause damage.
 :::
 
 Add your own heading right after the type:
 
-::: tip Pro tip
-Give a block a custom title when the default label isn't specific enough.
+::: tip Specific title
+Use a custom title when the default label is not specific.
 :::
 
 ## Code blocks
@@ -55,12 +56,12 @@ fn main() {
 }
 ```
 
-Point the reader at exact lines — highlight, focus, or show a diff with inline markers:
+Use inline markers to highlight exact lines, focus lines, or show changed lines:
 
 ```rust{3}
 fn main() {
     let answer = 42;
-    println!("The answer is {answer}"); // this line is highlighted
+    println!("The answer is {answer}"); // VitePress highlights this line.
 }
 ```
 
@@ -98,7 +99,8 @@ yarn
 
 ## File tabs
 
-A `<CodeTabs>` block shows several files the way an editor does: one tab per file, with the code of the open tab underneath. List the tabs in a `<script setup>` block on the page, then put each snippet in a `<template>` named after that tab's `slot`:
+A `<CodeTabs>` block shows one tab for each file. It shows the selected file below the tabs.
+List the tabs in a page `<script setup>` block. Put each example in a `<template>` that matches the tab `slot`.
 
 ````md
 <script setup>
@@ -128,14 +130,13 @@ echo (new App())->handle($_SERVER['REQUEST_URI']);
 <?php
 require __DIR__ . '/vendor/autoload.php';
 
-$http = create_plugin_handler(new HttpHandlerConfig());
-$app = new App(); // booted once, reused for every request
+$app = new App(); // The worker creates this object once and reuses it.
 
 $handler = static function () use ($app): void {
     echo $app->handle($_SERVER['REQUEST_URI']);
 };
 
-while ($http->handleRequest($handler)) {
+while (\Rapira\handle_request($handler)) {
 }
 ```
 
@@ -146,6 +147,7 @@ while ($http->handleRequest($handler)) {
 ```toml
 [pool]
 entrypoint = "worker.php"
+mode = "worker"
 processes = 4
 ```
 
@@ -154,9 +156,10 @@ processes = 4
 </CodeTabs>
 ````
 
-The icon on a tab comes from the extension in its name: `.php`, `.rs`, `.toml`, `.yaml`, `.json` and `.sh` each have their own, and anything else gets a plain file glyph. Set `icon` on a tab to choose one yourself — `php`, `rust`, `toml`, `yaml`, `json`, `shell` or `file`.
+The file name extension selects the tab icon. The component supports `.php`, `.rs`, `.toml`, `.yaml`, `.json`, and `.sh`.
+Other extensions use a generic file icon. Set `icon` to `php`, `rust`, `toml`, `yaml`, `json`, `shell`, or `file` to override it.
 
-That block renders as:
+The block renders as follows:
 
 <script setup>
 const appTabs = [
@@ -185,14 +188,13 @@ echo (new App())->handle($_SERVER['REQUEST_URI']);
 <?php
 require __DIR__ . '/vendor/autoload.php';
 
-$http = create_plugin_handler(new HttpHandlerConfig());
-$app = new App(); // booted once, reused for every request
+$app = new App(); // The worker creates this object once and reuses it.
 
 $handler = static function () use ($app): void {
     echo $app->handle($_SERVER['REQUEST_URI']);
 };
 
-while ($http->handleRequest($handler)) {
+while (\Rapira\handle_request($handler)) {
 }
 ```
 
@@ -203,6 +205,7 @@ while ($http->handleRequest($handler)) {
 ```toml
 [pool]
 entrypoint = "worker.php"
+mode = "worker"
 processes = 4
 ```
 
@@ -223,7 +226,7 @@ flowchart LR
 
 ## Tables and badges
 
-Standard Markdown tables just work:
+Standard Markdown creates tables:
 
 | Feature      | Included |
 | ------------ | :------: |
@@ -231,7 +234,7 @@ Standard Markdown tables just work:
 | Code groups  |    ✅    |
 | Mermaid      |    ✅    |
 
-Inline badges are handy for status labels: <Badge type="tip" text="new" /> <Badge type="warning" text="beta" /> <Badge type="danger" text="deprecated" />.
+Inline badges can show status labels: <Badge type="tip" text="new" /> <Badge type="warning" text="beta" /> <Badge type="danger" text="deprecated" />.
 
 ## Page frontmatter
 
@@ -239,14 +242,14 @@ Set page options in a YAML block at the very top of the file:
 
 ```yaml
 ---
-title: Custom title       # overrides the H1 for <title> / og:title
-description: Short summary # meta description and og:description
-outline: [2, 3]           # the "On this page" menu — see below
-aside: false              # hide the right-hand column entirely
-lastUpdated: false        # hide the "Updated" timestamp on this page
-editLink: false           # hide the "Edit this page" link
-prev: false               # hide the footer "previous" link
-next:                     # or relabel / redirect a footer link
+title: Custom title        # Replaces the H1 in <title> and og:title.
+description: Short summary # Sets the meta description and og:description.
+outline: [2, 3]            # Sets the "On this page" menu. See the options below.
+aside: false               # Hides the right column.
+lastUpdated: false         # Hides the "Updated" time on this page.
+editLink: false            # Hides the "Edit this page" link.
+prev: false                # Hides the "previous" footer link.
+next:                      # Changes the label or target of a footer link.
   text: Blog
   link: /blog/
 ---
@@ -255,10 +258,11 @@ next:                     # or relabel / redirect a footer link
 The **outline** controls the "On this page" table of contents on the right:
 
 ```yaml
-outline: [2, 3]   # default — show H2 and H3
-outline: deep     # every level, H2–H6
-outline: 2        # only H2
-outline: false    # hide it
+outline: [2, 3]   # Default. Shows H2 and H3.
+outline: deep     # Shows each level from H2 through H6.
+outline: 2        # Shows only H2.
+outline: false    # Hides the menu.
 ```
 
-Use `layout: home` for a landing page or `layout: page` for a bare page with no sidebar or outline; regular pages use the default `doc` layout.
+Use `layout: home` for a home page. Use `layout: page` for a page without a sidebar or outline.
+Other pages use the default `doc` layout.

@@ -33,7 +33,7 @@ level = "error"
 
 [log.targets]
 php = "debug"
-pingora_core = "warn"
+http = "warn"
 ```
 
 Each key names a target and raises or lowers just that one; everything else stays on `level`. A key matches **by prefix**, so `php` also covers `php_sys` and `php_sys::callbacks` — the shortest matching prefix is enough, and submodules never have to be listed individually.
@@ -51,7 +51,7 @@ The targets Rapira itself emits under:
 
 There is no access log: Rapira does not write one line per request. What the `http` target reports about a request's or response's fields is described on the [HTTP](/docs/http) page.
 
-Dependencies log under their own module paths — `pingora_core`, `tokio`, and the rest — and are filtered exactly the same way. Every record carries its target name, so a noisy dependency can be quieted by copying that name into `[log.targets]`.
+A dependency that emits tracing records logs under its own module path, and the same prefix filtering applies to it. Every record carries its target name. To quiet a noisy target, copy its name into `[log.targets]`.
 
 ::: tip
 `master` is the target to watch when you want to understand why the pool is behaving the way it is — respawns, reloads and pool scaling are all logged there. See [process model](/docs/process-model) for what those events mean.
@@ -107,7 +107,7 @@ The level is a case of the `\Rapira\LogLevel` enum, and each case maps onto the 
 
 Omitting the level logs at `Info`. Because these are the same levels as everywhere else, `[log.targets]` and `RUST_LOG` filter application records exactly as they filter the server's own — `app = "debug"` in `[log.targets]` raises the application's records without touching anything around them.
 
-The context array is serialized to JSON and attached to the record as a `context` field. Keys are preserved as written, and nested arrays keep their structure:
+The context array is serialized to JSON and attached to the record as a `context` field. In the `json` format that field sits inside the record's `fields` object. Keys are preserved as written, and nested arrays keep their structure:
 
 ```php
 <?php
@@ -130,6 +130,8 @@ try {
 }
 ```
 
+`\Rapira\log()` never throws: it discards an exception raised by a context value's `jsonSerialize()`, writes that value as `null`, and keeps the other keys unchanged.
+
 Two limits are worth knowing when deciding what to put in a context. A value JSON cannot represent — a resource, a closure, `NAN` or `INF`, a string that is not valid UTF-8 — is replaced with a placeholder rather than costing you the record, so the surrounding keys still arrive. And the context is not bounded in size: a large array or a long string is serialized in full and becomes a correspondingly large record, so pass identifiers rather than the objects they identify.
 
 ## Formats
@@ -149,22 +151,22 @@ It is colored when stderr is a terminal and never when it is redirected to a fil
 **`json`** is for a log collector — one object per line:
 
 ```text
-{"timestamp":…,"level":"ERROR","message":…,"target":…}
+{"timestamp":…,"level":"ERROR","fields":{"message":…},"target":…}
 ```
 
-`timestamp` is RFC 3339 UTC with milliseconds. Newlines inside a message are escaped, so a record is always exactly one line, including a multi-line PHP stack trace. Records coming from the bundled proxy engine carry extra `log.*` caller fields. JSON output is never colored, terminal or not.
+`timestamp` is RFC 3339 UTC with milliseconds. The `fields` object holds the message and every other field of the record, such as the `context` field of an application record. Newlines inside a message are escaped, so a record is always exactly one line, including a multi-line PHP stack trace. JSON output is never colored, terminal or not.
 
 ## `RUST_LOG`
 
 `RUST_LOG` sets the log filter from the environment, so a one-off debugging session needs no config edit:
 
 ```sh
-RUST_LOG=info rapira serve worker.php
-RUST_LOG=rapira=debug,php=info rapira serve worker.php
-RUST_LOG=warn,rapira=trace rapira serve worker.php
+RUST_LOG=info rapira serve --mode worker worker.php
+RUST_LOG=rapira=debug,php=info rapira serve --mode worker worker.php
+RUST_LOG=warn,rapira=trace rapira serve --mode worker worker.php
 ```
 
-The first turns everything up to `info`. The second is a targeted pair — the `rapira` target at `debug`, PHP at `info`. The third quiets the dependencies to `warn` and raises Rapira's `rapira` target — boot, worker lifecycle, shutdown — to `trace`. The other targets match by their own names, so add them when the question is elsewhere: `RUST_LOG=warn,rapira=trace,master=trace`.
+The first turns everything up to `info`. The second is a targeted pair: the `rapira` target at `debug`, PHP at `info`. The third sets every target to `warn` and then raises the `rapira` target to `trace`. That target covers boot, worker lifecycle and shutdown. The other targets match by their own names, so add them when the question is elsewhere: `RUST_LOG=warn,rapira=trace,master=trace`.
 
 ::: warning
 When `RUST_LOG` is set to a non-blank value it **replaces** `level` and `[log.targets]` entirely — the whole filter, not a merge. Your `[log.targets]` entries are not layered underneath it; they are simply not consulted. Leave the variable unset (or blank) to go back to the config. It never affects `format`.

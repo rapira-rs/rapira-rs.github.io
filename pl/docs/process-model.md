@@ -1,13 +1,13 @@
 ---
 title: Model procesów
-description: "Jak Rapira uruchamia PHP — jednowątkowy proces nadrzędny wiąże gniazdo, raz podnosi PHP i forkuje workery. Tryby puli, recykling, restarty i pełna tabela sygnałów."
+description: "Jak Rapira uruchamia PHP - jednowątkowy proces nadrzędny wiąże gniazdo, raz podnosi PHP i forkuje workery. Skalowanie puli, recykling, restarty i pełna tabela sygnałów."
 ---
 
 # Model procesów
 
 Rapira działa jako jeden proces nadrzędny i pula workerów. Proces nadrzędny trzyma wszystko, co może istnieć tylko w jednym egzemplarzu — nasłuchujące gniazdo, obraz silnika PHP, pidfile — a potem forkuje; żądaniami zajmują się workery. Żadne żądanie nie wędruje z procesu do procesu: workery *są* kopiami procesu nadrzędnego, sforkowanymi już po podniesieniu PHP, i każdy z nich zdejmuje swoje połączenia prosto z gniazda.
 
-Ten układ wygląda tak samo w trybie [Classic](/pl/docs/classic) i w trybie [SAPI Worker](/pl/docs/worker). [Tryb wykonania](/pl/docs/execution-modes) decyduje o tym, co dzieje się wewnątrz workera przy każdym żądaniu; nie zmienia natomiast tego, jak pula powstaje, jak jest nadzorowana i jak się ją przeładowuje.
+Ten układ wygląda tak samo w trybie [Classic](/pl/docs/classic), [Worker](/pl/docs/worker) i Dispatcher. Tryb wykonania, ustawiany kluczem `pool.mode`, decyduje o tym, co dzieje się wewnątrz workera przy każdym żądaniu. Nie zmienia natomiast tego, jak pula powstaje, jak jest nadzorowana i jak się ją przeładowuje. Więcej informacji znajdziesz w [Trybach wykonania](/pl/docs/execution-modes).
 
 ## Proces nadrzędny i workery
 
@@ -33,7 +33,7 @@ flowchart TB
   S -. accept .-> W3
 ```
 
-Każdy worker to jeden interpreter PHP w wersji NTS z własnym asynchronicznym runtime'em HTTP, przyjmujący połączenia na odziedziczonym gnieździe. Przed pulą nie stoi żaden dyspozytor: wszystkie workery czekają w `accept()` na tym samym gnieździe, a jądro systemu oddaje każde przychodzące połączenie dokładnie jednemu z nich.
+Każdy worker to jeden interpreter PHP w wersji NTS za własnym asynchronicznym stosem HTTP. Ten stos to hyper na prywatnym runtimie tokio z dwoma wątkami. Worker przyjmuje połączenia na odziedziczonym gnieździe. Żaden proces nie rozdziela połączeń między workery: wszystkie czekają w `accept()` na tym samym gnieździe, a jądro systemu oddaje każde przychodzące połączenie dokładnie jednemu z nich.
 
 Proces nadrzędny nigdy nie obsługuje żądania. Nie ma nawet stosu HTTP — to jeden wątek zablokowany w `poll(2)` na self-pipe, czekający na sygnały, śmierć potomków, własne timery, a w trybie `ondemand` także na gotowość gniazda nasłuchującego. Proces, który musi przeżyć, żeby zrestartować całą resztę, robi możliwie najmniej.
 
@@ -52,11 +52,11 @@ Gdy pula już stoi, proces nadrzędny mniej więcej raz na sekundę wykonuje cyk
 - **Skalowanie.** W trybie `dynamic` ten sam cykl decyduje, czy sforkować kolejne workery, czy wycofać bezczynne; w trybie `ondemand` wycofuje tylko te, które przekroczyły swój limit bezczynności — fork wyzwala tam dopiero przychodzące połączenie. Szczegóły niżej.
 - **Potok w drugą stronę.** Każdy worker trzyma koniec odczytu potoku, do którego proces nadrzędny nigdy nic nie pisze. Gdy nadrzędny umrze, potok dostaje EOF i każdy worker sam się wygasza — `kill -9` na procesie nadrzędnym nie zostawi więc osieroconych workerów trzymających port.
 
-## Tryby puli
+## Skalowanie puli
 
-`pool.mode` decyduje o tym, jak pula dobiera swój rozmiar. W każdym trybie liczy się `pool.processes` — dla `static` to dokładna liczba procesów, dla pozostałych dwóch sufit — a domyślnie przypada jeden worker na logiczny rdzeń CPU.
+`pool.scaling` decyduje o tym, jak pula dobiera swój rozmiar. To osobny klucz od `pool.mode`, który ustawia tryb wykonania wewnątrz workera. W każdej polityce liczy się `pool.processes`: dla `static` to dokładna liczba procesów, dla pozostałych dwóch sufit, a domyślnie przypada jeden worker na logiczny rdzeń CPU.
 
-| Tryb | Ile workerów | Klucze, które działają |
+| Skalowanie | Ile workerów | Klucze, które działają |
 | --- | --- | --- |
 | `static` (domyślny) | Dokładnie `pool.processes` — forkowane przy starcie i utrzymywane w tej liczbie. | `processes` |
 | `dynamic` | Tyle, ile wymaga ruch, maksymalnie `pool.processes`; proces nadrzędny trzyma liczbę *bezczynnych* w wyznaczonym paśmie. | `min_spare`, `max_spare` |
@@ -68,15 +68,15 @@ Gdy pula już stoi, proces nadrzędny mniej więcej raz na sekundę wykonuje cyk
 
 ```toml
 [pool]
-mode = "dynamic"
+scaling = "dynamic"
 processes = 8
 min_spare = 1
 max_spare = 3
 ```
 
-Granice muszą spełniać `1 <= min_spare <= max_spare <= processes`. W trybie `dynamic` są wymagane, a w pozostałych odrzucane — ustawienie ich gdzie indziej to błąd konfiguracji, a nie po cichu zignorowany klucz.
+Granice muszą spełniać `1 <= min_spare <= max_spare <= processes`. W polityce `dynamic` są wymagane, a w pozostałych odrzucane. Ustawienie ich gdzie indziej to błąd konfiguracji, a nie po cichu zignorowany klucz.
 
-**`ondemand`** nie forkuje przy starcie niczego. Tutaj proces nadrzędny sam pilnuje gniazda nasłuchującego: gdy przychodzi połączenie, a nie ma bezczynnego workera, który by je wziął, forkuje jednego i pozwala potomkowi je przyjąć. Worker bezczynny dłużej niż `pool.process_idle_timeout_secs` znowu zostaje wycofany. Bezczynna pula nic wtedy nie zużywa, ale pierwsze żądanie po przerwie w ruchu czeka na fork — `ondemand` wybieraj dla środowisk stagingowych i rzadko odwiedzanych stron, a przy stałym ruchu jeden z pozostałych trybów.
+**`ondemand`** nie forkuje przy starcie niczego. Tutaj proces nadrzędny sam pilnuje gniazda nasłuchującego: gdy przychodzi połączenie, a nie ma bezczynnego workera, który by je wziął, forkuje jednego i pozwala potomkowi je przyjąć. Worker bezczynny dłużej niż `pool.process_idle_timeout_secs` znowu zostaje wycofany. Bezczynna pula nic wtedy nie zużywa, ale pierwsze żądanie po przerwie w ruchu czeka na fork. `ondemand` wybieraj dla środowisk stagingowych i rzadko odwiedzanych stron. Przy stałym ruchu wybierz jedną z pozostałych polityk.
 
 Pełny wykaz kluczy znajdziesz w [Konfiguracji](/pl/docs/configuration).
 
@@ -114,7 +114,7 @@ Drugi `SIGTERM` albo `SIGINT` pomija czekanie i wymusza natychmiastowe wyjście.
 
 `SIGUSR2` (albo `SIGHUP`) wymienia całą pulę na świeże workery — i właśnie tak aplikacja podniesiona w rezydentnym workerze zostaje odrzucona i powstaje na nowo z wdrożonego kodu.
 
-W trybie Classic skrypt wejściowy wykonuje się od zera przy każdym żądaniu, więc nie ma tam nic rezydentnego do wymiany i nowy kod działa bez przeładowania — chyba że ustawiłeś `opcache.validate_timestamps = 0`: wtedy segment OPcache należący do procesu nadrzędnego podaje stare opcode'y aż do pełnego restartu. W trybie SAPI Worker aplikacja podnosi się raz i zostaje w pamięci, więc wdrożony kod zaczyna działać dopiero po przeładowaniu kroczącym — zrób z tego krok wdrożenia. Więcej informacji znajdziesz na stronie [Wdrożenie](/pl/docs/deployment).
+W trybie Classic skrypt wejściowy wykonuje się od zera przy każdym żądaniu. Nie ma tam nic rezydentnego do wymiany, więc nowy kod działa bez przeładowania. Jeśli ustawisz `opcache.validate_timestamps = 0`, segment OPcache należący do procesu nadrzędnego podaje stare opcode'y aż do pełnego restartu. W trybie Worker i Dispatcher aplikacja podnosi się raz i zostaje w pamięci, więc wdrożony kod zaczyna działać dopiero po przeładowaniu kroczącym. Zrób z tego krok wdrożenia. Więcej informacji znajdziesz na stronie [Wdrożenie](/pl/docs/deployment).
 
 Przeładowanie w żadnym momencie nie zbija twojej mocy obsługującej żądania, bo nowe workery zachodzą na stare, zamiast je restartować: proces nadrzędny podnosi jednego świeżego workera, czeka, aż ten faktycznie zacznie przyjmować połączenia, i dopiero wtedy wygasza jednego starego. Gdy stary zniknie, jego slot dostaje kolejnego świeżego i tak dalej, przez całe pokolenie. Każde wygaszanie to ta sama sekwencja `SIGQUIT` → `SIGTERM` → `SIGKILL` co przy zatrzymaniu, ograniczona tym samym limitem czasu i zastosowana do tego jednego workera.
 

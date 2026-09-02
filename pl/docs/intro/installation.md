@@ -48,7 +48,7 @@ Wszystko leży na [stronie wydań w GitHubie](https://github.com/rapira-rs/rapir
 
 Na Linuksie weź pakiet, jeśli chcesz, żeby pliki trafiły tam, gdzie spodziewa się ich dystrybucja, a `apt` albo `dnf` dociągnęły biblioteki współdzielone potrzebne PHP; weź archiwum, jeśli cały serwer ma się zmieścić w jednym samowystarczalnym katalogu — obraz kontenera, artefakt wdrożenia, maszyna bez roota.
 
-W obu przypadkach sprawdź plik z `rapira-v0.6.0-SHA256SUMS.txt` przed instalacją — polecenia znajdziesz w sekcji [Weryfikacja sum kontrolnych](#weryfikacja-sum-kontrolnych).
+W obu przypadkach sprawdź plik z `rapira-v0.8.0-SHA256SUMS.txt` przed instalacją — polecenia znajdziesz w sekcji [Weryfikacja sum kontrolnych](#weryfikacja-sum-kontrolnych).
 
 ::: question Po co sprawdzać sumę kontrolną przed instalacją?
 `.deb` i `.rpm` wykonują swoje skrypty instalacyjne jako root, więc podmieniony plik dostaje roota, zanim w ogóle uruchomisz serwer. Sprawdzenie to jedno polecenie i tyle wystarczy, żeby zdjąć to ryzyko.
@@ -59,8 +59,8 @@ W obu przypadkach sprawdź plik z `rapira-v0.6.0-SHA256SUMS.txt` przed instalacj
 Pobierz `.deb` i zainstaluj go przez `apt`, podając ścieżkę:
 
 ```bash
-curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-php8.5_0.6.0-1_amd64.deb
-sudo apt install ./rapira-php8.5_0.6.0-1_amd64.deb
+curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.8.0/rapira-php8.5_0.8.0-1_amd64.deb
+sudo apt install ./rapira-php8.5_0.8.0-1_amd64.deb
 rapira --version
 ```
 
@@ -81,8 +81,8 @@ Cztery: binarka `/usr/bin/rapira`, interpreter `/usr/lib/rapira/libphp.so` oraz 
 To samo, tylko przez `dnf`:
 
 ```bash
-curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-php8.5-0.6.0-1.x86_64.rpm
-sudo dnf install ./rapira-php8.5-0.6.0-1.x86_64.rpm
+curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.8.0/rapira-php8.5-0.8.0-1.x86_64.rpm
+sudo dnf install ./rapira-php8.5-0.8.0-1.x86_64.rpm
 rapira --version
 ```
 
@@ -93,7 +93,7 @@ Ten sam próg glibc 2.34 wyznacza minimum: **RHEL 9** i jego przebudowy — Rock
 Archiwum rozpakowuje się do jednego katalogu, w którym leży cały serwer:
 
 ```text
-rapira-v0.6.0-php8.5-linux-x86_64/
+rapira-v0.8.0-php8.5-linux-x86_64/
 ├── bin/rapira
 ├── lib/rapira/libphp.so
 ├── share/php/PHP_VERSION.txt
@@ -106,17 +106,17 @@ Przenieś katalog tam, gdzie ma zostać na stałe, i dodaj binarkę do `PATH` pr
 ::: code-group
 
 ```bash [Linux]
-curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-v0.6.0-php8.5-linux-x86_64.tar.gz
-tar xzf rapira-v0.6.0-php8.5-linux-x86_64.tar.gz
-sudo mv rapira-v0.6.0-php8.5-linux-x86_64 /opt/rapira
+curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.8.0/rapira-v0.8.0-php8.5-linux-x86_64.tar.gz
+tar xzf rapira-v0.8.0-php8.5-linux-x86_64.tar.gz
+sudo mv rapira-v0.8.0-php8.5-linux-x86_64 /opt/rapira
 sudo ln -s /opt/rapira/bin/rapira /usr/local/bin/rapira
 rapira --version
 ```
 
 ```bash [macOS]
-curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-v0.6.0-php8.5-macos-aarch64.tar.gz
-tar xzf rapira-v0.6.0-php8.5-macos-aarch64.tar.gz
-sudo mv rapira-v0.6.0-php8.5-macos-aarch64 /opt/rapira
+curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.8.0/rapira-v0.8.0-php8.5-macos-aarch64.tar.gz
+tar xzf rapira-v0.8.0-php8.5-macos-aarch64.tar.gz
+sudo mv rapira-v0.8.0-php8.5-macos-aarch64 /opt/rapira
 sudo ln -s /opt/rapira/bin/rapira /usr/local/bin/rapira
 rapira --version
 ```
@@ -142,27 +142,66 @@ Każde wydanie ma jeden plik z sumami dla wszystkich swoich artefaktów, więc p
 ::: code-group
 
 ```bash [Linux]
-curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-v0.6.0-SHA256SUMS.txt
-sha256sum -c --ignore-missing rapira-v0.6.0-SHA256SUMS.txt
+curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.8.0/rapira-v0.8.0-SHA256SUMS.txt
+sha256sum -c --ignore-missing rapira-v0.8.0-SHA256SUMS.txt
 ```
 
 ```bash [macOS]
-curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-v0.6.0-SHA256SUMS.txt
-grep rapira-v0.6.0-php8.5-macos-aarch64.tar.gz rapira-v0.6.0-SHA256SUMS.txt | shasum -a 256 -c
+curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.8.0/rapira-v0.8.0-SHA256SUMS.txt
+grep rapira-v0.8.0-php8.5-macos-aarch64.tar.gz rapira-v0.8.0-SHA256SUMS.txt | shasum -a 256 -c
 ```
 
+:::
+
+## Docker
+
+`ghcr.io/rapira-rs/rapira` to obraz kontenera z binarką `rapira` i biblioteką `libphp.so`, pod którą została zbudowana. Obraz powstaje `FROM scratch`: nie ma w nim ani systemu bazowego, ani powłoki, ani entrypointa, więc sam z siebie nie ruszy. Jego zawartość kopiujesz do własnego obrazu:
+
+```dockerfile
+FROM php:8.5-cli-trixie
+COPY --from=ghcr.io/rapira-rs/rapira:php8.5 / /
+COPY . /app
+CMD ["rapira", "serve", "--listen", ":8000", "--mode", "classic", "/app/public/index.php"]
+```
+
+W obrazie leżą `/usr/local/bin/rapira`, `/usr/local/lib/libphp.so` i OPcache. Na PHP 8.4 OPcache jest osobnym `opcache.so` z własnym plikiem ini, a na PHP 8.5 jest wlinkowany w `libphp.so`. W `/usr/local/share/rapira` czekają jeszcze dwa pliki: `PHP_VERSION.txt` z wersją łatki dołączonej `libphp` oraz `debian-packages.txt` z pakietami Debiana, których `libphp` potrzebuje na obrazie bazowym bez PHP.
+
+`libphp.so` z obrazu pochodzi z oficjalnego obrazu bazowego PHP, na którym powstał build: `php:8.4-cli-trixie` albo `php:8.5-cli-trixie`. Niesie więc zestaw rozszerzeń tamtego obrazu, a nie zestaw `--disable-all` opisany w sekcji [Kompilacja libphp](#kompilacja-libphp). Kolejne rozszerzenia dokładasz na własnym obrazie bazowym: na obrazie z PHP skompilujesz je pod tę samą `libphp.so` przez `docker-php-ext-install`.
+
+::: question Dlaczego obraz powstaje `FROM scratch`?
+W obrazie scratch nie ma nic poza tym, co wkopiuje build, więc `COPY --from=ghcr.io/rapira-rs/rapira:php8.5 / /` bierze sam ładunek i nic więcej. Obraz bazowy zostaje twoim wyborem, a kopiowanie nie dokłada na niego drugiej dystrybucji.
+:::
+
+Każdy tag nazywa swoją wersję pomocniczą PHP, a tagi z tabeli niżej są wieloarchitekturowe: każdy obejmuje amd64 i arm64.
+
+| Tag | Na co wskazuje |
+| --- | --- |
+| `X.Y.Z-php8.4`, `X.Y.Z-php8.5` | Jeden build wydania. Ten tag nigdy się nie przesuwa. |
+| `X.Y-php8.4`, `X.Y-php8.5` | Najnowsze stabilne wydanie z wersją `X.Y`. |
+| `php8.4`, `php8.5` | Najnowsze stabilne wydanie. |
+| `nightly-php8.4`, `nightly-php8.5` | Najnowszy build nocny. |
+
+W rejestrze leżą też tagi jednoarchitekturowe, które build tworzy najpierw, na przykład `X.Y.Z-php8.5-amd64` i `X.Y.Z-php8.5-arm64`.
+
+Taga `latest` nie ma. Rapira wiąże struktury Zenda w czasie kompilacji i odmawia startu z `libphp.so` z innej wersji pomocniczej PHP, więc każdy tag musi nazywać wersję, którą niesie.
+
+::: question Na co wskazuje tag nocny?
+Każdy przebieg CI, który przejdzie na `main`, buduje obrazy na nowo z tego commita. Build dostaje niezmienny tag `X.Y.Z-nightly.<short-sha>-php8.5`, gdzie `X.Y.Z` to wersja, którą repozytorium akurat niesie, a `<short-sha>` to siedem pierwszych znaków commita. Ruchomy tag `nightly-php8.5` idzie za tym buildem. Rejestr trzyma dziesięć najnowszych buildów nocnych, a starsze kasuje.
 :::
 
 ## Kompilacja libphp
 
 `libphp` jest kompilowana z `--disable-all`, po czym z powrotem włączany jest stały zestaw rozszerzeń:
 
-- **Podstawa runtime'u** — session, filter, mbstring, iconv, ctype, tokenizer, fileinfo, phar.
+- **Podstawa runtime'u**: session, filter, mbstring, iconv, ctype, tokenizer, fileinfo, phar, posix.
 - **OPcache** oraz PCRE z włączonym JIT-em.
-- **Sieć i kompresja** — openssl, curl, zlib.
-- **XML** — libxml, dom, xml, simplexml, xmlreader, xmlwriter.
-- **Bazy danych** — PDO z `pdo_sqlite` oraz samo `sqlite3`.
-- Wszystko, co PHP wkompilowuje zawsze — Core, standard, SPL, date, json, hash, random, Reflection.
+- **Sieć i kompresja**: openssl, curl, zlib, sockets, ftp.
+- **XML**: libxml, dom, xml, simplexml, xmlreader, xmlwriter.
+- **Bazy danych**: PDO z `pdo_sqlite` oraz samo `sqlite3`.
+- **Pamięć współdzielona i System V IPC**: shmop, sysvmsg, sysvsem, sysvshm.
+- **Daty, metadane obrazów i tłumaczenia**: calendar, exif, gettext.
+- **Interfejs do funkcji zewnętrznych**: ffi.
+- Wszystko, co PHP wkompilowuje zawsze: Core, standard, SPL, date, json, hash, random, Reflection.
 
 Czego w niej *nie ma*: `pdo_mysql`, `pgsql`, redis, apcu, imagick i reszty z tej półki. Jeśli twoja aplikacja potrzebuje takiego rozszerzenia, skompiluj `libphp` razem z nim i zbuduj Rapirę pod tę bibliotekę — jak, opisuje strona [Budowanie ze źródeł](/pl/docs/intro/build-from-source).
 
@@ -190,7 +229,9 @@ PHP najpierw szuka `php-<nazwa-sapi>.ini`, a dopiero potem zwykłego `php.ini`, 
 
 ## Dystrybucja
 
-Buildy publikujemy w GitHub Releases i nigdzie indziej. Repozytorium dla apta ani yuma na razie nie ma, więc aktualizacja to pobranie nowego artefaktu i zainstalowanie go na miejscu starego, a nie `apt upgrade`. Pakiet zastępuje zainstalowany w miejscu; przy archiwum rozpakuj nowy katalog obok starego i przełącz dowiązanie — poprzednie drzewo zostaje na swoim miejscu, a wycofanie zmiany to jedno polecenie.
+Buildy publikujemy w dwóch miejscach: w GitHub Releases jako archiwa, pakiety i plik z sumami kontrolnymi oraz na `ghcr.io/rapira-rs/rapira` jako obrazy kontenerów. Repozytorium dla apta ani yuma na razie nie ma, więc aktualizacja to pobranie nowego artefaktu i zainstalowanie go na miejscu starego, a nie `apt upgrade`. Pakiet zastępuje zainstalowany w miejscu; przy archiwum rozpakuj nowy katalog obok starego i przełącz dowiązanie: poprzednie drzewo zostaje na swoim miejscu, a wycofanie zmiany to jedno polecenie.
+
+Obok wydań działa kanał nocny. Każdy przebieg CI, który przejdzie na `main`, publikuje nocne tagi kontenerów. Ten sam przebieg wrzuca też archiwa do kroczącego przedwydania `nightly` w GitHub Releases. Na commicie wydania ten krok jest pomijany, bo build wydania publikuje te archiwa już przy samym wydaniu. Przedwydanie niesie wyłącznie archiwa i ich plik z sumami kontrolnymi: nie ma w nim ani `.deb`, ani `.rpm`. Build nocny jest buildem gałęzi `main`, a nie wydaniem.
 
 Build dla macOS działa **wyłącznie na Apple Silicon**, celuje w **macOS 14 i nowsze** i jest podpisany doraźnie: bez Developer ID, bez notaryzacji, więc przy pierwszym uruchomieniu macOS może poprosić o potwierdzenie. Wersji na Intela nie ma. Buildy dla Windowsa są publikowane osobno, w [rapira-rs/rapira-windows](https://github.com/rapira-rs/rapira-windows), i służą wyłącznie do lokalnego developmentu — w produkcji Rapira działa na Linuksie lub macOS.
 

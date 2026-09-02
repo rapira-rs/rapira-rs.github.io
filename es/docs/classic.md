@@ -19,10 +19,10 @@ La aplicación vuelve a arrancar en cada petición: autoloader, configuración, 
 
 Hay dos maneras de elegir el modo, y las dos hacen lo mismo:
 
-- `--classic` en la línea de comandos, junto al script de entrada.
-- `classic = true` en la sección `[pool]` de un `rapira.toml`.
+- `--mode classic` en la línea de comandos, junto al script de entrada.
+- `mode = "classic"` en la sección `[pool]` de un `rapira.toml`.
 
-La opción solo sirve para *activar* el modo: no existe `--no-classic`, así que un archivo de configuración con `classic = true` se queda en clásico diga lo que diga la línea de comandos. En todo lo demás manda la precedencia de siempre, en la que las opciones de línea de comandos ganan al archivo de configuración; la lista completa de claves está en la página de [configuración](/es/docs/configuration).
+`--mode` tiene prioridad sobre `pool.mode`, así que la línea de comandos elige el modo aunque el archivo de configuración indique otro. En todo lo demás manda la precedencia de siempre, en la que las opciones de línea de comandos ganan al archivo de configuración; la lista completa de claves está en la página de [configuración](/es/docs/configuration).
 
 Un script de entrada clásico es PHP normal:
 
@@ -39,13 +39,13 @@ Apunta Rapira hacia él de cualquiera de las dos formas:
 ::: code-group
 
 ```bash [CLI]
-rapira serve --classic public/index.php
+rapira serve --mode classic public/index.php
 ```
 
 ```toml [rapira.toml]
 [pool]
 entrypoint = "public/index.php"
-classic = true
+mode = "classic"
 ```
 
 :::
@@ -54,9 +54,9 @@ Con el archivo de configuración, el comando para arrancar es `rapira serve --co
 
 ## Script de entrada
 
-Rapira no traduce URLs a archivos del disco ni sirve nada del disco por su cuenta. Cada petición ejecuta el script de entrada que le indicaste, venga la ruta que venga, y la URL llega en `$_SERVER['REQUEST_URI']` para que la enrute tu aplicación.
+Rapira no traduce URLs a scripts PHP. Cada petición ejecuta el script de entrada que le indicaste, venga la ruta que venga, y la URL llega en `$_SERVER['REQUEST_URI']` para que la enrute tu aplicación. La única excepción es el [middleware de archivos estáticos](/es/docs/static-files): cuando está activado, puede responder a un `GET` o a un `HEAD` con un archivo que haya bajo su raíz. Toda petición que él no responda ejecuta el script de entrada.
 
-De ahí salen las variables CGI: `SCRIPT_FILENAME` es siempre el script de entrada, `SCRIPT_NAME` su nombre de archivo con una barra delante (`/index.php`) y `DOCUMENT_ROOT` el directorio donde está. Los archivos estáticos necesitan algo por delante de Rapira: una CDN o el proxy inverso que monta la página de [puesta en producción](/es/docs/deployment).
+De ahí salen las variables CGI: `SCRIPT_FILENAME` es siempre el script de entrada, `SCRIPT_NAME` su nombre de archivo con una barra delante (`/index.php`) y `DOCUMENT_ROOT` el directorio donde está. Una CDN o un proxy inverso por delante de Rapira también pueden servir los archivos estáticos en su lugar. La página de [puesta en producción](/es/docs/deployment) monta un proxy de esos.
 
 ## OPcache
 
@@ -65,9 +65,9 @@ Ejecutar desde cero reinicia el estado de tu aplicación, no el bytecode compila
 El pool de procesos en sí es el mismo en los dos modos: el maestro hace fork de los workers y cada worker atiende una petición cada vez, así que la concurrencia sale del número de procesos. Consulta la página de [modelo de procesos](/es/docs/process-model) para más información sobre el proceso maestro y sus workers.
 
 ::: info
-`Rapira\create_plugin_handler()` lanza una `Rapira\RapiraException` en modo clásico: *plugin handlers require worker mode*. No hay ningún bucle residente al que entregarle un handler, porque el script termina cuando termina la petición. Los scripts de worker son cosa del modo [SAPI Worker](/es/docs/worker).
+`Rapira\handle_request()` lanza `Rapira\Exception\NotInWorkerModeError` en modo clásico. El script termina cuando termina la petición, así que no hay ningún bucle al que entregarle un handler. Los scripts de worker son cosa del modo [Worker](/es/docs/worker).
 :::
 
-## Elegir entre Classic y SAPI Worker
+## Elegir entre Classic y Worker
 
-Usa el modo clásico cuando el estado de tu aplicación no sobreviva a una segunda petición —código antiguo, un framework que se filtra en propiedades estáticas, una biblioteca de terceros que no controlas— o cuando estés migrando desde php-fpm y prefieras cambiar una cosa cada vez. Usa el modo [SAPI Worker](/es/docs/worker) cuando tu código aguante un proceso que no muere y quieras quitar de en medio el arranque de cada petición. La página de [modos de ejecución](/es/docs/execution-modes) describe los cuatro modos, de los que Classic y SAPI Worker son los disponibles hoy.
+Usa el modo clásico cuando el estado de tu aplicación no sobreviva a una segunda petición: código antiguo, un framework que se filtra en propiedades estáticas o una biblioteca de terceros que no controlas. Úsalo también cuando estés migrando desde php-fpm y prefieras cambiar una cosa cada vez. Usa el modo [Worker](/es/docs/worker) cuando tu código aguante un proceso que no muere. El modo worker quita de en medio el arranque de cada petición. La página de [modos de ejecución](/es/docs/execution-modes) describe los tres modos.

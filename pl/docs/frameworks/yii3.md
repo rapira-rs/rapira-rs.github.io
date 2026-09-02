@@ -9,7 +9,7 @@ Yii3 jest zaprojektowany do pracy w procesie, który nie kończy się po żądan
 
 ::: info Sprawdzone na
 - **PHP 8.5.8** — NTS, embed SAPI
-- **Rapira 0.6.0**
+- **Rapira 0.8.0**
 - szablon **yiisoft/app** 1.4, z **yii-runner-http 3.2.1** (router-fastroute 4.x)
 
 Oba skrypty workera z tej strony uruchomiliśmy na tym stosie i oba przeszły pełen zestaw testów: routing, generowane adresy URL, POST-y z formularza i z ciałem JSON, sesje, przesyłanie plików, obsługę błędów oraz 200 kolejnych żądań.
@@ -42,11 +42,8 @@ To wariant zalecany. Zapisz go jako `worker.php` w katalogu głównym projektu:
 declare(strict_types=1);
 
 use App\Environment;
-use Rapira\Plugin\Http\HttpHandlerConfig;
 use Yiisoft\Di\StateResetter;
 use Yiisoft\Yii\Runner\Http\HttpApplicationRunner;
-
-use function Rapira\create_plugin_handler;
 
 require_once __DIR__ . '/vendor/autoload.php';
 require_once __DIR__ . '/src/bootstrap.php';
@@ -59,8 +56,6 @@ $runner = new HttpApplicationRunner(
 );
 $container = $runner->getContainer();
 
-$http = create_plugin_handler(new HttpHandlerConfig());
-
 $handler = static function () use ($runner, $container): void {
     try {
         $runner->run();
@@ -71,7 +66,7 @@ $handler = static function () use ($runner, $container): void {
     }
 };
 
-while ($http->handleRequest($handler)) {
+while (\Rapira\handle_request($handler)) {
     gc_collect_cycles();
 }
 ```
@@ -102,15 +97,10 @@ Po kolei:
 declare(strict_types=1);
 
 use App\Environment;
-use Rapira\Plugin\Http\HttpHandlerConfig;
 use Yiisoft\Yii\Runner\Http\HttpApplicationRunner;
-
-use function Rapira\create_plugin_handler;
 
 require_once __DIR__ . '/vendor/autoload.php';
 require_once __DIR__ . '/src/bootstrap.php';
-
-$http = create_plugin_handler(new HttpHandlerConfig());
 
 $handler = static function (): void {
     // A fresh runner per request; constructor arguments mirror public/index.php.
@@ -123,7 +113,7 @@ $handler = static function (): void {
     $runner->run();
 };
 
-while ($http->handleRequest($handler)) {
+while (\Rapira\handle_request($handler)) {
     gc_collect_cycles();
 }
 ```
@@ -139,10 +129,10 @@ Używaj rezydentnego runnera, chyba że masz powód, żeby tego nie robić: to r
 ## Jak to uruchomić
 
 ```bash
-rapira serve worker.php
+rapira serve --mode worker worker.php
 ```
 
-Tryb workera jest domyślny, więc żadna flaga nie jest potrzebna. Pozostałe flagi znajdziesz w [Wierszu poleceń](/pl/docs/cli).
+`--mode worker` wybiera tryb Worker. Pozostałe flagi znajdziesz w [Wierszu poleceń](/pl/docs/cli).
 
 Na produkcji przenieś to do pliku `rapira.toml`:
 
@@ -152,6 +142,7 @@ listen = "127.0.0.1:8000"
 
 [pool]
 entrypoint = "/srv/app/worker.php"
+mode = "worker"
 processes = 8
 max_requests = 500
 request_terminate_timeout_secs = 30
@@ -186,7 +177,7 @@ Szablon aplikacji wstawia `CsrfTokenMiddleware` do domyślnego łańcucha middle
 Yii3 działa też jako zwykły front controller:
 
 ```bash
-rapira serve --classic public/index.php
+rapira serve --mode classic public/index.php
 ```
 
 Ten sam kod, żadnego skryptu workera, świeży stan przy każdym żądaniu. Więcej informacji znajdziesz w [Trybie klasycznym](/pl/docs/classic).

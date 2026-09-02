@@ -9,7 +9,7 @@ Rapira runs Laravel in classic mode: the stock `public/index.php` front controll
 
 ::: info Verified with
 - **PHP 8.5.8** — NTS, embed SAPI
-- **Rapira 0.6.0**
+- **Rapira 0.8.0**
 - **laravel/laravel** skeleton with **laravel/framework v13.23.0**
 
 Everything on this page was run against a `laravel/laravel` skeleton with a handful of test routes added, in classic mode with a single worker process: routing, sessions, uploads, JSON and form bodies, cached config and routes, error responses, and 50 sequential requests.
@@ -28,13 +28,13 @@ Classic mode is opt-in, so the command names it:
 ::: code-group
 
 ```bash [CLI]
-rapira serve --classic public/index.php
+rapira serve --mode classic public/index.php
 ```
 
 ```toml [rapira.toml]
 [pool]
 entrypoint = "public/index.php"
-classic = true
+mode = "classic"
 processes = 4
 
 [http]
@@ -56,9 +56,9 @@ php artisan route:cache
 
 ## Routing and URLs
 
-Rapira does not map URLs onto files: every request runs the front controller, and `$_SERVER['REQUEST_URI']` carries the path for Laravel to route. Routing, Laravel's own 404 page for unmatched paths, and `url()` generation were all verified — generated URLs are clean absolute URLs with no `index.php` in them, with no `$_SERVER` overrides and no route or URL configuration changes.
+Rapira does not map URLs onto PHP scripts. Every request runs the front controller, and `$_SERVER['REQUEST_URI']` carries the path for Laravel to route. When the [static file middleware](/docs/static-files) is enabled, it answers the requests it can serve from a file, and every other request runs the front controller. Routing, Laravel's own 404 page for unmatched paths, and `url()` generation were all verified: generated URLs are clean absolute URLs with no `index.php` in them, with no `$_SERVER` overrides and no route or URL configuration changes.
 
-The skeleton's built-in `/up` health route answers `200`, so it works as the target for a load balancer or container health check. Static assets need something in front of Rapira — a CDN, or the reverse proxy the [deployment](/docs/deployment) page sets up. Rapira's listener speaks plain HTTP and leaves `$_SERVER['HTTPS']` empty regardless of `X-Forwarded-Proto`, so when that proxy terminates TLS, configure Laravel's [trusted proxies](https://laravel.com/docs/requests#configuring-trusted-proxies) — otherwise `url()` generates `http://` links.
+The skeleton's built-in `/up` health route answers `200`, so it works as the target for a load balancer or container health check. Rapira serves the skeleton's assets with the [static file middleware](/docs/static-files). Enable it with both halves: list `"static"` in `http.middleware`, and set `root` in `[http.static]` to the application's `public/` directory. Rapira refuses to boot when one half is present without the other. A CDN or a reverse proxy in front can still serve the assets instead. Rapira's listener speaks plain HTTP and leaves `$_SERVER['HTTPS']` empty regardless of `X-Forwarded-Proto`. When the proxy terminates TLS, configure Laravel's [trusted proxies](https://laravel.com/docs/requests#configuring-trusted-proxies). Without that configuration, `url()` generates `http://` links.
 
 ## Sessions, CSRF and forms
 
@@ -70,6 +70,6 @@ Worker mode for Laravel is under development and not yet supported — run Larav
 
 The reason is the framework's lifecycle. Laravel's container is not designed to survive a second request without help: bindings get resolved, singletons capture the current request, and the framework's statics fill up as the request runs, so all of it has to be unwound before the next request arrives. That unwinding is what [Octane](https://laravel.com/docs/octane) (`laravel/octane`), Laravel's own package for long-running servers, implements. Octane runs only on servers it has a driver for, and Rapira has no Octane driver yet.
 
-The mode itself is not the blocker: [Symfony](/docs/frameworks/symfony) and [Yii3](/docs/frameworks/yii3) keep their applications resident in the same [SAPI Worker](/docs/worker) mode. What is missing is the Laravel-specific state handling between requests.
+The mode itself is not the blocker: [Symfony](/docs/frameworks/symfony) and [Yii3](/docs/frameworks/yii3) keep their applications resident in the same [Worker](/docs/worker) mode. What is missing is the Laravel-specific state handling between requests.
 
 You can write your own worker script for Laravel, but keeping the application resident means rebuilding Octane's state handling by hand: the state to unwind is spread across the container, resolved singletons, the request/session/auth stack and the framework's own statics, and a missed one shows up as a stale request object or one user's session visible to the next.

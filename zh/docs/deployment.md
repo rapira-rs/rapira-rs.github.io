@@ -5,9 +5,11 @@ description: "如何在服务器上运行 Rapira：systemd unit、配置布局�
 
 # 生产环境部署
 
-在服务器上运行 Rapira，需要本地那条 `rapira serve app/worker.php` 用不到的东西：开机自启、崩溃之后能自己回来、上了新代码能重载而不丢请求，以及事后能读的日志。本页讲的是一份 systemd unit、一个放配置的位置、前面挡一层代理，以及给常驻 worker 划定边界的那几项设置。
+在服务器上运行 Rapira，需要本地那条 `rapira serve --mode worker app/worker.php` 用不到的东西：开机自启、崩溃之后能自己回来、上了新代码能重载而不丢请求，以及事后能读的日志。本页讲的是一份 systemd unit、一个放配置的位置、前面挡一层代理，以及给常驻 worker 划定边界的那几项设置。
 
 这里几乎没有一样东西是编译进二进制的。Rapira 不依赖配置放在哪里，也不依赖由什么来监管进程，所以下面这套布局只是本页立的一个约定，文档其余部分都按它来写。先把二进制装到机器上——这一步见[安装](/zh/docs/intro/installation)。
+
+Rapira 同时也以容器镜像的形式发布在 `ghcr.io/rapira-rs/rapira`，用 `COPY --from` 就能把它拷进你自己的镜像。改用容器之后，下面这份 systemd unit 由容器运行时的重启策略顶替；本页讲的配置布局、前置代理、日志格式和进程池设置，则一条都不用改。更多内容见 [Docker](/zh/docs/intro/installation#docker)。
 
 ## 一份 systemd unit
 
@@ -79,6 +81,8 @@ listen = "127.0.0.1:8000"
 Unix socket 建出来是 `0666`，也就是说本机上任何能进到这个目录的进程都可以连上来，直接把请求发给你的应用。这个权限 Rapira 没有对应的设置项，所以谁能碰到这个 socket，只由目录本身的权限决定。如果这一点要紧，那就去限制目录：在上面那份 unit 里加上 `RuntimeDirectoryMode=0750`，再配一个代理用户所属的 `Group=`，`/run/rapira` 就把其他人挡在了外面。
 
 转发字段送到 Rapira 时必须用普通的 `-` 写法——`X-Forwarded-For`，绝不能写成 `X_Forwarded_For`。下划线和点号的写法会压到和正规写法同一个 `$_SERVER` 键上，客户端正是借这一手覆盖掉代理刚设好的值，所以 Rapira 会在 PHP 看到之前把它们摘掉。这套映射，以及管着它的 `http.unsafe_field_names` 设置项，都在 [HTTP](/zh/docs/http) 那一页。
+
+开启[静态文件中间件](/zh/docs/static-files)之后，静态资源由 Rapira 自己提供，代理那边不必再放一份文档根目录的副本。前面挡一层代理或者一层 CDN 来提供这些资源，依旧是可选项。
 
 ## 不中断服务的部署
 

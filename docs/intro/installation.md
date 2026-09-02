@@ -48,7 +48,7 @@ Everything is on the [GitHub releases page](https://github.com/rapira-rs/rapira/
 
 On Linux, take a package if you want the files where your distribution expects them and `apt` or `dnf` to pull in the shared libraries PHP needs; take a tarball if the server has to fit into one self-contained directory — a container image, a deploy artifact, a machine where you have no root.
 
-Check either one against `rapira-v0.6.0-SHA256SUMS.txt` before installing — the commands are in [Verifying checksums](#verifying-checksums).
+Check either one against `rapira-v0.8.0-SHA256SUMS.txt` before installing — the commands are in [Verifying checksums](#verifying-checksums).
 
 ::: question Why verify the checksum before installing?
 `.deb` and `.rpm` run their maintainer scripts as root, so a tampered file gets root before you ever start the server. The check is one command and takes that risk away.
@@ -59,8 +59,8 @@ Check either one against `rapira-v0.6.0-SHA256SUMS.txt` before installing — th
 Download the `.deb` and install it through `apt`, giving it a path:
 
 ```bash
-curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-php8.5_0.6.0-1_amd64.deb
-sudo apt install ./rapira-php8.5_0.6.0-1_amd64.deb
+curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.8.0/rapira-php8.5_0.8.0-1_amd64.deb
+sudo apt install ./rapira-php8.5_0.8.0-1_amd64.deb
 rapira --version
 ```
 
@@ -81,8 +81,8 @@ Four: the `/usr/bin/rapira` binary, the `/usr/lib/rapira/libphp.so` interpreter,
 The same thing, through `dnf`:
 
 ```bash
-curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-php8.5-0.6.0-1.x86_64.rpm
-sudo dnf install ./rapira-php8.5-0.6.0-1.x86_64.rpm
+curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.8.0/rapira-php8.5-0.8.0-1.x86_64.rpm
+sudo dnf install ./rapira-php8.5-0.8.0-1.x86_64.rpm
 rapira --version
 ```
 
@@ -93,7 +93,7 @@ The same glibc 2.34 floor sets the minimum: **RHEL 9** and its rebuilds — Rock
 A tarball unpacks into a single directory that holds the whole server:
 
 ```text
-rapira-v0.6.0-php8.5-linux-x86_64/
+rapira-v0.8.0-php8.5-linux-x86_64/
 ├── bin/rapira
 ├── lib/rapira/libphp.so
 ├── share/php/PHP_VERSION.txt
@@ -106,17 +106,17 @@ Move the directory where it is going to live, and put the binary on `PATH` throu
 ::: code-group
 
 ```bash [Linux]
-curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-v0.6.0-php8.5-linux-x86_64.tar.gz
-tar xzf rapira-v0.6.0-php8.5-linux-x86_64.tar.gz
-sudo mv rapira-v0.6.0-php8.5-linux-x86_64 /opt/rapira
+curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.8.0/rapira-v0.8.0-php8.5-linux-x86_64.tar.gz
+tar xzf rapira-v0.8.0-php8.5-linux-x86_64.tar.gz
+sudo mv rapira-v0.8.0-php8.5-linux-x86_64 /opt/rapira
 sudo ln -s /opt/rapira/bin/rapira /usr/local/bin/rapira
 rapira --version
 ```
 
 ```bash [macOS]
-curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-v0.6.0-php8.5-macos-aarch64.tar.gz
-tar xzf rapira-v0.6.0-php8.5-macos-aarch64.tar.gz
-sudo mv rapira-v0.6.0-php8.5-macos-aarch64 /opt/rapira
+curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.8.0/rapira-v0.8.0-php8.5-macos-aarch64.tar.gz
+tar xzf rapira-v0.8.0-php8.5-macos-aarch64.tar.gz
+sudo mv rapira-v0.8.0-php8.5-macos-aarch64 /opt/rapira
 sudo ln -s /opt/rapira/bin/rapira /usr/local/bin/rapira
 rapira --version
 ```
@@ -142,27 +142,66 @@ Each release has one checksum file covering all of its files, so verification ha
 ::: code-group
 
 ```bash [Linux]
-curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-v0.6.0-SHA256SUMS.txt
-sha256sum -c --ignore-missing rapira-v0.6.0-SHA256SUMS.txt
+curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.8.0/rapira-v0.8.0-SHA256SUMS.txt
+sha256sum -c --ignore-missing rapira-v0.8.0-SHA256SUMS.txt
 ```
 
 ```bash [macOS]
-curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-v0.6.0-SHA256SUMS.txt
-grep rapira-v0.6.0-php8.5-macos-aarch64.tar.gz rapira-v0.6.0-SHA256SUMS.txt | shasum -a 256 -c
+curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.8.0/rapira-v0.8.0-SHA256SUMS.txt
+grep rapira-v0.8.0-php8.5-macos-aarch64.tar.gz rapira-v0.8.0-SHA256SUMS.txt | shasum -a 256 -c
 ```
 
+:::
+
+## Docker
+
+`ghcr.io/rapira-rs/rapira` is a container image that holds the `rapira` binary and the `libphp.so` it was built against. The image is built `FROM scratch`: it carries no base system, no shell and no entrypoint, so it does not run on its own. Copy its content into your own image:
+
+```dockerfile
+FROM php:8.5-cli-trixie
+COPY --from=ghcr.io/rapira-rs/rapira:php8.5 / /
+COPY . /app
+CMD ["rapira", "serve", "--listen", ":8000", "--mode", "classic", "/app/public/index.php"]
+```
+
+The image carries `/usr/local/bin/rapira`, `/usr/local/lib/libphp.so` and OPcache. On PHP 8.4 OPcache is a separate `opcache.so` with its ini file; on PHP 8.5 it is linked into `libphp.so`. Two more files sit in `/usr/local/share/rapira`: `PHP_VERSION.txt`, the patch version of the bundled `libphp`, and `debian-packages.txt`, the Debian packages that `libphp` needs on a base image without PHP.
+
+The `libphp.so` in the image comes from the official PHP base image that the build used: `php:8.4-cli-trixie` or `php:8.5-cli-trixie`. It carries the extension set of that image, not the `--disable-all` set that [The libphp build](#the-libphp-build) describes. You add more extensions on your own base image: on a PHP base image, `docker-php-ext-install` compiles them against the same `libphp.so`.
+
+::: question Why is the image built `FROM scratch`?
+A scratch image holds nothing but what the build copies into it, so `COPY --from=ghcr.io/rapira-rs/rapira:php8.5 / /` takes the payload and nothing else. The base image stays your choice, and the copy puts no second distribution on top of it.
+:::
+
+Every tag names its PHP minor version, and the tags below are multi-arch: each one covers amd64 and arm64.
+
+| Tag | What it points at |
+| --- | --- |
+| `X.Y.Z-php8.4`, `X.Y.Z-php8.5` | One release build. The tag never moves. |
+| `X.Y-php8.4`, `X.Y-php8.5` | The newest stable release with that `X.Y` version. |
+| `php8.4`, `php8.5` | The newest stable release. |
+| `nightly-php8.4`, `nightly-php8.5` | The newest nightly build. |
+
+The registry also holds the single-arch tags that the build makes first, such as `X.Y.Z-php8.5-amd64` and `X.Y.Z-php8.5-arm64`.
+
+There is no `latest` tag. Rapira binds the Zend structures at build time and refuses to start against a `libphp.so` from another PHP minor version, so every tag has to name the minor version it carries.
+
+::: question What does a nightly tag point at?
+Every CI run that passes on `main` builds the images again from that commit. The build gets an immutable `X.Y.Z-nightly.<short-sha>-php8.5` tag, where `X.Y.Z` is the version the repository currently carries and `<short-sha>` is the first seven characters of the commit. The moving `nightly-php8.5` tag then follows that build. The registry keeps the ten newest nightly builds and deletes the older ones.
 :::
 
 ## The libphp build
 
 `libphp` is built with `--disable-all`, with a fixed set of extensions turned back on:
 
-- **Runtime basics** — session, filter, mbstring, iconv, ctype, tokenizer, fileinfo, phar.
+- **Runtime basics**: session, filter, mbstring, iconv, ctype, tokenizer, fileinfo, phar, posix.
 - **OPcache** and PCRE with JIT enabled.
-- **Networking and compression** — openssl, curl, zlib.
-- **XML** — libxml, dom, xml, simplexml, xmlreader, xmlwriter.
-- **Databases** — PDO with `pdo_sqlite`, and `sqlite3` itself.
-- Everything PHP always builds in — Core, standard, SPL, date, json, hash, random, Reflection.
+- **Networking and compression**: openssl, curl, zlib, sockets, ftp.
+- **XML**: libxml, dom, xml, simplexml, xmlreader, xmlwriter.
+- **Databases**: PDO with `pdo_sqlite`, and `sqlite3` itself.
+- **Shared memory and System V IPC**: shmop, sysvmsg, sysvsem, sysvshm.
+- **Dates, image metadata and translations**: calendar, exif, gettext.
+- **Foreign function interface**: ffi.
+- Everything PHP always builds in: Core, standard, SPL, date, json, hash, random, Reflection.
 
 What it does *not* have: `pdo_mysql`, `pgsql`, redis, apcu, imagick and the rest of that list. If your application needs one of those, build `libphp` with it and compile Rapira against that library — [Build from source](/docs/intro/build-from-source) describes how.
 
@@ -190,7 +229,9 @@ PHP looks for `php-<sapi-name>.ini` first and only then for a plain `php.ini`, a
 
 ## Distribution
 
-Builds are published on GitHub Releases and nowhere else. There is no apt or yum repository yet, so upgrading means downloading the new artifact and installing it over the old one rather than running `apt upgrade`. A package replaces the installed one in place; with a tarball, unpack the new directory next to the old one and move the symlink — the previous tree stays where it is, and a rollback is one command.
+Builds are published in two places: on GitHub Releases as tarballs, packages and a checksum file, and on `ghcr.io/rapira-rs/rapira` as container images. There is no apt or yum repository yet, so upgrading means downloading the new artifact and installing it over the old one rather than running `apt upgrade`. A package replaces the installed one in place; with a tarball, unpack the new directory next to the old one and move the symlink: the previous tree stays where it is, and a rollback is one command.
+
+A nightly channel runs beside the releases. Every CI run that passes on `main` publishes the nightly container tags. The same run also uploads tarballs to the rolling `nightly` prerelease on GitHub Releases. It skips that upload on a release commit, because the release build already publishes those tarballs on the release itself. The prerelease carries the tarballs and their checksum file only: it has no `.deb` and no `.rpm`. A nightly build is a build of `main`, not a release.
 
 The macOS build is **Apple Silicon only**, targets **macOS 14 and newer**, and is ad-hoc signed: no Developer ID, no notarization, so macOS may ask you to confirm the first run. There is no Intel build. Windows builds are published separately, in [rapira-rs/rapira-windows](https://github.com/rapira-rs/rapira-windows), and are meant for local development only — in production Rapira runs on Linux or macOS.
 

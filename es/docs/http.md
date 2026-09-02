@@ -1,17 +1,33 @@
 ---
 title: Peticiones y respuestas HTTP
-description: "Cómo convierte Rapira una petición HTTP en superglobales de PHP, y la respuesta de PHP en bytes que salen por la red: correspondencia de nombres de campo, campos repetidos, límites del cuerpo, búfer y rapira_finish_request()."
+description: "Cómo convierte Rapira una petición HTTP en superglobales de PHP, y la respuesta de PHP en bytes que salen por la red: correspondencia de nombres de campo, campos repetidos, límites del cuerpo, delimitación de la respuesta y rapira_finish_request()."
+faqLevel: 2
 ---
 
 # Peticiones y respuestas HTTP
 
-El frontal HTTP de Rapira está construido sobre [Pingora](https://github.com/cloudflare/pingora) y viene dentro del binario. Acepta conexiones en el socket que abrió el proceso maestro, parsea la petición, se la entrega a PHP y devuelve lo que PHP haya producido. No hay ningún upstream detrás: cada petición se responde aquí mismo, con tu código.
+El frontal HTTP es el componente de Rapira que convierte la conexión de un cliente en una petición de PHP, y la respuesta de PHP en bytes que salen por la red. Está construido sobre la biblioteca [hyper](https://hyper.rs) y viene dentro del binario. Termina conexiones HTTP/1.1 y HTTP/1.0. Acepta conexiones en el socket que abrió el proceso maestro, parsea la petición, se la entrega a PHP y devuelve lo que PHP haya producido. No hay ningún upstream detrás: no se hace proxy de nada y cada petición se responde aquí mismo. Un middleware por delante de PHP puede responder una petición por su cuenta, y así es como se sirven los [archivos estáticos](/es/docs/static-files).
 
-Esta página cubre las partes donde la traducción entre HTTP y PHP no es uno a uno: qué campo de cabecera acaba en qué clave de `$_SERVER`, qué pasa cuando un cliente manda el mismo campo dos veces, cuánto puede ocupar el cuerpo de una petición y cómo se delimita tu respuesta al salir.
+Esta página cubre las partes donde la traducción entre HTTP y PHP no es uno a uno: qué rechaza el frontal antes de que PHP se ejecute, qué campo de cabecera acaba en qué clave de `$_SERVER`, qué pasa cuando un cliente manda el mismo campo dos veces, cuánto puede ocupar el cuerpo de una petición y cómo se delimita tu respuesta al salir.
 
 ::: info
 El frontal termina conexiones HTTP en claro. Si necesitas TLS, termínalo en un proxy delante de Rapira: mira [En producción](/es/docs/deployment).
 :::
+
+## Admisión de peticiones
+
+El frontal revisa cada petición antes de que PHP se ejecute. A una petición que no supera una comprobación la responde el frontal, y PHP no llega a verla.
+
+A una petición `CONNECT` se le responde `501`: el frontal no implementa túneles.
+
+Se acepta un objetivo de petición en forma absoluta, por ejemplo `GET http://host.example/admin?x=1 HTTP/1.1`. La autoridad que va en el objetivo sustituye al campo `Host`, y antes se le quita la parte de userinfo, de modo que `$_SERVER['HTTP_HOST']` no puede contradecir al objetivo. PHP ve en `$_SERVER['REQUEST_URI']` la ruta y la cadena de consulta en forma de origen.
+
+`http.keepalive_timeout_secs` acota todas las lecturas del cliente. Cierra una conexión keep-alive que está ociosa y acota también la lectura de la cabecera de la petición. A un cuerpo de petición que no avanza en ese tiempo se le responde `408`, y la conexión se cierra. Por defecto son 60 segundos.
+
+```toml
+[http]
+keepalive_timeout_secs = 60
+```
 
 ## Del nombre de una cabecera a una clave de `$_SERVER`
 
@@ -78,9 +94,13 @@ max_body_size_mb = 8
 
 ## Cómo sale la respuesta
 
-Todo lo que escribe PHP se acumula en un búfer hasta que termina la petición, y solo entonces sale la cabecera de la respuesta por la red. Para eso está el búfer: el servidor sabe la longitud exacta del cuerpo, así que puede mandar un `Content-Length` de verdad. Sin un cuerpo delimitado, HTTP/1.1 tiene que recurrir a delimitar por cierre de conexión —la respuesta acaba cuando acaba la conexión—, lo que significa una conexión nueva por cada petición. Con un `Content-Length`, el keep-alive funciona y la conexión se mantiene viva.
+El frontal no acumula el cuerpo de la respuesta en ningún búfer. Escribe la cabecera de la respuesta en cuanto PHP la fija, y cada trozo del cuerpo según PHP lo va produciendo. Cuándo los produce PHP lo decide el modo. En los modos Classic y Worker, PHP retiene la respuesta entera y se la pasa al frontal cuando termina la petición, o antes si el script llama a `rapira_finish_request()`. En modo Dispatcher, PHP le pasa al frontal la cabecera y cada trozo del cuerpo según los va escribiendo el código.
 
-Delimitar el cuerpo es, por tanto, tarea del servidor y no de PHP. Un `Content-Length` o un `Transfer-Encoding` que ponga tu código se descarta y se sustituye por lo que mida de verdad el cuerpo acumulado, de modo que una longitud caducada nunca pueda desincronizar la conexión. Las respuestas que por definición no llevan cuerpo —`204` y `304`— no reciben ningún `Content-Length`.
+Delimitar el cuerpo es tarea del servidor y no de PHP. Un `Transfer-Encoding` que ponga tu código se descarta. Un `Content-Length` que ponga tu código se quita de las líneas de campo, de modo que una longitud caducada nunca pueda desincronizar la conexión. En los modos Classic y Worker, el frontal declara después la longitud del cuerpo que produjo PHP. En modo Dispatcher, el `Content-Length` de la cabecera que escribes es la longitud que declara la respuesta: el frontal manda esa longitud y va descontando de ella el cuerpo. Un cuerpo más corto que la longitud declarada termina la conexión, y uno más largo se corta a esa longitud.
+
+A una respuesta que no declara ninguna longitud la delimita el frontal: un cliente HTTP/1.1 recibe la codificación de transferencia chunked, y un cliente HTTP/1.0, un cuerpo delimitado por el cierre de la conexión.
+
+Las respuestas que por definición no llevan cuerpo, `204` y `304`, no reciben ningún `Content-Length`. La respuesta a una petición `HEAD` se trata igual: el frontal manda la cabecera sin `Content-Length` y sin un solo byte de cuerpo.
 
 Los campos salto a salto pertenecen a una conexión concreta y no a la respuesta, así que PHP tampoco los pone ([RFC 9110 §7.6.1](https://www.rfc-editor.org/rfc/rfc9110#section-7.6.1)). Estos se eliminan de lo que haya emitido tu código:
 
@@ -90,11 +110,21 @@ Y si PHP manda una cabecera `Connection`, también se eliminan los campos que no
 
 Todo lo demás pasa tal y como lo escribió PHP, repeticiones incluidas: `Set-Cookie`, `Vary` y `Link` pueden aparecer legítimamente varias veces y se mandan todas. Una cabecera que no hay forma de representar en la red se descarta con una línea de registro en lugar de tumbar la respuesta, así que el resto de la respuesta se envía igualmente.
 
+Una cabecera de respuesta provisional (1xx) que venga de PHP se descarta, y los trailers de PHP también: el frontal no reenvía ni una cosa ni la otra. El `100 Continue` de una petición con `Expect` no es una cabecera provisional de PHP; esa la escribe el frontal por su cuenta.
+
+Una respuesta truncada corta la conexión sin un cierre limpio. Una respuesta queda truncada cuando el worker muere antes de que acabe el cuerpo, cuando el cuerpo es más corto que la longitud que declaró PHP, o cuando un error fatal o una excepción sin capturar termina el script después de haber escrito salida. El cliente lee entonces un mensaje incompleto, así que puede darse cuenta de que la respuesta se quedó a medias.
+
+Una respuesta de error que escribe el propio frontal lleva `cache-control: private, no-store` y `connection: close`, y no tiene cuerpo. El `413` de un cuerpo demasiado grande y el `501` de un `CONNECT` son respuestas de ese tipo.
+
+::: question ¿Por qué es el frontal, y no PHP, quien pone los campos de delimitación?
+A una respuesta la delimitan los bytes que el frontal pone en la red. El frontal toma la longitud que declara la respuesta y va descontando de ella el cuerpo. Un cuerpo más corto que la longitud declarada termina la conexión, así que el cliente no puede leer la respuesta siguiente como si fuera la cola de esta. Un `Content-Length` puesto como una cabecera cualquiera se saltaría esa cuenta, y por eso se quita.
+:::
+
 ## Terminar la respuesta antes de tiempo
 
 A un handler le suele quedar trabajo una vez que la respuesta está lista: un webhook que disparar, una entrada de cola que escribir, una caché que calentar. El cliente no tiene por qué esperar a eso.
 
-`rapira_finish_request()` cierra la respuesta en ese punto. Se vacía la salida acumulada, la respuesta pasa al frontal y sale hacia el cliente, y tu handler sigue ejecutándose con el cliente ya con la respuesta entera en la mano. Es el mismo contrato que `fastcgi_finish_request()`, así que el código escrito para php-fpm se comporta como siempre:
+`rapira_finish_request()` cierra la respuesta en ese punto. Los búferes de salida de PHP se vuelcan en la respuesta, esta pasa al frontal y sale hacia el cliente, y tu handler sigue ejecutándose con el cliente ya con la respuesta entera en la mano. Es el mismo contrato que `fastcgi_finish_request()`, así que el código escrito para php-fpm se comporta como siempre:
 
 ```php
 <?php

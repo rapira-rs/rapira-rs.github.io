@@ -5,9 +5,11 @@ description: "Jak uruchomić Rapirę na serwerze: jednostka systemd, układ konf
 
 # Wdrożenie produkcyjne
 
-Uruchomienie Rapiry na serwerze wymaga tego, bez czego lokalne `rapira serve app/worker.php` się obywa: startu przy rozruchu maszyny, powrotu po awarii, przeładowania nowego kodu bez gubienia żądań i logów, które da się potem przeczytać. Ta strona opisuje jednostkę systemd, miejsce na konfigurację, proxy z przodu i ustawienia, które wyznaczają granice długowiecznym workerom.
+Uruchomienie Rapiry na serwerze wymaga tego, bez czego lokalne `rapira serve --mode worker app/worker.php` się obywa: startu przy rozruchu maszyny, powrotu po awarii, przeładowania nowego kodu bez gubienia żądań i logów, które da się potem przeczytać. Ta strona opisuje jednostkę systemd, miejsce na konfigurację, proxy z przodu i ustawienia, które wyznaczają granice długowiecznym workerom.
 
 Prawie nic z tego nie jest wkompilowane w binarkę. Nic w Rapirze nie zależy od tego, gdzie leży twoja konfiguracja ani co pilnuje procesu, więc układ opisany niżej to konwencja, którą ustala ta strona i którą przyjmuje reszta dokumentacji. Najpierw wgraj binarkę na maszynę — tym zajmuje się [Instalacja](/pl/docs/intro/installation).
+
+Rapira wychodzi też jako obraz kontenera w `ghcr.io/rapira-rs/rapira`, który przekopiujesz do własnego obrazu przez `COPY --from`. W kontenerze miejsce poniższej jednostki systemd zajmuje polityka restartów twojego runtime'u kontenerowego; układ konfiguracji, proxy, format logów i ustawienia puli z tej strony zostają bez zmian. Więcej informacji znajdziesz w sekcji [Docker](/pl/docs/intro/installation#docker).
 
 ## Jednostka systemd
 
@@ -79,6 +81,8 @@ listen = "127.0.0.1:8000"
 Gniazdo uniksowe powstaje z prawami `0666`, więc połączy się z nim każdy lokalny proces, który ma dostęp do katalogu z gniazdem, i wyśle żądania prosto do twojej aplikacji. Rapira nie ma ustawienia, którym dałoby się te prawa zmienić, więc dostęp do gniazda ograniczają wyłącznie prawa samego katalogu. Jeśli to dla ciebie istotne, ogranicz sam katalog: w jednostce wyżej `RuntimeDirectoryMode=0750` i `Group=`, do której należy użytkownik proxy, zamykają `/run/rapira` przed wszystkimi innymi.
 
 Pola przekazywane dalej muszą docierać do Rapiry w zwykłej pisowni z `-` — `X-Forwarded-For`, nigdy `X_Forwarded_For`. Wersje z podkreśleniem i z kropką lądują pod tym samym kluczem `$_SERVER` co ta prawidłowa, a to właśnie tędy klient mógłby nadpisać to, co przed chwilą ustawiło twoje proxy — dlatego Rapira wycina je, zanim PHP je zobaczy. Mapowanie nazw i sterujące nim ustawienie `http.unsafe_field_names` opisuje [strona o HTTP](/pl/docs/http).
+
+Zasoby statyczne Rapira potrafi serwować sama, gdy włączysz [middleware plików statycznych](/pl/docs/static-files), więc proxy nie musi trzymać drugiej kopii katalogu z zasobami. Proxy albo CDN przed serwerem nadal pozostaje opcją.
 
 ## Wdrożenia bez przestoju
 

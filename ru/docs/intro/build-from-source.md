@@ -102,8 +102,8 @@ PHP_CONFIG=$HOME/.local/php-nts/bin/php-config cargo build --release
 Во время работы Rapira подгружает `libphp.so` (на macOS — `libphp.dylib`) динамически. Если библиотека лежит в стандартном месте, делать ничего не нужно; если нет — укажите загрузчику путь к ней:
 
 ```bash
-LD_LIBRARY_PATH="$HOME/.local/php-nts/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ./target/release/rapira serve worker.php         # Linux
-DYLD_LIBRARY_PATH="$HOME/.local/php-nts/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" ./target/release/rapira serve worker.php   # macOS
+LD_LIBRARY_PATH="$HOME/.local/php-nts/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ./target/release/rapira serve --mode worker worker.php         # Linux
+DYLD_LIBRARY_PATH="$HOME/.local/php-nts/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" ./target/release/rapira serve --mode worker worker.php   # macOS
 ```
 
 В результате получается тот же сервер, что ставится из пакетов: [Быстрый старт](/ru/docs/intro/quickstart) проведёт через первый скрипт, [Командная строка](/ru/docs/cli) перечисляет всё, что принимает `serve`, а [Конфигурация](/ru/docs/configuration) разбирает `rapira.toml`.

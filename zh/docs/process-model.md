@@ -1,13 +1,13 @@
 ---
 title: 进程模型
-description: "Rapira 如何运行 PHP——单线程的 master 绑定套接字、只启动一次 PHP，然后 fork 出 worker。进程池模式、worker 回收、重载，以及完整的信号对照表。"
+description: "Rapira 如何运行 PHP：单线程的 master 绑定套接字、只启动一次 PHP，然后 fork 出 worker。进程池伸缩、worker 回收、重载，以及完整的信号对照表。"
 ---
 
 # 进程模型
 
 Rapira 以一个 master 进程加一池 worker 的形式运行。凡是全局只能有一份的东西——监听套接字、PHP 引擎映像、pidfile——都归 master 持有，备齐之后它就 fork；请求则由 worker 处理。请求从来不需要在进程之间倒手：worker *就是* master 的副本，是在 PHP 已经起来之后 fork 出来的，各自直接从套接字上取走自己的连接。
 
-无论运行 [Classic](/zh/docs/classic) 模式还是 [SAPI Worker](/zh/docs/worker) 模式，这套结构都一样。[执行模式](/zh/docs/execution-modes)决定的是每个请求进了 worker 之后怎么走；至于进程池怎么搭起来、怎么被看管、怎么重载，跟它无关。
+无论运行[经典模式](/zh/docs/classic)、[Worker 模式](/zh/docs/worker)还是 Dispatcher 模式，这套结构都一样。执行模式由 `pool.mode` 设定，它决定的是每个请求进了 worker 之后怎么走；至于进程池怎么搭起来、怎么被看管、怎么重载，跟它无关。更多内容见[执行模式](/zh/docs/execution-modes)。
 
 ## master 与 worker
 
@@ -33,7 +33,7 @@ flowchart TB
   S -. accept .-> W3
 ```
 
-每个 worker 在自己的异步 HTTP 运行时背后跑一个 NTS PHP 解释器，并在继承来的套接字上 accept。进程池前面没有调度器：所有 worker 都停在同一个套接字的 `accept()` 上，进来的每条连接由内核交给其中恰好一个。
+每个 worker 在自己的异步 HTTP 栈背后跑一个 NTS PHP 解释器。这个栈就是 hyper，跑在一个私有的 tokio 运行时上，配两个运行时线程。worker 在继承来的套接字上 accept。没有任何进程负责把连接派给 worker：所有 worker 都停在同一个套接字的 `accept()` 上，进来的每条连接由内核交给其中恰好一个。
 
 master 从不处理请求，它压根就没有 HTTP 栈——只是一个单线程，阻塞在 self-pipe 的 `poll(2)` 上，等信号、等子进程退出、等自己的定时器；在 `ondemand` 模式下还要等监听套接字变为可读。这个进程必须活下来，好把其他一切重新拉起，所以它自己要做的事越少越好。
 
@@ -52,11 +52,11 @@ master 还在整个生命周期里持有 PHP 模块，也只有它会去关闭�
 - **伸缩。** `dynamic` 下，同一个 tick 还负责决定是多 fork 几个 worker 还是退掉几个空闲的；`ondemand` 下它只退掉空闲超时的 worker——那里 fork 是由到来的连接触发的。详见下文。
 - **反方向的一根管道。** 每个 worker 都握着一根管道的读端，而 master 永远不往里写。master 一死，管道就 EOF，每个 worker 随即自行排空退出——所以对 master 来一发 `kill -9`，也不会留下孤儿 worker 占着端口。
 
-## 进程池模式
+## 进程池伸缩
 
-`pool.mode` 决定进程池怎么给自己定规模。三种模式下真正说了算的都是 `pool.processes`——在 `static` 下它是准确的进程数，在另外两种下是上限——默认值为每个逻辑 CPU 一个 worker。
+`pool.scaling` 决定进程池怎么给自己定规模。它和设定 worker 内部执行模式的 `pool.mode` 是两个不同的键。三种伸缩策略下真正说了算的都是 `pool.processes`：在 `static` 下它是准确的进程数，在另外两种下是上限，默认值为每个逻辑 CPU 一个 worker。
 
-| 模式 | 有多少个 worker | 生效的键 |
+| 伸缩策略 | 有多少个 worker | 生效的键 |
 | --- | --- | --- |
 | `static`（默认） | 正好 `pool.processes` 个，启动时 fork 出来，之后一直维持这个数。 | `processes` |
 | `dynamic` | 需求要多少就多少，上限是 `pool.processes`；master 把*空闲*数量控制在备用区间之内。 | `min_spare`, `max_spare` |
@@ -68,15 +68,15 @@ master 还在整个生命周期里持有 PHP 模块，也只有它会去关闭�
 
 ```toml
 [pool]
-mode = "dynamic"
+scaling = "dynamic"
 processes = 8
 min_spare = 1
 max_spare = 3
 ```
 
-这几个边界必须满足 `1 <= min_spare <= max_spare <= processes`；它们在 `dynamic` 下是必填的，在另外两种模式下则会被拒绝——写错地方是配置错误，而不是一个被悄悄忽略的键。
+这几个边界必须满足 `1 <= min_spare <= max_spare <= processes`；它们在 `dynamic` 下是必填的，在另外两种策略下则会被拒绝。写错地方是配置错误，而不是一个被悄悄忽略的键。
 
-**`ondemand`** 启动时什么都不 fork。这时改由 master 自己盯着监听套接字：连接来了却没有空闲 worker 接手，它就 fork 一个，让子进程去 accept。空闲时间超过 `pool.process_idle_timeout_secs` 的 worker 会被再次退掉。这样一来空闲的进程池不占用任何资源，但安静一阵之后的第一个请求要等一次 fork——预发布环境和访问稀少的站点用 `ondemand`，稳定流量下用另外两种模式之一。
+**`ondemand`** 启动时什么都不 fork。这时改由 master 自己盯着监听套接字：连接来了却没有空闲 worker 接手，它就 fork 一个，让子进程去 accept。空闲时间超过 `pool.process_idle_timeout_secs` 的 worker 会被再次退掉。这样一来空闲的进程池不占用任何资源，但安静一阵之后的第一个请求要等一次 fork。预发布环境和访问稀少的站点用 `ondemand`，稳定流量下用另外两种策略之一。
 
 完整的键参考在[配置](/zh/docs/configuration)那一页。
 
@@ -114,7 +114,7 @@ kill -TERM $(cat /run/rapira.pid)   # graceful stop
 
 `SIGUSR2`（或者 `SIGHUP`）会把整个进程池换成一批全新的 worker——常驻 worker 里那个已经启动好的应用，就是这样被丢掉、再照着部署上去的代码重新搭起来的。
 
-Classic 模式下，入口脚本每个请求都从头执行一遍，没有常驻的东西需要替换，新代码不重载也能生效；但要是你设了 `opcache.validate_timestamps = 0`，master 里的那份 OPcache 段会一直返回旧的 opcode，直到完整重启。SAPI Worker 模式下，应用只启动一次并一直待在内存里，所以部署上去的代码要等一次滚动重载才生效——把它写进部署流程的一步。更多内容见[部署](/zh/docs/deployment)。
+经典模式下，入口脚本每个请求都从头执行一遍，没有常驻的东西需要替换，所以新代码不重载也能生效。要是你设了 `opcache.validate_timestamps = 0`，master 里的那份 OPcache 段会一直返回旧的 opcode，直到完整重启。Worker 模式和 Dispatcher 模式下，应用只启动一次并一直待在内存里，所以部署上去的代码要等一次滚动重载才生效，把它写进部署流程的一步。更多内容见[部署](/zh/docs/deployment)。
 
 重载期间服务能力一刻也不会掉下去，因为它是叠着来的，而不是先停后起：master 先起一个新 worker，等它真的开始 accept 了，才去排空一个旧 worker。旧的走掉之后，它的槽位交给下一个新 worker，就这样一路把这一代换完。每次排空走的都是和停止时一样的 `SIGQUIT` → `SIGTERM` → `SIGKILL` 升级流程，受同一个控制超时约束，只不过作用在那一个 worker 身上。
 

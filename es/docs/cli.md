@@ -34,19 +34,19 @@ Todo lo que no toques por ninguna de las dos vías cae en los valores por defect
 | `--config <PATH>` | ninguno          | Carga los ajustes de un `rapira.toml`.                                                           |
 | `--listen <ADDR>` | `127.0.0.1:8000` | Dirección de escucha: `host:port`, `:port` (todas las interfaces) o `unix:<path>`.                |
 | `--processes <N>` | número de CPU    | Procesos worker que se crean con fork.                                                           |
-| `--classic`       | desactivado      | Vuelve a ejecutar el script desde cero en cada petición en lugar de mantenerlo residente.        |
+| `--mode <MODE>`   | `dispatcher`     | Modo de ejecución: `classic`, `worker` o `dispatcher`. Tiene prioridad sobre el `pool.mode` del archivo de configuración. |
 | `SCRIPT`          | obligatorio*     | El script PHP de entrada. Tiene prioridad sobre el `pool.entrypoint` del archivo de configuración. |
 
 \* Obligatorio salvo que el archivo de configuración defina `pool.entrypoint`. Si no hay ninguno de los dos, `serve` informa del error y no arranca.
 
 **`--listen`** admite tres formas. `127.0.0.1:8000`, la de por defecto, escucha en una sola interfaz —solo loopback—, así que nada de fuera de la máquina puede alcanzarla. `:8080` es la forma corta de `0.0.0.0:8080`: todas las interfaces IPv4, que es lo habitual dentro de un contenedor; para IPv6 escribe `[::]:8080`. `unix:/run/rapira.sock` abre un socket Unix en lugar de un puerto, pensado para un proxy inverso en la misma máquina. Los literales IPv6 van entre corchetes: `[::1]:8000`. Un puerto a secas *no* es una dirección y se rechaza, porque no dice si hay que escuchar solo en loopback o en todas las interfaces: `--listen 8080` da error, escribe `--listen :8080` o `--listen 127.0.0.1:8080`. Y el host tiene que ser un literal IP, porque los nombres no se resuelven nunca: `--listen localhost:8000` también da error; escribe `--listen 127.0.0.1:8000`.
 
-**`--processes`** vale por defecto el número de CPU lógicas. Con el pool estático de fábrica, ese es exactamente el número de procesos worker que se crean con fork; si el archivo de configuración pasa el pool a `dynamic` o a `ondemand`, ese mismo número se convierte en el techo hasta el que escalan esos modos. Qué hacen en realidad los workers y el proceso maestro lo tienes en [Modelo de procesos](/es/docs/process-model).
+**`--processes`** vale por defecto el número de CPU lógicas. Con el `pool.scaling = "static"` de fábrica, ese es exactamente el número de procesos worker que se crean con fork; si el archivo de configuración pone `pool.scaling` en `dynamic` o en `ondemand`, ese mismo número se convierte en el techo hasta el que escalan esas políticas. Qué hacen en realidad los workers y el proceso maestro lo tienes en [Modelo de procesos](/es/docs/process-model).
 
-**`--classic`** elige el modo en el que corre la aplicación. Sin ella, el script de entrada se carga una vez y se queda residente: ese es el modo [SAPI Worker](/es/docs/worker). Con ella, el script se vuelve a incluir en cada petición, exactamente igual que haría php-fpm: ese es el modo [Classic](/es/docs/classic). Si no tienes claro cuál puede usar tu aplicación, [Modos de ejecución](/es/docs/execution-modes) describe los cuatro modos.
+**`--mode`** elige el modo en el que corre la aplicación. `dispatcher` es el valor por defecto: un script residente le va pidiendo cada petición al host. `worker` mantiene residente el script de entrada y ejecuta un handler por cada petición. `classic` ejecuta el script de entrada desde cero en cada petición, igual que haría php-fpm. La opción lleva valor, así que puede elegir cualquiera de los tres modos diga lo que diga el archivo de configuración. Tienes más información en [Modo clásico](/es/docs/classic), [Modo worker](/es/docs/worker) y [Modos de ejecución](/es/docs/execution-modes).
 
 ::: info
-`--classic` es un interruptor que solo enciende. No existe ningún `--no-classic`, así que un `classic = true` en el archivo de configuración no se puede desactivar desde la línea de comandos: quita la clave del archivo.
+`pool.scaling` y `pool.mode` son claves distintas. `pool.scaling` fija la política que dimensiona el pool. `pool.processes` fija el número de workers al que esa política se aplica, y `--processes` tiene prioridad sobre él. `pool.mode` fija qué hace un worker con cada petición. `pool.scaling` no tiene opción de línea de comandos: se pone en el archivo de configuración.
 :::
 
 ## Resolución del script de entrada
@@ -70,19 +70,22 @@ Con eso en `/etc/rapira/rapira.toml`, el script de entrada es `/etc/rapira/publi
 Invocaciones habituales:
 
 ```bash
-rapira serve app/worker.php
-rapira serve --classic public/index.php
-rapira serve --listen :8080 --processes 8 app/worker.php
-rapira serve --listen unix:/run/rapira.sock app/worker.php
+rapira serve app/dispatcher.php
+rapira serve --mode worker app/worker.php
+rapira serve --mode classic public/index.php
+rapira serve --listen :8080 --processes 8 app/dispatcher.php
+rapira serve --listen unix:/run/rapira.sock app/dispatcher.php
 rapira serve --config /etc/rapira/rapira.toml
 rapira serve --config /etc/rapira/rapira.toml --listen 127.0.0.1:9000
 ```
 
-El primer comando no lleva `--listen`, así que el servidor levanta en la dirección por defecto y mandarle una petición es una línea más. En [Inicio rápido](/es/docs/intro/quickstart) encontrarás un script worker con el que probar ese comando.
+El primer comando no lleva `--listen`, así que el servidor levanta en la dirección por defecto. Con una línea más ya le mandas una petición.
 
 ```bash
 curl http://127.0.0.1:8000/
 ```
+
+En [Inicio rápido](/es/docs/intro/quickstart) tienes los scripts de entrada de los comandos `--mode classic` y `--mode worker`. Para un script de entrada de Dispatcher, coge `dispatcher-sync.php` o `dispatcher-async.php` del directorio [`examples/`](https://github.com/rapira-rs/rapira/tree/main/examples) del repositorio.
 
 ## Parar el servidor
 

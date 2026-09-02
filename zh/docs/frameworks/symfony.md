@@ -9,7 +9,7 @@ Symfony 的结构适合常驻 worker：一个由你启动的内核，一个你�
 
 ::: info 验证环境
 - **PHP 8.5.8**——NTS、embed SAPI
-- **Rapira 0.6.0**
+- **Rapira 0.8.0**
 - **Symfony 7.4**（`symfony/framework-bundle` v7.4.15）——`dev` 和 `prod` 下都跑了整套测试
 - **Symfony 8.1**（`symfony/framework-bundle` v8.1.2）——`dev` 下跑了整套测试
 
@@ -18,7 +18,7 @@ Symfony 的结构适合常驻 worker：一个由你启动的内核，一个你�
 
 ## worker 模式下的行为
 
-内核在脚本最上面、循环之外启动，随后伴随 worker 进程一直常驻：自动加载器、编译好的容器、路由器、事件分发器，以及你那些 bundle 打开的每一条连接，都只搭建一次，而不是每个请求搭一次。这正是 [SAPI Worker 模式](/zh/docs/worker)提供的；更多内容见[执行模式](/zh/docs/execution-modes)。
+内核在脚本最上面、循环之外启动，随后伴随 worker 进程一直常驻：自动加载器、编译好的容器、路由器、事件分发器，以及你那些 bundle 打开的每一条连接，都只搭建一次，而不是每个请求搭一次。这正是 [Worker 模式](/zh/docs/worker)提供的；更多内容见[执行模式](/zh/docs/execution-modes)。
 
 每个请求里，handler 做四件事，然后收尾：
 
@@ -43,7 +43,7 @@ session 就是原生的 PHP session，和在 php-fpm 下完全一样：每个请
 
 ## worker 脚本
 
-把下面这段原样存成项目根目录下的 `worker.php`。两个大版本上通过验证的就是这个文件，一字不差：
+把下面这段原样存成项目根目录下的 `worker.php`。两个大版本上通过验证的就是这个脚本，这里按当前的 worker API 做了更新：
 
 ```php
 <?php
@@ -51,11 +51,8 @@ session 就是原生的 PHP session，和在 php-fpm 下完全一样：每个请
 declare(strict_types=1);
 
 use App\Kernel;
-use Rapira\Plugin\Http\HttpHandlerConfig;
 use Symfony\Component\Dotenv\Dotenv;
 use Symfony\Component\HttpFoundation\Request;
-
-use function Rapira\create_plugin_handler;
 
 require __DIR__ . '/vendor/autoload.php';
 
@@ -65,8 +62,6 @@ require __DIR__ . '/vendor/autoload.php';
 $kernel = new Kernel($_SERVER['APP_ENV'], (bool) $_SERVER['APP_DEBUG']);
 $kernel->boot();
 $container = $kernel->getContainer();
-
-$http = create_plugin_handler(new HttpHandlerConfig());
 
 $handler = static function () use ($kernel, $container): void {
     $request = Request::createFromGlobals();
@@ -87,7 +82,7 @@ $handler = static function () use ($kernel, $container): void {
     }
 };
 
-while ($http->handleRequest($handler)) {
+while (\Rapira\handle_request($handler)) {
     gc_collect_cycles();
 }
 ```
@@ -100,7 +95,7 @@ while ($http->handleRequest($handler)) {
 
 **先 `$container->has('services_resetter')` 再 `get()`。**服务 id `services_resetter` 在 7.4 和 8.1 里都是 public 的，同一个文件能在两边都跑起来靠的就是这一点——它背后的那个*类*在两个大版本之间换了命名空间（7.4 里是 `Symfony\Component\DependencyInjection\ServicesResetter`，8.1 里是 `Symfony\Component\HttpKernel\DependencyInjection\ServicesResetter`），而按 id 取服务，这个差别就消失了。`has()` 这道保险能让脚本碰上一个没定义该服务的容器时不至于致命错误。
 
-**循环和 `gc_collect_cycles()`。**`handleRequest()` 会一直阻塞到有请求上门，跑你的 handler，然后返回 `true`——服务器开始关闭时返回 `false`，循环也就到此为止。每转一圈回收一次循环引用，这份开销就固定落在两次请求之间，而不是某个请求处理到一半的时候。完整契约见 [Worker 模式](/zh/docs/worker)。
+**循环和 `gc_collect_cycles()`。**`\Rapira\handle_request()` 会一直阻塞到有请求上门，跑你的 handler，然后返回 `true`；worker 开始排空时它返回 `false`，循环也就到此为止。每转一圈回收一次循环引用，这份开销就固定落在两次请求之间，而不是某个请求处理到一半的时候。完整契约见 [Worker 模式](/zh/docs/worker)。
 
 如果 resetter 还不够用，那还有两个更重的手段：`$container->reset()` 会把所有已经实例化的服务统统清掉，`$kernel->reboot(null)` 则直接扔掉容器重建一个——之后 handler 捕获的那个 `$container` 就失效了，真走这条路的话记得用 `$kernel->getContainer()` 重新取一次。两者都会丢掉 worker 模式带来的那份热状态，所以它们是排查泄漏时的手段，别当默认做法。
 
@@ -129,11 +124,11 @@ while ($http->handleRequest($handler)) {
 ## 跑起来
 
 ```bash
-rapira serve worker.php
+rapira serve --mode worker worker.php
 curl -i http://127.0.0.1:8000/
 ```
 
-worker 模式是默认的，`127.0.0.1:8000` 也是默认监听地址。`rapira serve` 停在前台运行，`Ctrl-C` 会让它把手上的请求跑完再退出。
+`--mode worker` 选定 Worker 模式，`127.0.0.1:8000` 是默认监听地址。`rapira serve` 停在前台运行，`Ctrl-C` 会让它把手上的请求跑完再退出。
 
 入口脚本叫 `worker.php` 而不是 `index.php`，于是 `$_SERVER['SCRIPT_NAME']` 是 `/worker.php`。Symfony 的 `Request` 会到 URI 开头去找这个名字，找不到，就把 base URL 降级成 `""`。`getPathInfo()` 返回真实路径，路由匹配得上，`generateUrl()` 生成的路径干干净净，哪儿也不会冒出 `/worker.php` 前缀。不需要覆盖 `$_SERVER`，也不需要为此调整 `Request::setTrustedProxies()`。
 
@@ -156,6 +151,7 @@ listen = "127.0.0.1:8000"
 
 [pool]
 entrypoint = "worker.php"
+mode = "worker"
 processes = 4
 max_requests = 500
 request_terminate_timeout_secs = 30
@@ -180,7 +176,7 @@ request_terminate_timeout_secs = 30
 `rapira serve` 跑在前台，而你的应用只启动一次，所以**改过的 PHP 代码要等 worker 被换掉之后才会生效**。正在改代码的时候，最省事的办法是把服务器停掉再起，或者干脆让前端控制器跑在[经典模式](/zh/docs/classic)下——那里脚本每次都从头执行，存一次盘就生效一次：
 
 ```bash
-rapira serve --classic public/index.php
+rapira serve --mode classic public/index.php
 ```
 
 还是同一个应用，只是跑在经典模式下：它每个请求都要启动一遍，所以改动立刻生效，代价是每个请求都得付一次完整的启动开销。至于已经在跑的生产服务器，让部署上去的代码接手而不中断连接的办法是滚动重载（给 master 发 `SIGUSR2`）——除非你开了 `opcache.validate_timestamps = 0`，那时 master 的 OPcache 段比整个进程池活得久，部署就得整个重启才行；见[进程模型](/zh/docs/process-model)和[生产环境部署](/zh/docs/deployment)。

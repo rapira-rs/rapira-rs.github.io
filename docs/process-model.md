@@ -1,13 +1,13 @@
 ---
 title: Process model
-description: How Rapira runs PHP — a single-threaded master binds the socket, boots PHP once and forks workers. Pool modes, recycling, restarts, and the full signal table.
+description: How Rapira runs PHP - a single-threaded master binds the socket, boots PHP once and forks workers. Pool scaling, recycling, restarts, and the full signal table.
 ---
 
 # Process model
 
 Rapira runs as one master process and a pool of workers. The master holds everything that must exist exactly once — the listening socket, the PHP engine image, the pidfile — and then it forks; the workers handle the requests. No request is ever handed from one process to another: the workers *are* copies of the master, forked once PHP was already up, and each of them takes its connections straight off the socket.
 
-This shape is the same whether you run [Classic](/docs/classic) or [SAPI Worker](/docs/worker) mode. The [execution mode](/docs/execution-modes) decides what happens inside a worker for each request; it does not change how the pool is built, supervised or reloaded.
+This shape is the same in [Classic](/docs/classic), [Worker](/docs/worker) and Dispatcher mode. The execution mode, set by `pool.mode`, decides what happens inside a worker for each request. It does not change how the pool is built, supervised or reloaded. See [Execution modes](/docs/execution-modes) for more information.
 
 ## Master and workers
 
@@ -33,7 +33,7 @@ flowchart TB
   S -. accept .-> W3
 ```
 
-Each worker runs one NTS PHP interpreter behind its own async HTTP runtime and accepts on the socket it inherited. There is no dispatcher in front of the pool: every worker is parked in `accept()` on the same socket, and the kernel hands each incoming connection to exactly one of them.
+Each worker runs one NTS PHP interpreter behind its own async HTTP stack. The stack is hyper on a private tokio runtime with two runtime threads. The worker accepts on the socket it inherited. No process routes connections to the workers: every worker is parked in `accept()` on the same socket, and the kernel hands each incoming connection to exactly one of them.
 
 The master never serves a request. It has no HTTP stack at all — it is a single thread blocked in `poll(2)` over a self-pipe, waiting for signals, child deaths and its own timers, and under `ondemand` also for a readable listen socket. The process that must survive to restart everything else does as little as possible.
 
@@ -52,11 +52,11 @@ Once the pool is up, the master runs a maintenance tick roughly once a second an
 - **Scaling.** Under `dynamic` the same tick decides whether to fork more workers or retire idle ones; under `ondemand` it only retires workers idle past their timeout — there a fork is triggered by an arriving connection. See below.
 - **A pipe in the other direction.** Every worker holds the read end of a pipe the master never writes to. If the master dies, the pipe hits EOF and each worker drains itself, so a `kill -9` on the master cannot leave orphaned workers holding the port.
 
-## Pool modes
+## Pool scaling
 
-`pool.mode` picks how the pool sizes itself. In every mode `pool.processes` is the number that matters — an exact count for `static`, a ceiling for the other two — and it defaults to one worker per logical CPU.
+`pool.scaling` picks how the pool sizes itself. It is a separate key from `pool.mode`, which sets the execution mode inside a worker. In every scaling policy `pool.processes` is the number that matters, an exact count for `static` and a ceiling for the other two, and it defaults to one worker per logical CPU.
 
-| Mode | How many workers | Keys that apply |
+| Scaling | How many workers | Keys that apply |
 | --- | --- | --- |
 | `static` (default) | Exactly `pool.processes`, forked at boot and kept at that number. | `processes` |
 | `dynamic` | As many as demand requires, up to `pool.processes`; the master keeps the *idle* count inside the spare band. | `min_spare`, `max_spare` |
@@ -68,15 +68,15 @@ Once the pool is up, the master runs a maintenance tick roughly once a second an
 
 ```toml
 [pool]
-mode = "dynamic"
+scaling = "dynamic"
 processes = 8
 min_spare = 1
 max_spare = 3
 ```
 
-The bounds must satisfy `1 <= min_spare <= max_spare <= processes`, and they are required under `dynamic` and rejected under the other modes — setting them elsewhere is a config error rather than a silently ignored key.
+The bounds must satisfy `1 <= min_spare <= max_spare <= processes`, and they are required under `dynamic` and rejected under the other policies. Setting them elsewhere is a config error rather than a silently ignored key.
 
-**`ondemand`** forks nothing at startup. Here the master watches the listen socket itself, and when a connection arrives with no idle worker to take it, it forks one and lets the child accept. A worker idle for longer than `pool.process_idle_timeout_secs` is retired again. An idle pool then uses nothing, but the first request after a quiet period waits for a fork — use `ondemand` for staging environments and rarely-hit sites, and one of the other modes under steady traffic.
+**`ondemand`** forks nothing at startup. Here the master watches the listen socket itself, and when a connection arrives with no idle worker to take it, it forks one and lets the child accept. A worker idle for longer than `pool.process_idle_timeout_secs` is retired again. An idle pool then uses nothing, but the first request after a quiet period waits for a fork. Use `ondemand` for staging environments and rarely-hit sites. Use one of the other policies under steady traffic.
 
 The full key reference lives on the [configuration](/docs/configuration) page.
 
@@ -114,7 +114,7 @@ A second `SIGTERM` or `SIGINT` skips the wait and forces the exit immediately.
 
 `SIGUSR2` (or `SIGHUP`) replaces the whole pool with fresh workers — which is how a resident worker's booted application gets thrown away and built again from the deployed code.
 
-In Classic mode the entry script is executed from scratch on every request, so there is nothing resident to replace and new code takes effect without a reload — unless you have set `opcache.validate_timestamps = 0`, in which case the master's OPcache segment keeps serving the old opcodes until a full restart. In SAPI Worker mode the application is booted once and stays in memory, so deployed code only takes effect after a rolling reload — make it a step of your deploy. See [deployment](/docs/deployment) for more information.
+In Classic mode the entry script is executed from scratch on every request. There is nothing resident to replace, so new code takes effect without a reload. If you set `opcache.validate_timestamps = 0`, the master's OPcache segment keeps serving the old opcodes until a full restart. In Worker and Dispatcher mode the application is booted once and stays in memory, so deployed code only takes effect after a rolling reload. Make it a step of your deploy. See [deployment](/docs/deployment) for more information.
 
 The reload never dips below your serving capacity, because it overlaps rather than restarts: the master starts one fresh worker, waits until that worker is actually accepting, and only then drains one old worker. When the old one is gone, its slot gets the next fresh worker, and so on down the generation. Each drain is the same graceful `SIGQUIT` → `SIGTERM` → `SIGKILL` escalation as a stop, bounded by the same control timeout, applied to that one worker.
 

@@ -9,7 +9,7 @@ Yii3 рассчитан на работу в процессе, который н
 
 ::: info Проверено на
 - **PHP 8.5.8** — NTS, embed SAPI.
-- **Rapira 0.6.0**.
+- **Rapira 0.8.0**.
 - Шаблон **yiisoft/app** 1.4 с **yii-runner-http 3.2.1** (router-fastroute 4.x).
 
 Оба скрипта воркера с этой страницы прогнаны на этом стеке и прошли весь набор проверок: маршрутизация, сгенерированные URL, отправка форм и JSON, сессии, загрузка файлов, обработка ошибок и 200 запросов подряд.
@@ -42,11 +42,8 @@ Yii3 рассчитан на работу в процессе, который н
 declare(strict_types=1);
 
 use App\Environment;
-use Rapira\Plugin\Http\HttpHandlerConfig;
 use Yiisoft\Di\StateResetter;
 use Yiisoft\Yii\Runner\Http\HttpApplicationRunner;
-
-use function Rapira\create_plugin_handler;
 
 require_once __DIR__ . '/vendor/autoload.php';
 require_once __DIR__ . '/src/bootstrap.php';
@@ -59,8 +56,6 @@ $runner = new HttpApplicationRunner(
 );
 $container = $runner->getContainer();
 
-$http = create_plugin_handler(new HttpHandlerConfig());
-
 $handler = static function () use ($runner, $container): void {
     try {
         $runner->run();
@@ -71,7 +66,7 @@ $handler = static function () use ($runner, $container): void {
     }
 };
 
-while ($http->handleRequest($handler)) {
+while (\Rapira\handle_request($handler)) {
     gc_collect_cycles();
 }
 ```
@@ -102,15 +97,10 @@ while ($http->handleRequest($handler)) {
 declare(strict_types=1);
 
 use App\Environment;
-use Rapira\Plugin\Http\HttpHandlerConfig;
 use Yiisoft\Yii\Runner\Http\HttpApplicationRunner;
-
-use function Rapira\create_plugin_handler;
 
 require_once __DIR__ . '/vendor/autoload.php';
 require_once __DIR__ . '/src/bootstrap.php';
-
-$http = create_plugin_handler(new HttpHandlerConfig());
 
 $handler = static function (): void {
     // A fresh runner per request; constructor arguments mirror public/index.php.
@@ -123,7 +113,7 @@ $handler = static function (): void {
     $runner->run();
 };
 
-while ($http->handleRequest($handler)) {
+while (\Rapira\handle_request($handler)) {
     gc_collect_cycles();
 }
 ```
@@ -139,10 +129,10 @@ while ($http->handleRequest($handler)) {
 ## Как это запустить
 
 ```bash
-rapira serve worker.php
+rapira serve --mode worker worker.php
 ```
 
-Режим воркера включён по умолчанию, поэтому флаг не нужен. Остальные флаги собраны в разделе [Командная строка](/ru/docs/cli).
+`--mode worker` включает режим воркера. Остальные флаги собраны в разделе [Командная строка](/ru/docs/cli).
 
 Для продакшена перенесите настройки в `rapira.toml`:
 
@@ -152,6 +142,7 @@ listen = "127.0.0.1:8000"
 
 [pool]
 entrypoint = "/srv/app/worker.php"
+mode = "worker"
 processes = 8
 max_requests = 500
 request_terminate_timeout_secs = 30
@@ -186,7 +177,7 @@ format = "json"
 Yii3 работает и обычным фронт-контроллером:
 
 ```bash
-rapira serve --classic public/index.php
+rapira serve --mode classic public/index.php
 ```
 
 Тот же код, никакого скрипта воркера, чистое состояние на каждый запрос. Подробности см. в разделе [Классический режим](/ru/docs/classic).

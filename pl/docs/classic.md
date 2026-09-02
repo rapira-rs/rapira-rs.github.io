@@ -19,10 +19,10 @@ Aplikacja startuje od nowa przy każdym żądaniu: autoloader, konfiguracja, kon
 
 Tryb wybierasz na dwa sposoby, oba dają ten sam efekt:
 
-- `--classic` w wierszu poleceń, obok skryptu wejściowego.
-- `classic = true` w sekcji `[pool]` pliku `rapira.toml`.
+- `--mode classic` w wierszu poleceń, obok skryptu wejściowego.
+- `mode = "classic"` w sekcji `[pool]` pliku `rapira.toml`.
 
-Flaga potrafi tryb wyłącznie *włączyć* — nie ma czegoś takiego jak `--no-classic`, więc jeśli plik konfiguracyjny ustawia `classic = true`, tryb klasyczny zostaje bez względu na to, co podasz w wierszu poleceń. Poza tym obowiązuje zwykłe pierwszeństwo: flagi wygrywają z plikiem konfiguracyjnym. Pełną listę kluczy znajdziesz w [Konfiguracji](/pl/docs/configuration).
+`--mode` nadpisuje `pool.mode`, więc to wiersz poleceń wybiera tryb, nawet jeśli plik konfiguracyjny nazywa inny. Poza tym obowiązuje zwykłe pierwszeństwo: flagi wygrywają z plikiem konfiguracyjnym. Pełną listę kluczy znajdziesz w [Konfiguracji](/pl/docs/configuration).
 
 Klasyczny skrypt wejściowy to zwykły PHP:
 
@@ -39,13 +39,13 @@ Skieruj na niego Rapirę jednym albo drugim sposobem:
 ::: code-group
 
 ```bash [CLI]
-rapira serve --classic public/index.php
+rapira serve --mode classic public/index.php
 ```
 
 ```toml [rapira.toml]
 [pool]
 entrypoint = "public/index.php"
-classic = true
+mode = "classic"
 ```
 
 :::
@@ -54,9 +54,9 @@ Z plikiem konfiguracyjnym serwer uruchamiasz poleceniem `rapira serve --config r
 
 ## Skrypt wejściowy
 
-Rapira nie mapuje adresów URL na pliki na dysku i sama z siebie niczego z dysku nie serwuje. Każde żądanie uruchamia wskazany przez ciebie skrypt wejściowy, niezależnie od ścieżki, a sam adres trafia do `$_SERVER['REQUEST_URI']` i to aplikacja decyduje, gdzie go skierować.
+Rapira nie mapuje adresów URL na skrypty PHP. Każde żądanie uruchamia wskazany przez ciebie skrypt wejściowy, niezależnie od ścieżki. Sam adres trafia do `$_SERVER['REQUEST_URI']`, a trasowaniem zajmuje się aplikacja. Jedyny wyjątek to [middleware plików statycznych](/pl/docs/static-files). Włączony, potrafi odpowiedzieć na `GET` albo `HEAD` plikiem spod swojego katalogu głównego. Każde żądanie, którego nie obsłuży, uruchamia skrypt wejściowy.
 
-Wynikają z tego wartości zmiennych CGI: `SCRIPT_FILENAME` to zawsze skrypt wejściowy, `SCRIPT_NAME` — jego nazwa pliku z ukośnikiem na początku (`/index.php`), a `DOCUMENT_ROOT` — katalog, w którym leży. Pliki statyczne potrzebują czegoś przed Rapirą: CDN-a albo reverse proxy, które stawia [Wdrożenie produkcyjne](/pl/docs/deployment).
+Wynikają z tego wartości zmiennych CGI: `SCRIPT_FILENAME` to zawsze skrypt wejściowy, `SCRIPT_NAME` — jego nazwa pliku z ukośnikiem na początku (`/index.php`), a `DOCUMENT_ROOT` — katalog, w którym leży. Zasoby statyczne może zamiast tego serwować CDN albo reverse proxy stojące przed Rapirą. Takie proxy stawia strona [Wdrożenie produkcyjne](/pl/docs/deployment).
 
 ## OPcache
 
@@ -65,9 +65,9 @@ Wykonanie od zera resetuje stan twojej aplikacji, a nie skompilowany bytecode. P
 Sama pula procesów wygląda tak samo w obu trybach: proces nadrzędny forkuje workery, a każdy worker obsługuje jedno żądanie naraz, więc współbieżność bierze się z ich liczby. Więcej o procesie nadrzędnym i jego workerach znajdziesz na stronie [model procesów](/pl/docs/process-model).
 
 ::: info
-W trybie klasycznym `Rapira\create_plugin_handler()` rzuca wyjątek `Rapira\RapiraException`: *plugin handlers require worker mode*. Nie ma tu rezydentnej pętli, której można by oddać handler, bo skrypt kończy się razem z żądaniem. Skrypty workera należą do trybu [SAPI Worker](/pl/docs/worker).
+W trybie klasycznym `Rapira\handle_request()` rzuca `Rapira\Exception\NotInWorkerModeError`. Skrypt kończy się razem z żądaniem, więc nie ma tu pętli, która mogłaby przyjąć handler. Skrypty workera należą do trybu [Worker](/pl/docs/worker).
 :::
 
-## Wybór między Classic a SAPI Worker
+## Wybór między Classic a Worker
 
-Użyj trybu klasycznego, gdy stan aplikacji nie przetrwa drugiego żądania — stary kod, framework wyciekający do statycznych pól, biblioteka z `vendor/`, na którą nie masz wpływu — albo gdy przesiadasz się z php-fpm i wolisz zmieniać po jednej rzeczy naraz. Użyj trybu [SAPI Worker](/pl/docs/worker), gdy kod zniesie proces, który nie umiera, i chcesz pozbyć się pracy startowej wykonywanej przy każdym żądaniu. Strona [Tryby wykonania](/pl/docs/execution-modes) opisuje wszystkie cztery tryby — dziś dostępne są Classic i SAPI Worker.
+Wybierz tryb klasyczny, gdy stan aplikacji nie przetrwa drugiego żądania: stary kod, framework wyciekający do statycznych pól albo biblioteka z `vendor/`, na którą nie masz wpływu. Wybierz go również wtedy, gdy przesiadasz się z php-fpm i wolisz zmieniać po jednej rzeczy naraz. Wybierz tryb [Worker](/pl/docs/worker), gdy kod zniesie proces, który nie umiera. Tryb Worker zdejmuje pracę rozruchową wykonywaną przy każdym żądaniu. Strona [Tryby wykonania](/pl/docs/execution-modes) opisuje wszystkie trzy tryby.

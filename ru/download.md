@@ -36,4 +36,6 @@ const labels = {
 </template>
 </DownloadBuilds>
 
+Контейнерные образы публикуются в `ghcr.io/rapira-rs/rapira`, а ночной канал держит скользящий предрелиз `nightly` с архивами и теги образов `nightly-php8.4` и `nightly-php8.5`. Выбор платформы выше перечисляет только файлы релизов. Подробнее — в разделе [Docker](/ru/docs/intro/installation#docker).
+
 Rapira также можно [собрать из исходников](/ru/docs/intro/build-from-source).

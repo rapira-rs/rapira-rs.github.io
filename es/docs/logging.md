@@ -33,7 +33,7 @@ level = "error"
 
 [log.targets]
 php = "debug"
-pingora_core = "warn"
+http = "warn"
 ```
 
 Cada clave nombra un target y sube o baja solo ese; todo lo demás se queda en `level`. La coincidencia es **por prefijo**, así que `php` cubre también `php_sys` y `php_sys::callbacks`: basta con el prefijo coincidente más corto y nunca hay que enumerar los submódulos uno a uno.
@@ -51,7 +51,7 @@ Estos son los targets bajo los que emite el propio Rapira:
 
 No hay registro de accesos: Rapira no escribe una línea por petición. Lo que el target `http` informa sobre los campos de una petición o de una respuesta está descrito en [HTTP](/es/docs/http).
 
-Las dependencias registran bajo su propia ruta de módulo —`pingora_core`, `tokio` y las demás— y se filtran exactamente igual. Cada entrada lleva el nombre de su target, así que a una dependencia ruidosa la callas copiando ese nombre en `[log.targets]`.
+Una dependencia que emite entradas de tracing registra bajo su propia ruta de módulo, y el filtrado por prefijo se le aplica igual. Cada entrada lleva el nombre de su target, así que a un target ruidoso lo callas copiando ese nombre en `[log.targets]`.
 
 ::: tip
 `master` es el target que hay que mirar cuando quieres entender por qué el pool se comporta como se comporta: los reinicios, las recargas y el escalado se registran todos ahí. Qué significa cada uno de esos eventos lo tienes en [Modelo de procesos](/es/docs/process-model).
@@ -107,7 +107,7 @@ El nivel es un caso del enum `\Rapira\LogLevel`, y cada caso se corresponde con 
 
 Si se omite el nivel, la entrada se escribe con `Info`. Como son los mismos niveles que en todo lo demás, `[log.targets]` y `RUST_LOG` filtran las entradas de la aplicación igual que las del propio servidor: `app = "debug"` en `[log.targets]` sube las entradas de la aplicación sin tocar nada a su alrededor.
 
-El array de contexto se serializa a JSON y se adjunta a la entrada en un campo `context`. Las claves se conservan tal cual y los arrays anidados mantienen su estructura:
+El array de contexto se serializa a JSON y se adjunta a la entrada en un campo `context`. Con el formato `json`, ese campo va dentro del objeto `fields` de la entrada. Las claves se conservan tal cual y los arrays anidados mantienen su estructura:
 
 ```php
 <?php
@@ -130,6 +130,8 @@ try {
 }
 ```
 
+`\Rapira\log()` no lanza nunca: si el `jsonSerialize()` de un valor del contexto lanza una excepción, la descarta, escribe ese valor como `null` y deja intactas las demás claves.
+
 Conviene conocer dos límites al decidir qué poner en un contexto. Un valor que JSON no puede representar —un recurso, un closure, `NAN` o `INF`, una cadena que no es UTF-8 válido— se sustituye por un marcador en lugar de costarte la entrada, así que las claves de alrededor sí llegan. Y el contexto no tiene límite de tamaño: un array grande o una cadena larga se serializan enteros y producen una entrada igual de grande, así que pasa identificadores en vez de los objetos que identifican.
 
 ## Formatos
@@ -149,22 +151,22 @@ Sale coloreado cuando stderr es un terminal y nunca cuando lo rediriges a un arc
 **`json`** está pensado para un recolector de registros: un objeto por línea:
 
 ```text
-{"timestamp":…,"level":"ERROR","message":…,"target":…}
+{"timestamp":…,"level":"ERROR","fields":{"message":…},"target":…}
 ```
 
-`timestamp` es RFC 3339 en UTC con milisegundos. Los saltos de línea dentro de un mensaje van escapados, así que una entrada ocupa siempre exactamente una línea, incluida una traza de pila de PHP de varias líneas. Las entradas que salen del motor de proxy incorporado traen además campos `log.*` con la procedencia de la llamada. La salida JSON no lleva color nunca, haya terminal o no.
+`timestamp` es RFC 3339 en UTC con milisegundos. El objeto `fields` lleva el mensaje y todos los demás campos de la entrada, como el `context` de una entrada de la aplicación. Los saltos de línea dentro de un mensaje van escapados, así que una entrada ocupa siempre exactamente una línea, incluida una traza de pila de PHP de varias líneas. La salida JSON no lleva color nunca, haya terminal o no.
 
 ## `RUST_LOG`
 
 `RUST_LOG` fija el filtro de registro desde el entorno, así que una sesión de depuración puntual no necesita editar la configuración:
 
 ```sh
-RUST_LOG=info rapira serve worker.php
-RUST_LOG=rapira=debug,php=info rapira serve worker.php
-RUST_LOG=warn,rapira=trace rapira serve worker.php
+RUST_LOG=info rapira serve --mode worker worker.php
+RUST_LOG=rapira=debug,php=info rapira serve --mode worker worker.php
+RUST_LOG=warn,rapira=trace rapira serve --mode worker worker.php
 ```
 
-La primera lo sube todo a `info`. La segunda apunta a dos sitios concretos: el target `rapira` en `debug` y PHP en `info`. La tercera calla a las dependencias en `warn` y sube el target `rapira` —arranque, vida de los workers, apagado— hasta `trace`. Los demás targets se nombran igual, cada uno por el suyo, así que añádelos cuando la pregunta esté en otra parte: `RUST_LOG=warn,rapira=trace,master=trace`.
+La primera lo sube todo a `info`. La segunda apunta a dos sitios concretos: el target `rapira` en `debug` y PHP en `info`. La tercera pone todos los targets en `warn` y luego sube el target `rapira` hasta `trace`; ese target cubre el arranque, la vida de los workers y el apagado. Los demás targets se nombran igual, cada uno por el suyo, así que añádelos cuando la pregunta esté en otra parte: `RUST_LOG=warn,rapira=trace,master=trace`.
 
 ::: warning
 Cuando `RUST_LOG` trae un valor no vacío, **reemplaza** por completo a `level` y a `[log.targets]`: el filtro entero, sin mezclas. Tus entradas de `[log.targets]` no quedan debajo como una capa de fondo; sencillamente no se consultan. Deja la variable sin definir (o vacía) para volver a lo que diga la configuración. A `format` no le afecta nunca.

@@ -128,14 +128,13 @@ echo (new App())->handle($_SERVER['REQUEST_URI']);
 <?php
 require __DIR__ . '/vendor/autoload.php';
 
-$http = create_plugin_handler(new HttpHandlerConfig());
 $app = new App(); // uruchamiany raz, obsługuje kolejne żądania
 
 $handler = static function () use ($app): void {
     echo $app->handle($_SERVER['REQUEST_URI']);
 };
 
-while ($http->handleRequest($handler)) {
+while (\Rapira\handle_request($handler)) {
 }
 ```
 
@@ -185,14 +184,13 @@ echo (new App())->handle($_SERVER['REQUEST_URI']);
 <?php
 require __DIR__ . '/vendor/autoload.php';
 
-$http = create_plugin_handler(new HttpHandlerConfig());
 $app = new App(); // uruchamiany raz, obsługuje kolejne żądania
 
 $handler = static function () use ($app): void {
     echo $app->handle($_SERVER['REQUEST_URI']);
 };
 
-while ($http->handleRequest($handler)) {
+while (\Rapira\handle_request($handler)) {
 }
 ```
 

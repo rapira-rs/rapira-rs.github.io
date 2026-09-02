@@ -34,19 +34,19 @@ Czego nie ustawisz nigdzie, to spadnie do wartości domyślnych z poniższej tab
 | `--config <PATH>` | brak             | Wczytuje ustawienia z pliku `rapira.toml`.                                                       |
 | `--listen <ADDR>` | `127.0.0.1:8000` | Adres nasłuchu: `host:port`, `:port` (wszystkie interfejsy) albo `unix:<path>`.                  |
 | `--processes <N>` | liczba CPU       | Ile procesów workerów sforkować.                                                                 |
-| `--classic`       | wyłączone        | Uruchamia skrypt od zera przy każdym żądaniu, zamiast trzymać go rezydentnie.                    |
+| `--mode <MODE>`   | `dispatcher`     | Tryb pracy: `classic`, `worker` albo `dispatcher`. Nadpisuje `pool.mode` z pliku konfiguracyjnego. |
 | `SCRIPT`          | wymagany*        | Skrypt wejściowy PHP. Nadpisuje `pool.entrypoint` z pliku konfiguracyjnego.                      |
 
 \* Wymagany, o ile plik konfiguracyjny nie ustawia `pool.entrypoint`. Gdy nie ma ani jednego, ani drugiego, `serve` zgłasza błąd i nie startuje.
 
 **`--listen`** przyjmuje trzy postacie. `127.0.0.1:8000` (domyślna) wiąże jeden interfejs — wyłącznie pętlę zwrotną, więc nic spoza maszyny się nie połączy. `:8080` to skrót od `0.0.0.0:8080`, czyli wszystkie interfejsy IPv4 — tak zwykle wiąże się serwer w kontenerze; dla IPv6 napisz `[::]:8080`. `unix:/run/rapira.sock` wiąże zamiast tego gniazdo uniksowe, pod reverse proxy na tej samej maszynie. Literały IPv6 zapisujesz w nawiasach kwadratowych: `[::1]:8000`. Sam numer portu *nie jest* adresem i zostanie odrzucony, bo nie mówi, czy wiązać tylko pętlę zwrotną, czy wszystkie interfejsy — `--listen 8080` to błąd, napisz `--listen :8080` albo `--listen 127.0.0.1:8080`. W części hostowej musi stać literał IP, bo nazwy hostów nigdy nie są rozwiązywane: `--listen localhost:8000` to błąd, napisz `--listen 127.0.0.1:8000`.
 
-**`--processes`** domyślnie przyjmuje liczbę logicznych CPU. Przy domyślnej puli statycznej dokładnie tyle procesów workerów zostanie sforkowanych; jeśli plik konfiguracyjny przełączy pulę na `dynamic` albo `ondemand`, ta sama liczba staje się sufitem, do którego te tryby się skalują. Co właściwie robią workery, a co proces master, opisuje [Model procesów](/pl/docs/process-model).
+**`--processes`** domyślnie przyjmuje liczbę logicznych CPU. Przy domyślnym `pool.scaling = "static"` dokładnie tyle procesów workerów zostanie sforkowanych; jeśli plik konfiguracyjny ustawi `pool.scaling` na `dynamic` albo `ondemand`, ta sama liczba staje się sufitem, do którego te polityki się skalują. Co właściwie robią workery, a co proces master, opisuje [Model procesów](/pl/docs/process-model).
 
-**`--classic`** wybiera tryb, w którym pracuje aplikacja. Bez niej skrypt wejściowy ładuje się raz i zostaje w pamięci — to tryb [SAPI Worker](/pl/docs/worker); z nią skrypt jest dołączany na nowo przy każdym żądaniu, dokładnie tak jak pod php-fpm — to tryb [Classic](/pl/docs/classic). Jeśli nie masz pewności, którego z nich może użyć twoja aplikacja, wszystkie cztery tryby opisują [Tryby wykonania](/pl/docs/execution-modes).
+**`--mode`** wybiera tryb pracy. Domyślny jest `dispatcher`: rezydentny skrypt sam pobiera kolejne żądania od Rapiry. `worker` trzyma skrypt wejściowy rezydentnie i przy każdym żądaniu uruchamia handler. `classic` wykonuje skrypt wejściowy od zera przy każdym żądaniu, tak jak pod php-fpm. Flaga przyjmuje wartość, więc wskaże dowolny tryb bez względu na to, co ustawia plik konfiguracyjny. Więcej informacji znajdziesz w [Trybie klasycznym](/pl/docs/classic), [Trybie workera](/pl/docs/worker) i [Trybach wykonania](/pl/docs/execution-modes).
 
 ::: info
-`--classic` to przełącznik, który potrafi tylko włączać. Nie ma `--no-classic`, więc wpisu `classic = true` w pliku konfiguracyjnym nie wyłączysz z wiersza poleceń — zamiast tego usuń ten klucz z pliku.
+`pool.scaling` i `pool.mode` to dwa różne klucze. `pool.scaling` wybiera politykę, która dobiera rozmiar puli. `pool.processes` podaje liczbę workerów, do której ta polityka się stosuje, a `--processes` ją nadpisuje. `pool.mode` decyduje o tym, co worker robi z żądaniem. `pool.scaling` nie ma własnej flagi. Ustaw go w pliku konfiguracyjnym.
 :::
 
 ## Rozwiązywanie ścieżki skryptu wejściowego
@@ -70,19 +70,22 @@ Gdy taki wpis leży w `/etc/rapira/rapira.toml`, skryptem wejściowym jest `/etc
 Typowe wywołania:
 
 ```bash
-rapira serve app/worker.php
-rapira serve --classic public/index.php
-rapira serve --listen :8080 --processes 8 app/worker.php
-rapira serve --listen unix:/run/rapira.sock app/worker.php
+rapira serve app/dispatcher.php
+rapira serve --mode worker app/worker.php
+rapira serve --mode classic public/index.php
+rapira serve --listen :8080 --processes 8 app/dispatcher.php
+rapira serve --listen unix:/run/rapira.sock app/dispatcher.php
 rapira serve --config /etc/rapira/rapira.toml
 rapira serve --config /etc/rapira/rapira.toml --listen 127.0.0.1:9000
 ```
 
-Pierwsze polecenie nie ma `--listen`, więc serwer wstaje pod domyślnym adresem, a do wysłania żądania wystarczy jeszcze jedna linijka. Skrypt workera, który możesz w ten sposób uruchomić, znajdziesz w [Szybkim starcie](/pl/docs/intro/quickstart).
+Pierwsze polecenie nie ma `--listen`, więc serwer wstaje pod domyślnym adresem. Do wysłania żądania wystarczy jeszcze jedna linijka.
 
 ```bash
 curl http://127.0.0.1:8000/
 ```
+
+Skrypty wejściowe do poleceń `--mode classic` i `--mode worker` znajdziesz w [Szybkim starcie](/pl/docs/intro/quickstart). Skrypt wejściowy dla trybu Dispatcher weź z pliku `dispatcher-sync.php` albo `dispatcher-async.php` w katalogu [`examples/`](https://github.com/rapira-rs/rapira/tree/main/examples) w repozytorium.
 
 ## Zatrzymywanie serwera
 

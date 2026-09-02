@@ -9,7 +9,7 @@ Symfony's structure fits a resident worker: a kernel you boot, a `Request` you h
 
 ::: info Verified with
 - **PHP 8.5.8** — NTS, embed SAPI
-- **Rapira 0.6.0**
+- **Rapira 0.8.0**
 - **Symfony 7.4** (`symfony/framework-bundle` v7.4.15) — full battery in `dev` and in `prod`
 - **Symfony 8.1** (`symfony/framework-bundle` v8.1.2) — full battery in `dev`
 
@@ -18,7 +18,7 @@ Both apps are a plain `symfony/skeleton` running under a single worker process, 
 
 ## Behavior in worker mode
 
-The kernel boots at the top of the script, outside the loop, and stays resident for the life of the worker process: the autoloader, the compiled container, the router, the event dispatcher and every connection your bundles opened are built once instead of once per request. That is what [SAPI Worker mode](/docs/worker) provides; see [Execution modes](/docs/execution-modes) for more information.
+The kernel boots at the top of the script, outside the loop, and stays resident for the life of the worker process: the autoloader, the compiled container, the router, the event dispatcher and every connection your bundles opened are built once instead of once per request. That is what [Worker mode](/docs/worker) provides; see [Execution modes](/docs/execution-modes) for more information.
 
 Per request the handler does four things and then cleans up:
 
@@ -43,7 +43,7 @@ The worker file below also uses `symfony/dotenv`, which the skeleton ships. If y
 
 ## The worker script
 
-Put this at the project root as `worker.php`. It is the file that was verified, verbatim, on both majors:
+Put this at the project root as `worker.php`. It is the script that was verified on both majors, updated to the current worker API:
 
 ```php
 <?php
@@ -51,11 +51,8 @@ Put this at the project root as `worker.php`. It is the file that was verified, 
 declare(strict_types=1);
 
 use App\Kernel;
-use Rapira\Plugin\Http\HttpHandlerConfig;
 use Symfony\Component\Dotenv\Dotenv;
 use Symfony\Component\HttpFoundation\Request;
-
-use function Rapira\create_plugin_handler;
 
 require __DIR__ . '/vendor/autoload.php';
 
@@ -65,8 +62,6 @@ require __DIR__ . '/vendor/autoload.php';
 $kernel = new Kernel($_SERVER['APP_ENV'], (bool) $_SERVER['APP_DEBUG']);
 $kernel->boot();
 $container = $kernel->getContainer();
-
-$http = create_plugin_handler(new HttpHandlerConfig());
 
 $handler = static function () use ($kernel, $container): void {
     $request = Request::createFromGlobals();
@@ -87,7 +82,7 @@ $handler = static function () use ($kernel, $container): void {
     }
 };
 
-while ($http->handleRequest($handler)) {
+while (\Rapira\handle_request($handler)) {
     gc_collect_cycles();
 }
 ```
@@ -100,7 +95,7 @@ Most of it is ordinary Symfony bootstrapping. Four lines are specific to this se
 
 **`$container->has('services_resetter')` before `get()`.** The service id `services_resetter` is public in both 7.4 and 8.1, which is why the same file works on both — the *class* behind it moved namespaces between the majors (`Symfony\Component\DependencyInjection\ServicesResetter` in 7.4, `Symfony\Component\HttpKernel\DependencyInjection\ServicesResetter` in 8.1), and addressing the service by id makes that difference disappear. The `has()` guard keeps the script from fataling on a container that does not define it.
 
-**The loop and `gc_collect_cycles()`.** `handleRequest()` blocks until a request arrives, runs your handler, and returns `true` — or `false` when the server is shutting down, which is what ends the loop. Collecting cycles once per turn keeps that work between requests instead of in the middle of one. See [Worker mode](/docs/worker) for the full contract.
+**The loop and `gc_collect_cycles()`.** `\Rapira\handle_request()` blocks until a request arrives, runs your handler, and returns `true`. It returns `false` when the worker starts to drain, which is what ends the loop. Collecting cycles once per turn keeps that work between requests instead of in the middle of one. See [Worker mode](/docs/worker) for the full contract.
 
 If the resetter is not enough, there are two heavier options: `$container->reset()` wipes every service that has been instantiated, and `$kernel->reboot(null)` throws the container away and builds a new one — after which the `$container` the handler captured is stale, so re-fetch it with `$kernel->getContainer()` if you go that route. Both discard the warm state worker mode gives you, so use them while you are tracking down a leak, not as a default.
 
@@ -129,11 +124,11 @@ This applies to any resident-worker PHP runtime — any framework that reads `$_
 ## Running it
 
 ```bash
-rapira serve worker.php
+rapira serve --mode worker worker.php
 curl -i http://127.0.0.1:8000/
 ```
 
-Worker mode is the default, and `127.0.0.1:8000` is the default listen address. `rapira serve` stays in the foreground and `Ctrl-C` drains it.
+`--mode worker` selects Worker mode, and `127.0.0.1:8000` is the default listen address. `rapira serve` stays in the foreground and `Ctrl-C` drains it.
 
 The entry script is `worker.php` rather than `index.php`, so `$_SERVER['SCRIPT_NAME']` is `/worker.php`. Symfony's `Request` looks for that name at the start of the URI, does not find it, and degrades the base URL to `""`. `getPathInfo()` returns the real path, routing matches, and `generateUrl()` produces clean paths with no `/worker.php` prefix anywhere in them. No `$_SERVER` overrides and no `Request::setTrustedProxies()` workarounds are needed for this.
 
@@ -156,6 +151,7 @@ listen = "127.0.0.1:8000"
 
 [pool]
 entrypoint = "worker.php"
+mode = "worker"
 processes = 4
 max_requests = 500
 request_terminate_timeout_secs = 30
@@ -180,7 +176,7 @@ If you want the client freed before the post-response listeners run, call [`rapi
 `rapira serve` runs in the foreground and your application is booted once, so **changed PHP code is not picked up until the workers are replaced**. While you are actively editing, the simplest thing is to stop and start the server, or to run the front controller in [classic mode](/docs/classic) instead, where the script is executed from scratch every time and every save is live:
 
 ```bash
-rapira serve --classic public/index.php
+rapira serve --mode classic public/index.php
 ```
 
 That is the same application in classic mode: it boots on every request, so edits take effect immediately, at the cost of a full boot per request. For a running production server, a rolling reload (`SIGUSR2` on the master) is how deployed code takes over without dropping connections — unless you run `opcache.validate_timestamps = 0`, where the master's OPcache segment outlives the pool and a deploy needs a full restart instead; see [Process model](/docs/process-model) and [running in production](/docs/deployment).

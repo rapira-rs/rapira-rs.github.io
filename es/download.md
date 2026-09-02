@@ -36,4 +36,6 @@ Este build es solo para desarrollo local: para producción, usa Linux.
 </template>
 </DownloadBuilds>
 
+Las imágenes de contenedor se publican en `ghcr.io/rapira-rs/rapira`, y un canal nightly mantiene una prerelease `nightly` que se va renovando, con tarballs y las etiquetas de imagen `nightly-php8.4` y `nightly-php8.5`. El selector de arriba solo lista los archivos de la release. Consulta [Docker](/es/docs/intro/installation#docker) para más información.
+
 También puedes [compilar Rapira desde el código fuente](/es/docs/intro/build-from-source).

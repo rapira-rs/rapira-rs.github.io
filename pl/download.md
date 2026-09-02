@@ -36,4 +36,6 @@ Ta kompilacja służy wyłącznie do lokalnego developmentu — na produkcję u�
 </template>
 </DownloadBuilds>
 
+Obrazy kontenerów publikujemy w `ghcr.io/rapira-rs/rapira`, a kanał nocnych kompilacji daje kroczącą wersję wstępną `nightly` z tarballami oraz tagi obrazów `nightly-php8.4` i `nightly-php8.5`. Lista powyżej obejmuje wyłącznie pliki z wydań. Więcej informacji znajdziesz w sekcji [Docker](/pl/docs/intro/installation#docker).
+
 Rapirę możesz też [zbudować ze źródeł](/pl/docs/intro/build-from-source).

@@ -5,9 +5,11 @@ description: "Cómo ejecutar Rapira en un servidor: una unidad de systemd, la di
 
 # En producción
 
-Ejecutar Rapira en un servidor añade lo que un `rapira serve app/worker.php` local no necesita: arrancar al encender la máquina, volver después de una caída, recargar el código nuevo sin tirar ninguna petición y unos registros que puedas leer más tarde. Esta página cubre una unidad de systemd, un sitio para la configuración, un proxy delante y los ajustes que ponen límites a unos workers de vida larga.
+Ejecutar Rapira en un servidor añade lo que un `rapira serve --mode worker app/worker.php` local no necesita: arrancar al encender la máquina, volver después de una caída, recargar el código nuevo sin tirar ninguna petición y unos registros que puedas leer más tarde. Esta página cubre una unidad de systemd, un sitio para la configuración, un proxy delante y los ajustes que ponen límites a unos workers de vida larga.
 
 Casi nada de esto está compilado en el binario. Nada en Rapira depende de dónde tengas la configuración ni de qué supervise el proceso, así que la disposición de más abajo es una convención que establece esta página y que asume el resto de la documentación. Antes de nada, mete el binario en la máquina: de eso se encarga [Instalación](/es/docs/intro/installation).
+
+Rapira se publica también como imagen de contenedor en `ghcr.io/rapira-rs/rapira`, que copias dentro de tu propia imagen con `COPY --from`. En un contenedor, la política de reinicio de tu runtime de contenedores sustituye a la unidad de systemd de aquí abajo; la disposición de la configuración, el proxy, el formato de los registros y los ajustes del pool de esta página se quedan igual. Consulta [Docker](/es/docs/intro/installation#docker) para más información.
 
 ## Una unidad de systemd
 
@@ -79,6 +81,8 @@ listen = "127.0.0.1:8000"
 El socket Unix se crea con permisos `0666`, así que cualquier proceso local con acceso al directorio donde está puede conectarse y mandarle peticiones a tu aplicación. Rapira no tiene ningún ajuste para esos permisos, de modo que los del directorio son lo único que limita quién llega hasta el socket. Si eso te importa, restringe el directorio: en la unidad de arriba, `RuntimeDirectoryMode=0750` y un `Group=` al que pertenezca el usuario del proxy dejan `/run/rapira` fuera del alcance de los demás.
 
 Los campos reenviados tienen que llegar a Rapira con la grafía normal, la del guion: `X-Forwarded-For`, nunca `X_Forwarded_For`. Las variantes con guion bajo o con punto caen en la misma clave de `$_SERVER` que la buena, que es justo por donde un cliente sobrescribiría lo que tu proxy acaba de poner, así que Rapira las descarta antes de que PHP las vea. La [página de HTTP](/es/docs/http) explica la correspondencia y el ajuste `http.unsafe_field_names` que la gobierna.
+
+Cuando activas el [middleware de archivos estáticos](/es/docs/static-files), Rapira sirve él mismo los archivos estáticos, así que el proxy no tiene que guardar una segunda copia del document root. Poner delante un proxy o una CDN sigue siendo una opción.
 
 ## Despliegues sin cortes
 

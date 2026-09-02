@@ -10,19 +10,19 @@ W trybie klasycznym aplikacja frameworkowa działa na Rapirze bez żadnych zmian
 ::: info Sprawdzone na
 
 - **PHP 8.5.8**, NTS, embed SAPI
-- **Rapira 0.6.0**
+- **Rapira 0.8.0**
 - **Symfony 7.4.15** i **8.1.2**, **Yii3** szablon aplikacji 1.4 (yii-runner-http 3.2.1)
 
-Wszystko, co znajdziesz na tej stronie, zostało zaobserwowane na tych aplikacjach uruchomionych na Linuksie, na jednym procesie workera. Każde stwierdzenie poniżej opiera się na tych pomiarach.
+Wszystko, co znajdziesz na tej stronie, zostało zaobserwowane na tych aplikacjach uruchomionych na Linuksie, na jednym procesie workera. Stwierdzenia o zachowaniu frameworków opierają się na tych przebiegach. Klucze konfiguracyjne pochodzą z własnego opisu [konfiguracji](/pl/docs/configuration) Rapiry.
 :::
 
 ## Tryb klasyczny i tryb workera
 
 **W trybie klasycznym nie zmienia się nic.** Skryptem wejściowym jest twój front controller, Rapira wykonuje go od zera przy każdym żądaniu i działa tu każdy framework, który działa pod php-fpm, łącznie z tymi, których stan nigdy nie przeżyłby drugiego żądania. Więcej znajdziesz na stronie [tryb klasyczny](/pl/docs/classic); z sekcji poniżej dotyczą go tylko pliki statyczne, TLS i OPcache.
 
-**W trybie SAPI Worker proces zostaje przy życiu.** Twój skrypt raz podnosi aplikację, a potem kręci się w pętli i prosi Rapirę o kolejne żądanie. Framework przestaje być rozbierany między żądaniami. Gdzie ten tryb stoi wśród czterech, pokazują [tryby wykonania](/pl/docs/execution-modes), a jego API opisuje [tryb workera](/pl/docs/worker).
+**W trybie Worker proces zostaje przy życiu.** Twój skrypt raz podnosi aplikację, a potem kręci się w pętli i prosi Rapirę o kolejne żądanie. Framework przestaje być rozbierany między żądaniami. Gdzie ten tryb stoi wśród trzech, pokazują [tryby wykonania](/pl/docs/execution-modes), a jego API opisuje [tryb workera](/pl/docs/worker).
 
-Jedna baza kodu działa w obu trybach: zostaw `public/index.php` takim, jaki jest, i dołóż obok `worker.php`. Sprawdzone aplikacje Symfony i Yii3 trzymają oba pliki obok siebie, a o tym, który się uruchomi, decyduje flaga — `rapira serve --classic public/index.php` albo `rapira serve worker.php` — więc na czas migracji tryb klasyczny zostaje pod ręką jako droga odwrotu.
+Jedna baza kodu działa w obu trybach: zostaw `public/index.php` takim, jaki jest, i dołóż obok `worker.php`. Sprawdzone aplikacje Symfony i Yii3 trzymają oba pliki obok siebie, a o tym, który się uruchomi, decyduje flaga `--mode`: `rapira serve --mode classic public/index.php` albo `rapira serve --mode worker worker.php`. Na czas migracji tryb klasyczny zostaje więc pod ręką jako droga odwrotu.
 
 ## Pętla linijka po linijce
 
@@ -33,10 +33,6 @@ Każdy skrypt workera ma ten sam kształt, niezależnie od tego, jaki framework 
 // worker.php
 require __DIR__ . '/vendor/autoload.php';
 
-use Rapira\Plugin\Http\HttpHandlerConfig;
-use function Rapira\create_plugin_handler;
-
-$http = create_plugin_handler(new HttpHandlerConfig());
 $app = new App(); // booted once, reused for every request
 
 $handler = static function () use ($app): void {
@@ -45,7 +41,7 @@ $handler = static function () use ($app): void {
     echo $app->handle($_SERVER['REQUEST_URI']);
 };
 
-while ($http->handleRequest($handler)) {
+while (\Rapira\handle_request($handler)) {
     gc_collect_cycles();
 }
 ```
@@ -53,11 +49,10 @@ while ($http->handleRequest($handler)) {
 Czytając od góry:
 
 - **`require .../vendor/autoload.php`** — autoloader rejestruje się raz na całe życie workera, a każda klasa, którą rozwiąże, zostaje potem załadowana.
-- **`create_plugin_handler(new HttpHandlerConfig())`** — prosi Rapirę o handler; o wyborze wtyczki decyduje *klasa* obiektu konfiguracji. W trybie klasycznym rzuca wyjątek, bo nie ma tam rezydentnej pętli, której można by ten handler oddać.
 - **`$app = new App();`** — tutaj aplikacja podnosi się raz, jeszcze zanim ruszy pętla. To w tej linii rozchodzą się dwa przewodniki po trybie workera: Symfony trzyma tu rezydentny kernel, a Yii3 albo trzyma tu rezydentny runner, albo buduje go w środku handlera — i każdy przewodnik dokłada własny rozruch nad pętlą i własne sprzątanie po każdym żądaniu w handlerze.
 - **`$handler = static function () use ($app): void`** — handler nie przyjmuje żadnych argumentów. Żądanie siedzi w superglobalach, a wszystko inne, czego potrzebuje, przechwytuje przez `use`.
 - **`header()`, `http_response_code()`, `echo`** — odpowiedź tworzysz dokładnie tak samo jak w klasycznym skrypcie. Jak to zamienia się w bajty lecące po sieci, opisuje [HTTP](/pl/docs/http).
-- **`while ($http->handleRequest($handler))`** — `handleRequest()` blokuje wykonanie, dopóki nie przyjdzie żądanie, wypełnia nim superglobale, uruchamia twój handler, zamyka żądanie i zwraca `true`. Kiedy serwer się zamyka, zwraca `false` — i tak właśnie kończy się pętla.
+- **`while (\Rapira\handle_request($handler))`** - `handle_request()` blokuje wykonanie, dopóki nie przyjdzie żądanie. Wypełnia nim superglobale, uruchamia twój handler, zamyka żądanie i zwraca `true`. Zwraca `false`, gdy worker zaczyna się wygaszać, i tak właśnie kończy się pętla. Wywołuj ją wyłącznie na najwyższym poziomie skryptu rozruchowego. Poza trybem Worker rzuca `Rapira\Exception\NotInWorkerModeError`.
 - **`gc_collect_cycles();`** — ciało pętli wykonuje się *między* żądaniami i to tam trafia praca, która ma się wydarzyć w przewidywalnym momencie, a nie w trakcie samego żądania. Wywołanie zbiera zwykłe cykle referencji i nie jest sposobem na rosnące zużycie pamięci — zobacz [Pamięć i recykling](#pamiec-i-recykling).
 
 Skryptem wejściowym jest `worker.php`, więc `SCRIPT_NAME` to `/worker.php`, `DOCUMENT_ROOT` to katalog, w którym ten plik leży, a ścieżkę, o którą naprawdę poprosił klient, niesie `REQUEST_URI`. Zarówno Symfony, jak i Yii3 trasowały i generowały adresy URL na tej podstawie poprawnie — bez `worker.php` w wygenerowanych adresach i bez najmniejszego łatania `$_SERVER`. Framework, który buduje adresy URL na podstawie `SCRIPT_NAME`, a nie `REQUEST_URI`, to pierwszy przypadek do sprawdzenia.
@@ -113,13 +108,23 @@ Trzy rodzaje awarii, wszystkie obejrzane na jednym workerze z pilnowanym pidem:
 - **Nieprzechwycony wyjątek** — `500`. Jeśli złapie go najpierw handler błędów twojego frameworka, narysuje własną stronę błędu; jeśli nie złapie go nic, Rapira odpowiada `500` z pustą treścią. Tak czy inaczej worker obsługuje dalej.
 - **Nieprzechwycony `Error`** — na przykład wywołanie funkcji, która nie istnieje. PHP zapisuje to w logu jako `Uncaught Error`, a dalej idzie tą samą drogą co każdy inny nieprzechwycony throwable — `500`, i worker obsługuje dalej na tym samym pidzie.
 
-Licznik `errors` workera rośnie przy obu wariantach błędu; żądanie z `exit` to zwykłe `200` i rusza wyłącznie `handled`. We wszystkich trzech przypadkach `recycles` i `restarts` zostają na zerze: nieprzechwycony throwable nie kładzie workera i nie dotyka następnego żądania. Więcej dzieje się tylko przy błędzie krytycznym klasy bailout — zwija on rezydentny skrypt, więc worker uruchamia go od góry i jeszcze raz podnosi twoją aplikację, a właśnie to zlicza `recycles`. Te liczniki odczytasz z PHP przez `getInfo()` opisane na stronie [tryb workera](/pl/docs/worker).
+Licznik `errors` workera rośnie przy obu wariantach błędu; żądanie z `exit` to zwykłe `200` i rusza wyłącznie `handled`. We wszystkich trzech przypadkach `recycles` i `restarts` zostają na zerze: nieprzechwycony throwable nie kładzie workera i nie dotyka następnego żądania. Więcej dzieje się tylko przy błędzie krytycznym klasy bailout — zwija on rezydentny skrypt, więc worker uruchamia go od góry i jeszcze raz podnosi twoją aplikację, a właśnie to zlicza `recycles`. Te liczniki dla każdego workera wypisuje zrzut stanu opisany na stronie [model procesów](/pl/docs/process-model).
 
 ## Pliki statyczne
 
-Rapira nie serwuje niczego z dysku: nie ma tu ani szukania pliku w document roocie, ani reguły „oddaj plik, jeśli istnieje”. Jakikolwiek byłby adres URL, uruchamia się twój skrypt wejściowy, a `$_SERVER['REQUEST_URI']` mówi aplikacji, dokąd chciał trafić klient — tak samo w trybie klasycznym, jak i w workerze.
+Zasoby statyczne Rapira serwuje przez [middleware plików statycznych](/pl/docs/static-files). Ustaw `root` w sekcji `[http.static]` na katalog `public/` frameworka i wypisz middleware w `[http]`:
 
-Dlatego twoje zasoby statyczne potrzebują czegoś przed Rapirą: CDN-a albo reverse proxy, które stawia [wdrożenie produkcyjne](/pl/docs/deployment). Inaczej zbundlowany JS i CSS, obrazki i favicon są każde z osobna żądaniem do PHP.
+```toml
+[http]
+middleware = ["static"]
+
+[http.static]
+root = "public"
+```
+
+Middleware odpowiada na żądanie tylko wtedy, gdy ścieżka trafia w plik leżący w tym katalogu. Domyślna lista `forbid` trzyma poza nim pliki `.php`, więc front controller z `public/` nigdy nie zostanie oddany jako plik. Każdy inny adres URL uruchamia skrypt wejściowy, tak samo w trybie Classic, jak i w trybie Worker. `$_SERVER['REQUEST_URI']` mówi aplikacji, dokąd chciał trafić klient. Adres wskazujący katalog też uruchamia skrypt wejściowy, bo middleware nie serwuje dla niego żadnego pliku indeksu.
+
+Zasoby może zamiast tego serwować CDN albo reverse proxy stojące z przodu. Takie proxy stawia [wdrożenie produkcyjne](/pl/docs/deployment).
 
 ## TLS i proxy
 

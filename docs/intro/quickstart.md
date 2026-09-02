@@ -20,10 +20,10 @@ echo "Hello, " . ($_GET['name'] ?? 'anonymous') . "!\n";
 echo "Method: {$_SERVER['REQUEST_METHOD']}\n";
 ```
 
-Start the server — `--classic` is what selects the mode, and the positional argument is the entry script:
+Start the server. The `--mode classic` flag selects the mode, and the positional argument is the entry script:
 
 ```bash
-rapira serve --classic public/index.php
+rapira serve --mode classic public/index.php
 ```
 
 Rapira binds `127.0.0.1:8000` unless you tell it otherwise. From another terminal:
@@ -41,16 +41,12 @@ The process is not thrown away between requests — Rapira forks its workers onc
 
 ## Worker mode
 
-SAPI Worker mode keeps the script alive. It boots once, then sits in a loop asking Rapira for the next request; Rapira refills the superglobals and calls your handler. The PHP code stays familiar — you still read `$_GET` and `echo` a response — but the boot work happens once per process instead of once per request. See [Execution modes](/docs/execution-modes) for more information.
+Worker mode keeps the script alive. It boots once, then sits in a loop asking Rapira for the next request; Rapira refills the superglobals and calls your handler. The PHP code stays familiar — you still read `$_GET` and `echo` a response — but the boot work happens once per process instead of once per request. See [Execution modes](/docs/execution-modes) for more information.
 
 Create `worker.php` in the project root:
 
 ```php
 <?php
-use Rapira\Plugin\Http\HttpHandlerConfig;
-use function Rapira\create_plugin_handler;
-
-$http = create_plugin_handler(new HttpHandlerConfig());
 
 // Outside the loop, so it survives every request this worker serves.
 $handled = 0;
@@ -62,26 +58,26 @@ $handler = static function () use (&$handled): void {
     echo "worker " . getmypid() . " handled {$handled} request(s)\n";
 };
 
-while ($http->handleRequest($handler)) {
+while (\Rapira\handle_request($handler)) {
     gc_collect_cycles();
 }
 ```
 
-`create_plugin_handler()` returns the handler that serves HTTP, selected by the `HttpHandlerConfig` passed to it. `handleRequest()` then blocks until a request arrives, runs your callback for it, and returns `true`; it returns `false` when the server is shutting down, which is what ends the loop.
+`\Rapira\handle_request()` blocks until the next job arrives, hands it to your callback, and returns `true`. It returns `false` while the worker drains, which is what ends the loop. The callback reads the superglobals and responds through `echo` and `header()`. Call `\Rapira\handle_request()` only from the boot script's top level. It throws `Rapira\Exception\NotInWorkerModeError` in any other mode.
 
-`create_plugin_handler()`, `HttpHandlerConfig` and the handler classes come from the PHP module Rapira registers when it boots the interpreter, so the script above runs with no autoloader. An application with Composer dependencies loads its own `vendor/autoload.php` before the loop.
+`\Rapira\handle_request()` comes from the PHP module Rapira registers when it boots the interpreter, so the script above runs with no autoloader. An application with Composer dependencies loads its own `vendor/autoload.php` before the loop.
 
-Stop the classic server first — `Ctrl-C` in its terminal — since both bind `127.0.0.1:8000`. Worker mode is the default, so there is no flag this time:
+Stop the Classic server first with `Ctrl-C` in its terminal, because both servers bind `127.0.0.1:8000`. The default mode is Dispatcher, so Worker mode needs the `--mode worker` flag:
 
 ```bash
-rapira serve worker.php
+rapira serve --mode worker worker.php
 ```
 
 ```bash
 curl '127.0.0.1:8000/?name=world'
 ```
 
-Run that `curl` a few times and the counter goes up: the same process keeps serving requests. By default Rapira forks one worker per logical CPU, so a request can land on any of them — the kernel picks which worker accepts it — and each worker keeps its own count; the pid in the output tells you which one answered. Start with `rapira serve --processes 1 worker.php` if you want the count to run as a single sequence. The [process model](/docs/process-model) explains how the pool is supervised.
+Run that `curl` a few times and the counter goes up, because the same process keeps serving the requests. By default Rapira forks one worker per logical CPU, so a request can land on any of them: the kernel picks which worker accepts it. Each worker keeps its own count, and the pid in the output tells you which worker answered. Start the server with `rapira serve --mode worker --processes 1 worker.php` if you want the count to run as a single sequence. The [process model](/docs/process-model) explains how the pool is supervised.
 
 Everything you build before the `while` loop stays in memory for the life of the worker: the Composer autoloader, a DI container, database and cache connections, compiled routes and templates — all of it built once, at boot, instead of on every request. Only the per-request state is new each time round.
 
@@ -101,6 +97,7 @@ listen = "127.0.0.1:8000"
 
 [pool]
 entrypoint = "worker.php"
+mode = "worker"
 processes = 4
 ```
 

@@ -1,17 +1,33 @@
 ---
 title: HTTP requests and responses
-description: How Rapira turns an HTTP request into PHP superglobals and a PHP response back into bytes on the wire — field-name mapping, repeated fields, body limits, buffering, and rapira_finish_request().
+description: "How Rapira turns an HTTP request into PHP superglobals and a PHP response back into bytes on the wire: field-name mapping, repeated fields, body limits, response framing, and rapira_finish_request()."
+faqLevel: 2
 ---
 
 # HTTP requests and responses
 
-Rapira's HTTP front is built on [Pingora](https://github.com/cloudflare/pingora) and ships inside the binary. It accepts connections on the socket the master bound, parses the request, hands it to PHP, and writes back whatever PHP produced. There is no upstream: every request is answered locally, by your code.
+The HTTP front is the Rapira component that turns a client connection into a PHP request, and the PHP response back into bytes on the wire. It is built on the [hyper](https://hyper.rs) library, and it ships inside the binary. It terminates HTTP/1.1 and HTTP/1.0. It accepts connections on the socket the master bound, parses the request, hands it to PHP, and writes back what PHP produced. There is no upstream: nothing is proxied, and every request is answered locally. A middleware in front of PHP can answer a request on its own, which is how [static files](/docs/static-files) are served.
 
-This page covers the parts where the translation between HTTP and PHP is not one-to-one: which header field lands in which `$_SERVER` key, what happens when a client sends the same field twice, how big a request body may be, and how your response is framed on the way out.
+This page covers the parts where the translation between HTTP and PHP is not one-to-one: what the front refuses before PHP runs, which header field lands in which `$_SERVER` key, what happens when a client sends the same field twice, how big a request body may be, and how your response is framed on the way out.
 
 ::: info
 The front terminates plaintext HTTP. If you need TLS, terminate it in a proxy in front of Rapira — see [Deployment](/docs/deployment).
 :::
+
+## Request admission
+
+The front checks each request before PHP runs. A request that fails a check is answered by the front, and PHP never sees it.
+
+A `CONNECT` request is answered `501`. The front implements no tunnels.
+
+An absolute-form request target is accepted, for example `GET http://host.example/admin?x=1 HTTP/1.1`. The authority in the target replaces the `Host` field, and the userinfo part of the authority is removed first, so `$_SERVER['HTTP_HOST']` cannot disagree with the target. PHP sees the origin-form path and query in `$_SERVER['REQUEST_URI']`.
+
+`http.keepalive_timeout_secs` bounds every read from the client. It closes an idle keep-alive connection, and it also bounds the read of the request head. A request body that makes no read progress within that time is answered `408`, and the connection closes. The default is 60 seconds.
+
+```toml
+[http]
+keepalive_timeout_secs = 60
+```
 
 ## From a header name to a `$_SERVER` key
 
@@ -78,9 +94,13 @@ max_body_size_mb = 8
 
 ## How the response goes out
 
-Everything PHP writes is buffered until the request finishes, and only then does the response head go on the wire. This is what the buffering is for: the server knows the exact body length, so it can send a real `Content-Length`. Without a framed body, HTTP/1.1 has to fall back to close-delimiting — the connection ends the response, which means a new connection for every single request. With a `Content-Length`, keep-alive works and the connection stays up.
+The front does not buffer the response body. It writes the response head as soon as PHP commits it, and each body frame as PHP produces it. The mode decides when PHP produces them. In Classic and Worker modes PHP holds the whole response and passes it to the front when the request ends, or earlier if the script calls `rapira_finish_request()`. In Dispatcher mode PHP passes the head and each body chunk to the front as the code writes them.
 
-Framing is therefore the server's job, not PHP's. A `Content-Length` or `Transfer-Encoding` your code sets is dropped and replaced by what the buffered body actually measures, so a stale length can never desynchronize the connection. Responses that have no body by definition — `204` and `304` — get no `Content-Length` at all.
+Framing is the server's job, not PHP's. A `Transfer-Encoding` your code sets is dropped. A `Content-Length` your code sets is removed from the field lines, so a stale length can never desynchronize the connection. In Classic and Worker modes the front then declares the length of the body PHP produced. In Dispatcher mode the `Content-Length` on the head you write becomes the length the reply declares: the front sends that length and counts the body against it. A body shorter than the declared length ends the connection, and a body longer than it is cut at that length.
+
+A reply that declares no length is framed by the front. An HTTP/1.1 client gets the chunked transfer coding. An HTTP/1.0 client gets a body that the connection close delimits.
+
+Responses that have no body by definition, `204` and `304`, get no `Content-Length` at all. The response to a `HEAD` request is treated the same way: the front sends the head with no `Content-Length` and no body bytes.
 
 Hop-by-hop fields belong to a single connection rather than to the response, so PHP does not get to set them either ([RFC 9110 §7.6.1](https://www.rfc-editor.org/rfc/rfc9110#section-7.6.1)). These are stripped from whatever your code emitted:
 
@@ -90,11 +110,21 @@ If PHP does send a `Connection` header, the fields it names are stripped as well
 
 Everything else passes through as PHP wrote it, repeats included: `Set-Cookie`, `Vary` and `Link` may legitimately appear several times and all of them are sent. A header that cannot be represented on the wire at all is dropped with a log line rather than failing the response, so the rest of the response is still sent.
 
+An interim (1xx) response head from PHP is dropped, and trailers from PHP are dropped as well. The front forwards neither. The `100 Continue` for an `Expect` request is not a PHP interim head: the front writes that one itself.
+
+A truncated reply drops the connection without a clean terminator. A reply is truncated when the worker dies before the body ends, when the body is shorter than the length PHP declared, or when a fatal error or an uncaught exception ends the script after it wrote output. The client then reads an incomplete message, so it can tell the response was cut short.
+
+An error response the front writes itself carries `cache-control: private, no-store` and `connection: close`, and has no body. A `413` for an oversized body and a `501` for `CONNECT` are such responses.
+
+::: question Why does the front set the framing fields instead of PHP?
+A response is framed by the bytes the front puts on the wire. The front takes the length the reply declares and counts the body against it. A body shorter than the declared length ends the connection, so the client cannot read the next response as the tail of this one. A `Content-Length` set as an ordinary header would bypass that count, so it is stripped.
+:::
+
 ## Finishing the response early
 
 A handler often has work left once the response is ready: a webhook to fire, a queue entry to write, a cache to warm. The client does not have to wait for it.
 
-`rapira_finish_request()` ends the response at that point. The buffered output is flushed, the response is handed to the front and goes out to the client, and your handler keeps running with the client already holding the whole response. It is the same contract as `fastcgi_finish_request()`, so code written for php-fpm behaves the way it always did:
+`rapira_finish_request()` ends the response at that point. PHP's output buffers are flushed into the response, the response is handed to the front and goes out to the client, and your handler keeps running with the client already holding the whole response. It is the same contract as `fastcgi_finish_request()`, so code written for php-fpm behaves the way it always did:
 
 ```php
 <?php

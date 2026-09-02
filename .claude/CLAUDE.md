@@ -10,18 +10,17 @@ Documentation site for **Rapira**, built with [VitePress](https://vitepress.dev/
 
 **Existing applications keep working.** The classic SAPI is supported, so an ordinary front controller runs as it is: Rapira takes php-fpm's place with no changes to the code, and runs faster doing it.
 
-**Four execution modes**: Classic, SAPI Worker, PSR Worker, Async — listed in order of how much control PHP gets over the request lifecycle. Classic and SAPI Worker are shipped; PSR Worker and Async are planned. The names are the site's own: they say what the mode *is* — whether the worker stays alive, and the contract it speaks — instead of pointing at the product that made the shape familiar. Never name the modes after FrankenPHP or RoadRunner on the site:
+**Three execution modes**: Classic, Worker, Dispatcher. These are the real names - the `[pool] mode` values of `rapira.toml` and the cases of the `Rapira\Mode` enum - so use them exactly, in English and in every translation. Classic and Worker are shipped and documented; Dispatcher is shipped and its guide is still pending. Never name the modes after FrankenPHP or RoadRunner on the site:
 
-- **Classic** — the entry script runs from scratch on every request, exactly as it would under php-fpm.
-- **SAPI Worker** — the same shape, except the worker does not die: the superglobals are refilled for each request while the warmed-up process keeps running.
-- **PSR Worker** — the PHP side pulls requests from Rapira through an API call and decides what to do with each one: fill the superglobals for compatibility, or skip them entirely and work with a PSR-7 message. One request at a time.
-- **Async** — the same API, except the worker asks for more than one request at once and handles them concurrently, which PHP 8.1 fibers make possible.
+- **Classic** - the entry script runs from scratch on every request, exactly as it would under php-fpm.
+- **Worker** - the same shape, except the worker does not die: the superglobals are refilled for each request while the warmed-up process keeps running.
+- **Dispatcher** - the script takes units of work from the dispatcher and answers through them instead of the superglobals. How many units run at once is the script's choice: one at a time in a loop, or several concurrently, each on its own fiber. Concurrency through fibers belongs to this mode.
 
-Any application can use any mode; what limits the choice is the application's own code, never the server. Global state that cannot survive a second request restricts an application to Classic; a library that is not fiber-safe rules out Async. State it that way — as a property of the application's code.
+Any application can use any mode; what limits the choice is the application's own code, never the server. Global state that cannot survive a second request restricts an application to Classic; a library that is not fiber-safe rules out concurrent units in Dispatcher mode. State it that way - as a property of the application's code.
 
 **The ladder/rung/climb metaphor for the modes is banned** — in English and in every translation, docs and home page alike. The modes are listed, not ranked; earlier drafts used "ladder"/"rung" vocabulary and it must not come back.
 
-**The home page shows a shortened mode list,** `Classic → Worker → Async` — three names, because four names plus their distinctions do not fit a feature card and the middle pair differ in a detail (who initiates the request) that means nothing to someone seeing the project for the first time. There, `Worker` stands for both worker modes. The full list of four belongs in the documentation, where there is room to explain it.
+**The home page shows the mode list as** `Classic → Worker → Dispatcher`, with the line "How far can your app go?" under it in the same feature card. The card names the three modes and says nothing about what separates them, because a feature card holds no room for it. The description of each mode belongs in the documentation.
 
 The mode is selected in the config, but neither the config format nor the PHP-side API is stable yet — describe the modes by what they do, and check specific keys and function names before they reach the site.
 
@@ -201,7 +200,7 @@ All copy lives in `index.md` — props and slot content, never in the component 
 Segment building blocks:
 
 - **`FeatureTags`** (HTTP-server segment, `#footer`) — a flat tag row (`items: [{ label, ready? }]`). `ready` defaults to true; a tag with `ready: false` is drawn dimmed, dashed and with a hollow dot: that is how the site shows a feature that is not shipped yet, and the drawing is left to say it — there is no caption spelling it out.
-- **`.rapira-section-art`** (HTTP-server segment, `#aside`) — a decorative theme-aware image (`VPImage`) painted as the background of the aside column: absolutely positioned, fitted to the height the text gives the row, hidden together with its column on the stacked layout. The Pingora banner files are `public/pingora-banner-{light,dark}.png`.
+- **`.rapira-section-art`** (`#aside`) - a decorative theme-aware image (`VPImage`) painted as the background of the aside column: absolutely positioned, fitted to the height the text gives the row, hidden together with its column on the stacked layout. No segment uses it currently: the HTTP-server segment runs single-column in every locale. The CSS support stays in `theme/style.css` for a future segment.
 - **`TextTabs`** (interop segment, `#aside`) — a tab strip over short prose panels, one per alternative being compared (`tabs: [{ name, slot, users? }]`). Each panel's prose goes in a `<template #…>` slot; `users` names the products built on that approach and is drawn as small tags under the prose. Panels share one grid cell, so the block keeps the height of its tallest panel and switching tabs never shifts the page. Styles are scoped in the component.
 
 Frame styles are `.rapira-section*` in `theme/style.css` (they have to outrank `.vp-doc`, since the segments render inside the home page's markdown container); aside internals stay scoped in their own component.

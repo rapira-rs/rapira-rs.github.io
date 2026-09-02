@@ -10,19 +10,19 @@ A framework application runs on Rapira unchanged in classic mode: you point the 
 ::: info Verified with
 
 - **PHP 8.5.8**, NTS, embed SAPI
-- **Rapira 0.6.0**
+- **Rapira 0.8.0**
 - **Symfony 7.4.15** and **8.1.2**, **Yii3** app template 1.4 (yii-runner-http 3.2.1)
 
-Everything on this page was observed by running those applications on Linux, with a single worker process. Every statement below comes from those runs.
+Everything on this page was observed by running those applications on Linux, with a single worker process. The statements below about framework behavior come from those runs. The configuration keys come from Rapira's own [configuration](/docs/configuration) reference.
 :::
 
 ## Classic mode and worker mode
 
 **In classic mode, nothing changes.** Your front controller is the entry script, Rapira executes it from scratch for every request, and every framework that runs under php-fpm runs here, including the ones whose state could never survive a second request. See [classic mode](/docs/classic) for more information; of the sections below, only static files, TLS and OPcache apply.
 
-**In SAPI Worker mode, the process stays alive.** Your script boots the application once and then loops, asking Rapira for the next request. The framework is no longer torn down between requests. See [execution modes](/docs/execution-modes) for where this mode sits among the four, and [worker mode](/docs/worker) for its API reference.
+**In Worker mode, the process stays alive.** Your script boots the application once and then loops, asking Rapira for the next request. The framework is no longer torn down between requests. See [execution modes](/docs/execution-modes) for where this mode sits among the three, and [worker mode](/docs/worker) for its API reference.
 
-One codebase runs in both modes: leave `public/index.php` as it is and add a `worker.php` next to it. The verified Symfony and Yii3 applications keep the two files side by side, and which one runs is a flag — `rapira serve --classic public/index.php` or `rapira serve worker.php` — so classic mode stays available as a rollback while you migrate.
+One codebase runs in both modes: leave `public/index.php` as it is and add a `worker.php` next to it. The verified Symfony and Yii3 applications keep the two files side by side, and the `--mode` flag selects which one runs: `rapira serve --mode classic public/index.php` or `rapira serve --mode worker worker.php`. Classic mode stays available as a rollback while you migrate.
 
 ## The loop, line by line
 
@@ -33,10 +33,6 @@ Every worker script has the same shape, whichever framework sits inside it:
 // worker.php
 require __DIR__ . '/vendor/autoload.php';
 
-use Rapira\Plugin\Http\HttpHandlerConfig;
-use function Rapira\create_plugin_handler;
-
-$http = create_plugin_handler(new HttpHandlerConfig());
 $app = new App(); // booted once, reused for every request
 
 $handler = static function () use ($app): void {
@@ -45,7 +41,7 @@ $handler = static function () use ($app): void {
     echo $app->handle($_SERVER['REQUEST_URI']);
 };
 
-while ($http->handleRequest($handler)) {
+while (\Rapira\handle_request($handler)) {
     gc_collect_cycles();
 }
 ```
@@ -53,11 +49,10 @@ while ($http->handleRequest($handler)) {
 Read from the top:
 
 - **`require .../vendor/autoload.php`** — the autoloader is registered once for the life of the worker, and every class it resolves stays loaded afterwards.
-- **`create_plugin_handler(new HttpHandlerConfig())`** — asks Rapira for a handler; the *class* of the config object is what picks the plugin. In classic mode it throws, because there is no resident loop to hand a handler to.
 - **`$app = new App();`** — the application boots here, once, before the loop starts. This line is where the two worker guides diverge: Symfony keeps a resident kernel here, Yii3 either keeps a resident runner here or builds one inside the handler — and each guide adds its own bootstrap above the loop and its own per-request cleanup inside the handler.
 - **`$handler = static function () use ($app): void`** — the handler takes no arguments. The request is in the superglobals; anything else it needs, it captures with `use`.
 - **`header()`, `http_response_code()`, `echo`** — you write the response exactly as a classic script does. See [HTTP](/docs/http) for how that becomes bytes on the wire.
-- **`while ($http->handleRequest($handler))`** — `handleRequest()` blocks until a request arrives, fills the superglobals for it, runs your handler, closes the request, and returns `true`. It returns `false` when the server is shutting down, which is how the loop ends.
+- **`while (\Rapira\handle_request($handler))`** - `handle_request()` blocks until a request arrives. It fills the superglobals for that request, runs your handler, closes the request, and returns `true`. It returns `false` when the worker starts to drain, which is how the loop ends. Call it only from the top level of the boot script. It throws `Rapira\Exception\NotInWorkerModeError` outside Worker mode.
 - **`gc_collect_cycles();`** — the loop body runs *between* requests, which is where work belongs when it should happen at a predictable moment rather than during a request. It collects ordinary reference cycles and is not a memory fix — see [Memory and recycling](#memory-and-recycling).
 
 Your entry script is `worker.php`, so `SCRIPT_NAME` is `/worker.php` and `DOCUMENT_ROOT` is the directory it sits in, while `REQUEST_URI` carries the path the client actually asked for. Symfony and Yii3 both routed and generated URLs correctly on top of that, with no `worker.php` in the generated URLs and no `$_SERVER` patching of any kind. A framework that builds URLs out of `SCRIPT_NAME` rather than `REQUEST_URI` is the case to check first.
@@ -113,13 +108,23 @@ Three failure shapes, all watched against a single worker with its pid tracked:
 - **An uncaught exception** — a `500`. If your framework's error handler catches it first, it renders its own error page; if nothing catches it, Rapira answers `500` with an empty body. Either way the worker keeps serving.
 - **An uncaught `Error`** — calling a function that does not exist, for instance. PHP logs it as `Uncaught Error`; it takes the same path as any other uncaught throwable — a `500`, and the worker keeps serving on the same pid.
 
-The worker's `errors` counter goes up for the two error shapes; the `exit` request is an ordinary `200` and only moves `handled`. In all three, `recycles` and `restarts` stay at zero: an uncaught throwable does not take the worker down and does not touch the next request. A bailout-class fatal is the one shape that does more — it unwinds the resident script, so the worker re-runs it from the top and boots your application again, which is what `recycles` counts. `getInfo()` on the [worker mode](/docs/worker) page is how you read those counters from PHP.
+The worker's `errors` counter goes up for the two error shapes; the `exit` request is an ordinary `200` and only moves `handled`. In all three, `recycles` and `restarts` stay at zero: an uncaught throwable does not take the worker down and does not touch the next request. A bailout-class fatal is the one shape that does more — it unwinds the resident script, so the worker re-runs it from the top and boots your application again, which is what `recycles` counts. The status dump on the [process model](/docs/process-model) page prints these counters for every worker.
 
 ## Static files
 
-Rapira serves nothing from disk: there is no document root lookup and no "serve the file if it exists" rule. Whatever the URL is, your entry script runs and `$_SERVER['REQUEST_URI']` tells the application where the client wanted to go, in classic and worker mode alike.
+Rapira serves static assets with the [static file middleware](/docs/static-files). Point `root` in `[http.static]` at the framework's `public/` directory and list the middleware in `[http]`:
 
-Your assets therefore need something in front: a CDN, or the reverse proxy that [running in production](/docs/deployment) sets up. Bundled JS and CSS, images and the favicon are each a PHP request otherwise.
+```toml
+[http]
+middleware = ["static"]
+
+[http.static]
+root = "public"
+```
+
+The middleware answers a request only when the path matches a file under that root. Its default `forbid` list keeps `.php` files out, so the front controller in `public/` is never served as a file. Every other URL runs the entry script, in Classic and Worker mode alike. `$_SERVER['REQUEST_URI']` tells the application where the client wanted to go. A directory URL runs the entry script as well, because the middleware serves no index file for it.
+
+A CDN or a reverse proxy in front can still serve the assets instead. [Running in production](/docs/deployment) sets up such a proxy.
 
 ## TLS and proxies
 

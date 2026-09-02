@@ -34,19 +34,19 @@ Anything you don't set at all falls through to the defaults in the table below. 
 | `--config <PATH>` | none             | Load settings from a `rapira.toml`.                                                              |
 | `--listen <ADDR>` | `127.0.0.1:8000` | Bind address: `host:port`, `:port` (all interfaces), or `unix:<path>`.                           |
 | `--processes <N>` | CPU count        | Worker processes to fork.                                                                        |
-| `--classic`       | off              | Re-run the script from scratch on every request instead of keeping it resident.                  |
+| `--mode <MODE>`   | `dispatcher`     | Run mode: `classic`, `worker` or `dispatcher`. Overrides `pool.mode` from the config file.       |
 | `SCRIPT`          | required*        | The PHP entry script. Overrides `pool.entrypoint` from the config file.                          |
 
 \* Required unless the config file sets `pool.entrypoint`. With neither, `serve` reports an error and does not start.
 
 **`--listen`** takes three shapes. `127.0.0.1:8000` (the default) binds one interface — loopback only, so nothing outside the machine can reach it. `:8080` is shorthand for `0.0.0.0:8080` — every IPv4 interface, which is the usual binding in a container; for IPv6 write `[::]:8080`. `unix:/run/rapira.sock` binds a Unix socket instead, for a reverse proxy on the same host. IPv6 literals go in brackets: `[::1]:8000`. A bare port is *not* an address and is rejected because it doesn't say whether to bind loopback only or every interface — `--listen 8080` is an error, write `--listen :8080` or `--listen 127.0.0.1:8080`. The host part has to be an IP literal — hostnames are never resolved, so `--listen localhost:8000` is an error; write `--listen 127.0.0.1:8000`.
 
-**`--processes`** defaults to the number of logical CPUs. Under the default static pool that is exactly how many worker processes get forked; when the config file switches the pool to `dynamic` or `ondemand`, the same number becomes the ceiling those modes scale up to. See [Process model](/docs/process-model) for what the workers and the master actually do.
+**`--processes`** defaults to the number of logical CPUs. Under the default `pool.scaling = "static"` that is exactly how many worker processes get forked; when the config file sets `pool.scaling` to `dynamic` or `ondemand`, the same number becomes the ceiling those policies scale up to. See [Process model](/docs/process-model) for what the workers and the master actually do.
 
-**`--classic`** picks the mode the app runs in. Without it the entry script is loaded once and stays resident, which is [SAPI Worker](/docs/worker) mode; with it, the script is re-included per request exactly as it would be under php-fpm, which is [Classic](/docs/classic) mode. If you are not sure which one your application can use, [Execution modes](/docs/execution-modes) describes all four modes.
+**`--mode`** picks the run mode. `dispatcher` is the default: a resident script pulls each request from the host. `worker` keeps the entry script resident and runs a handler for each request. `classic` executes the entry script from scratch for each request, as under php-fpm. The flag takes a value, so it can select any mode whatever the config file sets. See [Classic mode](/docs/classic), [Worker mode](/docs/worker) and [Execution modes](/docs/execution-modes) for more information.
 
 ::: info
-`--classic` is a switch that only turns on. There is no `--no-classic`, so `classic = true` in a config file cannot be turned off from the command line — remove the key from the file instead.
+`pool.scaling` and `pool.mode` are separate keys. `pool.scaling` sets the policy that sizes the pool. `pool.processes` sets the worker count the policy applies, and `--processes` overrides it. `pool.mode` sets what a worker does with a request. `pool.scaling` has no flag. Set it in the config file.
 :::
 
 ## Entry script resolution
@@ -70,19 +70,22 @@ With that in `/etc/rapira/rapira.toml`, the entry script is `/etc/rapira/public/
 Common invocations:
 
 ```bash
-rapira serve app/worker.php
-rapira serve --classic public/index.php
-rapira serve --listen :8080 --processes 8 app/worker.php
-rapira serve --listen unix:/run/rapira.sock app/worker.php
+rapira serve app/dispatcher.php
+rapira serve --mode worker app/worker.php
+rapira serve --mode classic public/index.php
+rapira serve --listen :8080 --processes 8 app/dispatcher.php
+rapira serve --listen unix:/run/rapira.sock app/dispatcher.php
 rapira serve --config /etc/rapira/rapira.toml
 rapira serve --config /etc/rapira/rapira.toml --listen 127.0.0.1:9000
 ```
 
-The first command takes no `--listen`, so the server comes up on the default address and one more line is enough to send it a request. See [Quickstart](/docs/intro/quickstart) for a worker script to run with it.
+The first command takes no `--listen`, so the server starts on the default address. One more line sends it a request.
 
 ```bash
 curl http://127.0.0.1:8000/
 ```
+
+[Quickstart](/docs/intro/quickstart) gives the entry scripts for the `--mode classic` and `--mode worker` commands. For a Dispatcher entry script, use `dispatcher-sync.php` or `dispatcher-async.php` from the repository [`examples/`](https://github.com/rapira-rs/rapira/tree/main/examples) directory.
 
 ## Stopping the server
 

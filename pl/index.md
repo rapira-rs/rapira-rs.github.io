@@ -11,33 +11,24 @@ features:
   - title: Zgodność z php-fpm
     details: "Obsługa klasycznego SAPI: Rapira wchodzi na miejsce php-fpm bez zmian w kodzie, ale działa szybciej."
   - title: Tryby pracy
-    details: "Classic → Worker → Async<br>Na co stać twoją aplikację?"
+    details: "Classic → Worker → Dispatcher<br>Na co stać twoją aplikację?"
     link: /pl/docs/execution-modes
 ---
 
 <script setup>
-import { VPImage } from 'vitepress/theme'
-
-// Baner Pingory po prawej stronie tekstu — dekoracja, po jednym wariancie na
-// motyw. Pliki trafiają do public/ pod tymi nazwami.
-const pingoraBanner = {
-  light: '/pingora-banner-light.png',
-  dark: '/pingora-banner-dark.png',
-  alt: 'Pingora',
-}
-
-// To, co Pingora wnosi do binarki: `ready: false` oznacza to, czego Rapira
-// jeszcze nie obsługuje — takie etykiety są wyszarzone.
+// Co niesie warstwa HTTP: `ready: false` oznacza to, czego Rapira jeszcze nie
+// obsługuje - takie etykiety są wyszarzone.
 const httpFeatures = [
   { label: 'HTTP/1.1' },
-  { label: 'HTTP/2' },
-  { label: 'HTTP/3' },
   { label: 'Keep-alive' },
-  { label: 'Early Hints' },
+  { label: 'Static files' },
+  { label: 'HTTP/2', ready: false },
+  { label: 'HTTP/3', ready: false },
+  { label: 'TLS 1.3', ready: false },
+  { label: 'TLS 1.2', ready: false },
+  { label: 'ALPN', ready: false },
+  { label: 'Early Hints', ready: false },
   { label: 'Trailers', ready: false },
-  { label: 'TLS 1.3' },
-  { label: 'TLS 1.2' },
-  { label: 'ALPN' },
 ]
 
 // Cztery sposoby połączenia serwera z PHP — po zakładce na każdy.
@@ -50,17 +41,11 @@ const interopTabs = [
 ]
 </script>
 
-<RapiraSection title="Wbudowany serwer HTTP, wzmocniony Pingorą" link="/pl/docs/http" link-text="Żądania i odpowiedzi HTTP">
+<RapiraSection title="Wbudowany serwer HTTP oparty na hyperze" link="/pl/docs/http" link-text="Żądania i odpowiedzi HTTP">
 
 Paradoksalnie, PHP nie ma własnego serwera HTTP gotowego do produkcji: wbudowany to wyłącznie narzędzie deweloperskie, a php-fpm nie działa bez zewnętrznego serwera WWW takiego jak nginx.
 
-Teraz PHP ma taki serwer: nowoczesny, szybki, zbudowany na [Pingorze](https://github.com/cloudflare/pingora). Tym frameworkiem Cloudflare obsługuje znaczną część ruchu całego internetu.
-
-<template #aside>
-<div class="rapira-section-art">
-<VPImage :image="pingoraBanner" draggable="false" />
-</div>
-</template>
+Rapira dostarcza taki serwer: własny front HTTP napisany w Ruście na bibliotece [hyper](https://hyper.rs). Hyper to niskopoziomowa implementacja HTTP dla Rusta. Czyta każde żądanie z połączenia i odsyła z powrotem odpowiedź, którą przygotowała Rapira.
 
 <template #footer>
 <FeatureTags :items="httpFeatures" />
@@ -72,7 +57,7 @@ Teraz PHP ma taki serwer: nowoczesny, szybki, zbudowany na [Pingorze](https://gi
 
 Rapira jest napisana w Ruście, a PHP — w C. Rust wywołuje funkcje C natywnie, więc interop między tymi językami nic nie kosztuje: wywołanie funkcji PHP z Rusta to zwykłe wywołanie funkcji. Interpreter jest wbudowany w proces serwera, a Rapira steruje nim przez bezpośrednie bindingi — od startu silnika po obsługę każdego żądania.
 
-Nie ma tu ani FastCGI, ani Goridge, ani CGO: żądanie nigdzie nie jest serializowane i nie opuszcza procesu. W trybie SAPI Rapira wypełnia zmienne superglobalne bezpośrednio.
+Nie ma tu ani FastCGI, ani Goridge, ani CGO: żądanie nigdzie nie jest serializowane i nie opuszcza procesu. W trybie Classic i w trybie Worker Rapira wypełnia zmienne superglobalne bezpośrednio.
 
 <template #aside>
 <TextTabs :tabs="interopTabs">

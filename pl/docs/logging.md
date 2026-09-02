@@ -33,7 +33,7 @@ level = "error"
 
 [log.targets]
 php = "debug"
-pingora_core = "warn"
+http = "warn"
 ```
 
 Każdy klucz nazywa jeden cel i podnosi albo obniża wyłącznie jego; cała reszta zostaje na `level`. Dopasowanie idzie **po prefiksie**, więc `php` obejmuje też `php_sys` i `php_sys::callbacks` — wystarczy najkrótszy pasujący prefiks, a podmodułów nigdy nie trzeba wymieniać po kolei.
@@ -51,7 +51,7 @@ Cele, pod którymi loguje sama Rapira:
 
 Logu dostępu nie ma: Rapira nie zapisuje jednej linijki na żądanie. To, co cel `http` raportuje o polach żądania i odpowiedzi, opisuje strona [HTTP](/pl/docs/http).
 
-Zależności logują pod własnymi ścieżkami modułów — `pingora_core`, `tokio` i reszta — i podlegają dokładnie temu samemu filtrowi. Każdy wpis niesie nazwę swojego celu, więc hałaśliwą zależność wyciszysz, przepisując tę nazwę do `[log.targets]`.
+Zależność, która emituje wpisy tracingu, loguje pod własną ścieżką modułu i podlega dokładnie temu samemu dopasowaniu po prefiksie. Każdy wpis niesie nazwę swojego celu. Żeby wyciszyć hałaśliwy cel, przepisz jego nazwę do `[log.targets]`.
 
 ::: tip
 Gdy chcesz zrozumieć, dlaczego pula zachowuje się tak, a nie inaczej, obserwuj cel `master` — podstawianie workerów, przeładowania i skalowanie puli trafiają właśnie tam. Co znaczą te zdarzenia, wyjaśnia [Model procesów](/pl/docs/process-model).
@@ -107,7 +107,7 @@ Poziom to przypadek wyliczenia `\Rapira\LogLevel`, a każdy przypadek odpowiada 
 
 Jeśli pominiesz poziom, wpis zapisywany jest jako `Info`. Ponieważ są to te same poziomy co wszędzie indziej, `[log.targets]` i `RUST_LOG` filtrują wpisy aplikacji dokładnie tak samo jak wpisy samego serwera — `app = "debug"` w `[log.targets]` podnosi wpisy aplikacji, nie ruszając niczego dookoła.
 
-Tablica kontekstu jest serializowana do JSON-a i dołączana do wpisu jako pole `context`. Klucze zostają takie, jak je zapisano, a zagnieżdżone tablice zachowują swoją strukturę:
+Tablica kontekstu jest serializowana do JSON-a i dołączana do wpisu jako pole `context`. W formacie `json` to pole leży wewnątrz obiektu `fields` danego wpisu. Klucze zostają takie, jak je zapisano, a zagnieżdżone tablice zachowują swoją strukturę:
 
 ```php
 <?php
@@ -130,6 +130,8 @@ try {
 }
 ```
 
+`\Rapira\log()` nigdy nie rzuca wyjątkiem: wyjątek z `jsonSerialize()` którejś wartości kontekstu zostaje odrzucony, sama wartość trafia do wpisu jako `null`, a pozostałe klucze zostają bez zmian.
+
 Decydując, co włożyć do kontekstu, warto znać dwa ograniczenia. Wartość, której JSON nie potrafi wyrazić — zasób, domknięcie, `NAN` lub `INF`, ciąg niebędący poprawnym UTF-8 — zostaje zastąpiona wypełniaczem, a nie kosztuje cię całego wpisu, więc sąsiednie klucze docierają. A kontekst nie ma ograniczenia rozmiaru: duża tablica albo długi ciąg są serializowane w całości i dają odpowiednio duży wpis, więc przekazuj identyfikatory, a nie obiekty, które oznaczają.
 
 ## Formaty
@@ -149,22 +151,22 @@ Kolory pojawiają się tylko wtedy, gdy stderr jest terminalem, i nigdy przy prz
 **`json`** jest dla kolektora logów — jeden obiekt na linijkę:
 
 ```text
-{"timestamp":…,"level":"ERROR","message":…,"target":…}
+{"timestamp":…,"level":"ERROR","fields":{"message":…},"target":…}
 ```
 
-`timestamp` to RFC 3339 w UTC, z milisekundami. Znaki nowej linii w komunikacie są ekranowane, więc wpis zawsze zajmuje dokładnie jedną linijkę, łącznie z wielolinijkowym stack trace'em z PHP. Wpisy z wbudowanego silnika proxy niosą dodatkowe pola `log.*` z miejscem wywołania. Wyjście JSON nie jest kolorowane nigdy — w terminalu też nie.
+`timestamp` to RFC 3339 w UTC, z milisekundami. Obiekt `fields` mieści komunikat i każde inne pole wpisu, na przykład pole `context` wpisu z aplikacji. Znaki nowej linii w komunikacie są ekranowane, więc wpis zawsze zajmuje dokładnie jedną linijkę, łącznie z wielolinijkowym stack trace'em z PHP. Wyjście JSON nie jest kolorowane nigdy — w terminalu też nie.
 
 ## `RUST_LOG`
 
 `RUST_LOG` ustawia filtr logów ze środowiska, więc jednorazowa sesja debugowania nie wymaga edycji konfiguracji:
 
 ```sh
-RUST_LOG=info rapira serve worker.php
-RUST_LOG=rapira=debug,php=info rapira serve worker.php
-RUST_LOG=warn,rapira=trace rapira serve worker.php
+RUST_LOG=info rapira serve --mode worker worker.php
+RUST_LOG=rapira=debug,php=info rapira serve --mode worker worker.php
+RUST_LOG=warn,rapira=trace rapira serve --mode worker worker.php
 ```
 
-Pierwsza linijka podgłaśnia wszystko do `info`. Druga to celowana para — cel `rapira` na `debug`, PHP na `info`. Trzecia wycisza zależności do `warn` i podnosi cel `rapira` — start, cykl życia workerów, zamykanie — do `trace`. Pozostałe cele dopasowują się po własnych nazwach, więc dopisz je, gdy pytanie dotyczy czegoś innego: `RUST_LOG=warn,rapira=trace,master=trace`.
+Pierwsza linijka podgłaśnia wszystko do `info`. Druga to celowana para: cel `rapira` na `debug`, PHP na `info`. Trzecia ustawia wszystkie cele na `warn`, a potem podnosi cel `rapira` do `trace`. Ten cel obejmuje start, cykl życia workerów i zamykanie. Pozostałe cele dopasowują się po własnych nazwach, więc dopisz je, gdy pytanie dotyczy czegoś innego: `RUST_LOG=warn,rapira=trace,master=trace`.
 
 ::: warning
 Gdy `RUST_LOG` jest ustawiona na niepustą wartość, **zastępuje** `level` i `[log.targets]` w całości — podmienia cały filtr, a nie scala go z konfiguracją. Twoje wpisy z `[log.targets]` nie leżą pod spodem jako druga warstwa: po prostu nikt do nich nie zagląda. Żeby wrócić do konfiguracji, zostaw zmienną nieustawioną (albo pustą). Na `format` nie wpływa nigdy.

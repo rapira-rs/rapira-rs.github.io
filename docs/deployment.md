@@ -5,9 +5,11 @@ description: How to run Rapira on a server — a systemd unit, config layout, a 
 
 # Running in production
 
-Running Rapira on a server adds what a local `rapira serve app/worker.php` does not need: starting at boot, coming back after a crash, reloading new code without dropping a request, and logs you can read afterwards. This page covers a systemd unit, a place for the config, a proxy in front, and the settings that bound long-lived workers.
+Running Rapira on a server adds what a local `rapira serve --mode worker app/worker.php` does not need: starting at boot, coming back after a crash, reloading new code without dropping a request, and logs you can read afterwards. This page covers a systemd unit, a place for the config, a proxy in front, and the settings that bound long-lived workers.
 
 Almost none of this is compiled into the binary. Nothing in Rapira depends on where your config lives or on what supervises the process, so the layout below is a convention this page establishes and the rest of the docs assume. Get the binary onto the machine first — that part is on [Installation](/docs/intro/installation).
+
+Rapira also ships as a container image on `ghcr.io/rapira-rs/rapira`, which you copy into your own image with `COPY --from`. A container replaces the systemd unit below with the restart policy of your container runtime; the config layout, the proxy, the log format and the pool settings on this page stay the same. See [Docker](/docs/intro/installation#docker) for more information.
 
 ## A systemd unit
 
@@ -79,6 +81,8 @@ listen = "127.0.0.1:8000"
 The Unix socket is created with mode `0666`, so any local process that can traverse the runtime directory can connect to it and send requests to your application. Rapira has no setting for that mode, so the directory's permissions are the only thing limiting who reaches the socket. If it matters, restrict the directory: with the unit above, `RuntimeDirectoryMode=0750` plus a `Group=` the proxy's user belongs to keeps everyone else out of `/run/rapira`.
 
 Forwarded fields must reach Rapira with the ordinary `-` spelling — `X-Forwarded-For`, never `X_Forwarded_For`. Underscore and dot spellings fold onto the same `$_SERVER` key as the proper one, which is how a client would otherwise overwrite what your proxy just set, so Rapira drops them before PHP sees them. The [HTTP page](/docs/http) explains the mapping and the `http.unsafe_field_names` setting that governs it.
+
+Rapira serves static assets itself when you enable the [static file middleware](/docs/static-files), so the proxy does not have to hold a second copy of the document root. A proxy or a CDN in front of it stays an option.
 
 ## Zero-downtime deploys
 

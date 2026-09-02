@@ -9,7 +9,7 @@ Yii3 从设计上就是要跑在一个不退出的进程里：它的 DI 容器�
 
 ::: info 验证环境
 - **PHP 8.5.8**——NTS，embed SAPI
-- **Rapira 0.6.0**
+- **Rapira 0.8.0**
 - **yiisoft/app** 模板 1.4，配 **yii-runner-http 3.2.1**（router-fastroute 4.x）
 
 本页这两个 worker 脚本都在这套环境上跑过，并通过了全套测试：路由、生成 URL、表单和 JSON 提交、session、文件上传、错误处理，以及连续 200 个请求。
@@ -42,11 +42,8 @@ PHP 那边什么都不用装：下面这个 worker 脚本是项目里唯一新�
 declare(strict_types=1);
 
 use App\Environment;
-use Rapira\Plugin\Http\HttpHandlerConfig;
 use Yiisoft\Di\StateResetter;
 use Yiisoft\Yii\Runner\Http\HttpApplicationRunner;
-
-use function Rapira\create_plugin_handler;
 
 require_once __DIR__ . '/vendor/autoload.php';
 require_once __DIR__ . '/src/bootstrap.php';
@@ -59,8 +56,6 @@ $runner = new HttpApplicationRunner(
 );
 $container = $runner->getContainer();
 
-$http = create_plugin_handler(new HttpHandlerConfig());
-
 $handler = static function () use ($runner, $container): void {
     try {
         $runner->run();
@@ -71,7 +66,7 @@ $handler = static function () use ($runner, $container): void {
     }
 };
 
-while ($http->handleRequest($handler)) {
+while (\Rapira\handle_request($handler)) {
     gc_collect_cycles();
 }
 ```
@@ -102,15 +97,10 @@ while ($http->handleRequest($handler)) {
 declare(strict_types=1);
 
 use App\Environment;
-use Rapira\Plugin\Http\HttpHandlerConfig;
 use Yiisoft\Yii\Runner\Http\HttpApplicationRunner;
-
-use function Rapira\create_plugin_handler;
 
 require_once __DIR__ . '/vendor/autoload.php';
 require_once __DIR__ . '/src/bootstrap.php';
-
-$http = create_plugin_handler(new HttpHandlerConfig());
 
 $handler = static function (): void {
     // A fresh runner per request; constructor arguments mirror public/index.php.
@@ -123,7 +113,7 @@ $handler = static function (): void {
     $runner->run();
 };
 
-while ($http->handleRequest($handler)) {
+while (\Rapira\handle_request($handler)) {
     gc_collect_cycles();
 }
 ```
@@ -139,10 +129,10 @@ while ($http->handleRequest($handler)) {
 ## 跑起来
 
 ```bash
-rapira serve worker.php
+rapira serve --mode worker worker.php
 ```
 
-worker 模式本来就是默认的，不用额外加参数。其余参数见[命令行](/zh/docs/cli)。
+`--mode worker` 选定 Worker 模式。其余参数见[命令行](/zh/docs/cli)。
 
 上生产的话，把它写进 `rapira.toml`：
 
@@ -152,6 +142,7 @@ listen = "127.0.0.1:8000"
 
 [pool]
 entrypoint = "/srv/app/worker.php"
+mode = "worker"
 processes = 8
 max_requests = 500
 request_terminate_timeout_secs = 30
@@ -186,7 +177,7 @@ format = "json"
 Yii3 当成普通前端控制器跑也一样：
 
 ```bash
-rapira serve --classic public/index.php
+rapira serve --mode classic public/index.php
 ```
 
 代码原封不动，不用写 worker 脚本，每个请求的状态都是全新的。详见[经典模式](/zh/docs/classic)。

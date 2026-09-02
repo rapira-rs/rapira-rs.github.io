@@ -33,7 +33,7 @@ level = "error"
 
 [log.targets]
 php = "debug"
-pingora_core = "warn"
+http = "warn"
 ```
 
 每个键点名一个目标，只调它一个的高低，其余照旧跟着 `level` 走。键**按前缀**匹配，所以 `php` 连 `php_sys` 和 `php_sys::callbacks` 一起管住了——最短的匹配前缀就够了，子模块从来不必逐个列出。
@@ -51,7 +51,7 @@ Rapira 自己用的目标有这些：
 
 没有访问日志：Rapira 不会为每个请求写一行。`http` 目标就请求和响应字段报告哪些内容，见 [HTTP](/zh/docs/http) 那一页。
 
-依赖库以自己的模块路径作为目标——`pingora_core`、`tokio` 等等——过滤方式完全一样。每条记录都带着自己的目标名，把这个名字抄进 `[log.targets]` 就能压下吵闹的依赖。
+会发出 tracing 记录的依赖库，以自己的模块路径作为目标，同一套前缀匹配对它们一样有效。每条记录都带着自己的目标名，把这个名字抄进 `[log.targets]`，就能压下吵闹的目标。
 
 ::: tip
 想弄明白进程池为什么是眼下这个样子，就盯着 `master` 这个目标看——重新拉起、重载、进程池伸缩，都会记在那里。这些事件各自意味着什么，见[进程模型](/zh/docs/process-model)。
@@ -107,7 +107,7 @@ error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
 
 省略级别时按 `Info` 记录。因为用的是和别处一样的级别，`[log.targets]` 和 `RUST_LOG` 过滤应用记录的方式，和过滤服务器自己的记录完全一致——在 `[log.targets]` 里写 `app = "debug"` 就能只把应用的记录调高，周围什么都不动。
 
-上下文数组会被序列化成 JSON，作为 `context` 字段挂在记录上。键按写下的样子保留，嵌套数组保持原有结构：
+上下文数组会被序列化成 JSON，作为 `context` 字段挂在记录上；在 `json` 格式下，这个字段位于记录的 `fields` 对象里。键按写下的样子保留，嵌套数组保持原有结构：
 
 ```php
 <?php
@@ -130,6 +130,8 @@ try {
 }
 ```
 
+`\Rapira\log()` 从不抛异常：上下文里某个值的 `jsonSerialize()` 抛了异常，它会丢掉这个异常，把该值写成 `null`，其余的键原样不动。
+
 决定往上下文里放什么时，有两个限制值得知道。JSON 表达不了的值——资源、闭包、`NAN` 或 `INF`、不是合法 UTF-8 的字符串——会被替换成占位符，而不是让你整条记录都没了，所以周围的键照样到达。另外上下文的大小没有上限：大数组或长字符串会被完整序列化，记录也就相应地大，所以请传标识符，而不是它们指向的对象。
 
 ## 格式
@@ -149,22 +151,22 @@ stderr 是终端时它带颜色，重定向到文件时绝不带，所以收集�
 **`json`** 用于日志收集器——一行一个对象：
 
 ```text
-{"timestamp":…,"level":"ERROR","message":…,"target":…}
+{"timestamp":…,"level":"ERROR","fields":{"message":…},"target":…}
 ```
 
-`timestamp` 是精确到毫秒的 RFC 3339 UTC 时间。消息里的换行会被转义，所以一条记录永远正好一行，多行的 PHP 调用栈也不例外。来自内置代理引擎的记录还会多带几个 `log.*` 调用方字段。JSON 输出永远不带颜色，在不在终端里都一样。
+`timestamp` 是精确到毫秒的 RFC 3339 UTC 时间。`fields` 对象装着消息，也装着记录的其余字段，比如应用记录里的 `context` 字段。消息里的换行会被转义，所以一条记录永远正好一行，多行的 PHP 调用栈也不例外。JSON 输出永远不带颜色，在不在终端里都一样。
 
 ## `RUST_LOG`
 
 `RUST_LOG` 从环境变量设定日志过滤规则，一次性的调试因此不用改配置文件：
 
 ```sh
-RUST_LOG=info rapira serve worker.php
-RUST_LOG=rapira=debug,php=info rapira serve worker.php
-RUST_LOG=warn,rapira=trace rapira serve worker.php
+RUST_LOG=info rapira serve --mode worker worker.php
+RUST_LOG=rapira=debug,php=info rapira serve --mode worker worker.php
+RUST_LOG=warn,rapira=trace rapira serve --mode worker worker.php
 ```
 
-第一条把所有东西都调到 `info`。第二条是有针对性的一对——`rapira` 目标开到 `debug`，PHP 开到 `info`。第三条把依赖库压到 `warn`，同时把 Rapira 的 `rapira` 目标——启动、worker 生命周期、关闭——拉到 `trace`。其他目标同样按各自的名字匹配，问题出在别处就把它们加上：`RUST_LOG=warn,rapira=trace,master=trace`。
+第一条把所有东西都调到 `info`。第二条是有针对性的一对：`rapira` 目标开到 `debug`，PHP 开到 `info`。第三条先把所有目标压到 `warn`，再把 `rapira` 目标拉到 `trace`，这个目标涵盖启动、worker 生命周期和关闭。其他目标同样按各自的名字匹配，问题出在别处就把它们加上：`RUST_LOG=warn,rapira=trace,master=trace`。
 
 ::: warning
 `RUST_LOG` 一旦设成非空值，就会把 `level` 和 `[log.targets]` 整个**替换**掉——换掉的是整套过滤规则，不是两边合并。你写的 `[log.targets]` 不会垫在它下面继续生效，而是压根不会被读取。想回到配置文件，把这个变量取消设置（或者留空）即可。它从不影响 `format`。

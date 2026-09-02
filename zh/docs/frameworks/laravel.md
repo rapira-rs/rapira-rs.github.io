@@ -9,7 +9,7 @@ Rapira 以经典模式运行 Laravel：原封不动的 `public/index.php` 前端
 
 ::: info 验证环境
 - **PHP 8.5.8**——NTS，embed SAPI
-- **Rapira 0.6.0**
+- **Rapira 0.8.0**
 - **laravel/laravel** 骨架 + **laravel/framework v13.23.0**
 
 本页所有内容，都是在一个加了几条测试路由的 `laravel/laravel` 骨架上、以经典模式用单个 worker 进程实跑出来的：路由、session、文件上传、JSON 和表单请求体、缓存过的配置与路由、错误响应，以及 50 个顺序请求。
@@ -28,13 +28,13 @@ Rapira 以经典模式运行 Laravel：原封不动的 `public/index.php` 前端
 ::: code-group
 
 ```bash [CLI]
-rapira serve --classic public/index.php
+rapira serve --mode classic public/index.php
 ```
 
 ```toml [rapira.toml]
 [pool]
 entrypoint = "public/index.php"
-classic = true
+mode = "classic"
 processes = 4
 
 [http]
@@ -56,9 +56,9 @@ php artisan route:cache
 
 ## 路由与 URL
 
-Rapira 不会把 URL 映射成文件：每个请求跑的都是前端控制器，路径由 `$_SERVER['REQUEST_URI']` 交给 Laravel 去路由。路由、没匹配上的路径拿到的 Laravel 自带 404 页面，以及 `url()` 生成的地址，全都验证过——生成出来的是干净的绝对 URL，里面没有 `index.php`，而且既不需要覆盖 `$_SERVER`，也不需要改任何路由或 URL 配置。
+Rapira 不会把 URL 映射到 PHP 脚本：每个请求跑的都是前端控制器，路径由 `$_SERVER['REQUEST_URI']` 交给 Laravel 去路由。开启[静态文件中间件](/zh/docs/static-files)之后，凡是它能用文件应答的请求由它接走，其余的请求照旧跑前端控制器。路由、没匹配上的路径拿到的 Laravel 自带 404 页面，以及 `url()` 生成的地址，全都验证过：生成出来的是干净的绝对 URL，里面没有 `index.php`，而且既不需要覆盖 `$_SERVER`，也不需要改任何路由或 URL 配置。
 
-骨架自带的 `/up` 健康检查路由返回 `200`，拿它给负载均衡器或者容器健康检查当探测目标正合适。静态资源需要在 Rapira 前面加一层——CDN，或者[生产环境部署](/zh/docs/deployment)页面里配置的反向代理。Rapira 的监听器只讲明文 HTTP，无论 `X-Forwarded-Proto` 是什么值，`$_SERVER['HTTPS']` 都是空的，所以 TLS 在那个代理上终结时，要在 Laravel 里配置[可信代理](https://laravel.com/docs/requests#configuring-trusted-proxies)，否则 `url()` 生成的是 `http://` 链接。
+骨架自带的 `/up` 健康检查路由返回 `200`，拿它给负载均衡器或者容器健康检查当探测目标正合适。骨架里的静态资源由 Rapira 自己用[静态文件中间件](/zh/docs/static-files)提供。开启它要两处一起配：在 `http.middleware` 里列出 `"static"`，并把 `[http.static]` 的 `root` 指向应用的 `public/` 目录。只配了一半，Rapira 会拒绝启动。当然，也可以让前面的 CDN 或反向代理来提供这些资源。Rapira 的监听器只讲明文 HTTP，无论 `X-Forwarded-Proto` 是什么值，`$_SERVER['HTTPS']` 都是空的。TLS 在那个代理上终结时，要在 Laravel 里配置[可信代理](https://laravel.com/docs/requests#configuring-trusted-proxies)；不配的话，`url()` 生成的是 `http://` 链接。
 
 ## Session、CSRF 与表单
 
@@ -70,6 +70,6 @@ Laravel 的 worker 模式还在开发中，目前尚不支持——请以经典�
 
 原因在框架的生命周期。Laravel 的容器在设计上就没考虑在没人帮忙的情况下活过第二个请求：绑定被解析出来，单例捕获了当前请求，框架的静态属性随着请求跑起来越积越多，这一切都得在下一个请求到来之前拆干净。做这件拆解工作的，是 Laravel 自己为长期运行的服务器写的包 [Octane](https://laravel.com/docs/octane)（`laravel/octane`）。Octane 只能跑在它有 driver 的服务器上，而 Rapira 目前还没有 Octane driver。
 
-卡住的不是模式本身：[Symfony](/zh/docs/frameworks/symfony) 和 [Yii3](/zh/docs/frameworks/yii3) 就在同一个 [SAPI Worker](/zh/docs/worker) 模式下把应用常驻着。缺的是 Laravel 特有的那套两次请求之间的状态处理。
+卡住的不是模式本身：[Symfony](/zh/docs/frameworks/symfony) 和 [Yii3](/zh/docs/frameworks/yii3) 就在同一个 [Worker](/zh/docs/worker) 模式下把应用常驻着。缺的是 Laravel 特有的那套两次请求之间的状态处理。
 
 你可以自己给 Laravel 写一个 worker 脚本，但让应用常驻就意味着要手工重建 Octane 的状态处理：要拆掉的状态散落在容器、已解析的单例、request/session/auth 这一整条链路，以及框架自己的静态属性里，漏掉一个，表现出来就是一个过期的 request 对象，或者上一个用户的 session 被下一个人看见。

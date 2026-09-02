@@ -10,19 +10,19 @@ description: "在 Rapira 上运行的每个框架都共通的机制：worker 循
 ::: info 验证环境
 
 - **PHP 8.5.8**，NTS，embed SAPI
-- **Rapira 0.6.0**
+- **Rapira 0.8.0**
 - **Symfony 7.4.15** 和 **8.1.2**、**Yii3** 应用模板 1.4（yii-runner-http 3.2.1）
 
-本页的每一条结论，都来自在 Linux 上用单个 worker 进程实际跑这些应用观察到的结果。下面的每一条说法都以这些实测为依据。
+本页的每一条结论，都来自在 Linux 上用单个 worker 进程实际跑这些应用观察到的结果。下面凡是讲框架行为的说法，都以这些实测为依据；配置键则来自 Rapira 自己的[配置](/zh/docs/configuration)参考。
 :::
 
 ## 经典模式与 worker 模式
 
 **经典模式下，什么都不变。**你的前端控制器就是入口脚本，Rapira 每来一个请求就把它从头跑一遍，凡是能在 php-fpm 下跑的框架，在这里照样跑，包括那些状态根本撑不过第二个请求的。更多内容见[经典模式](/zh/docs/classic)；下面几节里，只有静态文件、TLS 和 OPcache 适用于经典模式。
 
-**SAPI Worker 模式下，进程不会退出。**脚本把应用启动一次，然后待在循环里，一遍遍向 Rapira 要下一个请求。框架不再在两次请求之间被拆掉。这个模式在四种模式中处于什么位置，见[执行模式](/zh/docs/execution-modes)；它的 API 参考见 [Worker 模式](/zh/docs/worker)。
+**Worker 模式下，进程不会退出。**脚本把应用启动一次，然后待在循环里，一遍遍向 Rapira 要下一个请求。框架不再在两次请求之间被拆掉。这个模式在三种模式中处于什么位置，见[执行模式](/zh/docs/execution-modes)；它的 API 参考见 [Worker 模式](/zh/docs/worker)。
 
-同一份代码可以跑在两种模式下：`public/index.php` 原样留着，在旁边加一个 `worker.php`。验证过的 Symfony 和 Yii3 应用都是两个文件并存，跑哪一个由一个参数决定——`rapira serve --classic public/index.php` 或者 `rapira serve worker.php`——所以迁移期间经典模式一直是随时可用的回滚方案。
+同一份代码可以跑在两种模式下：`public/index.php` 原样留着，在旁边加一个 `worker.php`。验证过的 Symfony 和 Yii3 应用都是两个文件并存，跑哪一个由 `--mode` 参数选定：`rapira serve --mode classic public/index.php` 或者 `rapira serve --mode worker worker.php`。所以迁移期间经典模式一直是随时可用的回滚方案。
 
 ## 逐行读这个循环
 
@@ -33,10 +33,6 @@ description: "在 Rapira 上运行的每个框架都共通的机制：worker 循
 // worker.php
 require __DIR__ . '/vendor/autoload.php';
 
-use Rapira\Plugin\Http\HttpHandlerConfig;
-use function Rapira\create_plugin_handler;
-
-$http = create_plugin_handler(new HttpHandlerConfig());
 $app = new App(); // booted once, reused for every request
 
 $handler = static function () use ($app): void {
@@ -45,7 +41,7 @@ $handler = static function () use ($app): void {
     echo $app->handle($_SERVER['REQUEST_URI']);
 };
 
-while ($http->handleRequest($handler)) {
+while (\Rapira\handle_request($handler)) {
     gc_collect_cycles();
 }
 ```
@@ -53,11 +49,10 @@ while ($http->handleRequest($handler)) {
 从上往下读：
 
 - **`require .../vendor/autoload.php`**——自动加载器在 worker 的一生里只注册一次，它解析过的每个类此后都留在内存里。
-- **`create_plugin_handler(new HttpHandlerConfig())`**——向 Rapira 要一个 handler；真正决定选用哪个插件的，是配置对象的*类*。在经典模式下它会抛异常，因为那里没有常驻循环，handler 交不出去。
 - **`$app = new App();`**——应用在这里启动，只启动一次，而且在循环开始之前。两份 worker 指南的分歧从这一行开始：Symfony 在这里保留一个常驻的内核，Yii3 要么在这里保留一个常驻的 runner，要么在 handler 内部构建一个——每份指南在循环之上还有各自的引导代码，handler 内部也有各自的单请求清理。
 - **`$handler = static function () use ($app): void`**——handler 不接收任何参数。请求就在超全局变量里；它还需要别的什么，用 `use` 捕获进去。
 - **`header()`、`http_response_code()`、`echo`**——响应的写法和经典脚本一模一样。这些东西怎么变成网络上的字节，见 [HTTP](/zh/docs/http)。
-- **`while ($http->handleRequest($handler))`**——`handleRequest()` 会一直阻塞到请求到来，为它填好超全局变量，跑你的 handler，把请求收尾，然后返回 `true`。服务器开始关闭时它返回 `false`，循环也就是这样结束的。
+- **`while (\Rapira\handle_request($handler))`**——`handle_request()` 会一直阻塞到请求到来，为这个请求填好超全局变量，跑你的 handler，把请求收尾，然后返回 `true`。worker 开始排空时它返回 `false`，循环也就是这样结束的。它只能在启动脚本的顶层调用；在 Worker 模式之外调用会抛出 `Rapira\Exception\NotInWorkerModeError`。
 - **`gc_collect_cycles();`**——循环体跑在两次请求*之间*，凡是应当发生在一个可预期的时刻、而不是在处理请求过程中的活儿，都该放在这里。它回收的是普通的循环引用，并不是内存增长的解决办法——见[内存与回收](#内存与回收)。
 
 入口脚本是 `worker.php`，于是 `SCRIPT_NAME` 是 `/worker.php`，`DOCUMENT_ROOT` 是它所在的目录，而客户端真正请求的路径在 `REQUEST_URI` 里。Symfony 和 Yii3 在这个前提下都能正确路由、正确生成 URL，生成出来的 URL 里没有 `worker.php`，也不需要给 `$_SERVER` 打任何补丁。如果某个框架是拿 `SCRIPT_NAME` 而不是 `REQUEST_URI` 拼 URL，那这就是首先要检查的情况。
@@ -113,13 +108,23 @@ while ($http->handleRequest($handler)) {
 - **未捕获的异常**——一个 `500`。如果框架自己的错误处理器先接住了它，就渲染出自己的错误页；如果没有任何东西接住，Rapira 就用空的响应体应答 `500`。无论哪种情况，worker 都继续服务。
 - **未捕获的 `Error`**——比如调用了一个不存在的函数。PHP 会以 `Uncaught Error` 把它记下来；它走的路径和其他未捕获的 throwable 一样——一个 `500`，worker 照旧在同一个 pid 上继续服务。
 
-后两种形态会让 worker 的 `errors` 往上走；`exit` 那个请求是普通的 `200`，只动 `handled`。三种情况下 `recycles` 和 `restarts` 都停在零：未捕获的 throwable 既不会把 worker 带走，也碰不到下一个请求。只有 bailout 级的致命错误做得更多——它会让常驻脚本直接终止，于是 worker 从头把它重跑一遍，你的应用也随之重新启动，`recycles` 数的就是这件事。想在 PHP 里读到这些计数，用 [Worker 模式](/zh/docs/worker)页里的 `getInfo()`。
+后两种形态会让 worker 的 `errors` 往上走；`exit` 那个请求是普通的 `200`，只动 `handled`。三种情况下 `recycles` 和 `restarts` 都停在零：未捕获的 throwable 既不会把 worker 带走，也碰不到下一个请求。只有 bailout 级的致命错误做得更多——它会让常驻脚本直接终止，于是 worker 从头把它重跑一遍，你的应用也随之重新启动，`recycles` 数的就是这件事。[进程模型](/zh/docs/process-model)页里那份状态快照，会把这几个计数逐个 worker 打印出来。
 
 ## 静态文件
 
-Rapira 不从磁盘提供任何内容：这里没有 document root 查找，也没有“文件存在就直接返回文件”这条规则。不管 URL 是什么，跑的都是你的入口脚本，客户端想去哪儿由 `$_SERVER['REQUEST_URI']` 告诉应用，经典模式和 worker 模式下都是如此。
+Rapira 用[静态文件中间件](/zh/docs/static-files)提供静态资源。把 `[http.static]` 里的 `root` 指向框架的 `public/` 目录，再在 `[http]` 里把中间件列出来：
 
-因此静态资源需要有东西挡在前面：一个 CDN，或者[生产环境部署](/zh/docs/deployment)里搭起来的那层反向代理。否则打包好的 JS 和 CSS、图片和 favicon，每一个都会变成一次 PHP 请求。
+```toml
+[http]
+middleware = ["static"]
+
+[http.static]
+root = "public"
+```
+
+只有路径在这个根目录下确实对应到一个文件时，中间件才会应答。它默认的 `forbid` 列表把 `.php` 文件挡在外面，所以 `public/` 里的前端控制器绝不会被当作文件发出去。其余的 URL 照旧跑入口脚本，经典模式和 Worker 模式下都是如此，客户端想去哪儿由 `$_SERVER['REQUEST_URI']` 告诉应用。目录 URL 同样跑入口脚本，因为这个中间件不为它提供任何索引文件。
+
+当然，也可以让前面的 CDN 或反向代理来提供这些资源，[生产环境部署](/zh/docs/deployment)里就搭了这么一层代理。
 
 ## TLS 与代理
 

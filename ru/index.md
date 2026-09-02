@@ -11,33 +11,24 @@ features:
   - title: Совместимость с php-fpm
     details: "Поддерживается классический SAPI: Rapira встаёт на место php-fpm без правок в коде, но работает быстрее."
   - title: Режимы работы
-    details: "Classic → Worker → Async<br>На что способно ваше приложение?"
+    details: "Classic → Worker → Dispatcher<br>На что способно ваше приложение?"
     link: /ru/docs/execution-modes
 ---
 
 <script setup>
-import { VPImage } from 'vitepress/theme'
-
-// Баннер Pingora справа от текста — декорация, по варианту на тему.
-// Файлы кладутся в public/ под этими именами.
-const pingoraBanner = {
-  light: '/pingora-banner-light.png',
-  dark: '/pingora-banner-dark.png',
-  alt: 'Pingora',
-}
-
-// Что Pingora приносит в бинарник: `ready: false` — ещё не реализовано в Rapira,
+// Что несёт HTTP-фронт: `ready: false` — ещё не реализовано в Rapira,
 // такие теги рисуются приглушёнными.
 const httpFeatures = [
   { label: 'HTTP/1.1' },
-  { label: 'HTTP/2' },
-  { label: 'HTTP/3' },
   { label: 'Keep-alive' },
-  { label: 'Early Hints' },
+  { label: 'Static files' },
+  { label: 'HTTP/2', ready: false },
+  { label: 'HTTP/3', ready: false },
+  { label: 'TLS 1.3', ready: false },
+  { label: 'TLS 1.2', ready: false },
+  { label: 'ALPN', ready: false },
+  { label: 'Early Hints', ready: false },
   { label: 'Trailers', ready: false },
-  { label: 'TLS 1.3' },
-  { label: 'TLS 1.2' },
-  { label: 'ALPN' },
 ]
 
 // Четыре способа связать сервер с PHP — по табу на каждый.
@@ -50,17 +41,11 @@ const interopTabs = [
 ]
 </script>
 
-<RapiraSection title="Встроенный HTTP-сервер, усиленный Pingora" link="/ru/docs/http" link-text="HTTP-запросы и ответы">
+<RapiraSection title="Встроенный HTTP-сервер, построенный на hyper" link="/ru/docs/http" link-text="HTTP-запросы и ответы">
 
 Парадоксально, но у PHP нет своего production-ready HTTP-сервера. Встроенный годится только для разработки, а php-fpm не работает без внешнего веб-сервера вроде nginx.
 
-Теперь такой сервер у PHP есть: современный, быстрый, построенный на [Pingora](https://github.com/cloudflare/pingora). Этим фреймворком Cloudflare обслуживает заметную часть трафика всего интернета.
-
-<template #aside>
-<div class="rapira-section-art">
-<VPImage :image="pingoraBanner" draggable="false" />
-</div>
-</template>
+Такой сервер даёт Rapira: собственный HTTP-фронт, написанный на Rust поверх [hyper](https://hyper.rs). Библиотека hyper — это низкоуровневая реализация HTTP для Rust: она читает каждый запрос из соединения и пишет обратно ответ, который построила Rapira.
 
 <template #footer>
 <FeatureTags :items="httpFeatures" />
@@ -72,7 +57,7 @@ const interopTabs = [
 
 Rapira написана на Rust, PHP — на C. Rust вызывает C-функции нативно, поэтому интероп между двумя языками не стоит ничего: вызов PHP-функции из Rust — это обычный вызов функции. Интерпретатор встроен в процесс сервера, и Rapira управляет им через прямые биндинги — от запуска движка до обработки каждого запроса.
 
-Здесь нет ни FastCGI, ни Goridge, ни CGO: запрос нигде не сериализуется и не покидает процесс. В режиме SAPI Rapira заполняет суперглобалы напрямую.
+Здесь нет ни FastCGI, ни Goridge, ни CGO: запрос нигде не сериализуется и не покидает процесс. В классическом режиме и в режиме воркера Rapira заполняет суперглобалы напрямую.
 
 <template #aside>
 <TextTabs :tabs="interopTabs">

@@ -48,7 +48,7 @@ Rapira кладёт рядом с собой embed-сборку, потому ч
 
 На Linux берите пакет, если хотите, чтобы файлы легли туда, где их ждёт дистрибутив, а `apt` или `dnf` подтянули разделяемые библиотеки, которые нужны PHP; берите архив, если сервер должен целиком уместиться в одном самодостаточном каталоге — образ контейнера, артефакт деплоя, машина, где у вас нет root.
 
-И то и другое сверьте с `rapira-v0.6.0-SHA256SUMS.txt` до установки — команды приведены в разделе [Проверка контрольных сумм](#проверка-контрольных-сумм).
+И то и другое сверьте с `rapira-v0.8.0-SHA256SUMS.txt` до установки — команды приведены в разделе [Проверка контрольных сумм](#проверка-контрольных-сумм).
 
 ::: question Зачем сверять контрольную сумму до установки?
 `.deb` и `.rpm` выполняют свои установочные скрипты от root, то есть подменённый файл получает права root ещё до того, как вы запустите сервер. Проверка занимает одну команду и снимает этот риск.
@@ -59,8 +59,8 @@ Rapira кладёт рядом с собой embed-сборку, потому ч
 Скачайте `.deb` и установите его через `apt`, указав путь:
 
 ```bash
-curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-php8.5_0.6.0-1_amd64.deb
-sudo apt install ./rapira-php8.5_0.6.0-1_amd64.deb
+curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.8.0/rapira-php8.5_0.8.0-1_amd64.deb
+sudo apt install ./rapira-php8.5_0.8.0-1_amd64.deb
 rapira --version
 ```
 
@@ -81,8 +81,8 @@ rapira --version
 То же самое, только через `dnf`:
 
 ```bash
-curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-php8.5-0.6.0-1.x86_64.rpm
-sudo dnf install ./rapira-php8.5-0.6.0-1.x86_64.rpm
+curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.8.0/rapira-php8.5-0.8.0-1.x86_64.rpm
+sudo dnf install ./rapira-php8.5-0.8.0-1.x86_64.rpm
 rapira --version
 ```
 
@@ -93,7 +93,7 @@ rapira --version
 Архив распаковывается в один каталог, где лежит весь сервер целиком:
 
 ```text
-rapira-v0.6.0-php8.5-linux-x86_64/
+rapira-v0.8.0-php8.5-linux-x86_64/
 ├── bin/rapira
 ├── lib/rapira/libphp.so
 ├── share/php/PHP_VERSION.txt
@@ -106,17 +106,17 @@ rapira-v0.6.0-php8.5-linux-x86_64/
 ::: code-group
 
 ```bash [Linux]
-curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-v0.6.0-php8.5-linux-x86_64.tar.gz
-tar xzf rapira-v0.6.0-php8.5-linux-x86_64.tar.gz
-sudo mv rapira-v0.6.0-php8.5-linux-x86_64 /opt/rapira
+curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.8.0/rapira-v0.8.0-php8.5-linux-x86_64.tar.gz
+tar xzf rapira-v0.8.0-php8.5-linux-x86_64.tar.gz
+sudo mv rapira-v0.8.0-php8.5-linux-x86_64 /opt/rapira
 sudo ln -s /opt/rapira/bin/rapira /usr/local/bin/rapira
 rapira --version
 ```
 
 ```bash [macOS]
-curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-v0.6.0-php8.5-macos-aarch64.tar.gz
-tar xzf rapira-v0.6.0-php8.5-macos-aarch64.tar.gz
-sudo mv rapira-v0.6.0-php8.5-macos-aarch64 /opt/rapira
+curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.8.0/rapira-v0.8.0-php8.5-macos-aarch64.tar.gz
+tar xzf rapira-v0.8.0-php8.5-macos-aarch64.tar.gz
+sudo mv rapira-v0.8.0-php8.5-macos-aarch64 /opt/rapira
 sudo ln -s /opt/rapira/bin/rapira /usr/local/bin/rapira
 rapira --version
 ```
@@ -142,27 +142,66 @@ rapira --version
 ::: code-group
 
 ```bash [Linux]
-curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-v0.6.0-SHA256SUMS.txt
-sha256sum -c --ignore-missing rapira-v0.6.0-SHA256SUMS.txt
+curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.8.0/rapira-v0.8.0-SHA256SUMS.txt
+sha256sum -c --ignore-missing rapira-v0.8.0-SHA256SUMS.txt
 ```
 
 ```bash [macOS]
-curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.6.0/rapira-v0.6.0-SHA256SUMS.txt
-grep rapira-v0.6.0-php8.5-macos-aarch64.tar.gz rapira-v0.6.0-SHA256SUMS.txt | shasum -a 256 -c
+curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.8.0/rapira-v0.8.0-SHA256SUMS.txt
+grep rapira-v0.8.0-php8.5-macos-aarch64.tar.gz rapira-v0.8.0-SHA256SUMS.txt | shasum -a 256 -c
 ```
 
+:::
+
+## Docker
+
+`ghcr.io/rapira-rs/rapira` — образ контейнера, в котором лежат бинарник `rapira` и та `libphp.so`, с которой он собран. Образ построен `FROM scratch`: в нём нет ни базовой системы, ни оболочки, ни точки входа, поэтому сам по себе он не запускается. Скопируйте его содержимое в свой образ:
+
+```dockerfile
+FROM php:8.5-cli-trixie
+COPY --from=ghcr.io/rapira-rs/rapira:php8.5 / /
+COPY . /app
+CMD ["rapira", "serve", "--listen", ":8000", "--mode", "classic", "/app/public/index.php"]
+```
+
+В образе лежат `/usr/local/bin/rapira`, `/usr/local/lib/libphp.so` и OPcache. На PHP 8.4 OPcache — это отдельный `opcache.so` со своим ini-файлом, а на PHP 8.5 он влинкован в `libphp.so`. Ещё два файла лежат в `/usr/local/share/rapira`: `PHP_VERSION.txt` с патч-версией вложенной `libphp` и `debian-packages.txt` со списком пакетов Debian, которые нужны `libphp` на базовом образе без PHP.
+
+`libphp.so` в образе взята из официального базового образа PHP, на котором шла сборка: `php:8.4-cli-trixie` или `php:8.5-cli-trixie`. Значит, в ней набор расширений этого образа, а не набор `--disable-all`, который описывает раздел [Сборка libphp](#сборка-libphp). Остальные расширения вы добавляете на своём базовом образе: на образе PHP их соберёт `docker-php-ext-install` — против той же `libphp.so`.
+
+::: question Почему образ построен `FROM scratch`?
+В образе scratch нет ничего, кроме того, что положила туда сборка, поэтому `COPY --from=ghcr.io/rapira-rs/rapira:php8.5 / /` забирает ровно полезную нагрузку и ничего сверх неё. Базовый образ остаётся вашим выбором, и копирование не кладёт поверх него второй дистрибутив.
+:::
+
+Каждый тег называет свою минорную версию PHP, а перечисленные ниже теги мультиархитектурные: под каждым лежат и amd64, и arm64.
+
+| Тег | На что указывает |
+| --- | --- |
+| `X.Y.Z-php8.4`, `X.Y.Z-php8.5` | Одна релизная сборка. Такой тег не сдвигается никогда. |
+| `X.Y-php8.4`, `X.Y-php8.5` | Самый свежий стабильный релиз с версией `X.Y`. |
+| `php8.4`, `php8.5` | Самый свежий стабильный релиз. |
+| `nightly-php8.4`, `nightly-php8.5` | Самая свежая ночная сборка. |
+
+В реестре лежат ещё и одноархитектурные теги, которые сборка делает первыми, например `X.Y.Z-php8.5-amd64` и `X.Y.Z-php8.5-arm64`.
+
+Тега `latest` нет. Rapira фиксирует структуры Zend на этапе сборки и отказывается стартовать с `libphp.so` от другой минорной версии PHP, поэтому каждый тег обязан называть ту минорную версию, которую несёт.
+
+::: question На что указывает ночной тег?
+Каждый прогон CI, прошедший на `main`, заново собирает образы из этого коммита. Сборка получает неизменяемый тег `X.Y.Z-nightly.<short-sha>-php8.5`, где `X.Y.Z` — версия, записанная сейчас в репозитории, а `<short-sha>` — первые семь символов коммита. Подвижный тег `nightly-php8.5` после этого указывает на эту сборку. Реестр хранит десять самых свежих ночных сборок, а те, что старше, удаляет.
 :::
 
 ## Сборка libphp
 
 `libphp` собрана с `--disable-all`, после чего обратно включён фиксированный набор расширений:
 
-- **Основа рантайма** — session, filter, mbstring, iconv, ctype, tokenizer, fileinfo, phar.
+- **Основа рантайма**: session, filter, mbstring, iconv, ctype, tokenizer, fileinfo, phar, posix.
 - **OPcache** и PCRE с включённым JIT.
-- **Сеть и сжатие** — openssl, curl, zlib.
-- **XML** — libxml, dom, xml, simplexml, xmlreader, xmlwriter.
-- **Базы данных** — PDO с `pdo_sqlite` и сам `sqlite3`.
-- Всё, что PHP собирает в себя всегда, — Core, standard, SPL, date, json, hash, random, Reflection.
+- **Сеть и сжатие**: openssl, curl, zlib, sockets, ftp.
+- **XML**: libxml, dom, xml, simplexml, xmlreader, xmlwriter.
+- **Базы данных**: PDO с `pdo_sqlite` и сам `sqlite3`.
+- **Разделяемая память и System V IPC**: shmop, sysvmsg, sysvsem, sysvshm.
+- **Даты, метаданные изображений и переводы**: calendar, exif, gettext.
+- **Интерфейс к внешним функциям**: ffi.
+- Всё, что PHP собирает в себя всегда: Core, standard, SPL, date, json, hash, random, Reflection.
 
 Чего в ней *нет*: `pdo_mysql`, `pgsql`, redis, apcu, imagick и всего остального из этого ряда. Если вашему приложению нужно такое расширение, соберите `libphp` с ним и скомпилируйте Rapira под него — как, описано на странице [Сборка из исходников](/ru/docs/intro/build-from-source).
 
@@ -190,7 +229,9 @@ PHP сначала ищет `php-<sapi-name>.ini` и только потом о�
 
 ## Распространение
 
-Сборки публикуются в GitHub Releases и больше нигде. Репозитория для apt или yum пока нет, поэтому обновление — это скачать новый артефакт и поставить его поверх старого, а не выполнить `apt upgrade`. Пакет заменяет установленный на месте; с архивом распакуйте новый каталог рядом со старым и переключите симлинк — прежнее дерево останется на месте, и откат будет в одну команду.
+Сборки публикуются в двух местах: в GitHub Releases — архивы, пакеты и файл с контрольными суммами, а в `ghcr.io/rapira-rs/rapira` — образы контейнеров. Репозитория для apt или yum пока нет, поэтому обновление — это скачать новый артефакт и поставить его поверх старого, а не выполнить `apt upgrade`. Пакет заменяет установленный на месте; с архивом распакуйте новый каталог рядом со старым и переключите симлинк: прежнее дерево останется на месте, и откат будет в одну команду.
+
+Рядом с релизами идёт ночной канал. Каждый прогон CI, прошедший на `main`, публикует ночные теги контейнеров. Тот же прогон выкладывает архивы в подвижный предрелиз `nightly` на GitHub Releases. На релизном коммите он эту выкладку пропускает, потому что те же архивы уже опубликовала релизная сборка — на самом релизе. В предрелизе лежат только архивы и файл с их контрольными суммами: ни `.deb`, ни `.rpm` там нет. Ночная сборка — это сборка `main`, а не релиз.
 
 Сборка для macOS существует **только для Apple Silicon**, рассчитана на **macOS 14 и новее** и подписана ad-hoc: ни Developer ID, ни нотаризации, так что при первом запуске macOS может попросить подтверждение. Сборки под Intel нет. Сборки для Windows публикуются отдельно, в [rapira-rs/rapira-windows](https://github.com/rapira-rs/rapira-windows), и предназначены только для локальной разработки — в продакшене Rapira работает на Linux или macOS.
 

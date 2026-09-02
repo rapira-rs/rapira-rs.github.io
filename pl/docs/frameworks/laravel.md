@@ -9,7 +9,7 @@ Rapira uruchamia Laravela w trybie klasycznym: fabryczny front controller `publi
 
 ::: info Zweryfikowano na
 - **PHP 8.5.8** — NTS, SAPI embed
-- **Rapira 0.6.0**
+- **Rapira 0.8.0**
 - szkielet **laravel/laravel** z **laravel/framework v13.23.0**
 
 Wszystko, co jest na tej stronie, sprawdziliśmy na szkielecie `laravel/laravel` z dorzuconą garstką testowych tras, w trybie klasycznym na jednym procesie roboczym: trasowanie, sesje, przesyłanie plików, treści JSON i formularzy, cache konfiguracji i tras, odpowiedzi błędów oraz 50 kolejnych żądań.
@@ -28,13 +28,13 @@ Tryb klasyczny trzeba włączyć jawnie, więc polecenie wprost go nazywa:
 ::: code-group
 
 ```bash [CLI]
-rapira serve --classic public/index.php
+rapira serve --mode classic public/index.php
 ```
 
 ```toml [rapira.toml]
 [pool]
 entrypoint = "public/index.php"
-classic = true
+mode = "classic"
 processes = 4
 
 [http]
@@ -56,9 +56,9 @@ php artisan route:cache
 
 ## Trasy i adresy URL
 
-Rapira nie mapuje adresów na pliki: każde żądanie uruchamia front controller, a ścieżkę do trasowania Laravel bierze z `$_SERVER['REQUEST_URI']`. Trasowanie, własną stronę 404 Laravela dla niedopasowanych ścieżek i generowanie adresów przez `url()` — wszystko to sprawdziliśmy: powstają czyste adresy bezwzględne bez `index.php` w środku, bez nadpisywania czegokolwiek w `$_SERVER` i bez zmian w konfiguracji tras czy adresów.
+Rapira nie mapuje adresów URL na skrypty PHP: każde żądanie uruchamia front controller, a ścieżkę do trasowania Laravel bierze z `$_SERVER['REQUEST_URI']`. Gdy włączysz [middleware plików statycznych](/pl/docs/static-files), odpowiada on na te żądania, które potrafi obsłużyć plikiem, a każde pozostałe uruchamia front controller. Trasowanie, własną stronę 404 Laravela dla niedopasowanych ścieżek i generowanie adresów przez `url()` — wszystko to sprawdziliśmy: powstają czyste adresy bezwzględne bez `index.php` w środku, bez nadpisywania czegokolwiek w `$_SERVER` i bez zmian w konfiguracji tras czy adresów.
 
-Wbudowana w szkielet trasa `/up` odpowiada kodem `200`, więc nadaje się na cel health checku load balancera albo kontenera. Pliki statyczne wymagają czegoś przed Rapirą — CDN-a albo reverse proxy, które konfiguruje strona [Wdrożenie produkcyjne](/pl/docs/deployment). Rapira nasłuchuje nieszyfrowanego HTTP i zostawia `$_SERVER['HTTPS']` puste niezależnie od `X-Forwarded-Proto`, więc kiedy to proxy kończy TLS, skonfiguruj w Laravelu [zaufane proxy](https://laravel.com/docs/requests#configuring-trusted-proxies) — inaczej `url()` wygeneruje odnośniki `http://`.
+Wbudowana w szkielet trasa `/up` odpowiada kodem `200`, więc nadaje się na cel health checku load balancera albo kontenera. Zasoby szkieletu Rapira serwuje przez [middleware plików statycznych](/pl/docs/static-files). Włącz go obiema połowami: wypisz `"static"` w `http.middleware` i ustaw `root` w sekcji `[http.static]` na katalog `public/` aplikacji. Z jedną połową bez drugiej Rapira odmawia startu. Zasoby może zamiast tego serwować CDN albo reverse proxy stojące z przodu. Nasłuch Rapiry mówi nieszyfrowanym HTTP i zostawia `$_SERVER['HTTPS']` puste niezależnie od `X-Forwarded-Proto`. Kiedy to proxy kończy TLS, skonfiguruj w Laravelu [zaufane proxy](https://laravel.com/docs/requests#configuring-trusted-proxies). Bez tej konfiguracji `url()` wygeneruje odnośniki `http://`.
 
 ## Sesje, CSRF i formularze
 
@@ -70,6 +70,6 @@ Tryb workera dla Laravela jest w trakcie prac i nie jest jeszcze obsługiwany �
 
 Powodem jest cykl życia frameworka. Kontener Laravela nie jest zaprojektowany tak, żeby bez pomocy przetrwać drugie żądanie: powiązania zostają rozwiązane, singletony zapamiętują bieżące żądanie, statyczne pola frameworka zapełniają się w trakcie obsługi, więc to wszystko trzeba rozplątać, zanim przyjdzie kolejne żądanie. Tym rozplątywaniem zajmuje się [Octane](https://laravel.com/docs/octane) (`laravel/octane`), czyli własny pakiet Laravela dla długo działających serwerów. Octane działa tylko na serwerach, dla których ma sterownik, a Rapira nie ma jeszcze sterownika Octane.
 
-Blokadą nie jest sam tryb: [Symfony](/pl/docs/frameworks/symfony) i [Yii3](/pl/docs/frameworks/yii3) trzymają swoje aplikacje rezydentnie w tym samym trybie [SAPI Worker](/pl/docs/worker). Brakuje właściwej dla Laravela obsługi stanu między żądaniami.
+Blokadą nie jest sam tryb: [Symfony](/pl/docs/frameworks/symfony) i [Yii3](/pl/docs/frameworks/yii3) trzymają swoje aplikacje rezydentnie w tym samym trybie [Worker](/pl/docs/worker). Brakuje właściwej dla Laravela obsługi stanu między żądaniami.
 
 Własny skrypt workera dla Laravela możesz napisać, ale utrzymanie rezydentnej aplikacji oznacza ręczne odtworzenie tego, co Octane robi ze stanem: stan do rozplątania siedzi w kontenerze, w rozwiązanych singletonach, w stosie żądania, sesji i uwierzytelniania oraz w statycznych polach samego frameworka, a jeden pominięty element objawia się nieaktualnym obiektem żądania albo sesją jednego użytkownika widoczną dla następnego.

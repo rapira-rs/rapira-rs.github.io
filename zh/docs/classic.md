@@ -19,10 +19,10 @@ description: "经典模式在每个请求上都从头执行一个普通的 PHP �
 
 选定这个模式有两种写法，效果完全一样：
 
-- 命令行上加 `--classic`，紧挨着入口脚本。
-- 在 `rapira.toml` 的 `[pool]` 段里写 `classic = true`。
+- 命令行上加 `--mode classic`，紧挨着入口脚本。
+- 在 `rapira.toml` 的 `[pool]` 段里写 `mode = "classic"`。
 
-这个参数只能把模式*打开*——没有 `--no-classic`，所以配置文件里只要写了 `classic = true`，命令行怎么写都还是经典模式。其余部分依旧遵循通常的优先级：命令行参数压过配置文件。完整的键列表见[配置](/zh/docs/configuration)。
+`--mode` 会覆盖 `pool.mode`，所以哪怕配置文件里写的是另一种模式，最终跑哪一种也由命令行说了算。其余部分依旧遵循通常的优先级：命令行参数压过配置文件。完整的键列表见[配置](/zh/docs/configuration)。
 
 经典模式的入口脚本就是普通 PHP：
 
@@ -39,13 +39,13 @@ echo "Method: {$_SERVER['REQUEST_METHOD']}\n";
 ::: code-group
 
 ```bash [CLI]
-rapira serve --classic public/index.php
+rapira serve --mode classic public/index.php
 ```
 
 ```toml [rapira.toml]
 [pool]
 entrypoint = "public/index.php"
-classic = true
+mode = "classic"
 ```
 
 :::
@@ -54,9 +54,9 @@ classic = true
 
 ## 入口脚本
 
-Rapira 不会把 URL 映射到磁盘上的文件，自己也不从磁盘提供任何内容。不管请求的路径是什么，跑的都是你指定的那个入口脚本，URL 则通过 `$_SERVER['REQUEST_URI']` 交给应用自己去路由。
+Rapira 不会把 URL 映射到 PHP 脚本。不管请求的路径是什么，跑的都是你指定的那个入口脚本，URL 则通过 `$_SERVER['REQUEST_URI']` 交给应用自己去路由。唯一的例外是[静态文件中间件](/zh/docs/static-files)：开启之后，它可以用根目录下的文件应答 `GET` 和 `HEAD` 请求；凡是它没有应答的请求，照旧交给入口脚本。
 
-CGI 变量也就顺理成章：`SCRIPT_FILENAME` 永远是入口脚本，`SCRIPT_NAME` 是它带前导斜杠的文件名（`/index.php`），`DOCUMENT_ROOT` 是它所在的目录。静态资源需要由 Rapira 前面的组件来提供——一个 CDN，或者[部署](/zh/docs/deployment)那一页搭起来的反向代理。
+CGI 变量也就顺理成章：`SCRIPT_FILENAME` 永远是入口脚本，`SCRIPT_NAME` 是它带前导斜杠的文件名（`/index.php`），`DOCUMENT_ROOT` 是它所在的目录。静态资源也可以改由 Rapira 前面的 CDN 或反向代理来提供，[部署](/zh/docs/deployment)那一页就搭了这么一个代理。
 
 ## OPcache
 
@@ -65,9 +65,9 @@ CGI 变量也就顺理成章：`SCRIPT_FILENAME` 永远是入口脚本，`SCRIPT
 进程池本身在两种模式下是一样的：master fork 出一批 worker，每个 worker 一次处理一个请求，并发能力就来自进程数量。关于 master 进程和它的 worker，更多信息见[进程模型](/zh/docs/process-model)那一页。
 
 ::: info
-在经典模式下调用 `Rapira\create_plugin_handler()` 会抛出 `Rapira\RapiraException`：*plugin handlers require worker mode*。脚本随请求一起结束，根本没有常驻循环可以接过这个 handler。Worker 脚本属于 [SAPI Worker](/zh/docs/worker) 模式。
+在经典模式下调用 `Rapira\handle_request()` 会抛出 `Rapira\Exception\NotInWorkerModeError`。脚本随请求一起结束，没有循环可以接过这个 handler。Worker 脚本属于 [Worker 模式](/zh/docs/worker)。
 :::
 
-## 在 Classic 和 SAPI Worker 之间做选择
+## 在 Classic 和 Worker 之间做选择
 
-如果应用的状态撑不过第二个请求——老代码库、往静态属性里泄漏的框架、你管不着的第三方库——就用经典模式；正从 php-fpm 迁移过来、想一次只改一件事的时候，也用它。如果代码扛得住一个不退出的进程，而且你想去掉每个请求的启动开销，就用 [SAPI Worker](/zh/docs/worker) 模式。[执行模式](/zh/docs/execution-modes)那一页描述了全部四种模式，其中今天已经发布的是 Classic 和 SAPI Worker。
+应用的状态撑不过第二个请求时，就用经典模式：老代码库、往静态属性里泄漏的框架、你管不着的第三方库。正从 php-fpm 迁移过来、想一次只改一件事的时候，同样用它。代码扛得住一个不退出的进程，就用 [Worker 模式](/zh/docs/worker)，它把每个请求的启动开销去掉了。[执行模式](/zh/docs/execution-modes)那一页描述了全部三种模式。

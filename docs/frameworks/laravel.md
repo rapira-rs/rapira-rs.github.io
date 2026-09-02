@@ -74,7 +74,7 @@ Rapira can serve assets with the [static file middleware](/docs/static-files). A
 Set `[http.static].root` to the application `public/` directory. Rapira requires both configuration values.
 A CDN or reverse proxy can serve the assets instead.
 Rapira accepts plain HTTP and leaves `$_SERVER['HTTPS']` empty, independent of `X-Forwarded-Proto`.
-When a proxy terminates TLS, configure Laravel [trusted proxies](https://laravel.com/docs/requests#configuring-trusted-proxies). Without this configuration, `url()` generates `http://` links.
+When a [proxy terminates TLS](/docs/deployment), configure Laravel [trusted proxies](https://laravel.com/docs/requests#configuring-trusted-proxies). Without this configuration, `url()` generates `http://` links.
 
 ## Sessions, CSRF and forms
 

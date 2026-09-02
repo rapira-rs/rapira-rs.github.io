@@ -70,7 +70,10 @@ Rapira 完全没有 `php.ini` 也能跑：内置的 ini 默认值会把 PHP 的�
 
 ## 挡在反向代理后面
 
-Rapira 的监听器只讲明文 HTTP，配置里也没有 TLS 那一节。TLS 就在你本来就在跑的代理上终结——nginx、Caddy、HAProxy，或者云上的负载均衡器——再让它走回环地址或者 Unix socket 连到 Rapira。你可以绑到公网网卡，但那个监听器提供的仍然是明文 HTTP。
+Rapira 接受明文 HTTP，并且不提供 TLS 设置。
+[TLS 终止代理](https://en.wikipedia.org/wiki/TLS_termination_proxy)接受客户端的 HTTPS，解密连接，然后向 Rapira 发送明文 HTTP。
+使用 nginx、Caddy、HAProxy 或云负载均衡器来完成此任务。
+通过环回接口或 Unix socket 将代理连接到 Rapira。Rapira 的公共地址也使用明文 HTTP。
 
 ```toml
 [http]

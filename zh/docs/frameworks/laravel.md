@@ -58,7 +58,7 @@ php artisan route:cache
 
 Rapira 不会把 URL 映射到 PHP 脚本：每个请求跑的都是入口脚本，路径由 `$_SERVER['REQUEST_URI']` 交给 Laravel 去路由。开启[静态文件中间件](/zh/docs/static-files)之后，凡是它能用文件应答的请求由它接走，其余的请求照旧跑入口脚本。路由、没匹配上的路径拿到的 Laravel 自带 404 页面，以及 `url()` 生成的地址，全都验证过：生成出来的是干净的绝对 URL，里面没有 `index.php`，而且既不需要覆盖 `$_SERVER`，也不需要改任何路由或 URL 配置。
 
-基础应用自带的 `/up` 健康检查路由返回 `200`，拿它给负载均衡器或者容器健康检查当探测目标正合适。Rapira 使用[静态文件中间件](/zh/docs/static-files)提供应用的静态资源。开启它要两处一起配：在 `http.middleware` 里列出 `"static"`，并把 `[http.static]` 的 `root` 指向应用的 `public/` 目录。只配了一半，Rapira 会拒绝启动。当然，也可以让前面的 CDN 或反向代理来提供这些资源。Rapira 的监听器只讲明文 HTTP，无论 `X-Forwarded-Proto` 是什么值，`$_SERVER['HTTPS']` 都是空的。TLS 在那个代理上终结时，要在 Laravel 里配置[可信代理](https://laravel.com/docs/requests#configuring-trusted-proxies)；不配的话，`url()` 生成的是 `http://` 链接。
+基础应用自带的 `/up` 健康检查路由返回 `200`，拿它给负载均衡器或者容器健康检查当探测目标正合适。Rapira 使用[静态文件中间件](/zh/docs/static-files)提供应用的静态资源。开启它要两处一起配：在 `http.middleware` 里列出 `"static"`，并把 `[http.static]` 的 `root` 指向应用的 `public/` 目录。只配了一半，Rapira 会拒绝启动。当然，也可以让前面的 CDN 或反向代理来提供这些资源。Rapira 的监听器只讲明文 HTTP，无论 `X-Forwarded-Proto` 是什么值，`$_SERVER['HTTPS']` 都是空的。[TLS 在该代理上终止](/zh/docs/deployment)时，要在 Laravel 里配置[可信代理](https://laravel.com/docs/requests#configuring-trusted-proxies)；不配的话，`url()` 生成的是 `http://` 链接。
 
 ## Session、CSRF 与表单
 

@@ -70,7 +70,10 @@ Un `pool.entrypoint` relativo se resuelve contra el directorio **del archivo de 
 
 ## Detrás de un proxy inverso
 
-El listener de Rapira habla HTTP en claro y la configuración no tiene ninguna sección de TLS. Termina el TLS en el proxy que ya tienes montado —nginx, Caddy, HAProxy, un balanceador de tu nube— y deja que llegue a Rapira por loopback o por un socket Unix. Puedes escuchar en una interfaz pública, pero ese listener sigue sirviendo HTTP en claro.
+Rapira acepta HTTP sin cifrar y no ofrece ajustes de TLS.
+Un [proxy de terminación TLS](https://en.wikipedia.org/wiki/TLS_termination_proxy) recibe HTTPS del cliente, descifra la conexión y envía HTTP sin cifrar a Rapira.
+Usa nginx, Caddy, HAProxy o un balanceador de carga en la nube para esta tarea.
+Conecta el proxy a Rapira mediante la interfaz de bucle invertido o un socket Unix. Una dirección pública de Rapira también usa HTTP sin cifrar.
 
 ```toml
 [http]

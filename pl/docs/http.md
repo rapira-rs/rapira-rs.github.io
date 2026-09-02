@@ -14,7 +14,7 @@ Ta strona opisuje te miejsca, w których przekład między HTTP a PHP nie jest j
 Front obsługuje wyłącznie nieszyfrowany HTTP. Jeśli potrzebujesz TLS-a, zakończ go na proxy stojącym przed Rapirą — zobacz [Wdrożenie produkcyjne](/pl/docs/deployment).
 :::
 
-## Wstępna kontrola żądania
+## Sprawdzanie żądania
 
 Front sprawdza każde żądanie, zanim ruszy PHP. Żądanie, które nie przejdzie kontroli, dostaje odpowiedź od samego frontu i nigdy nie trafia do PHP.
 

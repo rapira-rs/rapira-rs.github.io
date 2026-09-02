@@ -14,7 +14,7 @@ Esta página cubre las partes donde la traducción entre HTTP y PHP no es uno a 
 El frontal termina conexiones HTTP en claro. Si necesitas TLS, termínalo en un proxy delante de Rapira: mira [En producción](/es/docs/deployment).
 :::
 
-## Admisión de peticiones
+## Comprobación de peticiones
 
 El frontal revisa cada petición antes de que PHP se ejecute. A una petición que no supera una comprobación la responde el frontal, y PHP no llega a verla.
 

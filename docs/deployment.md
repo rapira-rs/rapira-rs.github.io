@@ -87,7 +87,9 @@ See [Configuration](/docs/configuration) for all keys and defaults.
 
 ## Behind a reverse proxy
 
-Rapira accepts plain HTTP and does not provide TLS settings. Terminate TLS at nginx, Caddy, HAProxy, or a cloud load balancer.
+Rapira accepts plain HTTP and does not provide TLS settings.
+A [TLS termination proxy](https://en.wikipedia.org/wiki/TLS_termination_proxy) accepts HTTPS from a client, decrypts the connection, and sends plain HTTP to Rapira.
+Use nginx, Caddy, HAProxy, or a cloud load balancer for this task.
 Connect the proxy to Rapira through loopback or a Unix socket. A public Rapira address also uses plain HTTP.
 
 ```toml

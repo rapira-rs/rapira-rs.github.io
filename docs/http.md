@@ -17,7 +17,7 @@ This page describes the differences between the HTTP and PHP representations. It
 The HTTP server accepts plain HTTP. Use a proxy to terminate TLS. See [Deployment](/docs/deployment).
 :::
 
-## Request admission
+## Request checks
 
 The HTTP server checks each request before PHP runs. It answers a request that fails a check without calling PHP.
 

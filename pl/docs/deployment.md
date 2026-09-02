@@ -70,7 +70,10 @@ Względny `pool.entrypoint` liczy się od katalogu **pliku konfiguracyjnego**, a
 
 ## Za reverse proxy
 
-Rapira nasłuchuje wyłącznie nieszyfrowanego HTTP, a w konfiguracji nie ma sekcji TLS. Zakończ TLS na proxy, które i tak już masz — nginx, Caddy, HAProxy, load balancer w chmurze — a do Rapiry niech łączy się przez pętlę zwrotną albo gniazdo uniksowe. Możesz podpiąć się pod publiczny interfejs, ale ten nasłuch nadal podaje nieszyfrowany HTTP.
+Rapira przyjmuje nieszyfrowany HTTP i nie udostępnia ustawień TLS.
+[Proxy kończące TLS](https://en.wikipedia.org/wiki/TLS_termination_proxy) przyjmuje HTTPS od klienta, odszyfrowuje połączenie i wysyła nieszyfrowany HTTP do Rapiry.
+Użyj do tego celu nginx, Caddy, HAProxy lub modułu równoważenia obciążenia w chmurze.
+Połącz proxy z Rapirą przez interfejs pętli zwrotnej lub gniazdo uniksowe. Publiczny adres Rapiry również używa nieszyfrowanego HTTP.
 
 ```toml
 [http]

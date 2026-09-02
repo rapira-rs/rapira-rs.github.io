@@ -8,7 +8,7 @@ faqLevel: 2
 
 Worker 模式让 PHP 进程在多次请求之间保持存活：脚本把应用启动一次，然后待在循环里，一遍遍向 Rapira 要下一个请求。启动只在起步时执行一次，之后每个请求一上来，内存里已经有一个预热好的应用。状态同样比请求活得更久，所以 worker 脚本必须自己管理它。
 
-而在[经典模式](/zh/docs/classic)下，入口脚本在每个请求上都从头跑一遍，请求应答完毕后脚本搭起来的一切随即统统丢弃，因此启动一个现代框架（自动加载器、容器、配置、路由、数据库连接）在每个请求上的开销都一样。
+而在 [Classic 模式](/zh/docs/classic)下，入口脚本在每个请求上都从头跑一遍，请求应答完毕后脚本搭起来的一切随即统统丢弃，因此启动一个现代框架（自动加载器、容器、配置、路由、数据库连接）在每个请求上的开销都一样。
 
 本页是 Worker 模式的编程指南。Worker 模式并不要求特定的框架，只要求应用经得起“只启动一次、随后处理很多请求”，而大多数现代框架都做得到。三种模式分别是什么、以及什么决定了一个应用能用哪一种，见[执行模式](/zh/docs/execution-modes)；针对具体框架的指南见[框架集成](/zh/docs/frameworks/)。
 
@@ -45,14 +45,14 @@ rapira serve --mode worker app/worker.php
 
 其余命令行参数见[命令行](/zh/docs/cli)，它们在 `rapira.toml` 里对应的写法见[配置](/zh/docs/configuration)。
 
-## `handle_request()` 到底做了什么
+## `handle_request()` 的契约
 
 `\Rapira\handle_request(callable $handler): bool` 就是全部的契约：
 
 - **它会阻塞**，直到有请求派给这个 worker。等在 `handle_request()` 上的 worker 不消耗 CPU，同时解释器和你启动好的应用仍然留在内存里。
 - **它会填好超全局变量**（`$_GET`、`$_POST`、`$_SERVER`、`$_COOKIE` 这一家子）：在你的 handler 跑起来之前，用这次请求的数据重新填一遍。读这些变量的普通 PHP 代码，行为和在 php-fpm 下一模一样。
 - **它调用 handler 时不传任何参数。**请求的一切都在超全局变量里，回调的签名就是 `function (): void`。handler 还需要别的东西（容器、应用、日志器）就用 `use` 捕获进去。
-- **你输出的就是响应。**`echo`、`print`、`header()`、`http_response_code()`、`setcookie()`：handler 生成响应的方式和经典模式下的脚本毫无区别。请求数据和响应输出是怎么接起来的，见 [HTTP](/zh/docs/http)。
+- **你输出的就是响应。**`echo`、`print`、`header()`、`http_response_code()`、`setcookie()`：handler 生成响应的方式和 Classic 模式下的脚本毫无区别。请求数据和响应输出是怎么接起来的，见 [HTTP](/zh/docs/http)。
 - **请求处理完它返回 `true`**，意思是接着循环；worker 开始排空时返回 **`false`**。这正是循环条件：它一变成 false，就跳出循环，让脚本结束。
 - **它只能出现在启动脚本的顶层。**只在脚本自己的循环里调用它，别处一概不要：在 shutdown 函数或析构函数里调用它，行为是未定义的。
 
@@ -82,7 +82,7 @@ while (\Rapira\handle_request($web)) {
 这条边界画在哪里，是 worker 脚本的一个设计决定：打算共享的状态放在循环之上，只属于一个请求的状态留在 handler 里，或者在下一个请求到来之前重置掉。
 
 ::: warning
-全局状态同样是共享的，不管你是不是有意为之：静态属性、单例、某个库懒加载填进去的注册表、一个从没撤销过的 `ini_set()`。在 php-fpm 下它们之所以是单请求级的，是因为 PHP 的请求关闭阶段会把它们重置，静态变量、全局变量和 `ini_set()` 都一样。Rapira 的 worker 特意跳过了两次请求之间的这次重置，所以它们会一直留着。放不下全局状态的应用改用[经典模式](/zh/docs/classic)运行：经典模式放弃了 worker 常驻内存里的那个预热应用，但它依然是 php-fpm 的直接替代品，等状态理顺之后，应用还可以再迁到 worker。
+全局状态同样是共享的，不管你是不是有意为之：静态属性、单例、某个库懒加载填进去的注册表、一个从没撤销过的 `ini_set()`。在 php-fpm 下它们之所以是单请求级的，是因为 PHP 的请求关闭阶段会把它们重置，静态变量、全局变量和 `ini_set()` 都一样。Rapira 的 worker 特意跳过了两次请求之间的这次重置，所以它们会一直留着。放不下全局状态的应用改用 [Classic 模式](/zh/docs/classic)运行：Classic 模式放弃了 worker 常驻内存里的那个预热应用，但它依然是 php-fpm 的直接替代品，等状态理顺之后，应用还可以再迁到 worker。
 :::
 
 ## shutdown 函数

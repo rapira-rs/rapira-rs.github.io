@@ -1,11 +1,11 @@
 ---
 title: Quickstart
-description: Serving a PHP application with Rapira in classic mode and in worker mode, and moving the settings into a rapira.toml file.
+description: Serving a PHP application with Rapira in Classic and Worker modes, and moving the settings into a rapira.toml file.
 ---
 
 # Quickstart
 
-This page covers serving a page in classic mode, turning the same application into a resident worker, and moving the settings into a config file. It assumes a working `rapira` binary with the PHP it bundles; see [Installation](/docs/intro/installation) for more information.
+This page covers serving a page in Classic mode and converting the application to Worker mode. It also moves the settings into a configuration file. The steps require a working `rapira` binary with its bundled PHP. See [Installation](/docs/intro/installation) for more information.
 
 ## Classic mode
 
@@ -41,7 +41,7 @@ The process is not thrown away between requests — Rapira forks its workers onc
 
 ## Worker mode
 
-Worker mode keeps the script alive. It boots once, then sits in a loop asking Rapira for the next request; Rapira refills the superglobals and calls your handler. The PHP code stays familiar — you still read `$_GET` and `echo` a response — but the boot work happens once per process instead of once per request. See [Execution modes](/docs/execution-modes) for more information.
+Worker mode keeps the script alive. It boots once and then waits for requests in a loop. Rapira refills the superglobals and calls your handler. The PHP code still reads `$_GET` and uses `echo` for a response. The boot work runs once per process instead of once per request. See [Execution modes](/docs/execution-modes) for more information.
 
 Create `worker.php` in the project root:
 

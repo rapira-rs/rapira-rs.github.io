@@ -5,7 +5,7 @@ description: "The mechanics shared by every framework running on Rapira: the wor
 
 # Framework integration
 
-A framework application runs on Rapira unchanged in classic mode: you point the server at the front controller you already have. In worker mode the PHP process stays alive between requests, and what the application can keep resident depends on the framework's own design. This page covers the mechanics that are the same for every framework; the three per-framework guides assume you have read it and cover only what is specific to them.
+A framework application runs on Rapira unchanged in Classic mode: you point the server at the front controller you already have. In Worker mode the PHP process stays alive between requests, and what the application can keep resident depends on the framework's own design. This page covers the mechanics shared by every framework. The three framework guides assume you have read this page and cover only framework-specific behavior.
 
 ::: info Verified with
 
@@ -16,11 +16,11 @@ A framework application runs on Rapira unchanged in classic mode: you point the 
 Everything on this page was observed by running those applications on Linux, with a single worker process. The statements below about framework behavior come from those runs. The configuration keys come from Rapira's own [configuration](/docs/configuration) reference.
 :::
 
-## Classic mode and worker mode
+## Classic and Worker modes
 
-**In classic mode, nothing changes.** Your front controller is the entry script, Rapira executes it from scratch for every request, and every framework that runs under php-fpm runs here, including the ones whose state could never survive a second request. See [classic mode](/docs/classic) for more information; of the sections below, only static files, TLS and OPcache apply.
+**In Classic mode, nothing changes.** The front controller is the entry script. Rapira executes it from scratch for every request. Every framework that runs under php-fpm also runs here. This includes frameworks whose state cannot survive a second request. See [Classic mode](/docs/classic) for more information; of the sections below, only static files, TLS and OPcache apply.
 
-**In Worker mode, the process stays alive.** Your script boots the application once and then loops, asking Rapira for the next request. The framework is no longer torn down between requests. See [execution modes](/docs/execution-modes) for where this mode sits among the three, and [worker mode](/docs/worker) for its API reference.
+**In Worker mode, the process stays alive.** Your script boots the application once and then loops, asking Rapira for the next request. The framework is no longer torn down between requests. See [execution modes](/docs/execution-modes) for the mode descriptions, and [Worker mode](/docs/worker) for its API reference.
 
 One codebase runs in both modes: leave `public/index.php` as it is and add a `worker.php` next to it. The verified Symfony and Yii3 applications keep the two files side by side, and the `--mode` flag selects which one runs: `rapira serve --mode classic public/index.php` or `rapira serve --mode worker worker.php`. Classic mode stays available as a rollback while you migrate.
 
@@ -55,7 +55,7 @@ Read from the top:
 - **`while (\Rapira\handle_request($handler))`** - `handle_request()` blocks until a request arrives. It fills the superglobals for that request, runs your handler, closes the request, and returns `true`. It returns `false` when the worker starts to drain, which is how the loop ends. Call it only from the top level of the boot script. It throws `Rapira\Exception\NotInWorkerModeError` outside Worker mode.
 - **`gc_collect_cycles();`** — the loop body runs *between* requests, which is where work belongs when it should happen at a predictable moment rather than during a request. It collects ordinary reference cycles and is not a memory fix — see [Memory and recycling](#memory-and-recycling).
 
-Your entry script is `worker.php`, so `SCRIPT_NAME` is `/worker.php` and `DOCUMENT_ROOT` is the directory it sits in, while `REQUEST_URI` carries the path the client actually asked for. Symfony and Yii3 both routed and generated URLs correctly on top of that, with no `worker.php` in the generated URLs and no `$_SERVER` patching of any kind. A framework that builds URLs out of `SCRIPT_NAME` rather than `REQUEST_URI` is the case to check first.
+Your entry script is `worker.php`, so `SCRIPT_NAME` is `/worker.php`. `DOCUMENT_ROOT` is the directory that contains the script. `REQUEST_URI` contains the path that the client requested. Symfony and Yii3 routed and generated URLs correctly with these values. Generated URLs did not contain `worker.php`, and the applications did not modify `$_SERVER`. First, check a framework that builds URLs from `SCRIPT_NAME` instead of `REQUEST_URI`.
 
 ## Per-request and resident state
 
@@ -108,7 +108,7 @@ Three failure shapes, all watched against a single worker with its pid tracked:
 - **An uncaught exception** — a `500`. If your framework's error handler catches it first, it renders its own error page; if nothing catches it, Rapira answers `500` with an empty body. Either way the worker keeps serving.
 - **An uncaught `Error`** — calling a function that does not exist, for instance. PHP logs it as `Uncaught Error`; it takes the same path as any other uncaught throwable — a `500`, and the worker keeps serving on the same pid.
 
-The worker's `errors` counter goes up for the two error shapes; the `exit` request is an ordinary `200` and only moves `handled`. In all three, `recycles` and `restarts` stay at zero: an uncaught throwable does not take the worker down and does not touch the next request. A bailout-class fatal is the one shape that does more — it unwinds the resident script, so the worker re-runs it from the top and boots your application again, which is what `recycles` counts. The status dump on the [process model](/docs/process-model) page prints these counters for every worker.
+The worker's `errors` counter increases for the two error cases. An `exit` request is an ordinary `200` and only changes `handled`. In all three cases, `recycles` and `restarts` stay at zero. An uncaught throwable does not stop the worker or affect the next request. A bailout-class fatal unwinds the resident script. The worker then runs the script from the top and boots the application again, which increases `recycles`. The [process model](/docs/process-model) status dump prints these counters for every worker.
 
 ## Static files
 
@@ -132,7 +132,7 @@ Rapira's listener speaks plain HTTP and there is no TLS section in the config. T
 
 ## Memory and recycling
 
-A worker that rebuilds the application inside the handler — the simpler of the two Yii3 shapes — keeps less resident than a Symfony-style kernel does, but more than classic mode, and the loop is in your own script, so work can move out of the handler piece by piece as you find what survives a second request. What that shape does not give you is a container that is already built when the request arrives.
+A worker can rebuild the application inside the handler. This is the simpler of the two Yii3 designs. It keeps less state resident than a Symfony-style kernel, but more than Classic mode. The loop is in the worker script. You can move work out of the handler as you identify the state that survives a second request. This design does not provide a container that is ready when the request arrives.
 
 Every request in that shape leaves a discarded object graph behind. PHP does not reclaim those one at a time. They are held together by reference cycles, so the heap grows request after request until the cycle collector runs and takes a large batch at once: a sawtooth, not a leak, but a sawtooth whose peak is a good deal higher than any single request's footprint.
 
@@ -151,14 +151,14 @@ The resident shapes — Symfony's kernel, Yii3's container behind `StateResetter
 
 Rapira starts PHP exactly once, in the master, before it forks a single worker — so OPcache creates its shared memory segment one time and every worker inherits the same mapping. Compiled scripts stay hot across requests *and* across the whole pool, in both modes. A worker that re-includes your framework's files is not re-parsing them.
 
-In production, `opcache.validate_timestamps = 0` drops the per-file stat on every request. The cost is that nothing invalidates the cache any more: the segment belongs to the master and outlives every worker generation, so a rolling reload will keep serving the old opcodes and a deploy needs a full restart instead. [Running in production](/docs/deployment) covers the sequence.
+In production, `opcache.validate_timestamps = 0` removes the per-file stat from every request. With this setting, nothing invalidates the cache. The segment belongs to the master and outlives every worker generation. Therefore, a rolling reload continues to serve old opcodes, and a deployment requires a full restart. See [running in production](/docs/deployment) for the sequence.
 
 While developing, the same outcome has a different cause. A resident bootstrap never re-reads the code it loaded at startup, whatever OPcache is doing: edits to a service the container already built, or to the worker script itself, do not reach the running process. Restart after every edit — `rapira serve` runs in the foreground and never daemonizes, so it is Ctrl-C and run it again.
 
 ## Framework guides
 
 - **[Symfony](/docs/frameworks/symfony)** — the kernel boots once and stays resident, and the framework's own `services_resetter` puts stateful services back the way it found them between requests. One worker file covers 7.4 and 8.1, byte for byte.
-- **[Laravel](/docs/frameworks/laravel)** — classic mode: the stock `public/index.php` runs unchanged. Worker mode for Laravel is under development — a resident Laravel application needs the state unwinding that Octane implements, and Rapira has no Octane driver yet.
+- **[Laravel](/docs/frameworks/laravel)** — Classic mode: the stock `public/index.php` runs unchanged. Worker mode for Laravel is under development — a resident Laravel application needs the state unwinding that Octane implements, and Rapira has no Octane driver yet.
 - **[Yii3](/docs/frameworks/yii3)** — a resident container reset per request through `StateResetter`, which is Yii3's own design for long-running processes (its RoadRunner runner has the same shape), or a simpler fresh runner per request if you would rather start there.
 
-A framework that none of these guides covers runs on the same worker script, and what decides whether it can run in worker mode is whether the application handles a second request in the same process. Rebuilding the application inside the handler is the shape to start from, because it asks nothing of the framework; a resident application with a per-request reset is the shape to move to. If neither works, [classic mode](/docs/classic) runs the application unchanged.
+A framework that these guides do not cover runs with the same worker script. It can use Worker mode if the application handles a second request in the same process. Start by rebuilding the application inside the handler. This design has no framework requirements. Then, you can make the application resident and reset its state for each request. If neither design works, [Classic mode](/docs/classic) runs the application unchanged.

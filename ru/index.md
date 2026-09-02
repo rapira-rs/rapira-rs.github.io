@@ -21,7 +21,7 @@ features:
 const httpFeatures = [
   { label: 'HTTP/1.1' },
   { label: 'Keep-alive' },
-  { label: 'Static files' },
+  { label: 'Статические файлы' },
   { label: 'HTTP/2', ready: false },
   { label: 'HTTP/3', ready: false },
   { label: 'TLS 1.3', ready: false },
@@ -57,7 +57,7 @@ const interopTabs = [
 
 Rapira написана на Rust, PHP — на C. Rust вызывает C-функции нативно, поэтому интероп между двумя языками не стоит ничего: вызов PHP-функции из Rust — это обычный вызов функции. Интерпретатор встроен в процесс сервера, и Rapira управляет им через прямые биндинги — от запуска движка до обработки каждого запроса.
 
-Здесь нет ни FastCGI, ни Goridge, ни CGO: запрос нигде не сериализуется и не покидает процесс. В классическом режиме и в режиме воркера Rapira заполняет суперглобалы напрямую.
+Здесь нет ни FastCGI, ни Goridge, ни CGO: запрос нигде не сериализуется и не покидает процесс. В режимах Classic и Worker Rapira заполняет суперглобалы напрямую.
 
 <template #aside>
 <TextTabs :tabs="interopTabs">

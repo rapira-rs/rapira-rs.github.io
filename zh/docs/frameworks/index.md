@@ -5,7 +5,7 @@ description: "在 Rapira 上运行的每个框架都共通的机制：worker 循
 
 # 框架集成
 
-经典模式下，框架应用无需任何改动就能跑在 Rapira 上：让服务器指向你现成的前端控制器即可。worker 模式下 PHP 进程在两次请求之间保持存活，而应用能常驻多少东西，取决于框架自身的设计。这一页讲的是不管用哪个框架都一样的那部分机制；后面三份分框架的指南默认你已经读过本页，只讲各自特有的部分。
+Classic 模式下，框架应用无需任何改动就能跑在 Rapira 上：让服务器指向你现成的前端控制器即可。Worker 模式下 PHP 进程在两次请求之间保持存活，而应用能常驻多少东西，取决于框架自身的设计。这一页讲的是不管用哪个框架都一样的那部分机制；后面三份分框架的指南默认你已经读过本页，只讲各自特有的部分。
 
 ::: info 验证环境
 
@@ -16,13 +16,13 @@ description: "在 Rapira 上运行的每个框架都共通的机制：worker 循
 本页的每一条结论，都来自在 Linux 上用单个 worker 进程实际跑这些应用观察到的结果。下面凡是讲框架行为的说法，都以这些实测为依据；配置键则来自 Rapira 自己的[配置](/zh/docs/configuration)参考。
 :::
 
-## 经典模式与 worker 模式
+## Classic 模式与 Worker 模式
 
-**经典模式下，什么都不变。**你的前端控制器就是入口脚本，Rapira 每来一个请求就把它从头跑一遍，凡是能在 php-fpm 下跑的框架，在这里照样跑，包括那些状态根本撑不过第二个请求的。更多内容见[经典模式](/zh/docs/classic)；下面几节里，只有静态文件、TLS 和 OPcache 适用于经典模式。
+**Classic 模式下，什么都不变。**你的前端控制器就是入口脚本，Rapira 每来一个请求就把它从头跑一遍，凡是能在 php-fpm 下跑的框架，在这里照样跑，包括那些状态根本撑不过第二个请求的。更多内容见 [Classic 模式](/zh/docs/classic)；下面几节里，只有静态文件、TLS 和 OPcache 适用于 Classic 模式。
 
-**Worker 模式下，进程不会退出。**脚本把应用启动一次，然后待在循环里，一遍遍向 Rapira 要下一个请求。框架不再在两次请求之间被拆掉。这个模式在三种模式中处于什么位置，见[执行模式](/zh/docs/execution-modes)；它的 API 参考见 [Worker 模式](/zh/docs/worker)。
+**Worker 模式下，进程不会退出。**脚本把应用启动一次，然后待在循环里，一遍遍向 Rapira 要下一个请求。框架不再在两次请求之间被拆掉。[执行模式](/zh/docs/execution-modes)介绍全部三种模式；Worker 模式的 API 参考见 [Worker 模式](/zh/docs/worker)。
 
-同一份代码可以跑在两种模式下：`public/index.php` 原样留着，在旁边加一个 `worker.php`。验证过的 Symfony 和 Yii3 应用都是两个文件并存，跑哪一个由 `--mode` 参数选定：`rapira serve --mode classic public/index.php` 或者 `rapira serve --mode worker worker.php`。所以迁移期间经典模式一直是随时可用的回滚方案。
+同一份代码可以跑在两种模式下：`public/index.php` 原样留着，在旁边加一个 `worker.php`。验证过的 Symfony 和 Yii3 应用都是两个文件并存，跑哪一个由 `--mode` 参数选定：`rapira serve --mode classic public/index.php` 或者 `rapira serve --mode worker worker.php`。所以迁移期间 Classic 模式一直是随时可用的回滚方案。
 
 ## 逐行读这个循环
 
@@ -122,7 +122,7 @@ middleware = ["static"]
 root = "public"
 ```
 
-只有路径在这个根目录下确实对应到一个文件时，中间件才会应答。它默认的 `forbid` 列表把 `.php` 文件挡在外面，所以 `public/` 里的前端控制器绝不会被当作文件发出去。其余的 URL 照旧跑入口脚本，经典模式和 Worker 模式下都是如此，客户端想去哪儿由 `$_SERVER['REQUEST_URI']` 告诉应用。目录 URL 同样跑入口脚本，因为这个中间件不为它提供任何索引文件。
+只有路径在这个根目录下确实对应到一个文件时，中间件才会应答。它默认的 `forbid` 列表把 `.php` 文件挡在外面，所以 `public/` 里的前端控制器绝不会被当作文件发出去。其余的 URL 照旧跑入口脚本，Classic 模式和 Worker 模式下都是如此，客户端想去哪儿由 `$_SERVER['REQUEST_URI']` 告诉应用。目录 URL 同样跑入口脚本，因为这个中间件不为它提供任何索引文件。
 
 当然，也可以让前面的 CDN 或反向代理来提供这些资源，[生产环境部署](/zh/docs/deployment)里就搭了这么一层代理。
 
@@ -132,7 +132,7 @@ Rapira 的监听器只说明文 HTTP，配置里也没有 TLS 这一段。让 TL
 
 ## 内存与回收
 
-在 handler 里重建应用的 worker——也就是 Yii3 两种写法里较简单的那种——常驻的东西比 Symfony 那种内核少，但比经典模式多，而且循环就在你自己的脚本里，所以可以随着确认哪些内容能挺过第二个请求，一块一块地把工作挪出 handler。这种写法给不了你的，是一个在请求到来时就已经造好的容器。
+在 handler 里重建应用的 worker——也就是 Yii3 两种写法里较简单的那种——常驻的东西比 Symfony 那种内核少，但比 Classic 模式多，而且循环就在你自己的脚本里，所以可以随着确认哪些内容能挺过第二个请求，一块一块地把工作挪出 handler。这种写法给不了你的，是一个在请求到来时就已经造好的容器。
 
 这种写法下，每个请求都会丢下一整张废弃的对象图。PHP 不会一个一个把它们收走：它们被循环引用拴在一起，于是堆内存随着请求一路增长，直到循环回收器跑起来，一次性收掉一大批。这是锯齿，不是泄漏，但这条锯齿的峰值比任何单个请求的内存占用都高出不少。
 
@@ -151,14 +151,14 @@ worker 处理够这么多请求就结束（另外加一点抖动，免得整个�
 
 Rapira 只启动一次 PHP，在 master 里，而且是在 fork 出任何一个 worker *之前*——所以 OPcache 的共享内存段只创建一次，每个 worker 继承的都是同一份映射。编译好的脚本既跨请求、*也*跨整个进程池保持热度，两种模式下都是如此。worker 重新 include 框架的文件时，并不会重新解析它们。
 
-生产环境里，`opcache.validate_timestamps = 0` 能省掉每个请求对每个文件的那次 stat。代价是再也没有东西会让缓存失效：那个内存段属于 master，比任何一代 worker 都活得久，于是滚动重载只会接着吐旧的 opcode，部署得整个重启才行。具体步骤见[生产环境部署](/zh/docs/deployment)。
+生产环境里，`opcache.validate_timestamps = 0` 会去掉每个请求对每个文件的 stat。此设置不会使缓存失效。内存段属于 master，比任何一代 worker 都存活得更久。因此，滚动重载会继续提供旧的 opcode，部署时需要完整重启。具体步骤见[生产环境部署](/zh/docs/deployment)。
 
 开发的时候，同样的结果来自另一个原因。不管 OPcache 在干什么，一个常驻的启动流程都不会去重读它启动时加载的代码：改动容器已经造好的服务，或者改动 worker 脚本本身，都传不到跑着的进程里。每改一次就重启一次——`rapira serve` 跑在前台，从不 daemonize，所以 Ctrl-C 之后再跑一遍就是了。
 
 ## 框架指南
 
 - **[Symfony](/zh/docs/frameworks/symfony)**——内核只启动一次，之后一直常驻，框架自带的 `services_resetter` 会在两次请求之间把有状态的服务恢复原样。同一个 worker 文件一字不差地同时适用于 7.4 和 8.1。
-- **[Laravel](/zh/docs/frameworks/laravel)**——经典模式：原装的 `public/index.php` 原封不动就能跑。Laravel 的 worker 模式还在开发中——常驻的 Laravel 应用需要 Octane 实现的那套状态复原，而 Rapira 目前还没有 Octane driver。
+- **[Laravel](/zh/docs/frameworks/laravel)**——Classic 模式：原装的 `public/index.php` 原封不动就能跑。Laravel 的 Worker 模式还在开发中——常驻的 Laravel 应用需要 Octane 实现的那套状态复原，而 Rapira 目前还没有 Octane driver。
 - **[Yii3](/zh/docs/frameworks/yii3)**——容器常驻，每个请求通过 `StateResetter` 重置一次，这本来就是 Yii3 为长期运行的进程设计的方案（它的 RoadRunner runner 也是这个形状）；如果你更想从简单的起步，也可以每个请求起一个全新的 runner。
 
-这些指南都没覆盖到的框架，用的是同一个 worker 脚本，而它能不能跑在 worker 模式下，取决于应用能否在同一个进程里处理第二个请求。可以从在 handler 里重建应用这种写法起步，因为它对框架没有任何要求；之后再过渡到常驻应用加每请求重置状态的写法。如果两种写法都不行，[经典模式](/zh/docs/classic)原封不动就能跑这个应用。
+这些指南都没覆盖到的框架，用的是同一个 worker 脚本，而它能不能跑在 Worker 模式下，取决于应用能否在同一个进程里处理第二个请求。可以从在 handler 里重建应用这种写法起步，因为它对框架没有任何要求；之后再过渡到常驻应用加每请求重置状态的写法。如果两种写法都不行，[Classic 模式](/zh/docs/classic)原封不动就能跑这个应用。

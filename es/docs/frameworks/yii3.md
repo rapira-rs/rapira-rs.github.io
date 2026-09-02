@@ -1,6 +1,6 @@
 ---
 title: Yii3
-description: "Una aplicación Yii3 en Rapira en modo worker: el HttpApplicationRunner residente con StateResetter, el runner que se reconstruye en cada petición y qué se comprobó sobre enrutado, sesiones, subidas de archivos y errores."
+description: "Una aplicación Yii3 en Rapira en modo Worker: el HttpApplicationRunner residente con StateResetter, el runner que se reconstruye en cada petición y qué se comprobó sobre enrutado, sesiones, subidas de archivos y errores."
 ---
 
 # Yii3
@@ -15,13 +15,13 @@ Yii3 está diseñado para ejecutarse en un proceso que no muere: su contenedor d
 Los dos scripts de worker de esta página se ejecutaron contra ese stack y pasaron la batería completa: enrutado, URL generadas, envíos de formulario y de JSON, sesiones, subidas de archivos, gestión de errores y 200 peticiones seguidas.
 :::
 
-## Yii3 y el modo worker
+## Yii3 y el modo Worker
 
 Un worker residente necesita dos piezas de API pública.
 
 `ApplicationRunner::getContainer()` devuelve el contenedor sobre el que corre la aplicación, así que no hay que heredar de nada ni hurgar en estado privado. `Yiisoft\Di\StateResetter` es un servicio más de ese contenedor: los componentes registran en él sus propios callbacks de reinicio y una sola llamada a `reset()` los deja como estaban al principio, que es la respuesta del propio framework a un servicio que guarda estado de la petición.
 
-Un servicio tuyo que guarde estado de la petición también tiene que registrar su callback: añade una clave `'reset' => function (): void { … }` a la definición de DI de ese servicio, igual que declaran las suyas `yiisoft/session` y `yiisoft/router`. El closure se enlaza a la instancia, así que puede restaurar estado privado sin reconstruir el objeto. Qué reinicia Rapira entre peticiones y qué deja sin tocar está documentado en la [guía general de frameworks](/es/docs/frameworks/) y en [Modo worker](/es/docs/worker).
+Un servicio tuyo que guarde estado de la petición también tiene que registrar su callback: añade una clave `'reset' => function (): void { … }` a la definición de DI de ese servicio, igual que declaran las suyas `yiisoft/session` y `yiisoft/router`. El closure se enlaza a la instancia, así que puede restaurar estado privado sin reconstruir el objeto. Qué reinicia Rapira entre peticiones y qué deja sin tocar está documentado en la [guía general de frameworks](/es/docs/frameworks/) y en [Modo Worker](/es/docs/worker).
 
 El patrón residente son entonces tres pasos: construir el runner una vez, ejecutarlo en cada petición y reiniciar después el estado del contenedor.
 
@@ -83,7 +83,7 @@ Vamos por partes:
 
 **`run()` vuelve a ejecutar toda su secuencia en cada llamada.** Cada llamada registra el manejador de errores, ejecuta `runBootstrap()`, ejecuta `checkEvents()` y después atiende la petición; el runner es reentrante por diseño y se comprobó que esa repetición es inofensiva durante 200 llamadas seguidas. La comprobación de eventos solo hace algo cuando su flag está activo, y la plantilla ata ese flag a `Environment::appDebug()`, así que con el modo debug apagado no hace nada en ninguna llamada.
 
-**Un runner residente lee cada petición desde cero.** `run()` no captura la petición al construirse. En cada llamada resuelve `RequestFactory` desde el contenedor y construye un `ServerRequest` PSR-7 nuevo a partir de `$_SERVER`, `$_GET`, `$_POST`, `$_COOKIE`, `$_FILES` y `php://input`, y Rapira vuelve a rellenar esas superglobales antes de cada iteración del bucle (ese contrato lo cubre [Modo worker](/es/docs/worker)).
+**Un runner residente lee cada petición desde cero.** `run()` no captura la petición al construirse. En cada llamada resuelve `RequestFactory` desde el contenedor y construye un `ServerRequest` PSR-7 nuevo a partir de `$_SERVER`, `$_GET`, `$_POST`, `$_COOKIE`, `$_FILES` y `php://input`, y Rapira vuelve a rellenar esas superglobales antes de cada iteración del bucle (ese contrato lo cubre [Modo Worker](/es/docs/worker)).
 
 **La memoria se mantiene plana.** A lo largo de 200 peticiones seguidas, el conjunto residente del worker no creció de forma apreciable, porque la aplicación se construye una vez y el reinicio es barato, así que no hay ningún arranque por petición que después haya que recoger.
 
@@ -122,7 +122,7 @@ El contenedor se reconstruye cada vez, así que hay menos piezas móviles, ning�
 
 El contenedor arranca en cada petición, de modo que ese arranque se paga cada vez y se genera la basura de un contenedor entero. La memoria del worker va creciendo según se acumulan esos contenedores hasta que PHP los libera de golpe, el perfil normal de un arranque por petición y no una fuga. Combina este patrón con `pool.max_requests` para que cada worker termine y sea reemplazado cada cierto tiempo; los perfiles de memoria están en la [guía general de frameworks](/es/docs/frameworks/) y la clave está documentada en [Configuración](/es/docs/configuration).
 
-El autoloader y el arranque de la plantilla siguen siendo residentes y el bucle de peticiones sigue viviendo en el script de worker, así que esto sigue siendo un worker, uno que descarta su aplicación entre peticiones, no [modo clásico](/es/docs/classic).
+El autoloader y el arranque de la plantilla siguen siendo residentes y el bucle de peticiones sigue viviendo en el script de worker, así que esto sigue siendo un worker, uno que descarta su aplicación entre peticiones, no [modo Classic](/es/docs/classic).
 
 Usa el runner residente salvo que tengas un motivo para no hacerlo: es el diseño de larga vida que propone el propio framework, la memoria se mantiene plana y el reinicio es una sola llamada. Usa el runner por petición si tu arranque tiene restricciones de orden sobre las que prefieres no pensar: código que debe ejecutarse antes de que se construya el contenedor, o trabajo de arranque por petición que un callback de `StateResetter` no puede deshacer. Cambiar de uno a otro más adelante solo afecta al script de worker.
 
@@ -166,13 +166,13 @@ Los dos patrones pasaron la misma batería de pruebas contra la plantilla `yiiso
 
 **Llegan los envíos de formulario, los cuerpos JSON y las subidas de archivos.** Campos en `$_POST`, un payload JSON leído de `php://input` y una subida multipart con su archivo temporal legible durante la petición: el `ServerRequest` PSR-7 que yii-runner-http construye a partir de las superglobales lo lleva todo.
 
-**Una excepción lanzada es un 500, y el worker sigue sirviendo.** A una acción que lanza la recoge `ErrorCatcher`, que renderiza la respuesta de error igual que lo haría en cualquier otro sitio; la excepción queda registrada y la petición siguiente la atiende con normalidad ese mismo proceso worker. En Rapira una excepción sin capturar es un fallo de la petición, no del worker: en [Modo worker](/es/docs/worker) tienes qué provoca la caída de un worker y qué no.
+**Una excepción lanzada es un 500, y el worker sigue sirviendo.** A una acción que lanza la recoge `ErrorCatcher`, que renderiza la respuesta de error igual que lo haría en cualquier otro sitio; la excepción queda registrada y la petición siguiente la atiende con normalidad ese mismo proceso worker. En Rapira una excepción sin capturar es un fallo de la petición, no del worker: en [Modo Worker](/es/docs/worker) tienes qué provoca la caída de un worker y qué no.
 
 ## CSRF
 
 La plantilla de la aplicación mete `CsrfTokenMiddleware` en su cadena de middleware por defecto, y el token vive en la sesión, que es justo el estado que sí ejercitó la batería: por petición y aislado por cliente. Nada del bucle del worker toca el flujo del token, así que aquí un POST necesita el suyo igual que en cualquier otro sitio. Si los POST empiezan a ser rechazados después de pasarte a un worker, comprueba primero el token; el arreglo es el de siempre (renderizar el token en el formulario y devolverlo), no un cambio en el script de worker.
 
-## El modo clásico como alternativa
+## El modo Classic como alternativa
 
 Yii3 también funciona como front controller de toda la vida:
 
@@ -180,8 +180,8 @@ Yii3 también funciona como front controller de toda la vida:
 rapira serve --mode classic public/index.php
 ```
 
-El mismo código, sin script de worker y con estado limpio en cada petición. Consulta [Modo clásico](/es/docs/classic) para más información.
+El mismo código, sin script de worker y con estado limpio en cada petición. Consulta [Modo Classic](/es/docs/classic) para más información.
 
-El script de worker es un punto de entrada más y no un sustituto del front controller, así que conserva `public/index.php`: es el script de entrada que ejecuta el modo clásico y sigue siendo útil para trabajar en local con el servidor que trae PHP.
+El script de worker es un punto de entrada más y no un sustituto del front controller, así que conserva `public/index.php`: es el script de entrada que ejecuta el modo Classic y sigue siendo útil para trabajar en local con el servidor que trae PHP.
 
 El `public/index.php` de la plantilla tiene una rama `PHP_SAPI === 'cli-server'` que sirve archivos estáticos y reescribe `SCRIPT_NAME`. Está ahí por el servidor de desarrollo que trae PHP y bajo Rapira no se activa nunca, porque `PHP_SAPI` vale `rapira` (`fastcgi` en PHP 8.4 — ver [Instalación](/es/docs/intro/installation)), así que puede quedarse como está.

@@ -55,7 +55,7 @@ Rapira supplies that server: an HTTP front of its own, written in Rust on [hyper
 
 <RapiraSection title="Zero interop: Rust calls PHP directly" link="/docs/process-model" link-text="Process model">
 
-Rapira is written in Rust, PHP in C. Rust calls C functions natively, so interop between the two languages costs nothing: calling a PHP function from Rust is an ordinary function call. The interpreter is embedded in the server process, and Rapira drives it through direct bindings — from booting the engine to handling every request.
+Rapira is written in Rust, and PHP is written in C. Rust calls C functions natively. Therefore, calling a PHP function from Rust is a direct function call. The interpreter is embedded in the server process. Rapira controls it through direct bindings, from engine boot through request handling.
 
 There is no FastCGI, no Goridge, no CGO: a request is never serialized and never leaves the process. In Classic and Worker modes Rapira fills the superglobals directly.
 

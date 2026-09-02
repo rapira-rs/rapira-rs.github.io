@@ -134,7 +134,7 @@ Para sacarlos de la máquina, apunta tu colector al journal de la unidad o ejecu
 
 ## Reciclado de workers y tiempos límite de petición
 
-En [modo worker](/es/docs/execution-modes) el proceso se queda residente, así que una fuga lenta que bajo php-fpm pasa desapercibida se va acumulando petición tras petición. De eso te protegen dos ajustes:
+En [modo Worker](/es/docs/execution-modes) el proceso se queda residente, así que una fuga lenta que bajo php-fpm pasa desapercibida se va acumulando petición tras petición. De eso te protegen dos ajustes:
 
 ```toml
 [pool]

@@ -7,7 +7,7 @@ description: "Rapira 如何运行 PHP：单线程的 master 绑定套接字、�
 
 Rapira 以一个 master 进程加一池 worker 的形式运行。凡是全局只能有一份的东西——监听套接字、PHP 引擎映像、pidfile——都归 master 持有，备齐之后它就 fork；请求则由 worker 处理。请求从来不需要在进程之间倒手：worker *就是* master 的副本，是在 PHP 已经起来之后 fork 出来的，各自直接从套接字上取走自己的连接。
 
-无论运行[经典模式](/zh/docs/classic)、[Worker 模式](/zh/docs/worker)还是 Dispatcher 模式，这套结构都一样。执行模式由 `pool.mode` 设定，它决定的是每个请求进了 worker 之后怎么走；至于进程池怎么搭起来、怎么被看管、怎么重载，跟它无关。更多内容见[执行模式](/zh/docs/execution-modes)。
+无论运行 [Classic 模式](/zh/docs/classic)、[Worker 模式](/zh/docs/worker)还是 Dispatcher 模式，这套结构都一样。执行模式由 `pool.mode` 设定，它决定的是每个请求进了 worker 之后怎么走；至于进程池怎么搭起来、怎么被看管、怎么重载，跟它无关。更多内容见[执行模式](/zh/docs/execution-modes)。
 
 ## master 与 worker
 
@@ -114,7 +114,7 @@ kill -TERM $(cat /run/rapira.pid)   # graceful stop
 
 `SIGUSR2`（或者 `SIGHUP`）会把整个进程池换成一批全新的 worker——常驻 worker 里那个已经启动好的应用，就是这样被丢掉、再照着部署上去的代码重新搭起来的。
 
-经典模式下，入口脚本每个请求都从头执行一遍，没有常驻的东西需要替换，所以新代码不重载也能生效。要是你设了 `opcache.validate_timestamps = 0`，master 里的那份 OPcache 段会一直返回旧的 opcode，直到完整重启。Worker 模式和 Dispatcher 模式下，应用只启动一次并一直待在内存里，所以部署上去的代码要等一次滚动重载才生效，把它写进部署流程的一步。更多内容见[部署](/zh/docs/deployment)。
+Classic 模式下，入口脚本每个请求都从头执行一遍，没有常驻的东西需要替换，所以新代码不重载也能生效。要是你设了 `opcache.validate_timestamps = 0`，master 里的那份 OPcache 段会一直返回旧的 opcode，直到完整重启。Worker 模式和 Dispatcher 模式下，应用只启动一次并一直待在内存里，所以部署上去的代码要等一次滚动重载才生效，把它写进部署流程的一步。更多内容见[部署](/zh/docs/deployment)。
 
 重载期间服务能力一刻也不会掉下去，因为它是叠着来的，而不是先停后起：master 先起一个新 worker，等它真的开始 accept 了，才去排空一个旧 worker。旧的走掉之后，它的槽位交给下一个新 worker，就这样一路把这一代换完。每次排空走的都是和停止时一样的 `SIGQUIT` → `SIGTERM` → `SIGKILL` 升级流程，受同一个控制超时约束，只不过作用在那一个 worker 身上。
 

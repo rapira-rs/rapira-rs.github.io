@@ -1,15 +1,15 @@
 ---
 title: 快速开始
-description: "用 Rapira 以经典模式和 worker 模式提供 PHP 应用，并把设置搬进 rapira.toml 文件。"
+description: "用 Rapira 以 Classic 模式和 Worker 模式提供 PHP 应用，并把设置搬进 rapira.toml 文件。"
 ---
 
 # 快速开始
 
-本页介绍如何用经典模式返回一个页面、把同一个应用改造成常驻 worker，以及把设置搬进配置文件。前提是你手上已经有一个能用的 `rapira` 可执行文件，以及它自带的 PHP；详见[安装](/zh/docs/intro/installation)。
+本页介绍如何用 Classic 模式返回一个页面、把同一个应用改造成常驻 worker，以及把设置搬进配置文件。前提是你手上已经有一个能用的 `rapira` 可执行文件，以及它自带的 PHP；详见[安装](/zh/docs/intro/installation)。
 
-## 经典模式
+## Classic 模式
 
-经典模式对任何应用都可用：每来一个请求，Rapira 就重新 include 一次入口脚本，跟 php-fpm 跑前端控制器完全一样。代码一行都不用改。
+Classic 模式对任何应用都可用：每来一个请求，Rapira 就重新 include 一次入口脚本，跟 php-fpm 跑前端控制器完全一样。代码一行都不用改。
 
 新建 `public/index.php`：
 

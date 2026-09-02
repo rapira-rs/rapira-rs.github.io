@@ -92,7 +92,7 @@ El límite se comprueba dos veces:
 max_body_size_mb = 8
 ```
 
-## Cómo sale la respuesta
+## Transmisión de la respuesta
 
 El frontal no acumula el cuerpo de la respuesta en ningún búfer. Escribe la cabecera de la respuesta en cuanto PHP la fija, y cada trozo del cuerpo según PHP lo va produciendo. Cuándo los produce PHP lo decide el modo. En los modos Classic y Worker, PHP retiene la respuesta entera y se la pasa al frontal cuando termina la petición, o antes si el script llama a `rapira_finish_request()`. En modo Dispatcher, PHP le pasa al frontal la cabecera y cada trozo del cuerpo según los va escribiendo el código.
 
@@ -141,7 +141,7 @@ $metrics->flush();
 
 La firma es `rapira_finish_request(): bool`. Está declarada, junto con todo lo demás que Rapira le expone a PHP, en [`crates/php_sys/rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php): apunta tu IDE a ese archivo para tener autocompletado y sugerencias de tipos.
 
-La función se registra para todo el proceso y actúa sobre la petición que se está atendiendo, así que el modo clásico también la admite: el comportamiento es el mismo tanto si el script es residente como si se vuelve a ejecutar en cada petición. En [Modos de ejecución](/es/docs/execution-modes) tienes qué más cambia de un modo a otro.
+La función se registra para todo el proceso y actúa sobre la petición que se está atendiendo, así que el modo Classic también la admite: el comportamiento es el mismo tanto si el script es residente como si se vuelve a ejecutar en cada petición. En [Modos de ejecución](/es/docs/execution-modes) tienes qué más cambia de un modo a otro.
 
 Dos cosas que conviene tener presentes:
 

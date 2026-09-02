@@ -1,6 +1,6 @@
 ---
 title: Symfony
-description: "Jak uruchomić aplikację Symfony na Rapirze w trybie workera: skrypt workera, reset serwisów między żądaniami i to, jak wartości z .env docierają do kontenera."
+description: "Jak uruchomić aplikację Symfony na Rapirze w trybie Worker: skrypt workera, reset serwisów między żądaniami i to, jak wartości z .env docierają do kontenera."
 ---
 
 # Symfony
@@ -16,7 +16,7 @@ Struktura Symfony pasuje do rezydentnego workera: kernel, który podnosisz, `Req
 Obie aplikacje to goły `symfony/skeleton` chodzący w jednym procesie workera i obie uruchamiały **ten sam `worker.php`** — bajt w bajt, bez żadnej gałęzi na wersję. Bateria obejmuje routing, 404, query stringi, generowanie URL-i, wysyłkę formularza, treść w JSON-ie, sesje trzymające się między żądaniami, upload pliku, nieprzechwycony wyjątek i 200 żądań pod rząd.
 :::
 
-## Zachowanie w trybie workera
+## Zachowanie w trybie Worker
 
 Kernel podnosi się na górze skryptu, poza pętlą, i zostaje w pamięci na cały czas życia procesu workera: autoloader, skompilowany kontener, router, event dispatcher i każde połączenie otwarte przez twoje bundle powstają raz, a nie raz na żądanie. To właśnie daje [tryb Worker](/pl/docs/worker); więcej informacji znajdziesz w [Trybach wykonania](/pl/docs/execution-modes).
 
@@ -95,9 +95,9 @@ Większość to zwykły rozruch Symfony. Cztery linie są specyficzne dla tego u
 
 **`$container->has('services_resetter')` przed `get()`.** Identyfikator serwisu `services_resetter` jest publiczny i w 7.4, i w 8.1 — dlatego ten sam plik działa na obu. *Klasa*, która za nim stoi, zmieniła między głównymi wersjami przestrzeń nazw (`Symfony\Component\DependencyInjection\ServicesResetter` w 7.4, `Symfony\Component\HttpKernel\DependencyInjection\ServicesResetter` w 8.1), a odwołanie się do serwisu po identyfikatorze sprawia, że ta różnica znika. Zabezpieczenie przez `has()` chroni skrypt przed błędem krytycznym na kontenerze, który tego serwisu nie definiuje.
 
-**Pętla i `gc_collect_cycles()`.** `\Rapira\handle_request()` blokuje wykonanie, dopóki nie przyjdzie żądanie, uruchamia twój handler i zwraca `true`. Zwraca `false`, gdy worker zaczyna się wygaszać, i to właśnie kończy pętlę. Zbieranie cykli raz na obrót trzyma tę pracę między żądaniami, a nie w środku któregoś z nich. Pełny kontrakt opisuje [Tryb workera](/pl/docs/worker).
+**Pętla i `gc_collect_cycles()`.** `\Rapira\handle_request()` blokuje wykonanie, dopóki nie przyjdzie żądanie, uruchamia twój handler i zwraca `true`. Zwraca `false`, gdy worker zaczyna się wygaszać, i to właśnie kończy pętlę. Zbieranie cykli raz na obrót trzyma tę pracę między żądaniami, a nie w środku któregoś z nich. Pełny kontrakt opisuje [tryb Worker](/pl/docs/worker).
 
-Gdyby resetter nie wystarczył, zostają dwie cięższe opcje: `$container->reset()` czyści każdy serwis, który zdążył powstać, a `$kernel->reboot(null)` wyrzuca kontener i buduje nowy — po czym `$container` przechwycony przez handler jest już nieaktualny, więc jeśli pójdziesz tą drogą, pobierz go ponownie przez `$kernel->getContainer()`. Oba odrzucają rozgrzany stan, który daje tryb workera, więc używaj ich, kiedy szukasz wycieku, a nie domyślnie.
+Gdyby resetter nie wystarczył, zostają dwie cięższe opcje: `$container->reset()` czyści każdy serwis, który zdążył powstać, a `$kernel->reboot(null)` wyrzuca kontener i buduje nowy — po czym `$container` przechwycony przez handler jest już nieaktualny, więc jeśli pójdziesz tą drogą, pobierz go ponownie przez `$kernel->getContainer()`. Oba odrzucają rozgrzany stan, który daje tryb Worker, więc używaj ich, kiedy szukasz wycieku, a nie domyślnie.
 
 ## `$_ENV` i `variables_order`
 
@@ -173,12 +173,12 @@ Jeśli chcesz uwolnić klienta, zanim ruszą listenery po odpowiedzi, wywołaj [
 
 ## Codzienna praca nad kodem
 
-`rapira serve` działa na pierwszym planie, a twoja aplikacja podnosi się raz, więc **zmieniony kod PHP nie wejdzie w życie, dopóki nie wymienisz workerów**. W trakcie aktywnego pisania najprościej zatrzymać serwer i uruchomić go od nowa albo puścić front controller w [trybie klasycznym](/pl/docs/classic), gdzie skrypt wykonuje się od zera za każdym razem, a każdy zapis pliku widać natychmiast:
+`rapira serve` działa na pierwszym planie, a twoja aplikacja podnosi się raz, więc **zmieniony kod PHP nie wejdzie w życie, dopóki nie wymienisz workerów**. W trakcie aktywnego pisania najprościej zatrzymać serwer i uruchomić go od nowa albo puścić front controller w [trybie Classic](/pl/docs/classic), gdzie skrypt wykonuje się od zera za każdym razem, a każdy zapis pliku widać natychmiast:
 
 ```bash
 rapira serve --mode classic public/index.php
 ```
 
-To ta sama aplikacja w trybie klasycznym: podnosi się przy każdym żądaniu, więc zmiany działają od razu, kosztem pełnego rozruchu na każde żądanie. Na działającym serwerze produkcyjnym wdrożony kod przejmuje pracę bez zrywania połączeń dzięki przeładowaniu kroczącemu (`SIGUSR2` do procesu nadrzędnego) — chyba że masz `opcache.validate_timestamps = 0`, bo wtedy segment OPcache procesu nadrzędnego przeżywa całą pulę i wdrożenie wymaga pełnego restartu; zobacz [Model procesów](/pl/docs/process-model) i [wdrożenie produkcyjne](/pl/docs/deployment).
+Ta sama aplikacja działa w trybie Classic i uruchamia się przy każdym żądaniu. Dlatego zmiany działają od razu, a każde żądanie obejmuje pełny rozruch. Na serwerze produkcyjnym wdrożony kod przejmuje pracę bez zrywania połączeń dzięki przeładowaniu kroczącemu (`SIGUSR2` do procesu nadrzędnego). Przy `opcache.validate_timestamps = 0` segment OPcache procesu nadrzędnego przeżywa całą pulę. W tej konfiguracji wdrożenie wymaga pełnego restartu. Więcej informacji zawierają [model procesów](/pl/docs/process-model) i [wdrożenie produkcyjne](/pl/docs/deployment).
 
 Nieprzechwycony wyjątek jest obsługiwany wewnątrz Symfony: framework odpowiada na niego własnym `500` — pełną stroną wyjątku w `dev`, ogólną stroną błędu w `prod` — a kolejne żądanie bierze ten sam proces workera, z niezmienionym pidem mimo awarii. Po wyjątku zostaje wyciekły albo zepsuty stan serwisów i zdejmuje go reset na końcu handlera. Gdzie wyląduje ślad stosu, zależy od twojego loggera; goły skeleton nie ma żadnego. Do logu Rapiry na stderr trafia to, co ucieknie z samego PHP, jak wspomniany wyżej `EnvNotFoundException` — jak podkręcić poziom, pokazują [Logi](/pl/docs/logging).

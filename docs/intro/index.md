@@ -1,13 +1,13 @@
 ---
 title: What is Rapira?
-description: Rapira is a fast, secure PHP application server written in Rust — it takes HTTP requests directly and supports classic, worker and dispatcher modes.
+description: Rapira is a fast, secure PHP application server written in Rust — it takes HTTP requests directly and supports Classic, Worker and Dispatcher modes.
 ---
 
 # What is Rapira?
 
 Rapira is a fast, secure PHP application server written in Rust.
 
-Years of maintaining RoadRunner went into its design: we wanted the way it works with PHP to be as efficient and stable as possible, and neither development nor day-to-day operation to cost you extra effort.
+Years of RoadRunner maintenance shaped Rapira's design. Rapira interacts with PHP efficiently and consistently. The same design supports straightforward development and operations.
 
 Rapira does not stop at HTTP. Support for all the popular RoadRunner plugins is on our roadmap — follow our [blog](/blog/) for updates.
 

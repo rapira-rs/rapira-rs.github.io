@@ -1,11 +1,11 @@
 ---
-title: 经典模式
-description: "经典模式在每个请求上都从头执行一个普通的 PHP 前端控制器，和 php-fpm 一样，每次的状态都是全新的。"
+title: Classic 模式
+description: "Classic 模式在每个请求上都从头执行一个普通的 PHP 前端控制器，和 php-fpm 一样，每次的状态都是全新的。"
 ---
 
-# 经典模式
+# Classic 模式
 
-经典模式会在每个到达的请求上，从头执行一个普通的 PHP 前端控制器——就是你早就交给 php-fpm 的那个 `public/index.php`。Rapira 顶替掉 php-fpm，应用不需要做任何改动：超全局变量照样填好，脚本从上到下执行，打印出来的东西就是响应。
+Classic 模式会在每个到达的请求上，从头执行一个普通的 PHP 前端控制器——就是你早就交给 php-fpm 的那个 `public/index.php`。Rapira 顶替掉 php-fpm，应用不需要做任何改动：超全局变量照样填好，脚本从上到下执行，打印出来的东西就是响应。
 
 ## 每个请求都是全新的状态
 
@@ -24,7 +24,7 @@ description: "经典模式在每个请求上都从头执行一个普通的 PHP �
 
 `--mode` 会覆盖 `pool.mode`，所以哪怕配置文件里写的是另一种模式，最终跑哪一种也由命令行说了算。其余部分依旧遵循通常的优先级：命令行参数压过配置文件。完整的键列表见[配置](/zh/docs/configuration)。
 
-经典模式的入口脚本就是普通 PHP：
+Classic 模式的入口脚本就是普通 PHP：
 
 ```php
 <?php
@@ -65,9 +65,9 @@ CGI 变量也就顺理成章：`SCRIPT_FILENAME` 永远是入口脚本，`SCRIPT
 进程池本身在两种模式下是一样的：master fork 出一批 worker，每个 worker 一次处理一个请求，并发能力就来自进程数量。关于 master 进程和它的 worker，更多信息见[进程模型](/zh/docs/process-model)那一页。
 
 ::: info
-在经典模式下调用 `Rapira\handle_request()` 会抛出 `Rapira\Exception\NotInWorkerModeError`。脚本随请求一起结束，没有循环可以接过这个 handler。Worker 脚本属于 [Worker 模式](/zh/docs/worker)。
+在 Classic 模式下调用 `Rapira\handle_request()` 会抛出 `Rapira\Exception\NotInWorkerModeError`。脚本随请求一起结束，没有循环可以接过这个 handler。Worker 脚本属于 [Worker 模式](/zh/docs/worker)。
 :::
 
 ## 在 Classic 和 Worker 之间做选择
 
-应用的状态撑不过第二个请求时，就用经典模式：老代码库、往静态属性里泄漏的框架、你管不着的第三方库。正从 php-fpm 迁移过来、想一次只改一件事的时候，同样用它。代码扛得住一个不退出的进程，就用 [Worker 模式](/zh/docs/worker)，它把每个请求的启动开销去掉了。[执行模式](/zh/docs/execution-modes)那一页描述了全部三种模式。
+应用的状态撑不过第二个请求时，就用 Classic 模式：老代码库、往静态属性里泄漏的框架、你管不着的第三方库。正从 php-fpm 迁移过来、想一次只改一件事的时候，同样用它。代码扛得住一个不退出的进程，就用 [Worker 模式](/zh/docs/worker)，它把每个请求的启动开销去掉了。[执行模式](/zh/docs/execution-modes)那一页描述了全部三种模式。

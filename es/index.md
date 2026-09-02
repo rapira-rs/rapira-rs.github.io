@@ -21,7 +21,7 @@ features:
 const httpFeatures = [
   { label: 'HTTP/1.1' },
   { label: 'Keep-alive' },
-  { label: 'Static files' },
+  { label: 'Archivos estáticos' },
   { label: 'HTTP/2', ready: false },
   { label: 'HTTP/3', ready: false },
   { label: 'TLS 1.3', ready: false },
@@ -55,7 +55,7 @@ Rapira aporta ese servidor: un frontal HTTP propio, escrito en Rust sobre [hyper
 
 <RapiraSection title="Interop cero: Rust llama a PHP directamente" link="/es/docs/process-model" link-text="Modelo de procesos">
 
-Rapira está escrita en Rust; PHP, en C. Rust llama a las funciones de C de forma nativa, así que la interoperabilidad entre ambos lenguajes no cuesta nada: llamar a una función de PHP desde Rust es una llamada de función normal. El intérprete va incrustado en el proceso del servidor, y Rapira lo controla mediante bindings directos: desde arrancar el motor hasta atender cada petición.
+Rapira está escrita en Rust; PHP, en C. Rust llama a las funciones de C de forma nativa. Por tanto, llamar a una función de PHP desde Rust es una llamada directa. El intérprete va incrustado en el proceso del servidor. Rapira lo controla mediante bindings directos, desde el arranque del motor hasta cada petición.
 
 Aquí no hay FastCGI, ni Goridge, ni CGO: la petición no se serializa en ningún punto y nunca sale del proceso. En los modos Classic y Worker, Rapira rellena las superglobales directamente.
 

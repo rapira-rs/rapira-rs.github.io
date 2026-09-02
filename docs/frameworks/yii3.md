@@ -1,6 +1,6 @@
 ---
 title: Yii3
-description: Running a Yii3 application on Rapira in worker mode — the resident HttpApplicationRunner with StateResetter, the per-request runner, and what was verified about routing, sessions, uploads and errors.
+description: Running Yii3 in Worker mode with a resident HttpApplicationRunner, StateResetter, or a new runner for each request.
 ---
 
 # Yii3
@@ -15,7 +15,7 @@ Yii3 is designed to run in a process that stays alive: its DI container ships a 
 Both worker scripts on this page were run against that stack and passed the full battery: routing, generated URLs, form and JSON posts, sessions, uploads, error handling and 200 sequential requests.
 :::
 
-## Yii3 and worker mode
+## Yii3 and Worker mode
 
 A resident worker needs two pieces of public API.
 
@@ -122,7 +122,7 @@ The container is rebuilt every time, so there are fewer moving parts, no reset t
 
 The container boots on every request, which takes the boot time each time and generates a container's worth of garbage. The worker's memory grows as those containers pile up before PHP reclaims them in bulk, the ordinary profile of a per-request boot rather than a leak. Pair this pattern with `pool.max_requests` so a worker is retired and replaced periodically; the [frameworks overview](/docs/frameworks/) explains the memory shapes and [Configuration](/docs/configuration) documents the key.
 
-The autoloader and the template's bootstrap still stay resident and the request loop still lives in the worker script, so this is still a worker, one that discards its application between requests, not [classic mode](/docs/classic).
+The autoloader and template bootstrap remain resident. The request loop also remains in the worker script. Therefore, this design is still a worker that discards its application between requests. It is not [Classic mode](/docs/classic).
 
 Use the resident runner unless you have a reason not to: it is the framework's own long-running design, memory stays flat, and the reset is one call. Use the per-request runner if your bootstrap has ordering constraints you would rather not reason about — code that must run before the container is built, or per-request bootstrap work that a `StateResetter` callback cannot undo. Switching from one to the other later changes only the worker script.
 
@@ -182,6 +182,6 @@ rapira serve --mode classic public/index.php
 
 Same code, no worker script, fresh state per request. See [Classic mode](/docs/classic) for more information.
 
-The worker script is an additional entry point rather than a replacement for the front controller, so keep `public/index.php`: it is the entry script classic mode runs, and it stays useful for local work with PHP's built-in server.
+The worker script is an additional entry point, not a replacement for the front controller. Keep `public/index.php` because Classic mode uses it as the entry script. It is also useful for local work with PHP's built-in server.
 
 The template's `public/index.php` contains a `PHP_SAPI === 'cli-server'` branch that serves static files and rewrites `SCRIPT_NAME`. It exists for PHP's built-in development server and never triggers under Rapira, where `PHP_SAPI` is `rapira` (`fastcgi` on PHP 8.4 — see [Installation](/docs/intro/installation)), so it can stay as it is.

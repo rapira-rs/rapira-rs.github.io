@@ -1,18 +1,18 @@
 ---
 title: Laravel
-description: "Uruchamianie Laravela na Rapirze w trybie klasycznym i aktualny stan wsparcia dla trybu workera."
+description: "Uruchamianie Laravela na Rapirze w trybie Classic i aktualny stan wsparcia dla trybu Worker."
 ---
 
 # Laravel
 
-Rapira uruchamia Laravela w trybie klasycznym: fabryczny front controller `public/index.php` wykonuje się od zera przy każdym żądaniu, dokładnie tak, jak robi to php-fpm. Aplikacja nie wymaga żadnych zmian. Tryb workera dla Laravela jest w trakcie prac — jego aktualny stan opisuje sekcja [Tryb workera](#tryb-workera) poniżej.
+Rapira uruchamia Laravela w trybie Classic: fabryczny front controller `public/index.php` wykonuje się od zera przy każdym żądaniu, dokładnie tak, jak robi to php-fpm. Aplikacja nie wymaga żadnych zmian. Tryb Worker dla Laravela jest w trakcie prac — jego aktualny stan opisuje sekcja [Tryb Worker](#tryb-worker) poniżej.
 
 ::: info Zweryfikowano na
 - **PHP 8.5.8** — NTS, SAPI embed
 - **Rapira 0.8.0**
 - szkielet **laravel/laravel** z **laravel/framework v13.23.0**
 
-Wszystko, co jest na tej stronie, sprawdziliśmy na szkielecie `laravel/laravel` z dorzuconą garstką testowych tras, w trybie klasycznym na jednym procesie roboczym: trasowanie, sesje, przesyłanie plików, treści JSON i formularzy, cache konfiguracji i tras, odpowiedzi błędów oraz 50 kolejnych żądań.
+Wszystko, co jest na tej stronie, sprawdziliśmy na szkielecie `laravel/laravel` z dorzuconą garstką testowych tras, w trybie Classic na jednym procesie roboczym: trasowanie, sesje, przesyłanie plików, treści JSON i formularzy, cache konfiguracji i tras, odpowiedzi błędów oraz 50 kolejnych żądań.
 :::
 
 ## Wymagania
@@ -23,7 +23,7 @@ Przed pierwszym startem sprawdź rozszerzenia bazodanowe: świeży szkielet `lar
 
 ## Jak to uruchomić
 
-Tryb klasyczny trzeba włączyć jawnie, więc polecenie wprost go nazywa:
+Tryb Classic trzeba włączyć jawnie, więc polecenie wprost go nazywa:
 
 ::: code-group
 
@@ -45,9 +45,9 @@ listen = "127.0.0.1:8000"
 
 Z plikiem konfiguracyjnym polecenie brzmi `rapira serve --config rapira.toml`, a względny `entrypoint` liczy się względem katalogu samego pliku konfiguracyjnego. Wszystkie klucze i ich wartości domyślne znajdziesz w [Konfiguracji](/pl/docs/configuration).
 
-Rapira wykonuje front controller od zera przy każdym żądaniu, więc cykl życia frameworka jest dokładnie taki sam jak pod php-fpm: nie ma rezydentnego stanu ani niczego, co trzeba by zerować między żądaniami. Rozgrzany zostaje OPcache — PHP startuje raz, w procesie nadrzędnym, jeszcze zanim powstanie pierwszy worker, więc wszystkie workery korzystają ze wspólnego cache'u skompilowanych skryptów dla twojego kodu i całego drzewa `vendor/`. Mechanikę opisuje [Tryb klasyczny](/pl/docs/classic).
+Rapira wykonuje front controller od zera przy każdym żądaniu, więc cykl życia frameworka jest dokładnie taki sam jak pod php-fpm: nie ma rezydentnego stanu ani niczego, co trzeba by zerować między żądaniami. Rozgrzany zostaje OPcache — PHP startuje raz, w procesie nadrzędnym, jeszcze zanim powstanie pierwszy worker, więc wszystkie workery korzystają ze wspólnego cache'u skompilowanych skryptów dla twojego kodu i całego drzewa `vendor/`. Mechanikę opisuje [tryb Classic](/pl/docs/classic).
 
-Na produkcję zbuduj najpierw cache frameworka; oba polecenia sprawdziliśmy w trybie klasycznym, a ta sama bateria testów przechodziła bez cache'u i z cache'em:
+Na produkcję zbuduj najpierw cache frameworka; oba polecenia sprawdziliśmy w trybie Classic, a ta sama bateria testów przechodziła bez cache'u i z cache'em:
 
 ```bash
 php artisan config:cache
@@ -64,9 +64,9 @@ Wbudowana w szkielet trasa `/up` odpowiada kodem `200`, więc nadaje się na cel
 
 Sesje sprawdziliśmy na sterowniku plikowym: ciasteczko sesji wychodzi, wraca przy następnym żądaniu, a każdy klient dostaje własną sesję. CSRF nie wymaga żadnej konfiguracji — token siedzi w sesji, a każde żądanie dostaje tę samą semantykę świeżego procesu, którą daje php-fpm. Wysyłkę formularzy, treści żądań w JSON-ie i przesyłanie plików sprawdziliśmy na tym samym zestawie. Kiedy trasa rzuci wyjątkiem, handler wyjątków Laravela renderuje swoją zwykłą `500`, a kolejne żądanie nie odczuwa tego w żaden sposób.
 
-## Tryb workera
+## Tryb Worker
 
-Tryb workera dla Laravela jest w trakcie prac i nie jest jeszcze obsługiwany — uruchamiaj Laravela w trybie klasycznym. Nie ma jeszcze terminu, w którym pojawi się wsparcie dla workera.
+Tryb Worker dla Laravela jest w trakcie prac i nie jest jeszcze obsługiwany — uruchamiaj Laravela w trybie Classic. Nie ma jeszcze terminu, w którym pojawi się wsparcie dla trybu Worker.
 
 Powodem jest cykl życia frameworka. Kontener Laravela nie jest zaprojektowany tak, żeby bez pomocy przetrwać drugie żądanie: powiązania zostają rozwiązane, singletony zapamiętują bieżące żądanie, statyczne pola frameworka zapełniają się w trakcie obsługi, więc to wszystko trzeba rozplątać, zanim przyjdzie kolejne żądanie. Tym rozplątywaniem zajmuje się [Octane](https://laravel.com/docs/octane) (`laravel/octane`), czyli własny pakiet Laravela dla długo działających serwerów. Octane działa tylko na serwerach, dla których ma sterownik, a Rapira nie ma jeszcze sterownika Octane.
 

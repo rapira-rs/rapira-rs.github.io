@@ -1,14 +1,14 @@
 ---
-title: Modo worker
+title: Modo Worker
 description: "Cómo escribir un script de worker de Rapira: el bucle residente, el contrato de handle_request(), qué sobrevive entre peticiones y las trampas más habituales."
 faqLevel: 2
 ---
 
-# Modo worker
+# Modo Worker
 
 El modo Worker mantiene vivo el proceso de PHP de una petición a otra: tu script arranca la aplicación una vez y luego se queda en un bucle pidiéndole a Rapira la siguiente petición. El arranque ocurre una sola vez, al iniciar, y a partir de ahí cada petición empieza con la aplicación ya caliente en memoria. El estado también sobrevive a la petición, así que el script del worker tiene que gestionarlo.
 
-En [modo clásico](/es/docs/classic), en cambio, el script de entrada se ejecuta desde cero en cada petición y todo lo que haya construido se descarta al responderla, de modo que arrancar un framework moderno —autoloader, contenedor, configuración, rutas, conexiones a la base de datos— cuesta lo mismo en todas y cada una de las peticiones.
+En [modo Classic](/es/docs/classic), el script de entrada se ejecuta desde cero en cada petición. Todo lo que haya construido se descarta al responder. El autoloader, el contenedor, la configuración, las rutas y las conexiones a la base de datos se inician para cada petición.
 
 Esta página es la guía de programación del modo Worker. El modo Worker no exige ningún framework concreto, solo una aplicación que aguante arrancar una vez y atender muchas peticiones después, algo que la mayoría de los frameworks modernos hacen. En [Modos de ejecución](/es/docs/execution-modes) tienes los tres modos y qué determina cuál puede usar una aplicación, y en [Frameworks](/es/docs/frameworks/), las guías de frameworks concretos.
 
@@ -45,7 +45,7 @@ rapira serve --mode worker app/worker.php
 
 El resto de las opciones están en [CLI](/es/docs/cli), y sus equivalentes de `rapira.toml`, en [Configuración](/es/docs/configuration).
 
-## Qué hace `handle_request()`
+## El contrato de `handle_request()`
 
 `\Rapira\handle_request(callable $handler): bool` es todo el contrato:
 
@@ -82,7 +82,7 @@ Todo lo que crees **dentro** del handler es trabajo normal de una petición y se
 Dónde cae la frontera entre esas dos cosas es una decisión de diseño del script del worker: el estado pensado para compartirse va por encima del bucle, y el que pertenece a una sola petición se queda en el handler o se reinicia antes de la siguiente.
 
 ::: warning
-El estado global también se comparte, lo hayas querido o no: propiedades estáticas, singletons, registros que una biblioteca va llenando sobre la marcha, un `ini_set()` que nunca se deshace. Con php-fpm todo eso era de una sola petición porque el cierre de la petición en PHP lo reiniciaba: estáticas, globales e `ini_set()` por igual. Un worker de Rapira se salta ese reinicio entre peticiones a propósito, así que persisten. Una aplicación que no puede renunciar a su estado global se ejecuta en [modo clásico](/es/docs/classic): el modo clásico renuncia a la aplicación caliente que un worker mantiene en memoria, pero sigue siendo un reemplazo directo de php-fpm, y la aplicación podrá pasarse a un worker más adelante, cuando ese estado esté desenredado.
+El estado global también se comparte, lo hayas querido o no: propiedades estáticas, singletons, registros que una biblioteca va llenando sobre la marcha, un `ini_set()` que nunca se deshace. Con php-fpm todo eso era de una sola petición porque el cierre de la petición en PHP lo reiniciaba: estáticas, globales e `ini_set()` por igual. Un worker de Rapira se salta ese reinicio entre peticiones a propósito, así que persisten. Una aplicación que no puede renunciar a su estado global se ejecuta en [modo Classic](/es/docs/classic): el modo Classic renuncia a la aplicación caliente que un worker mantiene en memoria, pero sigue siendo un reemplazo directo de php-fpm, y la aplicación podrá pasarse a un worker más adelante, cuando ese estado esté desenredado.
 :::
 
 ## Funciones de shutdown

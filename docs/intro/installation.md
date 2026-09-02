@@ -164,7 +164,7 @@ COPY . /app
 CMD ["rapira", "serve", "--listen", ":8000", "--mode", "classic", "/app/public/index.php"]
 ```
 
-The image carries `/usr/local/bin/rapira`, `/usr/local/lib/libphp.so` and OPcache. On PHP 8.4 OPcache is a separate `opcache.so` with its ini file; on PHP 8.5 it is linked into `libphp.so`. Two more files sit in `/usr/local/share/rapira`: `PHP_VERSION.txt`, the patch version of the bundled `libphp`, and `debian-packages.txt`, the Debian packages that `libphp` needs on a base image without PHP.
+The image carries `/usr/local/bin/rapira`, `/usr/local/lib/libphp.so` and OPcache. On PHP 8.4, OPcache is a separate `opcache.so` with its ini file. On PHP 8.5, it is linked into `libphp.so`. The `/usr/local/share/rapira` directory contains two more files. `PHP_VERSION.txt` contains the patch version of the bundled `libphp`. `debian-packages.txt` lists the Debian packages that `libphp` needs on a base image without PHP.
 
 The `libphp.so` in the image comes from the official PHP base image that the build used: `php:8.4-cli-trixie` or `php:8.5-cli-trixie`. It carries the extension set of that image, not the `--disable-all` set that [The libphp build](#the-libphp-build) describes. You add more extensions on your own base image: on a PHP base image, `docker-php-ext-install` compiles them against the same `libphp.so`.
 
@@ -183,10 +183,10 @@ Every tag names its PHP minor version, and the tags below are multi-arch: each o
 
 The registry also holds the single-arch tags that the build makes first, such as `X.Y.Z-php8.5-amd64` and `X.Y.Z-php8.5-arm64`.
 
-There is no `latest` tag. Rapira binds the Zend structures at build time and refuses to start against a `libphp.so` from another PHP minor version, so every tag has to name the minor version it carries.
+There is no `latest` tag. Rapira binds the Zend structures at build time. It refuses to start with a `libphp.so` from another PHP minor version. Therefore, every tag names the PHP minor version that it contains.
 
 ::: question What does a nightly tag point at?
-Every CI run that passes on `main` builds the images again from that commit. The build gets an immutable `X.Y.Z-nightly.<short-sha>-php8.5` tag, where `X.Y.Z` is the version the repository currently carries and `<short-sha>` is the first seven characters of the commit. The moving `nightly-php8.5` tag then follows that build. The registry keeps the ten newest nightly builds and deletes the older ones.
+Every successful CI run on `main` rebuilds the images from that commit. The build gets an immutable `X.Y.Z-nightly.<short-sha>-php8.5` tag. `X.Y.Z` is the current repository version. `<short-sha>` is the first seven characters of the commit. The moving `nightly-php8.5` tag then points to that build. The registry keeps the ten newest nightly builds and deletes the older ones.
 :::
 
 ## The libphp build
@@ -229,7 +229,7 @@ PHP looks for `php-<sapi-name>.ini` first and only then for a plain `php.ini`, a
 
 ## Distribution
 
-Builds are published in two places: on GitHub Releases as tarballs, packages and a checksum file, and on `ghcr.io/rapira-rs/rapira` as container images. There is no apt or yum repository yet, so upgrading means downloading the new artifact and installing it over the old one rather than running `apt upgrade`. A package replaces the installed one in place; with a tarball, unpack the new directory next to the old one and move the symlink: the previous tree stays where it is, and a rollback is one command.
+Builds are published in two places. GitHub Releases contains tarballs, packages, and a checksum file. `ghcr.io/rapira-rs/rapira` contains the container images. There is no apt or yum repository yet. To upgrade, download the new artifact and install it over the old one. A package replaces the installed version in place. For a tarball, unpack the new directory next to the old one and move the symlink. Keep the previous directory for rollback.
 
 A nightly channel runs beside the releases. Every CI run that passes on `main` publishes the nightly container tags. The same run also uploads tarballs to the rolling `nightly` prerelease on GitHub Releases. It skips that upload on a release commit, because the release build already publishes those tarballs on the release itself. The prerelease carries the tarballs and their checksum file only: it has no `.deb` and no `.rpm`. A nightly build is a build of `main`, not a release.
 

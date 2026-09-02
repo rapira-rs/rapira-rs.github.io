@@ -43,7 +43,7 @@ rapira serve [OPTIONS] [SCRIPT]
 
 **`--processes`** 默认取逻辑 CPU 的数量。在默认的 `pool.scaling = "static"` 下，这就是实际 fork 出的 worker 进程数；配置文件把 `pool.scaling` 换成 `dynamic` 或 `ondemand` 之后，这个数字就变成这两种策略伸缩的上限。master 和 worker 各自到底在干什么，见[进程模型](/zh/docs/process-model)。
 
-**`--mode`** 决定运行模式。默认是 `dispatcher`：常驻脚本自己向宿主取走每一个请求。`worker` 让入口脚本常驻，每个请求调用一次 handler。`classic` 每个请求都把入口脚本从头执行一遍，和在 php-fpm 下一样。这个参数带值，所以不管配置文件里写的是哪一种，命令行都能选中任意一种。更多内容见[经典模式](/zh/docs/classic)、[Worker 模式](/zh/docs/worker)和[执行模式](/zh/docs/execution-modes)。
+**`--mode`** 决定运行模式。默认是 `dispatcher`：常驻脚本自己向宿主取走每一个请求。`worker` 让入口脚本常驻，每个请求调用一次 handler。`classic` 每个请求都把入口脚本从头执行一遍，和在 php-fpm 下一样。这个参数带值，所以不管配置文件里写的是哪一种，命令行都能选中任意一种。更多内容见 [Classic 模式](/zh/docs/classic)、[Worker 模式](/zh/docs/worker)和[执行模式](/zh/docs/execution-modes)。
 
 ::: info
 `pool.scaling` 和 `pool.mode` 是两个不同的键。`pool.scaling` 定的是给进程池定尺寸的策略；`pool.processes` 定的是这个策略要用的 worker 数量，`--processes` 可以覆盖它。`pool.mode` 定的是 worker 拿到请求之后做什么。`pool.scaling` 没有对应的命令行参数，只能写在配置文件里。

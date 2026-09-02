@@ -7,7 +7,7 @@ description: "Rapira es un servidor de aplicaciones PHP rápido y seguro, escrit
 
 Rapira es un servidor de aplicaciones PHP rápido y seguro, escrito en Rust.
 
-En su diseño hemos volcado los años que llevamos manteniendo RoadRunner: queríamos que el trato con PHP fuera lo más eficiente y estable posible, y que ni el desarrollo ni el día a día en producción costaran esfuerzo de más.
+Los años de mantenimiento de RoadRunner dieron forma al diseño de Rapira. Rapira interactúa con PHP de forma eficiente y estable. El mismo diseño simplifica el desarrollo y las operaciones.
 
 Rapira no se queda en HTTP. Tenemos en la hoja de ruta la compatibilidad con todos los plugins populares de RoadRunner; sigue las novedades en nuestro [blog](/es/blog/).
 

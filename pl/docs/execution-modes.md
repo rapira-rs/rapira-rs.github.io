@@ -14,7 +14,7 @@ Rapira uruchamia PHP w jednym z trzech trybów wykonania. Wszystkie trzy są dos
 | [Worker](/pl/docs/worker) | Dostępny | Rezydentny skrypt startuje raz i obsługuje żądania w pętli; zmienne superglobalne są wypełniane na nowo przy każdym żądaniu. |
 | Dispatcher | Dostępny | Worker pobiera każde żądanie wywołaniem API i pracuje na nim jak na zwykłej wartości, a nie na zmiennych superglobalnych. |
 
-Nazwy trybów to zarazem wartości klucza `pool.mode` w pliku konfiguracyjnym i przypadki enuma `Rapira\Mode` w PHP. Tryby wymieniono w kolejności odpowiadającej temu, ile kontroli nad cyklem życia żądania dostaje PHP. Classic wyrzuca na koniec każdego żądania wszystko, co skrypt utworzył. Worker i Dispatcher trzymają jedną podniesioną aplikację przy życiu przez wiele żądań, więc stawiają kodowi więcej wymagań.
+Nazwy trybów to wartości klucza `pool.mode` i przypadki enuma `Rapira\Mode`. Classic usuwa stan utworzony przez skrypt podczas żądania. Worker i Dispatcher utrzymują jedną uruchomioną aplikację przez wiele żądań. Stan aplikacji i jej zależności od API określają dostępne tryby.
 
 ## Classic <Badge type="tip" text="dostępne" />
 
@@ -22,7 +22,7 @@ Skrypt wejściowy wykonuje się od zera przy każdym żądaniu, dokładnie tak j
 
 Istniejąca aplikacja działa bez zmian, bo Rapira wchodzi na miejsce php-fpm i nie ruszasz ani linijki kodu. PHP jest osadzony w procesie serwera, więc między frontem HTTP a interpreterem nie ma skoku przez FastCGI.
 
-Więcej informacji znajdziesz w [Trybie klasycznym](/pl/docs/classic).
+Więcej informacji znajdziesz w [trybie Classic](/pl/docs/classic).
 
 ## Worker <Badge type="tip" text="dostępne" />
 
@@ -30,7 +30,7 @@ Tryb Worker wygląda tak samo jak Classic: nadal czytasz zmienne superglobalne i
 
 Rozruch wykonuje się raz na workera, a nie raz na żądanie, a w nowoczesnej aplikacji to właśnie rozruch bywa najdroższą częścią obsługi żądania. Proces nie startuje już czysto przy każdym żądaniu, więc wszystko, co aplikacja zostawi w statycznych polach, singletonach czy stanie globalnym, nadal tam będzie przy następnym. Rapira potrafi wymienić workera po zadanej liczbie żądań, żeby powolny wyciek w aplikacji albo w którejś z jej zależności nie zamienił się w awarię, zanim znajdziesz przyczynę.
 
-O skrypcie workera i jego pętli przeczytasz w [Trybie workera](/pl/docs/worker), o limicie wymiany workera w [Konfiguracji](/pl/docs/configuration), a o obsłudze żądań i odpowiedzi w [HTTP](/pl/docs/http).
+O skrypcie workera i jego pętli przeczytasz w [trybie Worker](/pl/docs/worker), o limicie wymiany workera w [Konfiguracji](/pl/docs/configuration), a o obsłudze żądań i odpowiedzi w [HTTP](/pl/docs/http).
 
 ## Dispatcher <Badge type="tip" text="dostępne" />
 
@@ -85,7 +85,7 @@ Wszystkie trzy tryby stoją otworem przed każdą aplikacją, a wybór ogranicza
 
 Tryb wybiera się dla całej instancji serwera, a nie dla pojedynczej trasy, więc jedna instancja nie obsłuży części tras w workerze, a reszty w trybie Classic. Jeśli jakaś część aplikacji nie nadaje się do pracy w workerze, uruchom ją za osobną instancją Rapiry w trybie Classic.
 
-Przejście na tryb Worker albo Dispatcher kosztuje pracę po stronie PHP, bo oba wymagają rezydentnego skryptu wejściowego, którego Classic nie potrzebuje. Powrót nie kosztuje nic: ustaw `mode = "classic"` w pliku konfiguracyjnym albo podaj `--mode classic`, skieruj Rapirę na swój zwykły front controller i masz ten sam serwer, tę samą binarkę i ten sam [model procesów](/pl/docs/process-model) pod spodem. Szczegóły znajdziesz w [Konfiguracji](/pl/docs/configuration) i [opisie wiersza poleceń](/pl/docs/cli).
+Worker i Dispatcher wymagają rezydentnego skryptu wejściowego. Classic go nie potrzebuje. Aby przejść na Classic, ustaw `mode = "classic"` albo podaj `--mode classic`. Następnie skieruj Rapirę na zwykły front controller. Serwer, plik binarny i [model procesów](/pl/docs/process-model) pozostają bez zmian. Więcej informacji znajdziesz w [Konfiguracji](/pl/docs/configuration) i [opisie wiersza poleceń](/pl/docs/cli).
 
 ::: tip
 Zacznij od trybu Classic, jeśli zastępujesz php-fpm i najpierw chcesz mieć wszystko działające. Przejdź na tryb Worker, gdy będziesz mieć pewność, że aplikacja startuje czysto i nie trzyma między żądaniami stanu, którego trzymać nie powinna.

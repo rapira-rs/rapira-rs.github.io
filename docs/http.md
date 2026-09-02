@@ -1,14 +1,14 @@
 ---
 title: HTTP requests and responses
-description: "How Rapira turns an HTTP request into PHP superglobals and a PHP response back into bytes on the wire: field-name mapping, repeated fields, body limits, response framing, and rapira_finish_request()."
+description: "How Rapira maps HTTP requests to PHP and returns PHP responses, including fields, body limits, response framing, and rapira_finish_request()."
 faqLevel: 2
 ---
 
 # HTTP requests and responses
 
-The HTTP front is the Rapira component that turns a client connection into a PHP request, and the PHP response back into bytes on the wire. It is built on the [hyper](https://hyper.rs) library, and it ships inside the binary. It terminates HTTP/1.1 and HTTP/1.0. It accepts connections on the socket the master bound, parses the request, hands it to PHP, and writes back what PHP produced. There is no upstream: nothing is proxied, and every request is answered locally. A middleware in front of PHP can answer a request on its own, which is how [static files](/docs/static-files) are served.
+The HTTP front converts a client connection into a PHP request and converts the PHP response into network bytes. It uses the [hyper](https://hyper.rs) library and ships inside the binary. It terminates HTTP/1.1 and HTTP/1.0. It accepts connections on the socket that the master bound. It parses each request, sends it to PHP, and writes the PHP response. The front does not proxy requests to an upstream server. It answers every request locally. Middleware can answer a request before PHP runs, which is how Rapira serves [static files](/docs/static-files).
 
-This page covers the parts where the translation between HTTP and PHP is not one-to-one: what the front refuses before PHP runs, which header field lands in which `$_SERVER` key, what happens when a client sends the same field twice, how big a request body may be, and how your response is framed on the way out.
+This page describes the differences between the HTTP and PHP representations. It explains request validation, `$_SERVER` field mapping, repeated fields, and request-body limits. It also explains how the front frames a response.
 
 ::: info
 The front terminates plaintext HTTP. If you need TLS, terminate it in a proxy in front of Rapira — see [Deployment](/docs/deployment).
@@ -20,7 +20,7 @@ The front checks each request before PHP runs. A request that fails a check is a
 
 A `CONNECT` request is answered `501`. The front implements no tunnels.
 
-An absolute-form request target is accepted, for example `GET http://host.example/admin?x=1 HTTP/1.1`. The authority in the target replaces the `Host` field, and the userinfo part of the authority is removed first, so `$_SERVER['HTTP_HOST']` cannot disagree with the target. PHP sees the origin-form path and query in `$_SERVER['REQUEST_URI']`.
+An absolute-form request target is accepted, for example `GET http://host.example/admin?x=1 HTTP/1.1`. The authority in the target replaces the `Host` field. The front first removes user information from the authority. This prevents `$_SERVER['HTTP_HOST']` from conflicting with the target. PHP receives the origin-form path and query in `$_SERVER['REQUEST_URI']`.
 
 `http.keepalive_timeout_secs` bounds every read from the client. It closes an idle keep-alive connection, and it also bounds the read of the request head. A request body that makes no read progress within that time is answered `408`, and the connection closes. The default is 60 seconds.
 
@@ -92,11 +92,11 @@ The limit is checked twice:
 max_body_size_mb = 8
 ```
 
-## How the response goes out
+## Response transmission
 
-The front does not buffer the response body. It writes the response head as soon as PHP commits it, and each body frame as PHP produces it. The mode decides when PHP produces them. In Classic and Worker modes PHP holds the whole response and passes it to the front when the request ends, or earlier if the script calls `rapira_finish_request()`. In Dispatcher mode PHP passes the head and each body chunk to the front as the code writes them.
+The front does not buffer the response body. It writes the response head when PHP commits it. It then writes each body frame as PHP produces it. The mode controls when PHP produces this data. In Classic and Worker modes, PHP normally passes the complete response when the request ends. A call to `rapira_finish_request()` passes it earlier. In Dispatcher mode, PHP passes the head and each body chunk as the code writes them.
 
-Framing is the server's job, not PHP's. A `Transfer-Encoding` your code sets is dropped. A `Content-Length` your code sets is removed from the field lines, so a stale length can never desynchronize the connection. In Classic and Worker modes the front then declares the length of the body PHP produced. In Dispatcher mode the `Content-Length` on the head you write becomes the length the reply declares: the front sends that length and counts the body against it. A body shorter than the declared length ends the connection, and a body longer than it is cut at that length.
+The server controls response framing. It removes a `Transfer-Encoding` field set by PHP. It also removes a PHP `Content-Length` field to prevent a stale length from desynchronizing the connection. In Classic and Worker modes, the front declares the length of the body that PHP produced. In Dispatcher mode, the front uses the `Content-Length` from the response head. It sends that value and counts the body bytes. A shorter body ends the connection. A longer body is cut at the declared length.
 
 A reply that declares no length is framed by the front. An HTTP/1.1 client gets the chunked transfer coding. An HTTP/1.0 client gets a body that the connection close delimits.
 
@@ -112,7 +112,7 @@ Everything else passes through as PHP wrote it, repeats included: `Set-Cookie`, 
 
 An interim (1xx) response head from PHP is dropped, and trailers from PHP are dropped as well. The front forwards neither. The `100 Continue` for an `Expect` request is not a PHP interim head: the front writes that one itself.
 
-A truncated reply drops the connection without a clean terminator. A reply is truncated when the worker dies before the body ends, when the body is shorter than the length PHP declared, or when a fatal error or an uncaught exception ends the script after it wrote output. The client then reads an incomplete message, so it can tell the response was cut short.
+A truncated reply drops the connection without a clean terminator. A worker can die before the body ends. The body can also be shorter than the length that PHP declared. A fatal error or uncaught exception can end a script after it writes output. Each case produces an incomplete message, which lets the client detect the truncation.
 
 An error response the front writes itself carries `cache-control: private, no-store` and `connection: close`, and has no body. A `413` for an oversized body and a `501` for `CONNECT` are such responses.
 
@@ -124,7 +124,7 @@ A response is framed by the bytes the front puts on the wire. The front takes th
 
 A handler often has work left once the response is ready: a webhook to fire, a queue entry to write, a cache to warm. The client does not have to wait for it.
 
-`rapira_finish_request()` ends the response at that point. PHP's output buffers are flushed into the response, the response is handed to the front and goes out to the client, and your handler keeps running with the client already holding the whole response. It is the same contract as `fastcgi_finish_request()`, so code written for php-fpm behaves the way it always did:
+`rapira_finish_request()` ends the response at that point. PHP flushes its output buffers and gives the response to the front. The front sends the response while the handler continues to run. The function has the same contract as `fastcgi_finish_request()`, so code written for php-fpm keeps the same behavior:
 
 ```php
 <?php
@@ -141,7 +141,7 @@ $metrics->flush();
 
 The signature is `rapira_finish_request(): bool`. It is declared, along with everything else Rapira exposes to PHP, in [`crates/php_sys/rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php) — point your IDE at that file for completion and type hints.
 
-The function is registered for the whole process and acts on the request being served, so classic mode supports it as well: the behavior is the same whether the script is resident or re-run per request. See [Execution modes](/docs/execution-modes) for what else changes between modes.
+The function is registered for the whole process and acts on the current request. Therefore, Classic mode also supports it. The behavior is the same for a resident script and a script that runs again for each request. See [execution modes](/docs/execution-modes) for more information about the differences between the modes.
 
 Two things to keep in mind:
 

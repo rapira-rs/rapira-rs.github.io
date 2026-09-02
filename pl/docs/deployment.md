@@ -134,7 +134,7 @@ journalctl -u rapira -f
 
 ## Wymiana workerów i limity czasu żądania
 
-W [trybie workera](/pl/docs/execution-modes) proces zostaje rezydentny, więc powolny wyciek, który pod php-fpm pozostaje niezauważony, kumuluje się z żądania na żądanie. Chronią przed tym dwa ustawienia:
+W [trybie Worker](/pl/docs/execution-modes) proces zostaje rezydentny, więc powolny wyciek, który pod php-fpm pozostaje niezauważony, kumuluje się z żądania na żądanie. Chronią przed tym dwa ustawienia:
 
 ```toml
 [pool]

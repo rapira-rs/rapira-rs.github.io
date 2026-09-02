@@ -1,6 +1,6 @@
 ---
 title: Symfony
-description: "如何在 Rapira 的 worker 模式下运行 Symfony 应用：worker 脚本、两次请求之间的服务重置，以及 .env 里的值如何进入容器。"
+description: "如何在 Rapira 的 Worker 模式下运行 Symfony 应用：worker 脚本、两次请求之间的服务重置，以及 .env 里的值如何进入容器。"
 ---
 
 # Symfony
@@ -16,7 +16,7 @@ Symfony 的结构适合常驻 worker：一个由你启动的内核，一个你�
 两个应用都是原封不动的 `symfony/skeleton`，跑在单个 worker 进程下，用的还是**同一个 `worker.php`**——逐字节相同，没有任何按版本分叉的代码。整套测试覆盖了路由、一个 404、查询串、生成的 URL、表单提交、JSON 请求体、跨请求的 session、一次文件上传、一个未捕获的异常，以及连续 200 个请求。
 :::
 
-## worker 模式下的行为
+## Worker 模式下的行为
 
 内核在脚本最上面、循环之外启动，随后伴随 worker 进程一直常驻：自动加载器、编译好的容器、路由器、事件分发器，以及你那些 bundle 打开的每一条连接，都只搭建一次，而不是每个请求搭一次。这正是 [Worker 模式](/zh/docs/worker)提供的；更多内容见[执行模式](/zh/docs/execution-modes)。
 
@@ -97,7 +97,7 @@ while (\Rapira\handle_request($handler)) {
 
 **循环和 `gc_collect_cycles()`。**`\Rapira\handle_request()` 会一直阻塞到有请求上门，跑你的 handler，然后返回 `true`；worker 开始排空时它返回 `false`，循环也就到此为止。每转一圈回收一次循环引用，这份开销就固定落在两次请求之间，而不是某个请求处理到一半的时候。完整契约见 [Worker 模式](/zh/docs/worker)。
 
-如果 resetter 还不够用，那还有两个更重的手段：`$container->reset()` 会把所有已经实例化的服务统统清掉，`$kernel->reboot(null)` 则直接扔掉容器重建一个——之后 handler 捕获的那个 `$container` 就失效了，真走这条路的话记得用 `$kernel->getContainer()` 重新取一次。两者都会丢掉 worker 模式带来的那份热状态，所以它们是排查泄漏时的手段，别当默认做法。
+如果 resetter 还不够用，那还有两个更重的手段：`$container->reset()` 会把所有已经实例化的服务统统清掉，`$kernel->reboot(null)` 则直接扔掉容器重建一个——之后 handler 捕获的那个 `$container` 就失效了，真走这条路的话记得用 `$kernel->getContainer()` 重新取一次。两者都会丢掉 Worker 模式带来的那份热状态，所以它们是排查泄漏时的手段，别当默认做法。
 
 ## `$_ENV` 与 `variables_order`
 
@@ -173,12 +173,12 @@ request_terminate_timeout_secs = 30
 
 ## 开发时的循环
 
-`rapira serve` 跑在前台，而你的应用只启动一次，所以**改过的 PHP 代码要等 worker 被换掉之后才会生效**。正在改代码的时候，最省事的办法是把服务器停掉再起，或者干脆让前端控制器跑在[经典模式](/zh/docs/classic)下——那里脚本每次都从头执行，存一次盘就生效一次：
+`rapira serve` 跑在前台，而你的应用只启动一次，所以**改过的 PHP 代码要等 worker 被换掉之后才会生效**。正在改代码的时候，最省事的办法是把服务器停掉再起，或者干脆让前端控制器跑在 [Classic 模式](/zh/docs/classic)下——那里脚本每次都从头执行，存一次盘就生效一次：
 
 ```bash
 rapira serve --mode classic public/index.php
 ```
 
-还是同一个应用，只是跑在经典模式下：它每个请求都要启动一遍，所以改动立刻生效，代价是每个请求都得付一次完整的启动开销。至于已经在跑的生产服务器，让部署上去的代码接手而不中断连接的办法是滚动重载（给 master 发 `SIGUSR2`）——除非你开了 `opcache.validate_timestamps = 0`，那时 master 的 OPcache 段比整个进程池活得久，部署就得整个重启才行；见[进程模型](/zh/docs/process-model)和[生产环境部署](/zh/docs/deployment)。
+还是同一个应用，只是跑在 Classic 模式下。它每个请求都要启动一遍，所以改动立刻生效。每个请求也会执行一次完整的启动。至于已经在跑的生产服务器，让部署上去的代码接手而不中断连接的办法是滚动重载（给 master 发 `SIGUSR2`）——除非你开了 `opcache.validate_timestamps = 0`，那时 master 的 OPcache 段比整个进程池活得久，部署就得整个重启才行；见[进程模型](/zh/docs/process-model)和[生产环境部署](/zh/docs/deployment)。
 
 未捕获的异常由 Symfony 自己处理：框架用自己的 `500` 应答它——`dev` 下是完整的异常页面，`prod` 下是一个通用错误页——接着处理下一个请求的还是同一个 worker 进程，故障前后它的 pid 没变。异常之后留下来的是泄漏或者被弄坏的服务状态，handler 末尾那次重置正是用来清掉它的。堆栈最后落到哪儿，取决于你的日志器；原装的 skeleton 一个日志器也不带。真正会出现在 Rapira 那条 stderr 日志里的，是从 PHP 自己手里逃出去的东西，比如上面那个 `EnvNotFoundException`——怎么把级别调高，见[日志](/zh/docs/logging)。

@@ -134,7 +134,7 @@ journalctl -u rapira -f
 
 ## worker 回收与请求超时
 
-在 [worker 模式](/zh/docs/execution-modes)下进程会一直常驻，所以在 php-fpm 下不会被察觉的慢泄漏，会在一个个请求之间累积起来。有两项设置可以防住这一点：
+在 [Worker 模式](/zh/docs/execution-modes)下进程会一直常驻，所以在 php-fpm 下不会被察觉的慢泄漏，会在一个个请求之间累积起来。有两项设置可以防住这一点：
 
 ```toml
 [pool]

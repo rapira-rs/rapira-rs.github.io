@@ -1,15 +1,15 @@
 ---
 title: Inicio rápido
-description: "Servir una aplicación PHP con Rapira en modo clásico y en modo worker, y llevar los ajustes a un archivo rapira.toml."
+description: "Servir una aplicación PHP con Rapira en los modos Classic y Worker, y llevar los ajustes a un archivo rapira.toml."
 ---
 
 # Inicio rápido
 
-Esta página explica cómo servir una página en modo clásico, convertir esa misma aplicación en un worker residente y llevar los ajustes a un archivo de configuración. Da por hecho que tienes un binario `rapira` que funciona, con el PHP que trae incluido; consulta [Instalación](/es/docs/intro/installation) para más información.
+Esta página explica cómo servir una página en modo Classic, convertir esa misma aplicación al modo Worker y llevar los ajustes a un archivo de configuración. Da por hecho que tienes un binario `rapira` que funciona, con el PHP que trae incluido; consulta [Instalación](/es/docs/intro/installation) para más información.
 
-## Modo clásico
+## Modo Classic
 
-El modo clásico está disponible para cualquier aplicación: Rapira vuelve a incluir tu script de entrada en cada petición, exactamente igual que php-fpm ejecutaría un front controller. No hay que cambiar nada del código.
+El modo Classic está disponible para cualquier aplicación: Rapira vuelve a incluir tu script de entrada en cada petición, exactamente igual que php-fpm ejecutaría un front controller. No hay que cambiar nada del código.
 
 Crea `public/index.php`:
 
@@ -39,7 +39,7 @@ Method: GET
 
 El proceso no se tira entre peticiones: Rapira hace fork de sus workers una sola vez y mantiene un intérprete de PHP arrancado dentro de cada uno. Lo que se descarta es el estado de tu script: las variables, el autoloader, todo lo que haya construido el framework.
 
-## Modo worker
+## Modo Worker
 
 El modo Worker mantiene el script vivo. Arranca una vez y se queda en un bucle pidiéndole a Rapira la siguiente petición; Rapira vuelve a rellenar las superglobales y llama a tu handler. El código PHP conserva la forma de siempre —sigues leyendo `$_GET` y devolviendo la respuesta con `echo`—, pero el arranque ocurre una vez por proceso en lugar de una vez por petición. Consulta [Modos de ejecución](/es/docs/execution-modes) para más información.
 
@@ -82,7 +82,7 @@ Lanza ese `curl` unas cuantas veces y el contador sube, porque es el mismo proce
 Todo lo que construyas antes del bucle `while` se queda en memoria durante toda la vida del worker: el autoloader de Composer, un contenedor de dependencias, las conexiones a la base de datos y a la caché, las rutas y las plantillas compiladas; todo eso se construye una sola vez, al arrancar, y no en cada petición. Lo único que se rehace en cada vuelta es el estado propio de la petición.
 
 ::: warning
-El estado que sobrevive entre peticiones lo tiene que reiniciar el propio script del worker. Una propiedad estática, una variable global o una transacción abierta que dejó una petición siguen ahí para la siguiente. [Modo worker](/es/docs/worker) explica a qué prestar atención y cómo mantener limpio un worker.
+El estado que sobrevive entre peticiones lo tiene que reiniciar el propio script del worker. Una propiedad estática, una variable global o una transacción abierta que dejó una petición siguen ahí para la siguiente. [Modo Worker](/es/docs/worker) explica a qué prestar atención y cómo mantener limpio un worker.
 :::
 
 Dentro del handler funcionan las funciones de siempre: `header()`, `http_response_code()`, `echo` y `rapira_finish_request()` para enviar la respuesta antes de tiempo y seguir trabajando después. Consulta [HTTP](/es/docs/http) para más información.
@@ -117,6 +117,6 @@ Pulsa `Ctrl-C` y Rapira se apaga de forma ordenada: deja de aceptar trabajo nuev
 
 ## Próximos pasos
 
-- [Modo worker](/es/docs/worker) — el bucle residente a fondo: estado, fugas, reciclaje y cómo arrancar una aplicación real antes del bucle.
+- [Modo Worker](/es/docs/worker) — el bucle residente a fondo: estado, fugas, reciclaje y cómo arrancar una aplicación real antes del bucle.
 - [Configuración](/es/docs/configuration) — todas las claves que admite `rapira.toml`, con sus valores por defecto.
 - [Frameworks](/es/docs/frameworks/) — guías de integración para Symfony, Laravel y Yii3.

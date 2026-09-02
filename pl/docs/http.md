@@ -92,7 +92,7 @@ W żądaniach HTTP/1.1 Rapira honoruje `Expect: 100-continue`: odsyła tymczasow
 max_body_size_mb = 8
 ```
 
-## Jak odpowiedź wychodzi do klienta
+## Przesyłanie odpowiedzi
 
 Front nie buforuje treści odpowiedzi. Nagłówki wypisuje, gdy tylko PHP je zatwierdzi, a każdą ramkę treści wtedy, gdy PHP ją wyprodukuje. O tym, kiedy PHP je produkuje, decyduje tryb. W trybach Classic i Worker PHP trzyma całą odpowiedź u siebie i oddaje ją frontowi na koniec żądania albo wcześniej, jeśli skrypt wywoła `rapira_finish_request()`. W trybie Dispatcher PHP oddaje frontowi nagłówki i każdy kawałek treści w miarę, jak kod je wypisuje.
 
@@ -141,7 +141,7 @@ $metrics->flush();
 
 Sygnatura to `rapira_finish_request(): bool`. Deklaruje ją, razem z całą resztą tego, co Rapira udostępnia PHP, plik [`crates/php_sys/rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php) — wskaż go swojemu IDE, żeby mieć podpowiadanie i typy.
 
-Funkcja jest zarejestrowana dla całego procesu i działa na aktualnie obsługiwanym żądaniu, więc tryb klasyczny również ją obsługuje: zachowanie jest takie samo niezależnie od tego, czy skrypt jest rezydentny, czy wykonuje się od nowa przy każdym żądaniu. Co jeszcze różni się między trybami, opisują [Tryby wykonania](/pl/docs/execution-modes).
+Funkcja jest zarejestrowana dla całego procesu i działa na aktualnie obsługiwanym żądaniu, więc tryb Classic również ją obsługuje: zachowanie jest takie samo niezależnie od tego, czy skrypt jest rezydentny, czy wykonuje się od nowa przy każdym żądaniu. Co jeszcze różni się między trybami, opisują [Tryby wykonania](/pl/docs/execution-modes).
 
 O dwóch rzeczach warto pamiętać:
 

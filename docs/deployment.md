@@ -5,11 +5,11 @@ description: How to run Rapira on a server — a systemd unit, config layout, a 
 
 # Running in production
 
-Running Rapira on a server adds what a local `rapira serve --mode worker app/worker.php` does not need: starting at boot, coming back after a crash, reloading new code without dropping a request, and logs you can read afterwards. This page covers a systemd unit, a place for the config, a proxy in front, and the settings that bound long-lived workers.
+Production deployments keep Rapira available across restarts and code changes. They start Rapira at boot, restart it after failures, reload code without dropped requests, and preserve logs. This page covers a systemd unit, configuration paths, a reverse proxy, and settings for long-lived workers.
 
-Almost none of this is compiled into the binary. Nothing in Rapira depends on where your config lives or on what supervises the process, so the layout below is a convention this page establishes and the rest of the docs assume. Get the binary onto the machine first — that part is on [Installation](/docs/intro/installation).
+Rapira does not define a deployment layout. It does not require a specific configuration path or process supervisor. This page establishes the convention that the other documentation uses. Install the binary first, as described in [Installation](/docs/intro/installation).
 
-Rapira also ships as a container image on `ghcr.io/rapira-rs/rapira`, which you copy into your own image with `COPY --from`. A container replaces the systemd unit below with the restart policy of your container runtime; the config layout, the proxy, the log format and the pool settings on this page stay the same. See [Docker](/docs/intro/installation#docker) for more information.
+Rapira also ships as the `ghcr.io/rapira-rs/rapira` container image. Copy its files into your image with `COPY --from`. A container uses the restart policy of the container runtime instead of the systemd unit below. The configuration layout, proxy, log format, and pool settings stay the same. See [Docker](/docs/intro/installation#docker) for more information.
 
 ## A systemd unit
 
@@ -134,7 +134,7 @@ To ship them off the box, point your collector at the unit's journal, or run Rap
 
 ## Recycling and request timeouts
 
-In [worker mode](/docs/execution-modes) the process stays resident, so a slow leak that goes unnoticed under php-fpm accumulates across requests. Two settings guard against it:
+In [Worker mode](/docs/execution-modes) the process stays resident, so a slow leak that goes unnoticed under php-fpm accumulates across requests. Two settings guard against it:
 
 ```toml
 [pool]

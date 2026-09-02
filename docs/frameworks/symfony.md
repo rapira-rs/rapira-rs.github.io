@@ -1,6 +1,6 @@
 ---
 title: Symfony
-description: How to run a Symfony application on Rapira in worker mode — the worker script, the services resetter between requests, and how .env values reach the container.
+description: Running Symfony in Worker mode with a worker script, service resets between requests, and .env values in the container.
 ---
 
 # Symfony
@@ -16,9 +16,9 @@ Symfony's structure fits a resident worker: a kernel you boot, a `Request` you h
 Both apps are a plain `symfony/skeleton` running under a single worker process, and both ran the **same `worker.php`** — byte for byte, no per-version branch. The battery covers routing, a 404, query strings, generated URLs, form posts, JSON bodies, sessions across requests, a file upload, an uncaught exception, and 200 sequential requests in a row.
 :::
 
-## Behavior in worker mode
+## Behavior in Worker mode
 
-The kernel boots at the top of the script, outside the loop, and stays resident for the life of the worker process: the autoloader, the compiled container, the router, the event dispatcher and every connection your bundles opened are built once instead of once per request. That is what [Worker mode](/docs/worker) provides; see [Execution modes](/docs/execution-modes) for more information.
+The kernel boots outside the loop and stays resident for the life of the worker. The autoloader, container, router, event dispatcher, and connections are built once instead of once per request. This behavior comes from [Worker mode](/docs/worker). See [Execution modes](/docs/execution-modes) for more information.
 
 Per request the handler does four things and then cleans up:
 
@@ -97,7 +97,7 @@ Most of it is ordinary Symfony bootstrapping. Four lines are specific to this se
 
 **The loop and `gc_collect_cycles()`.** `\Rapira\handle_request()` blocks until a request arrives, runs your handler, and returns `true`. It returns `false` when the worker starts to drain, which is what ends the loop. Collecting cycles once per turn keeps that work between requests instead of in the middle of one. See [Worker mode](/docs/worker) for the full contract.
 
-If the resetter is not enough, there are two heavier options: `$container->reset()` wipes every service that has been instantiated, and `$kernel->reboot(null)` throws the container away and builds a new one — after which the `$container` the handler captured is stale, so re-fetch it with `$kernel->getContainer()` if you go that route. Both discard the warm state worker mode gives you, so use them while you are tracking down a leak, not as a default.
+If the resetter is insufficient, use `$container->reset()` or `$kernel->reboot(null)`. The first option removes every instantiated service. The second option removes the container and builds a new one. After a reboot, the `$container` captured by the handler is stale. Get it again with `$kernel->getContainer()`. Both options discard warm state. Use them to identify a leak, not as the default configuration.
 
 ## `$_ENV` and `variables_order`
 
@@ -173,12 +173,12 @@ If you want the client freed before the post-response listeners run, call [`rapi
 
 ## The development loop
 
-`rapira serve` runs in the foreground and your application is booted once, so **changed PHP code is not picked up until the workers are replaced**. While you are actively editing, the simplest thing is to stop and start the server, or to run the front controller in [classic mode](/docs/classic) instead, where the script is executed from scratch every time and every save is live:
+`rapira serve` runs in the foreground and your application is booted once, so **changed PHP code is not picked up until the workers are replaced**. During active development, restart the server after each edit. Alternatively, run the front controller in [Classic mode](/docs/classic). Classic mode executes the script from scratch for each request, so saved changes are immediately available:
 
 ```bash
 rapira serve --mode classic public/index.php
 ```
 
-That is the same application in classic mode: it boots on every request, so edits take effect immediately, at the cost of a full boot per request. For a running production server, a rolling reload (`SIGUSR2` on the master) is how deployed code takes over without dropping connections — unless you run `opcache.validate_timestamps = 0`, where the master's OPcache segment outlives the pool and a deploy needs a full restart instead; see [Process model](/docs/process-model) and [running in production](/docs/deployment).
+The same application runs in Classic mode and boots for every request. Therefore, edits take effect immediately, and each request includes a full boot. On a production server, a rolling reload (`SIGUSR2` on the master) activates deployed code without dropping connections. With `opcache.validate_timestamps = 0`, the master's OPcache segment outlives the pool. In that configuration, a deployment requires a full restart. See [process model](/docs/process-model) and [running in production](/docs/deployment) for more information.
 
 An uncaught exception is handled inside Symfony: the framework answers it with its own `500` — the full exception page in `dev`, a generic error page in `prod` — and the same worker process, its pid unchanged across the failure, picks up the next request. What survives an exception is leaked or corrupted service state, which the reset at the end of the handler drops. Where the trace ends up depends on your logger; a stock skeleton ships none. What does reach Rapira's log on stderr is anything that escapes PHP itself, like the `EnvNotFoundException` above — [Logging](/docs/logging) shows how to turn the level up.

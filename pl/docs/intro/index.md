@@ -7,7 +7,7 @@ description: "Rapira to szybki i bezpieczny serwer aplikacji PHP napisany w Ruś
 
 Rapira to szybki i bezpieczny serwer aplikacji PHP napisany w Ruście.
 
-Projektując ją, wykorzystaliśmy lata doświadczeń z utrzymywania RoadRunnera: współpraca z PHP miała być możliwie wydajna i stabilna, a codzienna praca — i przy programowaniu, i na produkcji — nie miała kosztować zbędnego wysiłku.
+Lata utrzymywania RoadRunnera ukształtowały projekt Rapiry. Rapira współpracuje z PHP wydajnie i stabilnie. Ten sam projekt upraszcza rozwój i eksploatację.
 
 Rapira nie kończy się na HTTP. W planach mamy obsługę wszystkich popularnych wtyczek RoadRunnera, a o nowościach piszemy na naszym [blogu](/pl/blog/).
 

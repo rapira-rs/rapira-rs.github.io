@@ -33,7 +33,7 @@ flowchart TB
   S -. accept .-> W3
 ```
 
-Each worker runs one NTS PHP interpreter behind its own async HTTP stack. The stack is hyper on a private tokio runtime with two runtime threads. The worker accepts on the socket it inherited. No process routes connections to the workers: every worker is parked in `accept()` on the same socket, and the kernel hands each incoming connection to exactly one of them.
+Each worker runs one NTS PHP interpreter behind its own asynchronous HTTP stack. The stack uses hyper on a private tokio runtime with two runtime threads. The worker accepts connections on its inherited socket. No process routes connections to the workers. Every worker waits in `accept()` on the same socket. The kernel gives each incoming connection to one worker.
 
 The master never serves a request. It has no HTTP stack at all — it is a single thread blocked in `poll(2)` over a self-pipe, waiting for signals, child deaths and its own timers, and under `ondemand` also for a readable listen socket. The process that must survive to restart everything else does as little as possible.
 
@@ -54,7 +54,7 @@ Once the pool is up, the master runs a maintenance tick roughly once a second an
 
 ## Pool scaling
 
-`pool.scaling` picks how the pool sizes itself. It is a separate key from `pool.mode`, which sets the execution mode inside a worker. In every scaling policy `pool.processes` is the number that matters, an exact count for `static` and a ceiling for the other two, and it defaults to one worker per logical CPU.
+`pool.scaling` selects how the pool changes its size. It is separate from `pool.mode`, which sets the execution mode inside a worker. `pool.processes` is an exact count for `static` scaling. It is the maximum count for `dynamic` and `ondemand` scaling. Its default is one worker for each logical CPU.
 
 | Scaling | How many workers | Keys that apply |
 | --- | --- | --- |
@@ -76,7 +76,7 @@ max_spare = 3
 
 The bounds must satisfy `1 <= min_spare <= max_spare <= processes`, and they are required under `dynamic` and rejected under the other policies. Setting them elsewhere is a config error rather than a silently ignored key.
 
-**`ondemand`** forks nothing at startup. Here the master watches the listen socket itself, and when a connection arrives with no idle worker to take it, it forks one and lets the child accept. A worker idle for longer than `pool.process_idle_timeout_secs` is retired again. An idle pool then uses nothing, but the first request after a quiet period waits for a fork. Use `ondemand` for staging environments and rarely-hit sites. Use one of the other policies under steady traffic.
+**`ondemand`** forks nothing at startup. The master watches the listen socket. When a connection arrives without an idle worker, the master forks one and lets the child accept. A worker retires after it is idle for longer than `pool.process_idle_timeout_secs`. The first request to an idle pool waits for a fork. Use `ondemand` for staging environments and sites with little traffic. Use another policy for steady traffic.
 
 The full key reference lives on the [configuration](/docs/configuration) page.
 
@@ -116,7 +116,7 @@ A second `SIGTERM` or `SIGINT` skips the wait and forces the exit immediately.
 
 In Classic mode the entry script is executed from scratch on every request. There is nothing resident to replace, so new code takes effect without a reload. If you set `opcache.validate_timestamps = 0`, the master's OPcache segment keeps serving the old opcodes until a full restart. In Worker and Dispatcher mode the application is booted once and stays in memory, so deployed code only takes effect after a rolling reload. Make it a step of your deploy. See [deployment](/docs/deployment) for more information.
 
-The reload never dips below your serving capacity, because it overlaps rather than restarts: the master starts one fresh worker, waits until that worker is actually accepting, and only then drains one old worker. When the old one is gone, its slot gets the next fresh worker, and so on down the generation. Each drain is the same graceful `SIGQUIT` → `SIGTERM` → `SIGKILL` escalation as a stop, bounded by the same control timeout, applied to that one worker.
+The reload does not reduce serving capacity because worker replacement overlaps. The master starts one new worker and waits until that worker accepts connections. Then, the master drains one old worker. When the old worker exits, the master starts the next new worker in that slot. Each drain uses the same `SIGQUIT` → `SIGTERM` → `SIGKILL` escalation as a stop. The same control timeout applies to each worker.
 
 A replacement that never starts serving does not stall the reload either: once the control timeout elapses the master logs a warning and moves on to the next worker anyway. Under `ondemand` no replacement is pre-forked at all — old workers are drained one at a time and demand forks the new ones.
 

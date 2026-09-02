@@ -1,6 +1,6 @@
 ---
 title: Yii3
-description: "在 Rapira 的 worker 模式下运行 Yii3 应用：常驻的 HttpApplicationRunner 配 StateResetter、每个请求新建 runner 的写法，以及路由、session、文件上传和错误处理的验证结果。"
+description: "在 Rapira 的 Worker 模式下运行 Yii3 应用：常驻的 HttpApplicationRunner 配 StateResetter、每个请求新建 runner 的写法，以及路由、session、文件上传和错误处理的验证结果。"
 ---
 
 # Yii3
@@ -15,7 +15,7 @@ Yii3 从设计上就是要跑在一个不退出的进程里：它的 DI 容器�
 本页这两个 worker 脚本都在这套环境上跑过，并通过了全套测试：路由、生成 URL、表单和 JSON 提交、session、文件上传、错误处理，以及连续 200 个请求。
 :::
 
-## Yii3 与 worker 模式
+## Yii3 与 Worker 模式
 
 常驻 worker 需要两处公开 API。
 
@@ -122,7 +122,7 @@ while (\Rapira\handle_request($handler)) {
 
 容器每个请求都要启动一遍，这份启动开销你每次都得付，还每次都造出整整一个容器的垃圾。这些容器要堆到一定程度 PHP 才成批回收，期间 worker 的内存是往上走的——这是每请求启动一遍的正常形态，不是泄漏。把这套写法和 `pool.max_requests` 搭着用，让 worker 每隔一段时间结束并由新进程接替；各种内存形态见[框架集成](/zh/docs/frameworks/)，这个键的说明见[配置](/zh/docs/configuration)。
 
-自动加载器和模板的启动文件仍然常驻，请求循环也仍然写在 worker 脚本里，所以这依然是一个 worker，只不过它在两次请求之间会丢弃应用，跟[经典模式](/zh/docs/classic)不是一回事。
+自动加载器和模板的启动文件仍然常驻，请求循环也仍然写在 worker 脚本里，所以这依然是一个 worker，只不过它在两次请求之间会丢弃应用，跟 [Classic 模式](/zh/docs/classic)不是一回事。
 
 没有特别理由的话就用常驻 runner：它是框架自己给出的常驻方案，内存是平的，重置也就一次调用。如果你的启动流程带着你不太想去理清的先后顺序，就用每请求一个 runner 的写法——比如有代码必须赶在容器构建之前跑，或者有些每请求都要做的启动动作，`StateResetter` 的回调撤不回来。以后从一种换成另一种，要改的只有 worker 脚本。
 
@@ -172,7 +172,7 @@ format = "json"
 
 应用模板的默认中间件链里就有 `CsrfTokenMiddleware`，token 存在 session 里——而 session 正是这轮测试实打实压过的那块状态：按请求走，按客户端隔离。worker 循环没有碰过 token 这条链路上的任何东西，所以这里的 POST 和别处一样，该带 token 还得带。搬到 worker 之后如果提交开始被拒，先查 token；修法也还是老一套（把 token 渲染进表单、再原样交回来），跟 worker 脚本没关系。
 
-## 回退到经典模式
+## 回退到 Classic 模式
 
 Yii3 当成普通前端控制器跑也一样：
 
@@ -180,8 +180,8 @@ Yii3 当成普通前端控制器跑也一样：
 rapira serve --mode classic public/index.php
 ```
 
-代码原封不动，不用写 worker 脚本，每个请求的状态都是全新的。详见[经典模式](/zh/docs/classic)。
+代码原封不动，不用写 worker 脚本，每个请求的状态都是全新的。详见 [Classic 模式](/zh/docs/classic)。
 
-worker 脚本是多出来的一个入口，不是前端控制器的替代品，所以 `public/index.php` 要留着：经典模式跑的就是这个入口脚本，本地拿 PHP 内置服务器干活时它也照样好使。
+worker 脚本是多出来的一个入口，不是前端控制器的替代品，所以 `public/index.php` 要留着：Classic 模式跑的就是这个入口脚本，本地拿 PHP 内置服务器干活时它也照样好使。
 
 模板的 `public/index.php` 里有一个 `PHP_SAPI === 'cli-server'` 分支，专门提供静态文件并改写 `SCRIPT_NAME`。它是给 PHP 内置开发服务器准备的，在 Rapira 下永远不会走到——这里的 `PHP_SAPI` 是 `rapira`（PHP 8.4 上是 `fastcgi`，见[安装](/zh/docs/intro/installation)）——所以保持原样就行。

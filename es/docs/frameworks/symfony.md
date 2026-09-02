@@ -1,6 +1,6 @@
 ---
 title: Symfony
-description: "Cómo ejecutar una aplicación Symfony sobre Rapira en modo worker: el script del worker, el reinicio de servicios entre peticiones y cómo llegan al contenedor los valores de .env."
+description: "Cómo ejecutar una aplicación Symfony sobre Rapira en modo Worker: el script del worker, el reinicio de servicios entre peticiones y cómo llegan al contenedor los valores de .env."
 ---
 
 # Symfony
@@ -16,7 +16,7 @@ La estructura de Symfony encaja con un worker residente: un kernel que arrancas,
 Las dos aplicaciones son un `symfony/skeleton` pelado corriendo en un único proceso worker, y las dos ejecutaron el **mismo `worker.php`**, byte a byte, sin ninguna rama por versión. La batería cubre el enrutado, un 404, cadenas de consulta, URLs generadas, envíos de formulario, cuerpos JSON, sesiones que se mantienen entre peticiones, la subida de un archivo, una excepción sin capturar y 200 peticiones seguidas.
 :::
 
-## Comportamiento en modo worker
+## Comportamiento en modo Worker
 
 El kernel arranca en la parte de arriba del script, fuera del bucle, y se queda residente mientras viva el proceso del worker: el autoloader, el contenedor compilado, el router, el event dispatcher y todas las conexiones que hayan abierto tus bundles se construyen una vez en lugar de una vez por petición. Eso es lo que aporta el [modo Worker](/es/docs/worker); mira [Modos de ejecución](/es/docs/execution-modes) para más detalles.
 
@@ -95,9 +95,9 @@ Casi todo es arranque normal y corriente de Symfony. Cuatro líneas son propias 
 
 **`$container->has('services_resetter')` antes del `get()`.** El id de servicio `services_resetter` es público tanto en 7.4 como en 8.1, y por eso el mismo archivo vale para las dos: la *clase* que hay detrás cambió de namespace entre una mayor y otra (`Symfony\Component\DependencyInjection\ServicesResetter` en 7.4, `Symfony\Component\HttpKernel\DependencyInjection\ServicesResetter` en 8.1), y pedir el servicio por su id hace desaparecer esa diferencia. La comprobación con `has()` evita que el script se vaya a un error fatal con un contenedor que no lo defina.
 
-**El bucle y `gc_collect_cycles()`.** `\Rapira\handle_request()` se bloquea hasta que llega una petición, ejecuta tu handler y devuelve `true`. Devuelve `false` cuando el worker empieza a drenarse, que es lo que termina el bucle. Recoger los ciclos una vez por vuelta mantiene ese trabajo entre peticiones y no en mitad de una. El contrato completo está en [Modo worker](/es/docs/worker).
+**El bucle y `gc_collect_cycles()`.** `\Rapira\handle_request()` se bloquea hasta que llega una petición, ejecuta tu handler y devuelve `true`. Devuelve `false` cuando el worker empieza a drenarse, que es lo que termina el bucle. Recoger los ciclos una vez por vuelta mantiene ese trabajo entre peticiones y no en mitad de una. El contrato completo está en [Modo Worker](/es/docs/worker).
 
-Si el resetter no basta, quedan dos herramientas más contundentes: `$container->reset()` borra todos los servicios que se hayan instanciado, y `$kernel->reboot(null)` tira el contenedor y construye uno nuevo, con lo que el `$container` que capturó el handler se queda obsoleto y tendrás que volver a pedirlo con `$kernel->getContainer()` si tiras por ese camino. Las dos descartan el estado caliente que te da el modo worker, así que úsalas mientras investigas una fuga, no como valor por defecto.
+Si el resetter no basta, quedan dos herramientas más contundentes: `$container->reset()` borra todos los servicios que se hayan instanciado, y `$kernel->reboot(null)` tira el contenedor y construye uno nuevo, con lo que el `$container` que capturó el handler se queda obsoleto y tendrás que volver a pedirlo con `$kernel->getContainer()` si tiras por ese camino. Las dos descartan el estado caliente que te da el modo Worker, así que úsalas mientras investigas una fuga, no como valor por defecto.
 
 ## `$_ENV` y `variables_order`
 
@@ -173,12 +173,12 @@ Si quieres soltar al cliente antes de que se ejecuten los listeners posteriores 
 
 ## El bucle de desarrollo
 
-`rapira serve` se ejecuta en primer plano y tu aplicación arranca una sola vez, así que **el código PHP que cambies no se recoge hasta que se reemplacen los workers**. Mientras estás editando a fondo, lo más simple es parar y arrancar el servidor, o ejecutar el front controller en [modo clásico](/es/docs/classic), donde el script se ejecuta desde cero cada vez y cada guardado se ve al momento:
+`rapira serve` se ejecuta en primer plano y tu aplicación arranca una sola vez, así que **el código PHP que cambies no se recoge hasta que se reemplacen los workers**. Mientras estás editando a fondo, lo más simple es parar y arrancar el servidor, o ejecutar el front controller en [modo Classic](/es/docs/classic), donde el script se ejecuta desde cero cada vez y cada guardado se ve al momento:
 
 ```bash
 rapira serve --mode classic public/index.php
 ```
 
-Es la misma aplicación en modo clásico: arranca en cada petición, así que los cambios surten efecto al momento, a costa de un arranque completo por petición. En un servidor de producción ya en marcha, la forma de que el código recién desplegado tome el relevo sin tirar conexiones es una recarga sin cortes (`SIGUSR2` al maestro), salvo que uses `opcache.validate_timestamps = 0`: ahí el segmento de OPcache del maestro sobrevive al pool y el despliegue necesita un reinicio completo. Mira [Modelo de procesos](/es/docs/process-model) y [cómo ejecutarlo en producción](/es/docs/deployment).
+Es la misma aplicación en modo Classic: arranca en cada petición, así que los cambios surten efecto al momento, a costa de un arranque completo por petición. En un servidor de producción ya en marcha, la forma de que el código recién desplegado tome el relevo sin tirar conexiones es una recarga sin cortes (`SIGUSR2` al maestro), salvo que uses `opcache.validate_timestamps = 0`: ahí el segmento de OPcache del maestro sobrevive al pool y el despliegue necesita un reinicio completo. Mira [Modelo de procesos](/es/docs/process-model) y [cómo ejecutarlo en producción](/es/docs/deployment).
 
 Una excepción sin capturar se gestiona dentro de Symfony: el framework responde con su propio `500` —la página completa de la excepción en `dev`, una página de error genérica en `prod`— y la petición siguiente la recoge ese mismo proceso worker, con el pid intacto pese al fallo. Lo que sobrevive a una excepción es el estado de servicio corrupto o de más, y eso lo suelta el reinicio del final del handler. Dónde acaba la traza depende de tu logger, y un skeleton recién creado no trae ninguno. Lo que sí llega al registro de Rapira por stderr es todo lo que se escapa del propio PHP, como la `EnvNotFoundException` de antes; en [Registros](/es/docs/logging) se ve cómo subir el nivel.

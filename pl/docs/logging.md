@@ -132,7 +132,7 @@ try {
 
 `\Rapira\log()` nigdy nie rzuca wyjątkiem: wyjątek z `jsonSerialize()` którejś wartości kontekstu zostaje odrzucony, sama wartość trafia do wpisu jako `null`, a pozostałe klucze zostają bez zmian.
 
-Decydując, co włożyć do kontekstu, warto znać dwa ograniczenia. Wartość, której JSON nie potrafi wyrazić — zasób, domknięcie, `NAN` lub `INF`, ciąg niebędący poprawnym UTF-8 — zostaje zastąpiona wypełniaczem, a nie kosztuje cię całego wpisu, więc sąsiednie klucze docierają. A kontekst nie ma ograniczenia rozmiaru: duża tablica albo długi ciąg są serializowane w całości i dają odpowiednio duży wpis, więc przekazuj identyfikatory, a nie obiekty, które oznaczają.
+Kontekst ma dwa ograniczenia. Wartość, której JSON nie potrafi wyrazić — zasób, domknięcie, `NAN` lub `INF`, ciąg niebędący poprawnym UTF-8 — zostaje zastąpiona wypełniaczem. Sąsiednie klucze nadal docierają. Kontekst nie ma ograniczenia rozmiaru. Duża tablica albo długi ciąg są serializowane w całości i dają odpowiednio duży wpis. Dlatego przekazuj identyfikatory, a nie obiekty, które oznaczają.
 
 ## Formaty
 

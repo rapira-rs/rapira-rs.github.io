@@ -1,18 +1,18 @@
 ---
 title: Laravel
-description: "Ejecutar Laravel sobre Rapira en modo clásico y el estado actual de la compatibilidad con el modo worker."
+description: "Ejecutar Laravel sobre Rapira en modo Classic y el estado actual de la compatibilidad con el modo Worker."
 ---
 
 # Laravel
 
-Rapira ejecuta Laravel en modo clásico: el front controller `public/index.php` de siempre, ejecutado desde cero en cada petición, tal y como lo ejecuta php-fpm. La aplicación no necesita ningún cambio. El modo worker para Laravel está en desarrollo; su estado actual está más abajo, en [Modo worker](#modo-worker).
+Rapira ejecuta Laravel en modo Classic: el front controller `public/index.php` de siempre, ejecutado desde cero en cada petición, tal y como lo ejecuta php-fpm. La aplicación no necesita ningún cambio. El modo Worker para Laravel está en desarrollo; su estado actual está más abajo, en [Modo Worker](#modo-worker).
 
 ::: info Verificado con
 - **PHP 8.5.8** — NTS, SAPI embed
 - **Rapira 0.8.0**
 - Esqueleto de **laravel/laravel** con **laravel/framework v13.23.0**
 
-Todo lo que cuenta esta página se ejecutó sobre un esqueleto `laravel/laravel` con unas cuantas rutas de prueba añadidas, en modo clásico y con un solo proceso worker: enrutado, sesiones, subidas de archivos, cuerpos JSON y de formulario, configuración y rutas cacheadas, respuestas de error y 50 peticiones seguidas.
+Todo lo que cuenta esta página se ejecutó sobre un esqueleto `laravel/laravel` con unas cuantas rutas de prueba añadidas, en modo Classic y con un solo proceso worker: enrutado, sesiones, subidas de archivos, cuerpos JSON y de formulario, configuración y rutas cacheadas, respuestas de error y 50 peticiones seguidas.
 :::
 
 ## Requisitos previos
@@ -23,7 +23,7 @@ Comprueba las extensiones de base de datos antes del primer arranque: un esquele
 
 ## Ponerlo en marcha
 
-El modo clásico se activa expresamente, así que el comando lo nombra:
+El modo Classic se activa expresamente, así que el comando lo nombra:
 
 ::: code-group
 
@@ -45,9 +45,9 @@ listen = "127.0.0.1:8000"
 
 Con un archivo de configuración el comando es `rapira serve --config rapira.toml`, y un `entrypoint` relativo se resuelve respecto al directorio del propio archivo. Todas las claves y sus valores por defecto están en la página de [Configuración](/es/docs/configuration).
 
-Rapira ejecuta el front controller desde cero en cada petición, así que el ciclo de vida del framework es exactamente el que tiene bajo php-fpm: no hay estado residente ni nada que reiniciar entre peticiones. Lo que sí se queda caliente es OPcache: PHP arranca una sola vez en el maestro, antes de hacer fork de ningún worker, así que todos los workers comparten la misma caché de scripts compilados para tu código y para tu árbol `vendor/`. En [Modo clásico](/es/docs/classic) tienes cómo funciona.
+Rapira ejecuta el front controller desde cero en cada petición, así que el ciclo de vida del framework es exactamente el que tiene bajo php-fpm: no hay estado residente ni nada que reiniciar entre peticiones. Lo que sí se queda caliente es OPcache: PHP arranca una sola vez en el maestro, antes de hacer fork de ningún worker, así que todos los workers comparten la misma caché de scripts compilados para tu código y para tu árbol `vendor/`. En [Modo Classic](/es/docs/classic) tienes cómo funciona.
 
-Para producción, genera antes las cachés del framework; las dos se verificaron en modo clásico, y las mismas comprobaciones pasaron sin cachear y cacheadas:
+Para producción, genera antes las cachés del framework; las dos se verificaron en modo Classic, y las mismas comprobaciones pasaron sin cachear y cacheadas:
 
 ```bash
 php artisan config:cache
@@ -64,9 +64,9 @@ La ruta de salud `/up` que trae el esqueleto responde `200`, así que sirve como
 
 Las sesiones se verificaron con el driver de archivos: la cookie de sesión sale, vuelve en la petición siguiente y cada cliente tiene la suya. CSRF no necesita configuración: el token vive en la sesión y cada petición tiene la misma semántica de proceso nuevo que le da php-fpm. Los envíos de formularios, los cuerpos de petición en JSON y las subidas de archivos se verificaron todos con el mismo montaje. Cuando una ruta lanza una excepción, el manejador de excepciones de Laravel pinta su `500` de siempre y la petición siguiente no se ve afectada.
 
-## Modo worker
+## Modo Worker
 
-El modo worker para Laravel está en desarrollo y todavía no se admite: ejecuta Laravel en modo clásico. Aún no hay fecha para la compatibilidad con el modo worker.
+El modo Worker para Laravel está en desarrollo y todavía no se admite: ejecuta Laravel en modo Classic. Aún no hay fecha para la compatibilidad con el modo Worker.
 
 El motivo es el ciclo de vida del framework. El contenedor de Laravel no está pensado para sobrevivir a una segunda petición sin ayuda: los bindings se resuelven, los singletons se quedan con la petición actual y las estáticas del framework se van llenando mientras la petición avanza, así que todo eso hay que deshacerlo antes de que llegue la siguiente. Ese desmontaje es justo lo que implementa [Octane](https://laravel.com/docs/octane) (`laravel/octane`), el paquete del propio Laravel para servidores de larga vida. Octane solo funciona en los servidores para los que tiene driver, y Rapira todavía no tiene driver de Octane.
 

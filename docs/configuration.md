@@ -5,7 +5,7 @@ description: "The complete rapira.toml reference: every key in [http], [pool], [
 
 # Configuration
 
-Rapira needs no configuration file to start — `rapira serve --mode worker app/worker.php` picks a default for everything. You add a `rapira.toml` when those defaults stop being enough: a different bind address, a fixed number of workers, a recycling policy, a pidfile your init system can read, a more verbose log level. Point the server at the file and it reads its settings from there:
+Rapira does not need a configuration file to start. `rapira serve --mode worker app/worker.php` uses the default settings. Add a `rapira.toml` when you need a different address, worker count, recycling policy, pidfile, or log level. Point the server at the file, and it reads its settings from there:
 
 ```bash
 rapira serve --config /etc/rapira/rapira.toml
@@ -21,7 +21,7 @@ Settings are layered: a CLI flag beats the config file, which beats the built-in
 
 Every key Rapira understands, in one file. Nothing below is mandatory: delete any line and its default applies. Four keys are the exception. `pool.entrypoint` has no default to fall back on. `min_spare` and `max_spare` are required for as long as `scaling = "dynamic"` is set. `http.static.root` is required for as long as the `[http.static]` table is present.
 
-Two groups of keys also have to go together, so a partial deletion stops the boot. Delete the `[http.static]` table and the `"static"` entry in `middleware` at the same time: Rapira rejects the table without the entry, and it rejects the entry without the table. Delete `min_spare` and `max_spare` at the same time as `scaling = "dynamic"`: Rapira rejects both spare keys under `static` and `ondemand` scaling.
+Two groups of keys must remain together, so a partial deletion stops the boot. Delete the `[http.static]` table and the `"static"` middleware entry together. Rapira rejects either item when the other item is absent. Delete `min_spare` and `max_spare` when you remove `scaling = "dynamic"`. Rapira rejects both spare keys under `static` and `ondemand` scaling.
 
 ```toml
 [http]
@@ -38,10 +38,10 @@ middleware = ["static"]               # optional; the list order is the chain or
 root = "public"                       # required; the directory must exist; relative → this file's directory
 forbid = [".php"]                     # optional; suffixes never served; an explicit list replaces the default
 
-[http.sendfile]                       # optional; containment root for sendFile(), dispatcher mode only
+[http.sendfile]                       # optional; containment root for sendFile(), Dispatcher mode only
 root = "public"                       # optional; defaults to the entrypoint's directory
 
-[http.uploads]                        # optional; host-side multipart limits, dispatcher mode only
+[http.uploads]                        # optional; host-side multipart limits, Dispatcher mode only
 dir = "/var/spool/rapira"             # optional; defaults to the system temp directory
 max_file_size_mb = 2                  # optional; per file part
 max_field_size_kb = 256               # optional; per field part
@@ -77,7 +77,7 @@ The rest of this page documents those keys section by section.
 
 ## The `[http]` section
 
-This section covers where Rapira listens, what the request environment tells PHP about the server it is running under, how much of a request body it will read, and which middleware runs before PHP.
+This section defines the listener and the server information reported to PHP. It also defines request-body limits and the middleware that runs before PHP.
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
@@ -132,7 +132,7 @@ Every one of these limits must be at least 1. A request over any of them is answ
 
 ## The `[pool]` section
 
-Workers are the processes that actually run PHP, and this section says what they run, how many of them there are, and when the master takes one away. The [process model](/docs/process-model) explains what the master does with these numbers.
+Workers run PHP. This section defines what they run, how many run, and when the master removes one. The [process model](/docs/process-model) explains how the master uses these values.
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
@@ -177,7 +177,7 @@ A `[log.targets]` key has to look like a module path: letters, digits and `_` `:
 
 Rapira parses `rapira.toml` strictly. Every table and every key inside it has to be one the server knows, so `[htttp]` or `lissten = ":8000"` is a boot failure that names what it could not recognise, not a line silently ignored. Every key also has exactly one table: `max_requests` belongs to `[pool]` and nowhere else, `pidfile` to `[supervisor]` and nowhere else, and putting one under the wrong table fails just like a typo would.
 
-Values are checked the same way. `level = "verbose"`, `format = "pretty"` and `unsafe_field_names = "allow"` are all hard errors rather than a quiet fall back to the default, so a misspelling cannot silently downgrade a security setting. Numbers have bounds too: `pool.processes`, `http.max_body_size_mb`, both `[http]` timeouts and every `[http.uploads]` limit must be at least 1, and every `*_secs` key caps at `86400`, one day.
+Values are checked in the same way. Rapira rejects `level = "verbose"`, `format = "pretty"` and `unsafe_field_names = "allow"`. It does not silently replace them with defaults, so a misspelling cannot downgrade a security setting. Numeric values also have limits. `pool.processes`, `http.max_body_size_mb`, both `[http]` timeouts and every `[http.uploads]` limit must be at least 1. Every `*_secs` key has a maximum value of `86400`, which is one day.
 
 ::: warning
 Validation happens before anything starts, so an unrecognised key stops the boot instead of quietly degrading the run. Editing `rapira.toml` on a machine that is currently serving leaves the running process untouched, but the next start is the one that has to succeed.
@@ -185,7 +185,7 @@ Validation happens before anything starts, so an unrecognised key stops the boot
 
 ## Relative paths
 
-Five keys hold a filesystem path, and each of them resolves against the directory that contains the config file rather than the working directory of whoever started the server: `pool.entrypoint`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root` and `http.uploads.dir`. With `/etc/rapira/rapira.toml` and `entrypoint = "app/worker.php"`, the script is `/etc/rapira/app/worker.php` regardless of where `rapira serve` was invoked from.
+Five keys hold a filesystem path: `pool.entrypoint`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root` and `http.uploads.dir`. Each path resolves against the directory that contains the config file, not the current working directory. For example, set `entrypoint = "app/worker.php"` in `/etc/rapira/rapira.toml`. The resulting script path is `/etc/rapira/app/worker.php`, regardless of where you run `rapira serve`.
 
 The positional `SCRIPT` argument works the other way round. It is a command-line value, so a relative path there resolves against the current working directory.
 

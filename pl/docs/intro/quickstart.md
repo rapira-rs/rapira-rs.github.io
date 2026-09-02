@@ -1,15 +1,15 @@
 ---
 title: Szybki start
-description: "Obsługa aplikacji PHP na Rapirze w trybie klasycznym i w trybie workera oraz przeniesienie ustawień do pliku rapira.toml."
+description: "Obsługa aplikacji PHP na Rapirze w trybach Classic i Worker oraz przeniesienie ustawień do pliku rapira.toml."
 ---
 
 # Szybki start
 
-Ta strona pokazuje, jak wystawić stronę w trybie klasycznym, zamienić tę samą aplikację w stale działający worker i przenieść ustawienia do pliku konfiguracyjnego. Zakłada, że masz działający plik binarny `rapira` razem z dołączonym do niego PHP; więcej informacji znajdziesz w [Instalacji](/pl/docs/intro/installation).
+Ta strona pokazuje, jak wystawić stronę w trybie Classic, zamienić tę samą aplikację na tryb Worker i przenieść ustawienia do pliku konfiguracyjnego. Zakłada, że masz działający plik binarny `rapira` razem z dołączonym do niego PHP; więcej informacji znajdziesz w [Instalacji](/pl/docs/intro/installation).
 
-## Tryb klasyczny
+## Tryb Classic
 
-Tryb klasyczny jest dostępny dla każdej aplikacji: przy każdym żądaniu Rapira na nowo dołącza twój skrypt wejściowy — dokładnie tak, jak php-fpm uruchamia front controller. Kod nie wymaga przy tym żadnych zmian.
+Tryb Classic jest dostępny dla każdej aplikacji: przy każdym żądaniu Rapira na nowo dołącza twój skrypt wejściowy — dokładnie tak, jak php-fpm uruchamia front controller. Kod nie wymaga przy tym żadnych zmian.
 
 Utwórz `public/index.php`:
 
@@ -39,9 +39,9 @@ Method: GET
 
 Proces nie ginie między żądaniami — Rapira raz forkuje swoje workery i w każdym z nich trzyma uruchomiony interpreter PHP. Znika za to stan twojego skryptu: zmienne, autoloader, wszystko, co zbudował framework.
 
-## Tryb workera
+## Tryb Worker
 
-Tryb workera utrzymuje skrypt przy życiu. Startuje raz, a potem kręci się w pętli i prosi Rapirę o kolejne żądanie; Rapira wypełnia zmienne superglobalne i wywołuje twój handler. Kod PHP wygląda znajomo — nadal czytasz `$_GET` i wypisujesz odpowiedź przez `echo` — ale praca startowa wykonuje się raz na proces, a nie raz na żądanie. Więcej informacji znajdziesz w [Trybach wykonania](/pl/docs/execution-modes).
+Tryb Worker utrzymuje skrypt przy życiu. Startuje raz, a potem kręci się w pętli i prosi Rapirę o kolejne żądanie; Rapira wypełnia zmienne superglobalne i wywołuje twój handler. Kod PHP wygląda znajomo — nadal czytasz `$_GET` i wypisujesz odpowiedź przez `echo` — ale praca startowa wykonuje się raz na proces, a nie raz na żądanie. Więcej informacji znajdziesz w [Trybach wykonania](/pl/docs/execution-modes).
 
 Utwórz `worker.php` w katalogu głównym projektu:
 
@@ -67,7 +67,7 @@ while (\Rapira\handle_request($handler)) {
 
 `\Rapira\handle_request()` pochodzi z modułu PHP, który Rapira rejestruje przy starcie interpretera, więc powyższy skrypt działa bez autoloadera. Aplikacja z zależnościami Composera ładuje własny `vendor/autoload.php` przed pętlą.
 
-Najpierw zatrzymaj serwer w trybie Classic przez `Ctrl-C` w jego terminalu, bo oba zajmują `127.0.0.1:8000`. Domyślnym trybem jest Dispatcher, więc tryb workera trzeba włączyć flagą `--mode worker`:
+Najpierw zatrzymaj serwer w trybie Classic przez `Ctrl-C` w jego terminalu, bo oba zajmują `127.0.0.1:8000`. Domyślnym trybem jest Dispatcher, więc tryb Worker trzeba włączyć flagą `--mode worker`:
 
 ```bash
 rapira serve --mode worker worker.php
@@ -82,7 +82,7 @@ Puść tego `curla` kilka razy: licznik rośnie, bo żądania obsługuje wciąż
 Wszystko, co zbudujesz przed pętlą `while`, zostaje w pamięci przez całe życie workera: autoloader Composera, kontener DI, połączenia z bazą i cache'em, skompilowane trasy i szablony — wszystko to powstaje raz, przy starcie, a nie przy każdym żądaniu. Od nowa powstaje tylko stan związany z konkretnym żądaniem.
 
 ::: warning
-Stan, który zostaje między żądaniami, musi resetować sam skrypt workera. Statyczna właściwość, zmienna globalna czy otwarta transakcja zostawiona przez jedno żądanie czekają na następne. [Tryb workera](/pl/docs/worker) opisuje, na co uważać i jak utrzymać workera w czystości.
+Stan, który zostaje między żądaniami, musi resetować sam skrypt workera. Statyczna właściwość, zmienna globalna czy otwarta transakcja zostawiona przez jedno żądanie czekają na następne. [Tryb Worker](/pl/docs/worker) opisuje, na co uważać i jak utrzymać workera w czystości.
 :::
 
 Wewnątrz handlera działają zwykłe funkcje — `header()`, `http_response_code()`, `echo` oraz `rapira_finish_request()`, które odsyła odpowiedź od razu i pozwala pracować dalej. Więcej informacji znajdziesz w [HTTP](/pl/docs/http).
@@ -117,6 +117,6 @@ Naciśnij `Ctrl-C`, a Rapira zacznie się wygaszać: przestanie przyjmować now�
 
 ## Co dalej
 
-- [Tryb workera](/pl/docs/worker) — pętla workera od podszewki: stan, wycieki, recykling i sposób na wystartowanie prawdziwej aplikacji przed pętlą.
+- [Tryb Worker](/pl/docs/worker) — pętla workera od podszewki: stan, wycieki, recykling i sposób na wystartowanie prawdziwej aplikacji przed pętlą.
 - [Konfiguracja](/pl/docs/configuration) — wszystkie klucze, które przyjmuje `rapira.toml`, wraz z wartościami domyślnymi.
 - [Frameworki](/pl/docs/frameworks/) — przewodniki integracyjne dla Symfony, Laravela i Yii3.

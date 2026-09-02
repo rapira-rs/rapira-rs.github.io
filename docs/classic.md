@@ -56,7 +56,7 @@ With the config file, the run command is `rapira serve --config rapira.toml`. A 
 
 Rapira does not map URLs onto PHP scripts. Every request runs the entry script you named, whatever the path was. The URL arrives in `$_SERVER['REQUEST_URI']`, and the application routes it. The [static file middleware](/docs/static-files) is the one exception. When it is enabled, it can answer a `GET` or a `HEAD` from a file under its root. Every request it does not answer runs the entry script.
 
-The CGI variables follow from that: `SCRIPT_FILENAME` is always the entry script, `SCRIPT_NAME` its file name with a leading slash (`/index.php`), and `DOCUMENT_ROOT` the directory it sits in. A CDN or a reverse proxy in front of Rapira can serve the assets instead. The [deployment](/docs/deployment) page sets up such a proxy.
+The CGI variables follow from that rule. `SCRIPT_FILENAME` is always the entry script. `SCRIPT_NAME` is its file name with a leading slash, such as `/index.php`. `DOCUMENT_ROOT` is the directory that contains the script. A CDN or a reverse proxy in front of Rapira can serve the assets instead. The [deployment](/docs/deployment) page sets up such a proxy.
 
 ## OPcache
 
@@ -70,4 +70,4 @@ The process pool itself is the same in both modes: the master forks workers, and
 
 ## Choosing between Classic and Worker
 
-Use Classic mode when the application's state cannot survive a second request: an old codebase, a framework that leaks into statics, or a vendor library you do not control. Use Classic mode also when you migrate off php-fpm and want one change at a time. Use [Worker](/docs/worker) mode when the code can tolerate a process that keeps running. Worker mode removes the per-request boot work. The [execution modes](/docs/execution-modes) page describes all three modes.
+Use Classic mode when the application's state cannot survive a second request. Examples include old codebases, frameworks that leak into statics, and vendor libraries you do not control. Also use Classic mode when you migrate from php-fpm and want one change at a time. Use [Worker](/docs/worker) mode when the code can tolerate a process that keeps running. Worker mode removes the per-request boot work. The [execution modes](/docs/execution-modes) page describes all three modes.

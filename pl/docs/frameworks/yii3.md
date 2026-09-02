@@ -1,6 +1,6 @@
 ---
 title: Yii3
-description: "Aplikacja Yii3 na Rapirze w trybie workera: rezydentny HttpApplicationRunner ze StateResetter, runner tworzony na każde żądanie oraz to, co sprawdzono w routingu, sesjach, przesyłaniu plików i obsłudze błędów."
+description: "Aplikacja Yii3 na Rapirze w trybie Worker: rezydentny HttpApplicationRunner ze StateResetter, runner tworzony na każde żądanie oraz to, co sprawdzono w routingu, sesjach, przesyłaniu plików i obsłudze błędów."
 ---
 
 # Yii3
@@ -15,13 +15,13 @@ Yii3 jest zaprojektowany do pracy w procesie, który nie kończy się po żądan
 Oba skrypty workera z tej strony uruchomiliśmy na tym stosie i oba przeszły pełen zestaw testów: routing, generowane adresy URL, POST-y z formularza i z ciałem JSON, sesje, przesyłanie plików, obsługę błędów oraz 200 kolejnych żądań.
 :::
 
-## Yii3 a tryb workera
+## Yii3 a tryb Worker
 
 Rezydentny worker potrzebuje dwóch elementów publicznego API.
 
 `ApplicationRunner::getContainer()` zwraca kontener, na którym działa aplikacja, więc nie trzeba po niczym dziedziczyć ani sięgać do prywatnego stanu. `Yiisoft\Di\StateResetter` to zwykły serwis w tym kontenerze: komponenty rejestrują w nim własne callbacki zerujące, a jedno wywołanie `reset()` przywraca je do stanu początkowego — to odpowiedź samego frameworka na serwis, który trzyma stan żądania.
 
-Twój własny serwis trzymający stan żądania też musi zarejestrować callback: dodaj do jego definicji DI klucz `'reset' => function (): void { … }`, dokładnie tak, jak deklarują to `yiisoft/session` i `yiisoft/router`. Domknięcie jest związane z instancją, więc potrafi przywrócić prywatny stan bez odbudowywania obiektu. Co między żądaniami zeruje sama Rapira, a czego nie rusza, opisuje [przegląd frameworków](/pl/docs/frameworks/) oraz [Tryb workera](/pl/docs/worker).
+Twój własny serwis trzymający stan żądania też musi zarejestrować callback: dodaj do jego definicji DI klucz `'reset' => function (): void { … }`, dokładnie tak, jak deklarują to `yiisoft/session` i `yiisoft/router`. Domknięcie jest związane z instancją, więc potrafi przywrócić prywatny stan bez odbudowywania obiektu. Co między żądaniami zeruje sama Rapira, a czego nie rusza, opisuje [przegląd frameworków](/pl/docs/frameworks/) oraz [tryb Worker](/pl/docs/worker).
 
 Rezydentny wzorzec sprowadza się więc do trzech kroków: zbuduj runner raz, uruchamiaj go przy każdym żądaniu, a po wszystkim wyzeruj stan kontenera.
 
@@ -83,7 +83,7 @@ Po kolei:
 
 **`run()` przy każdym wywołaniu przechodzi całą swoją sekwencję od nowa.** Każde wywołanie rejestruje handler błędów, uruchamia `runBootstrap()`, uruchamia `checkEvents()`, a dopiero potem obsługuje żądanie; runner jest z założenia reentrantny, a przez 200 kolejnych wywołań sprawdziliśmy, że to powtórzenie jest nieszkodliwe. Kontrola zdarzeń robi cokolwiek tylko wtedy, gdy jej flaga jest prawdziwa, a szablon wiąże tę flagę z `Environment::appDebug()`, więc z wyłączonym debugiem przy każdym wywołaniu nic nie robi.
 
-**Rezydentny runner odczytuje każde żądanie od nowa.** `run()` nie zapamiętuje żądania w chwili budowy obiektu. Przy każdym wywołaniu pobiera z kontenera `RequestFactory` i składa nowy `ServerRequest` w standardzie PSR-7 ze zmiennych `$_SERVER`, `$_GET`, `$_POST`, `$_COOKIE`, `$_FILES` i strumienia `php://input`, a te zmienne superglobalne Rapira wypełnia od nowa przed każdą iteracją pętli (umowę opisuje [Tryb workera](/pl/docs/worker)).
+**Rezydentny runner odczytuje każde żądanie od nowa.** `run()` nie zapamiętuje żądania w chwili budowy obiektu. Przy każdym wywołaniu pobiera z kontenera `RequestFactory` i składa nowy `ServerRequest` w standardzie PSR-7 ze zmiennych `$_SERVER`, `$_GET`, `$_POST`, `$_COOKIE`, `$_FILES` i strumienia `php://input`, a te zmienne superglobalne Rapira wypełnia od nowa przed każdą iteracją pętli (umowę opisuje [tryb Worker](/pl/docs/worker)).
 
 **Zużycie pamięci pozostaje płaskie.** Przez 200 kolejnych żądań pamięć rezydentna workera nie urosła w żaden istotny sposób, bo aplikacja powstaje raz, a zerowanie jest tanie, więc nie ma tu rozruchu na każde żądanie, po którym trzeba by sprzątać.
 
@@ -122,7 +122,7 @@ Kontener powstaje za każdym razem od nowa, więc jest mniej ruchomych części,
 
 Kontener podnosi się przy każdym żądaniu, więc za każdym razem płacisz czas rozruchu i za każdym razem produkujesz śmieci wielkości całego kontenera. Pamięć workera rośnie, bo te kontenery odkładają się, zanim PHP zwolni je hurtem — to zwykły profil rozruchu na żądanie, a nie wyciek. Połącz ten wzorzec z `pool.max_requests`, żeby worker co jakiś czas kończył pracę i był podmieniany na świeżego; kształty zużycia pamięci opisuje [przegląd frameworków](/pl/docs/frameworks/), a sam klucz — [Konfiguracja](/pl/docs/configuration).
 
-Autoloader i bootstrap szablonu nadal zostają w pamięci, a pętla żądań nadal mieszka w skrypcie workera, więc to wciąż worker — tylko taki, który odrzuca aplikację między żądaniami — a nie [tryb klasyczny](/pl/docs/classic).
+Autoloader i bootstrap szablonu nadal zostają w pamięci, a pętla żądań nadal mieszka w skrypcie workera, więc to wciąż worker — tylko taki, który odrzuca aplikację między żądaniami — a nie [tryb Classic](/pl/docs/classic).
 
 Używaj rezydentnego runnera, chyba że masz powód, żeby tego nie robić: to rozwiązanie samego frameworka na długo żyjący proces, pamięć trzyma się płasko, a zerowanie to jedno wywołanie. Runnera tworzonego na każde żądanie użyj wtedy, gdy twój bootstrap ma zależności kolejnościowe, nad którymi wolisz się nie zastanawiać: kod, który musi wykonać się przed zbudowaniem kontenera, albo rozruchowa robota przy każdym żądaniu, której callback `StateResetter` nie cofnie. Późniejsza zmiana jednego wariantu na drugi dotyczy wyłącznie skryptu workera.
 
@@ -166,13 +166,13 @@ Oba wzorce przeszły ten sam zestaw testów na szablonie `yiisoft/app`. Wyniki:
 
 **Dane z formularzy, ciała JSON i przesyłane pliki docierają na miejsce.** Pola w `$_POST`, ładunek JSON odczytany z `php://input` i plik wysłany jako multipart, z plikiem tymczasowym czytelnym w trakcie żądania — `ServerRequest` w standardzie PSR-7, który yii-runner-http składa ze zmiennych superglobalnych, niesie to wszystko.
 
-**Rzucony wyjątek to 500, a worker pracuje dalej.** Akcję, która rzuca wyjątek, przechwytuje `ErrorCatcher` i renderuje odpowiedź błędu tak samo jak wszędzie indziej; wyjątek trafia do logów, a kolejne żądanie ten sam proces workera obsługuje już normalnie. Nieprzechwycony wyjątek jest w Rapirze awarią żądania, a nie workera — co powoduje awarię workera, a co nie, opisuje [Tryb workera](/pl/docs/worker).
+**Rzucony wyjątek to 500, a worker pracuje dalej.** Akcję, która rzuca wyjątek, przechwytuje `ErrorCatcher` i renderuje odpowiedź błędu tak samo jak wszędzie indziej; wyjątek trafia do logów, a kolejne żądanie ten sam proces workera obsługuje już normalnie. Nieprzechwycony wyjątek jest w Rapirze awarią żądania, a nie workera — co powoduje awarię workera, a co nie, opisuje [tryb Worker](/pl/docs/worker).
 
 ## CSRF
 
 Szablon aplikacji wstawia `CsrfTokenMiddleware` do domyślnego łańcucha middleware, a token jest trzymany w sesji — czyli w jedynym kawałku stanu, który testy naprawdę przećwiczyły: świeżym przy każdym żądaniu i odizolowanym per klient. Pętla workera w żaden sposób nie dotyka obiegu tokenu, więc POST potrzebuje go tutaj dokładnie tak samo jak wszędzie indziej. Jeśli po przejściu na workera POST-y zaczną wracać odrzucone, sprawdź najpierw token; naprawa jest ta sama co zawsze (wyrenderuj token w formularzu, odeślij go z powrotem), a nie zmiana w skrypcie workera.
 
-## Tryb klasyczny jako rozwiązanie zapasowe
+## Tryb Classic jako rozwiązanie zapasowe
 
 Yii3 działa też jako zwykły front controller:
 
@@ -180,8 +180,8 @@ Yii3 działa też jako zwykły front controller:
 rapira serve --mode classic public/index.php
 ```
 
-Ten sam kod, żadnego skryptu workera, świeży stan przy każdym żądaniu. Więcej informacji znajdziesz w [Trybie klasycznym](/pl/docs/classic).
+Ten sam kod, żadnego skryptu workera, świeży stan przy każdym żądaniu. Więcej informacji znajdziesz w [trybie Classic](/pl/docs/classic).
 
-Skrypt workera to dodatkowy skrypt wejściowy, a nie zamiennik front controllera, więc zostaw `public/index.php`: to jego uruchamia tryb klasyczny i nadal przydaje się przy pracy lokalnej z wbudowanym serwerem PHP.
+Skrypt workera to dodatkowy skrypt wejściowy, a nie zamiennik front controllera, więc zostaw `public/index.php`: to jego uruchamia tryb Classic i nadal przydaje się przy pracy lokalnej z wbudowanym serwerem PHP.
 
 `public/index.php` z szablonu ma gałąź `PHP_SAPI === 'cli-server'`, która serwuje pliki statyczne i przepisuje `SCRIPT_NAME`. Powstała z myślą o wbudowanym serwerze deweloperskim PHP i pod Rapirą nigdy się nie uruchamia, bo `PHP_SAPI` ma tu wartość `rapira` (`fastcgi` na PHP 8.4 — zobacz [Instalację](/pl/docs/intro/installation)), więc może zostać tak, jak jest.

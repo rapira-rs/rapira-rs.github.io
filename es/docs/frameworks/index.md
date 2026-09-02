@@ -5,7 +5,7 @@ description: "La mecánica común a todos los frameworks que corren sobre Rapira
 
 # Integración con frameworks
 
-En modo clásico una aplicación de framework corre sobre Rapira sin tocar nada: apuntas el servidor al front controller que ya tienes. En modo worker el proceso de PHP sigue vivo entre una petición y la siguiente, y lo que la aplicación puede mantener residente depende del diseño del propio framework. Esta página cubre la mecánica que es igual para todos los frameworks; las tres guías específicas de cada framework dan por hecho que ya la has leído y solo cuentan lo suyo.
+En modo Classic una aplicación de framework corre sobre Rapira sin tocar nada: apuntas el servidor al front controller que ya tienes. En modo Worker el proceso de PHP sigue vivo entre una petición y la siguiente, y lo que la aplicación puede mantener residente depende del diseño del propio framework. Esta página cubre la mecánica que es igual para todos los frameworks; las tres guías específicas de cada framework dan por hecho que ya la has leído y solo cuentan lo suyo.
 
 ::: info Verificado con
 
@@ -16,13 +16,13 @@ En modo clásico una aplicación de framework corre sobre Rapira sin tocar nada:
 Todo lo que cuenta esta página se observó ejecutando esas aplicaciones en Linux, con un único proceso worker. Las afirmaciones de más abajo sobre el comportamiento de los frameworks salen de esas mediciones. Las claves de configuración salen de la referencia de [configuración](/es/docs/configuration) de Rapira.
 :::
 
-## Modo clásico y modo worker
+## Modos Classic y Worker
 
-**En modo clásico no cambia nada.** Tu front controller es el script de entrada, Rapira lo ejecuta desde cero en cada petición y aquí funciona cualquier framework que funcione con php-fpm, incluidos aquellos cuyo estado jamás sobreviviría a una segunda petición. Consulta [modo clásico](/es/docs/classic) para más información; de las secciones de abajo solo se aplican los archivos estáticos, TLS y OPcache.
+**En modo Classic no cambia nada.** Tu front controller es el script de entrada, Rapira lo ejecuta desde cero en cada petición y aquí funciona cualquier framework que funcione con php-fpm, incluidos aquellos cuyo estado jamás sobreviviría a una segunda petición. Consulta [modo Classic](/es/docs/classic) para más información; de las secciones de abajo solo se aplican los archivos estáticos, TLS y OPcache.
 
-**En modo Worker el proceso sigue vivo.** Tu script arranca la aplicación una vez y entra en un bucle pidiéndole a Rapira la siguiente petición. El framework ya no se desmonta entre petición y petición. En [modos de ejecución](/es/docs/execution-modes) tienes dónde encaja este modo entre los tres, y en [modo worker](/es/docs/worker), su referencia de API.
+**En modo Worker el proceso sigue vivo.** Tu script arranca la aplicación una vez y entra en un bucle pidiéndole a Rapira la siguiente petición. El framework ya no se desmonta entre petición y petición. En [modos de ejecución](/es/docs/execution-modes) tienes las descripciones de los modos, y en [modo Worker](/es/docs/worker), su referencia de API.
 
-Un mismo código corre en los dos modos: deja `public/index.php` tal cual está y pon un `worker.php` al lado. Las aplicaciones verificadas de Symfony y Yii3 mantienen los dos archivos uno junto al otro, y cuál de ellos se ejecuta lo elige la opción `--mode`: `rapira serve --mode classic public/index.php` o `rapira serve --mode worker worker.php`. El modo clásico sigue disponible como marcha atrás mientras haces la migración.
+Un mismo código corre en los dos modos: deja `public/index.php` tal cual está y pon un `worker.php` al lado. Las aplicaciones verificadas de Symfony y Yii3 mantienen los dos archivos uno junto al otro, y cuál de ellos se ejecuta lo elige la opción `--mode`: `rapira serve --mode classic public/index.php` o `rapira serve --mode worker worker.php`. El modo Classic sigue disponible como marcha atrás mientras haces la migración.
 
 ## El bucle, línea a línea
 
@@ -132,7 +132,7 @@ El listener de Rapira habla HTTP en claro y en la configuración no hay ninguna 
 
 ## Memoria y reciclaje
 
-Un worker que reconstruye la aplicación dentro del handler —la más sencilla de las dos formas de Yii3— mantiene residente menos que un kernel al estilo de Symfony, pero más que el modo clásico, y el bucle está en tu propio script, así que el trabajo puede ir saliendo del handler poco a poco a medida que compruebas qué sobrevive a una segunda petición. Lo que esa forma no te da es un contenedor ya construido cuando llega la petición.
+Un worker que reconstruye la aplicación dentro del handler —la más sencilla de las dos formas de Yii3— mantiene residente menos que un kernel al estilo de Symfony, pero más que el modo Classic, y el bucle está en tu propio script, así que el trabajo puede ir saliendo del handler poco a poco a medida que compruebas qué sobrevive a una segunda petición. Lo que esa forma no te da es un contenedor ya construido cuando llega la petición.
 
 En esa forma, cada petición deja atrás un grafo de objetos desechado. PHP no los libera de uno en uno: los mantienen unidos ciclos de referencias, así que el heap crece petición tras petición hasta que se ejecuta el recolector de ciclos y se lleva un lote grande de golpe. Es un diente de sierra, no una fuga, pero un diente de sierra cuyo pico está bastante por encima de lo que ocupa cualquier petición suelta.
 
@@ -151,14 +151,14 @@ Las formas residentes —el kernel de Symfony, el contenedor de Yii3 detrás de 
 
 Rapira arranca PHP exactamente una vez, en el maestro, antes de hacer fork del primer worker — así que OPcache crea su segmento de memoria compartida una única vez y todos los workers heredan ese mismo mapeo. Los scripts compilados siguen calientes de una petición a otra *y* en todo el pool, en los dos modos. Un worker que vuelve a incluir los archivos de tu framework no los está volviendo a parsear.
 
-En producción, `opcache.validate_timestamps = 0` te quita el stat por archivo en cada petición. El precio es que ya nada invalida la caché: el segmento es del maestro y sobrevive a todas las generaciones de workers, así que una recarga progresiva seguirá sirviendo los opcodes viejos y un despliegue necesita un reinicio completo. La secuencia está en la [puesta en producción](/es/docs/deployment).
+En producción, `opcache.validate_timestamps = 0` elimina el stat por archivo de cada petición. Con este ajuste, nada invalida la caché. El segmento pertenece al maestro y sobrevive a todas las generaciones de workers. Por tanto, una recarga progresiva sigue sirviendo los opcodes antiguos y un despliegue requiere un reinicio completo. Consulta la [puesta en producción](/es/docs/deployment) para ver la secuencia.
 
 Mientras desarrollas, el mismo resultado tiene otra causa. Un arranque residente no vuelve a leer nunca el código que cargó al inicio, haga lo que haga OPcache: los cambios en un servicio que el contenedor ya construyó, o en el propio script del worker, no llegan al proceso en marcha. Reinicia después de cada edición: `rapira serve` corre en primer plano y no se demoniza nunca, así que es Ctrl-C y volver a lanzarlo.
 
 ## Guías de frameworks
 
 - **[Symfony](/es/docs/frameworks/symfony)** — el kernel arranca una vez y se queda residente, y el propio `services_resetter` del framework deja entre peticiones los servicios con estado tal y como los encontró. Un único archivo de worker vale para 7.4 y 8.1, byte a byte.
-- **[Laravel](/es/docs/frameworks/laravel)** — modo clásico: el `public/index.php` de serie funciona sin tocar nada. El modo worker para Laravel está en desarrollo: una aplicación de Laravel residente necesita el desmontaje de estado que implementa Octane, y Rapira todavía no tiene driver de Octane.
+- **[Laravel](/es/docs/frameworks/laravel)** — modo Classic: el `public/index.php` de serie funciona sin tocar nada. El modo Worker para Laravel está en desarrollo: una aplicación de Laravel residente necesita el desmontaje de estado que implementa Octane, y Rapira todavía no tiene driver de Octane.
 - **[Yii3](/es/docs/frameworks/yii3)** — un contenedor residente que se reinicia en cada petición mediante `StateResetter`, que es el diseño del propio Yii3 para procesos de larga vida (su runner de RoadRunner tiene la misma forma), o un runner nuevo por petición, más sencillo, si prefieres empezar por ahí.
 
-Un framework que no cubra ninguna de estas guías corre con el mismo script de worker, y lo que decide si puede correr en modo worker es si la aplicación atiende una segunda petición en el mismo proceso. La forma por la que conviene empezar es reconstruir la aplicación dentro del handler, porque no le pide nada al framework; la forma a la que conviene pasar después es una aplicación residente con un reinicio de estado por petición. Si no funciona ninguna de las dos formas, el [modo clásico](/es/docs/classic) ejecuta la aplicación sin tocar nada.
+Un framework que no cubra ninguna de estas guías corre con el mismo script de worker, y lo que decide si puede correr en modo Worker es si la aplicación atiende una segunda petición en el mismo proceso. La forma por la que conviene empezar es reconstruir la aplicación dentro del handler, porque no le pide nada al framework; la forma a la que conviene pasar después es una aplicación residente con un reinicio de estado por petición. Si no funciona ninguna de las dos formas, el [modo Classic](/es/docs/classic) ejecuta la aplicación sin tocar nada.

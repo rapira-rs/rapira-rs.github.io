@@ -1,11 +1,11 @@
 ---
-title: Tryb klasyczny
-description: "Tryb klasyczny wykonuje zwykły front controller w PHP od zera przy każdym żądaniu, tak jak robi to php-fpm, za każdym razem od czystego stanu."
+title: Tryb Classic
+description: "Tryb Classic wykonuje zwykły front controller w PHP od zera przy każdym żądaniu, tak jak robi to php-fpm, za każdym razem od czystego stanu."
 ---
 
-# Tryb klasyczny
+# Tryb Classic
 
-Tryb klasyczny wykonuje zwykły front controller w PHP — ten sam `public/index.php`, na który dziś kierujesz php-fpm — od zera przy każdym przychodzącym żądaniu. Rapira wchodzi na miejsce php-fpm, a aplikacja nie wymaga żadnych zmian: zmienne superglobalne są wypełnione, skrypt wykonuje się od góry do dołu, a to, co wypisze, staje się odpowiedzią.
+Tryb Classic wykonuje zwykły front controller w PHP — ten sam `public/index.php`, na który dziś kierujesz php-fpm — od zera przy każdym przychodzącym żądaniu. Rapira wchodzi na miejsce php-fpm, a aplikacja nie wymaga żadnych zmian: zmienne superglobalne są wypełnione, skrypt wykonuje się od góry do dołu, a to, co wypisze, staje się odpowiedzią.
 
 ## Świeży stan przy każdym żądaniu
 
@@ -65,9 +65,9 @@ Wykonanie od zera resetuje stan twojej aplikacji, a nie skompilowany bytecode. P
 Sama pula procesów wygląda tak samo w obu trybach: proces nadrzędny forkuje workery, a każdy worker obsługuje jedno żądanie naraz, więc współbieżność bierze się z ich liczby. Więcej o procesie nadrzędnym i jego workerach znajdziesz na stronie [model procesów](/pl/docs/process-model).
 
 ::: info
-W trybie klasycznym `Rapira\handle_request()` rzuca `Rapira\Exception\NotInWorkerModeError`. Skrypt kończy się razem z żądaniem, więc nie ma tu pętli, która mogłaby przyjąć handler. Skrypty workera należą do trybu [Worker](/pl/docs/worker).
+W trybie Classic `Rapira\handle_request()` rzuca `Rapira\Exception\NotInWorkerModeError`. Skrypt kończy się razem z żądaniem, więc nie ma tu pętli, która mogłaby przyjąć handler. Skrypty workera należą do trybu [Worker](/pl/docs/worker).
 :::
 
 ## Wybór między Classic a Worker
 
-Wybierz tryb klasyczny, gdy stan aplikacji nie przetrwa drugiego żądania: stary kod, framework wyciekający do statycznych pól albo biblioteka z `vendor/`, na którą nie masz wpływu. Wybierz go również wtedy, gdy przesiadasz się z php-fpm i wolisz zmieniać po jednej rzeczy naraz. Wybierz tryb [Worker](/pl/docs/worker), gdy kod zniesie proces, który nie umiera. Tryb Worker zdejmuje pracę rozruchową wykonywaną przy każdym żądaniu. Strona [Tryby wykonania](/pl/docs/execution-modes) opisuje wszystkie trzy tryby.
+Wybierz tryb Classic, gdy stan aplikacji nie przetrwa drugiego żądania: stary kod, framework wyciekający do statycznych pól albo biblioteka z `vendor/`, na którą nie masz wpływu. Wybierz go również wtedy, gdy przesiadasz się z php-fpm i wolisz zmieniać po jednej rzeczy naraz. Wybierz tryb [Worker](/pl/docs/worker), gdy kod zniesie proces, który nie umiera. Tryb Worker zdejmuje pracę rozruchową wykonywaną przy każdym żądaniu. Strona [Tryby wykonania](/pl/docs/execution-modes) opisuje wszystkie trzy tryby.

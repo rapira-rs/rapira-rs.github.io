@@ -21,7 +21,7 @@ features:
 const httpFeatures = [
   { label: 'HTTP/1.1' },
   { label: 'Keep-alive' },
-  { label: 'Static files' },
+  { label: '静态文件' },
   { label: 'HTTP/2', ready: false },
   { label: 'HTTP/3', ready: false },
   { label: 'TLS 1.3', ready: false },
@@ -57,7 +57,7 @@ Rapira 把这个服务器补上了：它自带一个 HTTP 接入层，用 Rust �
 
 Rapira 用 Rust 编写，PHP 用 C 编写。Rust 原生调用 C 函数，两种语言之间的互操作没有任何开销：从 Rust 调用一个 PHP 函数，就是一次普通的函数调用。解释器内嵌在服务器进程里，Rapira 通过直接绑定驱动它——从启动引擎到处理每一个请求。
 
-这里没有 FastCGI，没有 Goridge，也没有 CGO：请求从不序列化，也从不离开进程。在经典模式和 Worker 模式下，Rapira 直接写入超全局变量。
+这里没有 FastCGI，没有 Goridge，也没有 CGO：请求从不序列化，也从不离开进程。在 Classic 模式和 Worker 模式下，Rapira 直接写入超全局变量。
 
 <template #aside>
 <TextTabs :tabs="interopTabs">

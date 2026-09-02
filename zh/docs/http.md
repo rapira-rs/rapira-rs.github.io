@@ -92,7 +92,7 @@ PHP 开跑之前，请求体会先被整个读进内存，而 Rapira 为它占�
 max_body_size_mb = 8
 ```
 
-## 响应是怎么发出去的
+## 响应传输
 
 接入层不缓冲响应体。PHP 一提交响应头，它就把响应头写出去；PHP 每产出一块响应体，它就写出一块。PHP 什么时候产出这些东西，则由模式决定。Classic 和 Worker 模式下，PHP 攥着整个响应，等请求结束时一并交给接入层；脚本调用了 `rapira_finish_request()` 的话则更早。Dispatcher 模式下，代码写多少，PHP 就把响应头和每一块响应体往接入层交多少。
 
@@ -141,7 +141,7 @@ $metrics->flush();
 
 它的签名是 `rapira_finish_request(): bool`。和 Rapira 暴露给 PHP 的其他所有东西一样，它声明在 [`crates/php_sys/rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php) 里——把 IDE 指向这个文件，就能得到补全和类型提示。
 
-这个函数按整个进程注册，作用于当前正在处理的那个请求，所以经典模式同样支持它：脚本是常驻还是每个请求重跑一遍，行为都一样。不同模式之间还有哪些差别，见[执行模式](/zh/docs/execution-modes)。
+这个函数按整个进程注册，作用于当前正在处理的那个请求，所以 Classic 模式同样支持它：脚本是常驻还是每个请求重跑一遍，行为都一样。不同模式之间还有哪些差别，见[执行模式](/zh/docs/execution-modes)。
 
 有两点要记住：
 

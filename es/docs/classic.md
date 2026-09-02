@@ -1,11 +1,11 @@
 ---
-title: Modo clásico
-description: "El modo clásico ejecuta un front controller de PHP normal desde cero en cada petición, igual que php-fpm, con el estado limpio cada vez."
+title: Modo Classic
+description: "El modo Classic ejecuta un front controller de PHP normal desde cero en cada petición, igual que php-fpm, con el estado limpio cada vez."
 ---
 
-# Modo clásico
+# Modo Classic
 
-El modo clásico ejecuta un front controller de PHP normal y corriente —el mismo `public/index.php` al que ya apuntas con php-fpm— desde cero en cada petición que llega. Rapira ocupa el lugar de php-fpm y la aplicación no necesita ningún cambio: las superglobales se rellenan, el script se ejecuta de arriba abajo y lo que imprima se convierte en la respuesta.
+El modo Classic ejecuta un front controller de PHP normal y corriente —el mismo `public/index.php` al que ya apuntas con php-fpm— desde cero en cada petición que llega. Rapira ocupa el lugar de php-fpm y la aplicación no necesita ningún cambio: las superglobales se rellenan, el script se ejecuta de arriba abajo y lo que imprima se convierte en la respuesta.
 
 ## Estado limpio en cada petición
 
@@ -65,9 +65,9 @@ Ejecutar desde cero reinicia el estado de tu aplicación, no el bytecode compila
 El pool de procesos en sí es el mismo en los dos modos: el maestro hace fork de los workers y cada worker atiende una petición cada vez, así que la concurrencia sale del número de procesos. Consulta la página de [modelo de procesos](/es/docs/process-model) para más información sobre el proceso maestro y sus workers.
 
 ::: info
-`Rapira\handle_request()` lanza `Rapira\Exception\NotInWorkerModeError` en modo clásico. El script termina cuando termina la petición, así que no hay ningún bucle al que entregarle un handler. Los scripts de worker son cosa del modo [Worker](/es/docs/worker).
+`Rapira\handle_request()` lanza `Rapira\Exception\NotInWorkerModeError` en modo Classic. El script termina cuando termina la petición, así que no hay ningún bucle al que entregarle un handler. Los scripts de worker son cosa del modo [Worker](/es/docs/worker).
 :::
 
 ## Elegir entre Classic y Worker
 
-Usa el modo clásico cuando el estado de tu aplicación no sobreviva a una segunda petición: código antiguo, un framework que se filtra en propiedades estáticas o una biblioteca de terceros que no controlas. Úsalo también cuando estés migrando desde php-fpm y prefieras cambiar una cosa cada vez. Usa el modo [Worker](/es/docs/worker) cuando tu código aguante un proceso que no muere. El modo worker quita de en medio el arranque de cada petición. La página de [modos de ejecución](/es/docs/execution-modes) describe los tres modos.
+Usa el modo Classic cuando el estado de tu aplicación no sobreviva a una segunda petición: código antiguo, un framework que se filtra en propiedades estáticas o una biblioteca de terceros que no controlas. Úsalo también cuando estés migrando desde php-fpm y prefieras cambiar una cosa cada vez. Usa el modo [Worker](/es/docs/worker) cuando tu código aguante un proceso que no muere. El modo Worker quita de en medio el arranque de cada petición. La página de [modos de ejecución](/es/docs/execution-modes) describe los tres modos.

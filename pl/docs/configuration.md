@@ -38,10 +38,10 @@ middleware = ["static"]               # optional; the list order is the chain or
 root = "public"                       # required; the directory must exist; relative → this file's directory
 forbid = [".php"]                     # optional; suffixes never served; an explicit list replaces the default
 
-[http.sendfile]                       # optional; containment root for sendFile(), dispatcher mode only
+[http.sendfile]                       # optional; containment root for sendFile(), Dispatcher mode only
 root = "public"                       # optional; defaults to the entrypoint's directory
 
-[http.uploads]                        # optional; host-side multipart limits, dispatcher mode only
+[http.uploads]                        # optional; host-side multipart limits, Dispatcher mode only
 dir = "/var/spool/rapira"             # optional; defaults to the system temp directory
 max_file_size_mb = 2                  # optional; per file part
 max_field_size_kb = 256               # optional; per field part

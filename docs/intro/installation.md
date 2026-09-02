@@ -63,6 +63,7 @@ It also shows the SHA-256 value. Each `php8.5` artifact has a corresponding `php
 
 On Linux, use a package for standard file locations and automatic library dependencies.
 Use a tarball for a single directory, container image, deployment artifact, or installation without root access.
+On Linux, the tarball also requires system libraries. See [Tarballs, on Linux and macOS](#tarballs-on-linux-and-macos) for the list.
 
 Check the file with `rapira-v0.8.0-SHA256SUMS.txt` before installation. See [Verifying checksums](#verifying-checksums).
 

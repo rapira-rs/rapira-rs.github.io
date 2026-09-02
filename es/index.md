@@ -11,7 +11,7 @@ features:
   - title: Compatible con php-fpm
     details: "Admite el SAPI clásico: Rapira ocupa el lugar de php-fpm sin tocar el código, pero va más rápido."
   - title: Modos de ejecución
-    details: "Classic → Worker → Dispatcher<br>¿Hasta dónde llega tu aplicación?"
+    details: "Classic → Worker → Dispatcher<br>¿Qué modos puede usar tu aplicación?"
     link: /es/docs/execution-modes
 ---
 

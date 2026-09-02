@@ -24,7 +24,7 @@ export default withMermaid(defineConfig({
     },
   },
 
-  srcExclude: ['CLAUDE.md', 'README.md'],
+  srcExclude: ['AGENTS.md', 'CLAUDE.md', 'README.md'],
   ignoreDeadLinks: [/feed\.xml$/],
 
   vite: {

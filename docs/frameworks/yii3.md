@@ -75,11 +75,11 @@ Walking through it:
 
 **`src/bootstrap.php` is the template's own bootstrap.** It loads Composer's autoloader, reads `.env` when it is there, and calls `Environment::prepare()`, exactly what `public/index.php` does before it touches the runner. The explicit `vendor/autoload.php` line above it is redundant — `require_once` makes the second call a no-op — and keeps the worker readable as a standalone entry point.
 
-**The runner is constructed once, with the arguments from `public/index.php`.** `rootPath`, `debug`, `checkEvents` and `environment` come from `App\Environment` exactly as the front controller passes them, so the worker boots the same application the web entry point does. The template's `public/index.php` passes one more argument — a `temporaryErrorHandler` wired to a `StreamTarget` logger — and requires `c3.php` when `APP_C3` is on. The verified worker omits both. The temporary handler only covers errors raised while the configuration and container are being built; without one the runner falls back to an `ErrorHandler` with a `NullLogger` (`HttpApplicationRunner::createTemporaryErrorHandler()`), so pass it here too if you want container-build failures logged.
+**The runner is constructed once, with the arguments from `public/index.php`.** The entry script passes `rootPath`, `debug`, `checkEvents`, and `environment` from `App\Environment`. Therefore, the worker boots the same application as the web entry point. The template's `public/index.php` passes one more argument — a `temporaryErrorHandler` wired to a `StreamTarget` logger — and requires `c3.php` when `APP_C3` is on. The verified worker omits both. The temporary handler covers errors raised while the configuration and container are being built. Without it, the runner uses an `ErrorHandler` with a `NullLogger` (`HttpApplicationRunner::createTemporaryErrorHandler()`). Pass the temporary handler here to log container-build failures.
 
 **`getContainer()` is public API**, so the container you capture is the application's container — the one the runner will use for every request. `StateResetter` is resolved from it inside the handler.
 
-**Per request: `run()`, then `reset()`.** `run()` is the same call the front controller makes; `reset()` walks the container's registered reset callbacks and puts the stateful services back to their initial state before the next request arrives.
+**Per request: `run()`, then `reset()`.** The entry script also calls `run()`. Then, `reset()` runs the registered reset callbacks in the container. These callbacks restore stateful services before the next request arrives.
 
 **`run()` re-executes its whole sequence on every call.** Each call registers the error handler, runs `runBootstrap()`, runs `checkEvents()`, and then handles the request; the runner is re-entrant by design, and that repetition was verified harmless over 200 consecutive calls. The events check only does work when its flag is true, and the template ties that flag to `Environment::appDebug()`, so with debug off it is a no-op on every call.
 
@@ -174,7 +174,7 @@ The app template puts `CsrfTokenMiddleware` in its default middleware chain, and
 
 ## Classic mode as a fallback
 
-Yii3 also runs as an ordinary front controller:
+Yii3 also runs with an ordinary entry script:
 
 ```bash
 rapira serve --mode classic public/index.php
@@ -182,6 +182,6 @@ rapira serve --mode classic public/index.php
 
 Same code, no worker script, fresh state per request. See [Classic mode](/docs/classic) for more information.
 
-The worker script is an additional entry point, not a replacement for the front controller. Keep `public/index.php` because Classic mode uses it as the entry script. It is also useful for local work with PHP's built-in server.
+The worker script is an additional entry point, not a replacement for the standard entry script. Keep `public/index.php` because Classic mode uses it. It is also useful for local work with PHP's built-in server.
 
 The template's `public/index.php` contains a `PHP_SAPI === 'cli-server'` branch that serves static files and rewrites `SCRIPT_NAME`. It exists for PHP's built-in development server and never triggers under Rapira, where `PHP_SAPI` is `rapira` (`fastcgi` on PHP 8.4 — see [Installation](/docs/intro/installation)), so it can stay as it is.

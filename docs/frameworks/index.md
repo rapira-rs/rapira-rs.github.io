@@ -5,7 +5,7 @@ description: "The mechanics shared by every framework running on Rapira: the wor
 
 # Framework integration
 
-A framework application runs on Rapira unchanged in Classic mode: you point the server at the front controller you already have. In Worker mode the PHP process stays alive between requests, and what the application can keep resident depends on the framework's own design. This page covers the mechanics shared by every framework. The three framework guides assume you have read this page and cover only framework-specific behavior.
+A framework application runs on Rapira unchanged in Classic mode: you point the server at the entry script you already have. In Worker mode the PHP process stays alive between requests, and what the application can keep resident depends on the framework's own design. This page covers the mechanics shared by every framework. The three framework guides assume you have read this page and cover only framework-specific behavior.
 
 ::: info Verified with
 
@@ -18,7 +18,7 @@ Everything on this page was observed by running those applications on Linux, wit
 
 ## Classic and Worker modes
 
-**In Classic mode, nothing changes.** The front controller is the entry script. Rapira executes it from scratch for every request. Every framework that runs under php-fpm also runs here. This includes frameworks whose state cannot survive a second request. See [Classic mode](/docs/classic) for more information; of the sections below, only static files, TLS and OPcache apply.
+**In Classic mode, nothing changes.** Rapira uses the existing entry script and executes it from scratch for every request. Every framework that runs under php-fpm also runs here. This includes frameworks whose state cannot survive a second request. See [Classic mode](/docs/classic) for more information; of the sections below, only static files, TLS and OPcache apply.
 
 **In Worker mode, the process stays alive.** Your script boots the application once and then loops, asking Rapira for the next request. The framework is no longer torn down between requests. See [execution modes](/docs/execution-modes) for the mode descriptions, and [Worker mode](/docs/worker) for its API reference.
 
@@ -122,7 +122,7 @@ middleware = ["static"]
 root = "public"
 ```
 
-The middleware answers a request only when the path matches a file under that root. Its default `forbid` list keeps `.php` files out, so the front controller in `public/` is never served as a file. Every other URL runs the entry script, in Classic and Worker mode alike. `$_SERVER['REQUEST_URI']` tells the application where the client wanted to go. A directory URL runs the entry script as well, because the middleware serves no index file for it.
+The middleware answers a request only when the path matches a file under that root. Its default `forbid` list keeps `.php` files out, so the entry script in `public/` is never served as a file. Every other URL runs the entry script, in Classic and Worker mode alike. `$_SERVER['REQUEST_URI']` tells the application where the client wanted to go. A directory URL runs the entry script as well, because the middleware serves no index file for it.
 
 A CDN or a reverse proxy in front can still serve the assets instead. [Running in production](/docs/deployment) sets up such a proxy.
 

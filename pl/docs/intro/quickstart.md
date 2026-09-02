@@ -9,7 +9,7 @@ Ta strona pokazuje, jak wystawić stronę w trybie Classic, zamienić tę samą 
 
 ## Tryb Classic
 
-Tryb Classic jest dostępny dla każdej aplikacji: przy każdym żądaniu Rapira na nowo dołącza twój skrypt wejściowy — dokładnie tak, jak php-fpm uruchamia front controller. Kod nie wymaga przy tym żadnych zmian.
+Tryb Classic jest dostępny dla każdej aplikacji. Przy każdym żądaniu Rapira na nowo dołącza skrypt wejściowy, dokładnie tak jak php-fpm. Kod nie wymaga żadnych zmian.
 
 Utwórz `public/index.php`:
 

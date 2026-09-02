@@ -173,7 +173,7 @@ Si quieres soltar al cliente antes de que se ejecuten los listeners posteriores 
 
 ## El bucle de desarrollo
 
-`rapira serve` se ejecuta en primer plano y tu aplicación arranca una sola vez, así que **el código PHP que cambies no se recoge hasta que se reemplacen los workers**. Mientras estás editando a fondo, lo más simple es parar y arrancar el servidor, o ejecutar el front controller en [modo Classic](/es/docs/classic), donde el script se ejecuta desde cero cada vez y cada guardado se ve al momento:
+`rapira serve` se ejecuta en primer plano y tu aplicación arranca una sola vez, así que **el código PHP que cambies no se recoge hasta que se reemplacen los workers**. Mientras estás editando a fondo, lo más simple es parar y arrancar el servidor, o ejecutar el script de entrada en [modo Classic](/es/docs/classic), donde el script se ejecuta desde cero cada vez y cada guardado se ve al momento:
 
 ```bash
 rapira serve --mode classic public/index.php

@@ -5,7 +5,7 @@ description: "La mecánica común a todos los frameworks que corren sobre Rapira
 
 # Integración con frameworks
 
-En modo Classic una aplicación de framework corre sobre Rapira sin tocar nada: apuntas el servidor al front controller que ya tienes. En modo Worker el proceso de PHP sigue vivo entre una petición y la siguiente, y lo que la aplicación puede mantener residente depende del diseño del propio framework. Esta página cubre la mecánica que es igual para todos los frameworks; las tres guías específicas de cada framework dan por hecho que ya la has leído y solo cuentan lo suyo.
+En modo Classic una aplicación de framework corre sobre Rapira sin tocar nada: apuntas el servidor al script de entrada que ya tienes. En modo Worker el proceso de PHP sigue vivo entre una petición y la siguiente, y lo que la aplicación puede mantener residente depende del diseño del propio framework. Esta página cubre la mecánica que es igual para todos los frameworks; las tres guías específicas de cada framework dan por hecho que ya la has leído y solo cuentan lo suyo.
 
 ::: info Verificado con
 
@@ -18,7 +18,7 @@ Todo lo que cuenta esta página se observó ejecutando esas aplicaciones en Linu
 
 ## Modos Classic y Worker
 
-**En modo Classic no cambia nada.** Tu front controller es el script de entrada, Rapira lo ejecuta desde cero en cada petición y aquí funciona cualquier framework que funcione con php-fpm, incluidos aquellos cuyo estado jamás sobreviviría a una segunda petición. Consulta [modo Classic](/es/docs/classic) para más información; de las secciones de abajo solo se aplican los archivos estáticos, TLS y OPcache.
+**En modo Classic no cambia nada.** Rapira usa el script de entrada existente y lo ejecuta desde cero en cada petición. Aquí funciona cualquier framework que funcione con php-fpm, incluidos aquellos cuyo estado jamás sobreviviría a una segunda petición. Consulta [modo Classic](/es/docs/classic) para más información; de las secciones de abajo solo se aplican los archivos estáticos, TLS y OPcache.
 
 **En modo Worker el proceso sigue vivo.** Tu script arranca la aplicación una vez y entra en un bucle pidiéndole a Rapira la siguiente petición. El framework ya no se desmonta entre petición y petición. En [modos de ejecución](/es/docs/execution-modes) tienes las descripciones de los modos, y en [modo Worker](/es/docs/worker), su referencia de API.
 
@@ -122,7 +122,7 @@ middleware = ["static"]
 root = "public"
 ```
 
-El middleware solo responde a una petición cuando la ruta coincide con un archivo que hay bajo esa raíz. Su lista `forbid` de fábrica deja fuera los archivos `.php`, así que el front controller de `public/` no se sirve nunca como archivo. Cualquier otra URL ejecuta el script de entrada, igual en modo Classic que en modo Worker, y `$_SERVER['REQUEST_URI']` le dice a la aplicación adónde quería ir el cliente. La URL de un directorio también ejecuta el script de entrada, porque el middleware no sirve ningún archivo de índice.
+El middleware solo responde a una petición cuando la ruta coincide con un archivo que hay bajo esa raíz. Su lista `forbid` de fábrica deja fuera los archivos `.php`, así que el script de entrada de `public/` no se sirve nunca como archivo. Cualquier otra URL ejecuta el script de entrada, igual en modo Classic que en modo Worker, y `$_SERVER['REQUEST_URI']` le dice a la aplicación adónde quería ir el cliente. La URL de un directorio también ejecuta el script de entrada, porque el middleware no sirve ningún archivo de índice.
 
 Una CDN o un proxy inverso por delante también pueden servir esos archivos en su lugar. La [puesta en producción](/es/docs/deployment) monta un proxy de esos.
 

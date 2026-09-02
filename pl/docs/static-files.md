@@ -58,7 +58,7 @@ O reszcie decyduje ścieżka:
 Żądanie, które idzie do PHP, dociera tam z nietkniętą treścią, polami i rozszerzeniami. Co PHP z niego odczytuje, opisują [Żądania i odpowiedzi HTTP](/pl/docs/http).
 
 ::: question Dlaczego URL katalogu nie dostaje w odpowiedzi `index.html`?
-Przestrzeń adresów należy do PHP: URL katalogu jest trasą aplikacji. Domyślny plik indeksu dawałby dwie odpowiedzi na jeden URL, jedną z systemu plików i jedną z routera, a przy okazji odbierałby `/` front controllerowi.
+Przestrzeń adresów należy do PHP: URL katalogu jest trasą aplikacji. Domyślny plik indeksu dawałby dwie odpowiedzi na jeden URL, jedną z systemu plików i jedną z routera, a także uniemożliwiałby skryptowi wejściowemu obsługę `/`.
 :::
 
 ::: question Jak middleware odróżnia brak pliku od nieudanego odczytu?

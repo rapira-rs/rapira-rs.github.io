@@ -18,7 +18,7 @@ Rapira 用三种执行模式之一来运行 PHP，三种今天都已经发布。
 
 ## Classic <Badge type="tip" text="已发布" />
 
-每个请求都会把入口脚本从头跑一遍，和在 php-fpm 下完全一样：填好超全局变量，启动前端控制器，把响应发出去，然后全部销毁。脚本创建的一切都不会留到下一个请求，应用状态也就不会泄漏过去。例外和 php-fpm 完全一样：持久连接和扩展级的状态住在 worker 进程里，不属于某一个请求。
+每个请求都会从头运行入口脚本，和 php-fpm 完全一样。Rapira 填充超全局变量、启动入口脚本、发送响应并删除请求状态。脚本创建的内容不会留到下一个请求，因此应用状态不会泄漏。例外情况与 php-fpm 相同。持久连接和扩展级状态位于 worker 进程中，不属于某一个请求。
 
 现有应用原封不动就能跑，因为 Rapira 直接顶替 php-fpm，你的代码一行都不用改。PHP 嵌在服务器进程里，HTTP 接入层和解释器之间不再有 FastCGI 这一跳。
 
@@ -85,7 +85,7 @@ rapira serve --mode classic public/index.php
 
 模式是按服务器实例选的，不是按路由选的，所以同一个实例没法让一部分路由走 worker、其余走 Classic。如果应用里有一部分不是 worker 安全的，就为它单独起一个跑在 Classic 模式下的 Rapira 实例。
 
-Worker 和 Dispatcher 模式需要一个常驻入口脚本，Classic 模式不需要。要切换回 Classic 模式，请在配置文件中设置 `mode = "classic"`，或传入 `--mode classic`。然后让 Rapira 指向原来的前端控制器。服务器、二进制文件和[进程模型](/zh/docs/process-model)保持不变。更多细节见[配置](/zh/docs/configuration)和[命令行参考](/zh/docs/cli)。
+Worker 和 Dispatcher 模式需要一个常驻入口脚本，Classic 模式不需要。要切换回 Classic 模式，请在配置文件中设置 `mode = "classic"`，或传入 `--mode classic`。然后让 Rapira 指向原来的入口脚本。服务器、二进制文件和[进程模型](/zh/docs/process-model)保持不变。更多细节见[配置](/zh/docs/configuration)和[命令行参考](/zh/docs/cli)。
 
 ::: tip
 如果你只是想替掉 php-fpm、先让一切跑起来，那就从 Classic 起步。等确认应用启动干净、也没有在请求之间留下不该留的状态，再切换到 Worker。

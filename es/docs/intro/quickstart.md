@@ -9,7 +9,7 @@ Esta página explica cómo servir una página en modo Classic, convertir esa mis
 
 ## Modo Classic
 
-El modo Classic está disponible para cualquier aplicación: Rapira vuelve a incluir tu script de entrada en cada petición, exactamente igual que php-fpm ejecutaría un front controller. No hay que cambiar nada del código.
+El modo Classic está disponible para cualquier aplicación. Rapira vuelve a incluir el script de entrada en cada petición, igual que php-fpm. No hay que cambiar nada del código.
 
 Crea `public/index.php`:
 

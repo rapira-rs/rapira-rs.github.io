@@ -5,7 +5,7 @@ description: "在 Rapira 上以 Classic 模式运行 Laravel，以及 Worker 模
 
 # Laravel
 
-Rapira 以 Classic 模式运行 Laravel：原封不动的 `public/index.php` 前端控制器，每个请求都从头执行一遍，和 php-fpm 跑它的方式一样。应用不需要任何改动。Laravel 的 Worker 模式还在开发中，现状见下面的 [Worker 模式](#worker-模式)。
+Rapira 以 Classic 模式运行 Laravel，并使用原有的 `public/index.php` 入口脚本。每个请求都会从头执行此脚本，和 php-fpm 一样。应用不需要任何改动。Laravel 的 Worker 模式还在开发中，现状见下面的 [Worker 模式](#worker-模式)。
 
 ::: info 验证环境
 - **PHP 8.5.8**——NTS，embed SAPI
@@ -45,7 +45,7 @@ listen = "127.0.0.1:8000"
 
 用配置文件时命令是 `rapira serve --config rapira.toml`，相对路径的 `entrypoint` 按配置文件自己所在的目录解析。所有键和它们的默认值都在[配置](/zh/docs/configuration)页面上。
 
-Rapira 每个请求都把前端控制器从头执行一遍，所以框架的生命周期和它在 php-fpm 下完全一样：没有常驻状态，两次请求之间也没有什么需要重置。保持热态的是 OPcache——PHP 只在 master 里启动一次，早于任何 worker 被 fork 出来，所以所有 worker 共用同一份编译后脚本缓存，你的代码和 `vendor/` 树都在里面。具体机制见 [Classic 模式](/zh/docs/classic)。
+Rapira 每个请求都把入口脚本从头执行一遍，所以框架的生命周期和它在 php-fpm 下完全一样：没有常驻状态，两次请求之间也没有什么需要重置。保持热态的是 OPcache——PHP 只在 master 里启动一次，早于任何 worker 被 fork 出来，所以所有 worker 共用同一份编译后脚本缓存，你的代码和 `vendor/` 树都在里面。具体机制见 [Classic 模式](/zh/docs/classic)。
 
 上生产之前，先把框架的缓存构建出来；这两条命令都在 Classic 模式下验证过，缓存前和缓存后跑的是同一套检查，两边都过：
 
@@ -56,7 +56,7 @@ php artisan route:cache
 
 ## 路由与 URL
 
-Rapira 不会把 URL 映射到 PHP 脚本：每个请求跑的都是前端控制器，路径由 `$_SERVER['REQUEST_URI']` 交给 Laravel 去路由。开启[静态文件中间件](/zh/docs/static-files)之后，凡是它能用文件应答的请求由它接走，其余的请求照旧跑前端控制器。路由、没匹配上的路径拿到的 Laravel 自带 404 页面，以及 `url()` 生成的地址，全都验证过：生成出来的是干净的绝对 URL，里面没有 `index.php`，而且既不需要覆盖 `$_SERVER`，也不需要改任何路由或 URL 配置。
+Rapira 不会把 URL 映射到 PHP 脚本：每个请求跑的都是入口脚本，路径由 `$_SERVER['REQUEST_URI']` 交给 Laravel 去路由。开启[静态文件中间件](/zh/docs/static-files)之后，凡是它能用文件应答的请求由它接走，其余的请求照旧跑入口脚本。路由、没匹配上的路径拿到的 Laravel 自带 404 页面，以及 `url()` 生成的地址，全都验证过：生成出来的是干净的绝对 URL，里面没有 `index.php`，而且既不需要覆盖 `$_SERVER`，也不需要改任何路由或 URL 配置。
 
 骨架自带的 `/up` 健康检查路由返回 `200`，拿它给负载均衡器或者容器健康检查当探测目标正合适。骨架里的静态资源由 Rapira 自己用[静态文件中间件](/zh/docs/static-files)提供。开启它要两处一起配：在 `http.middleware` 里列出 `"static"`，并把 `[http.static]` 的 `root` 指向应用的 `public/` 目录。只配了一半，Rapira 会拒绝启动。当然，也可以让前面的 CDN 或反向代理来提供这些资源。Rapira 的监听器只讲明文 HTTP，无论 `X-Forwarded-Proto` 是什么值，`$_SERVER['HTTPS']` 都是空的。TLS 在那个代理上终结时，要在 Laravel 里配置[可信代理](https://laravel.com/docs/requests#configuring-trusted-proxies)；不配的话，`url()` 生成的是 `http://` 链接。
 

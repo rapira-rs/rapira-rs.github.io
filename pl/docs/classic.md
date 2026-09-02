@@ -1,11 +1,11 @@
 ---
 title: Tryb Classic
-description: "Tryb Classic wykonuje zwykły front controller w PHP od zera przy każdym żądaniu, tak jak robi to php-fpm, za każdym razem od czystego stanu."
+description: "Tryb Classic wykonuje zwykły skrypt wejściowy PHP od zera przy każdym żądaniu, tak jak robi to php-fpm, za każdym razem od czystego stanu."
 ---
 
 # Tryb Classic
 
-Tryb Classic wykonuje zwykły front controller w PHP — ten sam `public/index.php`, na który dziś kierujesz php-fpm — od zera przy każdym przychodzącym żądaniu. Rapira wchodzi na miejsce php-fpm, a aplikacja nie wymaga żadnych zmian: zmienne superglobalne są wypełnione, skrypt wykonuje się od góry do dołu, a to, co wypisze, staje się odpowiedzią.
+Tryb Classic wykonuje zwykły skrypt wejściowy PHP, nazywany też front controllerem. Jest to ten sam plik `public/index.php`, który uruchamia php-fpm. Rapira wykonuje go od zera przy każdym żądaniu. Rapira zastępuje php-fpm, a aplikacja nie wymaga żadnych zmian. Zmienne superglobalne są wypełniane, skrypt wykonuje się od góry do dołu, a jego wyjście staje się odpowiedzią.
 
 ## Świeży stan przy każdym żądaniu
 
@@ -60,7 +60,7 @@ Wynikają z tego wartości zmiennych CGI: `SCRIPT_FILENAME` to zawsze skrypt wej
 
 ## OPcache
 
-Wykonanie od zera resetuje stan twojej aplikacji, a nie skompilowany bytecode. Proces nadrzędny uruchamia PHP dokładnie raz, przy starcie modułu, *zanim* sforkuje jakiegokolwiek workera — dzięki temu OPcache tworzy swój segment pamięci współdzielonej jeden jedyny raz, a każdy sforkowany worker dziedziczy dokładnie to samo mapowanie. Przy włączonym OPcache skompilowane skrypty zostają w cache'u między żądaniami i w obrębie całej puli, więc ponowne wykonanie front controllera nie oznacza ponownego parsowania.
+Wykonanie od zera resetuje stan aplikacji, a nie skompilowany bytecode. Proces nadrzędny uruchamia PHP raz, zanim sforkuje workera. Dlatego OPcache tworzy jeden segment pamięci współdzielonej, a każdy worker dziedziczy to samo mapowanie. Przy włączonym OPcache skompilowane skrypty pozostają w cache'u między żądaniami i w obrębie całej puli. Ponowne wykonanie skryptu wejściowego nie oznacza ponownego parsowania.
 
 Sama pula procesów wygląda tak samo w obu trybach: proces nadrzędny forkuje workery, a każdy worker obsługuje jedno żądanie naraz, więc współbieżność bierze się z ich liczby. Więcej o procesie nadrzędnym i jego workerach znajdziesz na stronie [model procesów](/pl/docs/process-model).
 

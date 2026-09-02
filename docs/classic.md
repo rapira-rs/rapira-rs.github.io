@@ -1,11 +1,11 @@
 ---
 title: Classic mode
-description: Classic mode runs an ordinary PHP front controller from scratch on every request, the way php-fpm does, with fresh state each time.
+description: Classic mode runs an ordinary PHP entry script from scratch on every request, the way php-fpm does, with fresh state each time.
 ---
 
 # Classic mode
 
-Classic mode executes an ordinary PHP front controller — the same `public/index.php` you already point php-fpm at — from scratch for every request that arrives. Rapira takes php-fpm's place and the application needs no changes: the superglobals are filled in, the script runs top to bottom, and whatever it prints becomes the response.
+Classic mode executes an ordinary PHP entry script, also called a front controller. This is the same `public/index.php` that php-fpm runs. Rapira executes it from scratch for every request. Rapira takes php-fpm's place, and the application needs no changes. The superglobals are filled in, the script runs from top to bottom, and its output becomes the response.
 
 ## Fresh state on every request
 
@@ -60,7 +60,7 @@ The CGI variables follow from that rule. `SCRIPT_FILENAME` is always the entry s
 
 ## OPcache
 
-Executing from scratch resets your application's state, not the compiled bytecode. The master process starts PHP exactly once, at module startup, *before* it forks any worker — so OPcache creates its shared memory segment a single time and every forked worker inherits that same mapping. With OPcache enabled, compiled scripts stay cached across requests and across the whole pool, and re-executing your front controller does not mean re-parsing it.
+Executing from scratch resets the application's state, not the compiled bytecode. The master process starts PHP once, before it forks a worker. Therefore, OPcache creates one shared memory segment, and every worker inherits the same mapping. With OPcache enabled, compiled scripts stay cached across requests and across the whole pool. Re-executing the entry script does not parse it again.
 
 The process pool itself is the same in both modes: the master forks workers, and each worker handles one request at a time, so concurrency comes from the number of processes. See the [process model](/docs/process-model) page for more information about the master process and its workers.
 

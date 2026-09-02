@@ -5,7 +5,7 @@ description: "Ejecutar Laravel sobre Rapira en modo Classic y el estado actual d
 
 # Laravel
 
-Rapira ejecuta Laravel en modo Classic: el front controller `public/index.php` de siempre, ejecutado desde cero en cada petición, tal y como lo ejecuta php-fpm. La aplicación no necesita ningún cambio. El modo Worker para Laravel está en desarrollo; su estado actual está más abajo, en [Modo Worker](#modo-worker).
+Rapira ejecuta Laravel en modo Classic con el script de entrada `public/index.php` de siempre. Lo ejecuta desde cero en cada petición, igual que php-fpm. La aplicación no necesita ningún cambio. El modo Worker para Laravel está en desarrollo; su estado actual está más abajo, en [Modo Worker](#modo-worker).
 
 ::: info Verificado con
 - **PHP 8.5.8** — NTS, SAPI embed
@@ -45,7 +45,7 @@ listen = "127.0.0.1:8000"
 
 Con un archivo de configuración el comando es `rapira serve --config rapira.toml`, y un `entrypoint` relativo se resuelve respecto al directorio del propio archivo. Todas las claves y sus valores por defecto están en la página de [Configuración](/es/docs/configuration).
 
-Rapira ejecuta el front controller desde cero en cada petición, así que el ciclo de vida del framework es exactamente el que tiene bajo php-fpm: no hay estado residente ni nada que reiniciar entre peticiones. Lo que sí se queda caliente es OPcache: PHP arranca una sola vez en el maestro, antes de hacer fork de ningún worker, así que todos los workers comparten la misma caché de scripts compilados para tu código y para tu árbol `vendor/`. En [Modo Classic](/es/docs/classic) tienes cómo funciona.
+Rapira ejecuta el script de entrada desde cero en cada petición, así que el ciclo de vida del framework es exactamente el que tiene bajo php-fpm: no hay estado residente ni nada que reiniciar entre peticiones. Lo que sí se queda caliente es OPcache: PHP arranca una sola vez en el maestro, antes de hacer fork de ningún worker, así que todos los workers comparten la misma caché de scripts compilados para tu código y para tu árbol `vendor/`. En [Modo Classic](/es/docs/classic) tienes cómo funciona.
 
 Para producción, genera antes las cachés del framework; las dos se verificaron en modo Classic, y las mismas comprobaciones pasaron sin cachear y cacheadas:
 
@@ -56,7 +56,7 @@ php artisan route:cache
 
 ## Rutas y URLs
 
-Rapira no mapea las URL sobre scripts PHP: cada petición ejecuta el front controller y la ruta que Laravel enruta llega en `$_SERVER['REQUEST_URI']`. Cuando el [middleware de archivos estáticos](/es/docs/static-files) está activado, responde a las peticiones que puede servir con un archivo, y las demás ejecutan el front controller. El enrutado, la página 404 del propio Laravel para las rutas que no encajan y la generación con `url()` se verificaron todos: las URL que salen son absolutas y limpias, sin `index.php` por ninguna parte, y sin sobrescribir nada de `$_SERVER` ni tocar la configuración de rutas o de URLs.
+Rapira no mapea las URL sobre scripts PHP: cada petición ejecuta el script de entrada y la ruta que Laravel enruta llega en `$_SERVER['REQUEST_URI']`. Cuando el [middleware de archivos estáticos](/es/docs/static-files) está activado, responde a las peticiones que puede servir con un archivo, y las demás ejecutan el script de entrada. El enrutado, la página 404 del propio Laravel para las rutas que no encajan y la generación con `url()` se verificaron todos: las URL que salen son absolutas y limpias, sin `index.php` por ninguna parte, y sin sobrescribir nada de `$_SERVER` ni tocar la configuración de rutas o de URLs.
 
 La ruta de salud `/up` que trae el esqueleto responde `200`, así que sirve como destino del health check de un balanceador de carga o de un contenedor. Los archivos estáticos del esqueleto los sirve Rapira con el [middleware de archivos estáticos](/es/docs/static-files). Actívalo por sus dos mitades: nombra `"static"` en `http.middleware` y pon en la clave `root` de `[http.static]` el directorio `public/` de la aplicación. Si aparece una mitad sin la otra, Rapira se niega a arrancar. Una CDN o un proxy inverso por delante también pueden servir esos archivos en su lugar. El listener de Rapira habla HTTP en claro y deja `$_SERVER['HTTPS']` vacío sea cual sea el valor de `X-Forwarded-Proto`. Cuando ese proxy termina el TLS, configura los [proxies de confianza](https://laravel.com/docs/requests#configuring-trusted-proxies) de Laravel; sin esa configuración, `url()` genera enlaces `http://`.
 

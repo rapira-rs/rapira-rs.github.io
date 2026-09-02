@@ -9,7 +9,7 @@ This page covers serving a page in Classic mode and converting the application t
 
 ## Classic mode
 
-Classic mode is available to every application: Rapira re-includes your entry script for every request, exactly the way php-fpm would run a front controller. Nothing about the code has to change.
+Classic mode is available to every application. Rapira includes the entry script again for every request, exactly as php-fpm does. The code does not need to change.
 
 Create `public/index.php`:
 

@@ -5,7 +5,7 @@ description: Running Laravel on Rapira in Classic mode, and the current state of
 
 # Laravel
 
-Rapira runs Laravel in Classic mode: the stock `public/index.php` front controller, executed from scratch for every request, the way php-fpm runs it. The application needs no changes. Worker mode for Laravel is under development — see [Worker mode](#worker-mode) below for the current state.
+Rapira runs Laravel in Classic mode with the stock `public/index.php` entry script. Rapira executes it from scratch for every request, as php-fpm does. The application needs no changes. Worker mode for Laravel is under development — see [Worker mode](#worker-mode) below for the current state.
 
 ::: info Verified with
 - **PHP 8.5.8** — NTS, embed SAPI
@@ -45,7 +45,7 @@ listen = "127.0.0.1:8000"
 
 With a config file the command is `rapira serve --config rapira.toml`, and a relative `entrypoint` resolves against the config file's own directory. Every key and its default is on the [Configuration](/docs/configuration) page.
 
-Rapira executes the front controller from scratch for every request. Therefore, the framework has the same lifecycle as it has under php-fpm. It has no resident application state to reset between requests. OPcache remains warm. PHP starts once in the master, before the master forks a worker. Therefore, all workers share the same compiled-script cache for the application code and the `vendor/` tree. See [Classic mode](/docs/classic) for more information.
+Rapira executes the entry script from scratch for every request. Therefore, the framework has the same lifecycle as it has under php-fpm. It has no resident application state to reset between requests. OPcache remains warm. PHP starts once in the master, before the master forks a worker. Therefore, all workers share the same compiled-script cache for the application code and the `vendor/` tree. See [Classic mode](/docs/classic) for more information.
 
 For production, build the framework's caches first; both were verified in Classic mode, with the same checks passing plain and cached:
 
@@ -56,7 +56,7 @@ php artisan route:cache
 
 ## Routing and URLs
 
-Rapira does not map URLs onto PHP scripts. Every request runs the front controller, and `$_SERVER['REQUEST_URI']` contains the path for Laravel to route. The [static file middleware](/docs/static-files) answers requests that match files. Every other request runs the front controller. Tests covered routing, Laravel's 404 page for unmatched paths, and `url()` generation. Generated URLs are clean absolute URLs without `index.php`. They require no `$_SERVER` overrides or route and URL configuration changes.
+Rapira does not map URLs onto PHP scripts. Every request runs the entry script, and `$_SERVER['REQUEST_URI']` contains the path for Laravel to route. The [static file middleware](/docs/static-files) answers requests that match files. Every other request runs the entry script. Tests covered routing, Laravel's 404 page for unmatched paths, and `url()` generation. Generated URLs are clean absolute URLs without `index.php`. They require no `$_SERVER` overrides or route and URL configuration changes.
 
 The skeleton's built-in `/up` health route answers `200`, so it works as the target for a load balancer or container health check. Rapira serves the skeleton's assets with the [static file middleware](/docs/static-files). Enable it with both halves: list `"static"` in `http.middleware`, and set `root` in `[http.static]` to the application's `public/` directory. Rapira refuses to boot when one half is present without the other. A CDN or a reverse proxy in front can still serve the assets instead. Rapira's listener speaks plain HTTP and leaves `$_SERVER['HTTPS']` empty regardless of `X-Forwarded-Proto`. When the proxy terminates TLS, configure Laravel's [trusted proxies](https://laravel.com/docs/requests#configuring-trusted-proxies). Without that configuration, `url()` generates `http://` links.
 

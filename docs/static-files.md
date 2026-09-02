@@ -58,7 +58,7 @@ The path decides the rest:
 A request that goes to PHP arrives with its body, its fields and its extensions unchanged. See [HTTP requests and responses](/docs/http) for what PHP reads from it.
 
 ::: question Why is a directory URL not answered with `index.html`?
-The URL space belongs to PHP, so a directory URL is an application route. An implicit index file would create two possible responses for one URL. One response would come from the filesystem, and the other would come from the router. It would also prevent the front controller from handling `/`.
+The URL space belongs to PHP, so a directory URL is an application route. An implicit index file would create two possible responses for one URL. One response would come from the filesystem, and the other would come from the router. It would also prevent the entry script from handling `/`.
 :::
 
 ::: question How does the middleware separate a miss from a read failure?

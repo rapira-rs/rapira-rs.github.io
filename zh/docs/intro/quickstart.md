@@ -9,7 +9,7 @@ description: "用 Rapira 以 Classic 模式和 Worker 模式提供 PHP 应用，
 
 ## Classic 模式
 
-Classic 模式对任何应用都可用：每来一个请求，Rapira 就重新 include 一次入口脚本，跟 php-fpm 跑前端控制器完全一样。代码一行都不用改。
+Classic 模式适用于任何应用。每个请求都会让 Rapira 重新 include 入口脚本，和 php-fpm 一样。代码不需要更改。
 
 新建 `public/index.php`：
 

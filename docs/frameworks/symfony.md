@@ -173,7 +173,7 @@ If you want the client freed before the post-response listeners run, call [`rapi
 
 ## The development loop
 
-`rapira serve` runs in the foreground and your application is booted once, so **changed PHP code is not picked up until the workers are replaced**. During active development, restart the server after each edit. Alternatively, run the front controller in [Classic mode](/docs/classic). Classic mode executes the script from scratch for each request, so saved changes are immediately available:
+`rapira serve` runs in the foreground and your application is booted once, so **changed PHP code is not picked up until the workers are replaced**. During active development, restart the server after each edit. Alternatively, run the entry script in [Classic mode](/docs/classic). Classic mode executes the script from scratch for each request, so saved changes are immediately available:
 
 ```bash
 rapira serve --mode classic public/index.php

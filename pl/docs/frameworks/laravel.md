@@ -5,7 +5,7 @@ description: "Uruchamianie Laravela na Rapirze w trybie Classic i aktualny stan 
 
 # Laravel
 
-Rapira uruchamia Laravela w trybie Classic: fabryczny front controller `public/index.php` wykonuje się od zera przy każdym żądaniu, dokładnie tak, jak robi to php-fpm. Aplikacja nie wymaga żadnych zmian. Tryb Worker dla Laravela jest w trakcie prac — jego aktualny stan opisuje sekcja [Tryb Worker](#tryb-worker) poniżej.
+Rapira uruchamia Laravela w trybie Classic z fabrycznym skryptem wejściowym `public/index.php`. Skrypt wykonuje się od zera przy każdym żądaniu, dokładnie tak jak pod php-fpm. Aplikacja nie wymaga żadnych zmian. Tryb Worker dla Laravela jest w trakcie prac — jego aktualny stan opisuje sekcja [Tryb Worker](#tryb-worker) poniżej.
 
 ::: info Zweryfikowano na
 - **PHP 8.5.8** — NTS, SAPI embed
@@ -45,7 +45,7 @@ listen = "127.0.0.1:8000"
 
 Z plikiem konfiguracyjnym polecenie brzmi `rapira serve --config rapira.toml`, a względny `entrypoint` liczy się względem katalogu samego pliku konfiguracyjnego. Wszystkie klucze i ich wartości domyślne znajdziesz w [Konfiguracji](/pl/docs/configuration).
 
-Rapira wykonuje front controller od zera przy każdym żądaniu, więc cykl życia frameworka jest dokładnie taki sam jak pod php-fpm: nie ma rezydentnego stanu ani niczego, co trzeba by zerować między żądaniami. Rozgrzany zostaje OPcache — PHP startuje raz, w procesie nadrzędnym, jeszcze zanim powstanie pierwszy worker, więc wszystkie workery korzystają ze wspólnego cache'u skompilowanych skryptów dla twojego kodu i całego drzewa `vendor/`. Mechanikę opisuje [tryb Classic](/pl/docs/classic).
+Rapira wykonuje skrypt wejściowy od zera przy każdym żądaniu, więc cykl życia frameworka jest dokładnie taki sam jak pod php-fpm: nie ma rezydentnego stanu ani niczego, co trzeba by zerować między żądaniami. Rozgrzany zostaje OPcache — PHP startuje raz, w procesie nadrzędnym, jeszcze zanim powstanie pierwszy worker, więc wszystkie workery korzystają ze wspólnego cache'u skompilowanych skryptów dla twojego kodu i całego drzewa `vendor/`. Mechanikę opisuje [tryb Classic](/pl/docs/classic).
 
 Na produkcję zbuduj najpierw cache frameworka; oba polecenia sprawdziliśmy w trybie Classic, a ta sama bateria testów przechodziła bez cache'u i z cache'em:
 
@@ -56,7 +56,7 @@ php artisan route:cache
 
 ## Trasy i adresy URL
 
-Rapira nie mapuje adresów URL na skrypty PHP: każde żądanie uruchamia front controller, a ścieżkę do trasowania Laravel bierze z `$_SERVER['REQUEST_URI']`. Gdy włączysz [middleware plików statycznych](/pl/docs/static-files), odpowiada on na te żądania, które potrafi obsłużyć plikiem, a każde pozostałe uruchamia front controller. Trasowanie, własną stronę 404 Laravela dla niedopasowanych ścieżek i generowanie adresów przez `url()` — wszystko to sprawdziliśmy: powstają czyste adresy bezwzględne bez `index.php` w środku, bez nadpisywania czegokolwiek w `$_SERVER` i bez zmian w konfiguracji tras czy adresów.
+Rapira nie mapuje adresów URL na skrypty PHP: każde żądanie uruchamia skrypt wejściowy, a ścieżkę do trasowania Laravel bierze z `$_SERVER['REQUEST_URI']`. Gdy włączysz [middleware plików statycznych](/pl/docs/static-files), odpowiada on na te żądania, które potrafi obsłużyć plikiem, a każde pozostałe uruchamia skrypt wejściowy. Trasowanie, własną stronę 404 Laravela dla niedopasowanych ścieżek i generowanie adresów przez `url()` — wszystko to sprawdziliśmy: powstają czyste adresy bezwzględne bez `index.php` w środku, bez nadpisywania czegokolwiek w `$_SERVER` i bez zmian w konfiguracji tras czy adresów.
 
 Wbudowana w szkielet trasa `/up` odpowiada kodem `200`, więc nadaje się na cel health checku load balancera albo kontenera. Zasoby szkieletu Rapira serwuje przez [middleware plików statycznych](/pl/docs/static-files). Włącz go obiema połowami: wypisz `"static"` w `http.middleware` i ustaw `root` w sekcji `[http.static]` na katalog `public/` aplikacji. Z jedną połową bez drugiej Rapira odmawia startu. Zasoby może zamiast tego serwować CDN albo reverse proxy stojące z przodu. Nasłuch Rapiry mówi nieszyfrowanym HTTP i zostawia `$_SERVER['HTTPS']` puste niezależnie od `X-Forwarded-Proto`. Kiedy to proxy kończy TLS, skonfiguruj w Laravelu [zaufane proxy](https://laravel.com/docs/requests#configuring-trusted-proxies). Bez tej konfiguracji `url()` wygeneruje odnośniki `http://`.
 

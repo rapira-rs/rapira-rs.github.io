@@ -75,11 +75,11 @@ Vamos por partes:
 
 **`src/bootstrap.php` es el arranque que trae la propia plantilla.** Carga el autoloader de Composer, lee el `.env` si está y llama a `Environment::prepare()`: exactamente lo que hace `public/index.php` antes de tocar el runner. La línea explícita de `vendor/autoload.php` que va justo encima es redundante —`require_once` convierte la segunda llamada en algo que no hace nada— y deja el worker legible como punto de entrada independiente.
 
-**El runner se construye una sola vez, con los argumentos de `public/index.php`.** `rootPath`, `debug`, `checkEvents` y `environment` salen de `App\Environment` tal cual los pasa el front controller, así que el worker arranca la misma aplicación que el punto de entrada web. El `public/index.php` de la plantilla pasa un argumento más —un `temporaryErrorHandler` conectado a un logger con `StreamTarget`— y hace `require` de `c3.php` cuando `APP_C3` está activo. El worker verificado se salta las dos cosas. Ese manejador temporal solo cubre los errores que se producen mientras se construyen la configuración y el contenedor; si no le pasas ninguno, el runner recurre a un `ErrorHandler` con un `NullLogger` (`HttpApplicationRunner::createTemporaryErrorHandler()`), así que pásaselo aquí también si quieres que queden registrados los fallos al construir el contenedor.
+**El runner se construye una sola vez, con los argumentos de `public/index.php`.** `rootPath`, `debug`, `checkEvents` y `environment` salen de `App\Environment` tal cual los pasa el script de entrada, así que el worker arranca la misma aplicación que el punto de entrada web. El `public/index.php` de la plantilla pasa un argumento más —un `temporaryErrorHandler` conectado a un logger con `StreamTarget`— y hace `require` de `c3.php` cuando `APP_C3` está activo. El worker verificado se salta las dos cosas. Ese manejador temporal solo cubre los errores que se producen mientras se construyen la configuración y el contenedor; si no le pasas ninguno, el runner recurre a un `ErrorHandler` con un `NullLogger` (`HttpApplicationRunner::createTemporaryErrorHandler()`), así que pásaselo aquí también si quieres que queden registrados los fallos al construir el contenedor.
 
 **`getContainer()` es API pública**, así que el contenedor que capturas es el de la aplicación: el mismo que usará el runner en cada petición. El `StateResetter` se resuelve desde ahí dentro del handler.
 
-**En cada petición: `run()` y después `reset()`.** `run()` es la misma llamada que hace el front controller; `reset()` recorre los callbacks de reinicio registrados en el contenedor y devuelve los servicios con estado a su punto de partida antes de que llegue la petición siguiente.
+**En cada petición: `run()` y después `reset()`.** `run()` es la misma llamada que hace el script de entrada; `reset()` recorre los callbacks de reinicio registrados en el contenedor y devuelve los servicios con estado a su punto de partida antes de que llegue la petición siguiente.
 
 **`run()` vuelve a ejecutar toda su secuencia en cada llamada.** Cada llamada registra el manejador de errores, ejecuta `runBootstrap()`, ejecuta `checkEvents()` y después atiende la petición; el runner es reentrante por diseño y se comprobó que esa repetición es inofensiva durante 200 llamadas seguidas. La comprobación de eventos solo hace algo cuando su flag está activo, y la plantilla ata ese flag a `Environment::appDebug()`, así que con el modo debug apagado no hace nada en ninguna llamada.
 
@@ -174,7 +174,7 @@ La plantilla de la aplicación mete `CsrfTokenMiddleware` en su cadena de middle
 
 ## El modo Classic como alternativa
 
-Yii3 también funciona como front controller de toda la vida:
+Yii3 también funciona con un script de entrada normal:
 
 ```bash
 rapira serve --mode classic public/index.php
@@ -182,6 +182,6 @@ rapira serve --mode classic public/index.php
 
 El mismo código, sin script de worker y con estado limpio en cada petición. Consulta [Modo Classic](/es/docs/classic) para más información.
 
-El script de worker es un punto de entrada más y no un sustituto del front controller, así que conserva `public/index.php`: es el script de entrada que ejecuta el modo Classic y sigue siendo útil para trabajar en local con el servidor que trae PHP.
+El script de worker es un punto de entrada más y no sustituye al script de entrada normal. Conserva `public/index.php`: el modo Classic lo ejecuta y sigue siendo útil para trabajar en local con el servidor que trae PHP.
 
 El `public/index.php` de la plantilla tiene una rama `PHP_SAPI === 'cli-server'` que sirve archivos estáticos y reescribe `SCRIPT_NAME`. Está ahí por el servidor de desarrollo que trae PHP y bajo Rapira no se activa nunca, porque `PHP_SAPI` vale `rapira` (`fastcgi` en PHP 8.4 — ver [Instalación](/es/docs/intro/installation)), así que puede quedarse como está.

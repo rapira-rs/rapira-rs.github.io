@@ -1,11 +1,11 @@
 ---
 title: Classic 模式
-description: "Classic 模式在每个请求上都从头执行一个普通的 PHP 前端控制器，和 php-fpm 一样，每次的状态都是全新的。"
+description: "Classic 模式在每个请求上都从头执行一个普通的 PHP 入口脚本，和 php-fpm 一样，每次的状态都是全新的。"
 ---
 
 # Classic 模式
 
-Classic 模式会在每个到达的请求上，从头执行一个普通的 PHP 前端控制器——就是你早就交给 php-fpm 的那个 `public/index.php`。Rapira 顶替掉 php-fpm，应用不需要做任何改动：超全局变量照样填好，脚本从上到下执行，打印出来的东西就是响应。
+Classic 模式执行普通的 PHP 入口脚本，也称为前端控制器。它就是 php-fpm 运行的 `public/index.php`。Rapira 会为每个请求从头执行此脚本。Rapira 顶替 php-fpm，应用不需要做任何改动。超全局变量会填充，脚本会从上到下执行，其输出就是响应。
 
 ## 每个请求都是全新的状态
 
@@ -60,7 +60,7 @@ CGI 变量也就顺理成章：`SCRIPT_FILENAME` 永远是入口脚本，`SCRIPT
 
 ## OPcache
 
-从头执行重置的是应用的状态，不是编译好的字节码。主进程只在模块启动时启动一次 PHP，而且是在 fork 出任何 worker *之前*——所以 OPcache 只创建一次共享内存段，之后 fork 出来的每个 worker 都继承同一份映射。只要开了 OPcache，编译后的脚本就会跨请求、跨整个进程池一直缓存着，重新执行前端控制器并不意味着重新解析它。
+从头执行会重置应用状态，但不会重置编译后的字节码。master 进程在 fork worker 之前只启动一次 PHP。因此，OPcache 只创建一个共享内存段，每个 worker 都继承相同的映射。启用 OPcache 后，编译后的脚本会跨请求并在整个进程池中保持缓存。重新执行入口脚本不需要再次解析它。
 
 进程池本身在两种模式下是一样的：master fork 出一批 worker，每个 worker 一次处理一个请求，并发能力就来自进程数量。关于 master 进程和它的 worker，更多信息见[进程模型](/zh/docs/process-model)那一页。
 

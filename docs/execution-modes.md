@@ -18,7 +18,7 @@ The mode names are the values of `pool.mode` and the cases of the `Rapira\Mode` 
 
 ## Classic <Badge type="tip" text="shipped" />
 
-The entry script runs from scratch on every request, exactly as it would under php-fpm: superglobals are filled in, the front controller boots, the response goes out, everything is torn down. Nothing the script created is carried over, so application state cannot leak from one request into the next. The same exceptions as php-fpm apply: persistent connections and extension-level state live in the worker process, not in the request.
+The entry script runs from scratch on every request, exactly as it would under php-fpm. Rapira fills the superglobals, starts the entry script, sends the response, and removes the request state. Nothing that the script created is carried over, so application state cannot leak into the next request. The same exceptions as php-fpm apply. Persistent connections and extension-level state live in the worker process, not in the request.
 
 An existing application runs as it is, because Rapira takes php-fpm's place with no changes to your code. PHP is embedded in the server process, so there is no FastCGI hop between the HTTP front and the interpreter.
 
@@ -85,7 +85,7 @@ All three modes are open to any application, and what limits the choice is the a
 
 The mode is set per server instance, not per route, so one instance cannot serve some routes from a worker and the rest from Classic. If part of your application is not worker-safe, run that part behind its own Rapira instance in Classic mode.
 
-Worker and Dispatcher require a resident entry script. Classic does not. To switch to Classic, set `mode = "classic"` or pass `--mode classic`. Then point Rapira at the ordinary front controller. The server, binary, and [process model](/docs/process-model) do not change. See [Configuration](/docs/configuration) and the [CLI reference](/docs/cli) for more information.
+Worker and Dispatcher require a resident entry script. Classic does not. To switch to Classic, set `mode = "classic"` or pass `--mode classic`. Then point Rapira at the ordinary entry script. The server, binary, and [process model](/docs/process-model) do not change. See [Configuration](/docs/configuration) and the [CLI reference](/docs/cli) for more information.
 
 ::: tip
 Start on Classic if you are replacing php-fpm and want everything working first. Switch to Worker once you know your application boots cleanly and holds no state that it should not keep between requests.

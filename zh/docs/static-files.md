@@ -58,7 +58,7 @@ forbid = [".php"]   # optional; an explicit list replaces this default
 交给 PHP 的请求，其请求体、字段和扩展数据都原封不动。PHP 从中读到什么，见 [HTTP 请求与响应](/zh/docs/http)。
 
 ::: question 为什么目录形式的 URL 不用 `index.html` 作答？
-URL 空间归 PHP 管：目录形式的 URL 就是应用的一条路由。隐式的索引文件会让同一个 URL 有两个答案，一个来自文件系统，一个来自路由器，还会把 `/` 从前端控制器手里夺走。
+URL 空间归 PHP 管：目录形式的 URL 就是应用的一条路由。隐式索引文件会让同一个 URL 有两个响应，一个来自文件系统，另一个来自路由器。它还会阻止入口脚本处理 `/`。
 :::
 
 ::: question 中间件怎么区分“没有这个文件”和“读取失败”？

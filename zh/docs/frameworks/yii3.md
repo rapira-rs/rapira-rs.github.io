@@ -75,11 +75,11 @@ while (\Rapira\handle_request($handler)) {
 
 **`src/bootstrap.php` 是模板自带的启动文件**。它加载 Composer 的自动加载器，`.env` 在的话就读进来，然后调用 `Environment::prepare()`——`public/index.php` 在碰 runner 之前干的正是这些。上面那行显式的 `vendor/autoload.php` 是多余的——`require_once` 让第二次调用变成空操作——它的作用是让这个 worker 单独拿出来看也是一个读得懂的入口脚本。
 
-**runner 只构造一次，参数照抄 `public/index.php`**。`rootPath`、`debug`、`checkEvents` 和 `environment` 都取自 `App\Environment`，和前端控制器传的一模一样，所以 worker 启动起来的就是 Web 入口那同一个应用。模板的 `public/index.php` 还多传了一个参数——一个接到 `StreamTarget` 日志器上的 `temporaryErrorHandler`——并在 `APP_C3` 打开时 require `c3.php`。经过验证的这个 worker 两样都没要。这个临时处理器管的只是构建配置和容器期间抛出的错误；不传的话，runner 会退回到一个配 `NullLogger` 的 `ErrorHandler`（`HttpApplicationRunner::createTemporaryErrorHandler()`），所以你要是想让容器构建失败也进日志，这里照样传上就是。
+**runner 只构造一次，参数照抄 `public/index.php`**。`rootPath`、`debug`、`checkEvents` 和 `environment` 都取自 `App\Environment`，和入口脚本传的一模一样，所以 worker 启动起来的就是 Web 入口那同一个应用。模板的 `public/index.php` 还多传了一个参数——一个接到 `StreamTarget` 日志器上的 `temporaryErrorHandler`——并在 `APP_C3` 打开时 require `c3.php`。经过验证的这个 worker 两样都没要。这个临时处理器管的只是构建配置和容器期间抛出的错误；不传的话，runner 会退回到一个配 `NullLogger` 的 `ErrorHandler`（`HttpApplicationRunner::createTemporaryErrorHandler()`），所以你要是想让容器构建失败也进日志，这里照样传上就是。
 
 **`getContainer()` 是公开 API**，所以你抓到的就是应用自己的容器——runner 处理每个请求用的都是它。`StateResetter` 则在 handler 内部从这个容器里取。
 
-**每个请求先 `run()`，再 `reset()`**。`run()` 就是前端控制器调的那一个；`reset()` 会把容器里注册的重置回调挨个走一遍，赶在下一个请求到来之前，把带状态的服务拨回初始状态。
+**每个请求先 `run()`，再 `reset()`**。`run()` 就是入口脚本调用的方法；`reset()` 会把容器里注册的重置回调挨个走一遍，赶在下一个请求到来之前，把带状态的服务拨回初始状态。
 
 **`run()` 每次调用都会把整套流程重跑一遍**。每次调用都会注册错误处理器、执行 `runBootstrap()`、执行 `checkEvents()`，然后才处理请求；runner 本来就是照可重入设计的，连续 200 次调用验证下来，这种重复是无害的。事件检查只有在开关为真时才真的干活，而模板把这个开关接到了 `Environment::appDebug()` 上，所以 debug 一关，它每次调用都是空转。
 
@@ -174,7 +174,7 @@ format = "json"
 
 ## 回退到 Classic 模式
 
-Yii3 当成普通前端控制器跑也一样：
+Yii3 使用普通入口脚本也能运行：
 
 ```bash
 rapira serve --mode classic public/index.php
@@ -182,6 +182,6 @@ rapira serve --mode classic public/index.php
 
 代码原封不动，不用写 worker 脚本，每个请求的状态都是全新的。详见 [Classic 模式](/zh/docs/classic)。
 
-worker 脚本是多出来的一个入口，不是前端控制器的替代品，所以 `public/index.php` 要留着：Classic 模式跑的就是这个入口脚本，本地拿 PHP 内置服务器干活时它也照样好使。
+worker 脚本是额外的入口点，不会替代普通入口脚本。请保留 `public/index.php`：Classic 模式运行此脚本，本地使用 PHP 内置服务器时也需要它。
 
 模板的 `public/index.php` 里有一个 `PHP_SAPI === 'cli-server'` 分支，专门提供静态文件并改写 `SCRIPT_NAME`。它是给 PHP 内置开发服务器准备的，在 Rapira 下永远不会走到——这里的 `PHP_SAPI` 是 `rapira`（PHP 8.4 上是 `fastcgi`，见[安装](/zh/docs/intro/installation)）——所以保持原样就行。

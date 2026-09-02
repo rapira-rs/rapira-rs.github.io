@@ -58,7 +58,7 @@ El resto lo decide la ruta:
 Una petición que va a PHP llega con su cuerpo, sus campos y sus extensiones intactos. En [Peticiones y respuestas HTTP](/es/docs/http) tienes qué lee PHP de ella.
 
 ::: question ¿Por qué la URL de un directorio no se responde con `index.html`?
-El espacio de URLs es de PHP: la URL de un directorio es una ruta de la aplicación. Un archivo de índice implícito daría dos respuestas para una misma URL, una del sistema de archivos y otra del router, y además le quitaría `/` al front controller.
+El espacio de URLs es de PHP: la URL de un directorio es una ruta de la aplicación. Un archivo de índice implícito daría dos respuestas para una misma URL, una del sistema de archivos y otra del router, e impediría que el script de entrada gestionara `/`.
 :::
 
 ::: question ¿Cómo distingue el middleware un archivo que no está de un fallo de lectura?

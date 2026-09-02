@@ -18,7 +18,7 @@ Los nombres de los modos son los valores de `pool.mode` y los casos del enum `Ra
 
 ## Classic <Badge type="tip" text="disponible" />
 
-El script de entrada se ejecuta desde cero en cada petición, igual que haría con php-fpm: se rellenan las superglobales, arranca el front controller, sale la respuesta y todo se destruye. No se arrastra nada de lo que crea el script, así que el estado de la aplicación no puede filtrarse de una petición a la siguiente. Valen las mismas excepciones que con php-fpm: las conexiones persistentes y el estado que vive dentro de una extensión están en el proceso worker, no en la petición.
+El script de entrada se ejecuta desde cero en cada petición, igual que con php-fpm. Rapira rellena las superglobales, inicia el script de entrada, envía la respuesta y elimina el estado de la petición. No se arrastra nada de lo que crea el script, así que el estado de la aplicación no puede filtrarse a la petición siguiente. Se aplican las mismas excepciones que con php-fpm. Las conexiones persistentes y el estado de las extensiones están en el proceso worker, no en la petición.
 
 Una aplicación que ya existe funciona tal cual, porque Rapira ocupa el lugar de php-fpm sin que toques el código. PHP va incrustado en el proceso del servidor, así que no hay ningún salto FastCGI entre el frontal HTTP y el intérprete.
 
@@ -85,7 +85,7 @@ Los tres modos están abiertos a cualquier aplicación, y lo que limita la elecc
 
 El modo se elige por instancia del servidor, no por ruta, así que una misma instancia no puede atender unas rutas desde un worker y el resto en Classic. Si una parte de tu aplicación no es segura en modo Worker, ponla detrás de su propia instancia de Rapira en modo Classic.
 
-Worker y Dispatcher necesitan un script de entrada residente. Classic no lo necesita. Para cambiar a Classic, pon `mode = "classic"` en el archivo de configuración o pasa `--mode classic`. Después, apunta Rapira al front controller habitual. El servidor, el binario y el [modelo de procesos](/es/docs/process-model) no cambian. Consulta [Configuración](/es/docs/configuration) y la [referencia de la línea de comandos](/es/docs/cli) para más información.
+Worker y Dispatcher necesitan un script de entrada residente. Classic no lo necesita. Para cambiar a Classic, pon `mode = "classic"` en el archivo de configuración o pasa `--mode classic`. Después, apunta Rapira al script de entrada habitual. El servidor, el binario y el [modelo de procesos](/es/docs/process-model) no cambian. Consulta [Configuración](/es/docs/configuration) y la [referencia de la línea de comandos](/es/docs/cli) para más información.
 
 ::: tip
 Empieza por Classic si vienes a sustituir php-fpm y lo primero que quieres es tenerlo todo funcionando. Pasa a Worker cuando sepas que tu aplicación arranca limpia y no guarda entre peticiones estado que no debería guardar.

@@ -18,7 +18,7 @@ Nazwy trybów to wartości klucza `pool.mode` i przypadki enuma `Rapira\Mode`. C
 
 ## Classic <Badge type="tip" text="dostępne" />
 
-Skrypt wejściowy wykonuje się od zera przy każdym żądaniu, dokładnie tak jak pod php-fpm: zmienne superglobalne zostają wypełnione, front controller startuje, odpowiedź wychodzi, a wszystko po drodze jest sprzątane. Nic z tego, co utworzył skrypt, nie przechodzi dalej, więc stan aplikacji nie wycieka z jednego żądania do następnego. Wyjątki są te same co w php-fpm: trwałe połączenia i stan trzymany przez rozszerzenia żyją w procesie workera, a nie w żądaniu.
+Skrypt wejściowy wykonuje się od zera przy każdym żądaniu, dokładnie tak jak pod php-fpm. Rapira wypełnia zmienne superglobalne, uruchamia skrypt wejściowy, wysyła odpowiedź i usuwa stan żądania. Nic z tego, co utworzył skrypt, nie przechodzi dalej, więc stan aplikacji nie wycieka do następnego żądania. Obowiązują te same wyjątki co w php-fpm. Trwałe połączenia i stan rozszerzeń żyją w procesie workera, a nie w żądaniu.
 
 Istniejąca aplikacja działa bez zmian, bo Rapira wchodzi na miejsce php-fpm i nie ruszasz ani linijki kodu. PHP jest osadzony w procesie serwera, więc między frontem HTTP a interpreterem nie ma skoku przez FastCGI.
 
@@ -85,7 +85,7 @@ Wszystkie trzy tryby stoją otworem przed każdą aplikacją, a wybór ogranicza
 
 Tryb wybiera się dla całej instancji serwera, a nie dla pojedynczej trasy, więc jedna instancja nie obsłuży części tras w workerze, a reszty w trybie Classic. Jeśli jakaś część aplikacji nie nadaje się do pracy w workerze, uruchom ją za osobną instancją Rapiry w trybie Classic.
 
-Worker i Dispatcher wymagają rezydentnego skryptu wejściowego. Classic go nie potrzebuje. Aby przejść na Classic, ustaw `mode = "classic"` albo podaj `--mode classic`. Następnie skieruj Rapirę na zwykły front controller. Serwer, plik binarny i [model procesów](/pl/docs/process-model) pozostają bez zmian. Więcej informacji znajdziesz w [Konfiguracji](/pl/docs/configuration) i [opisie wiersza poleceń](/pl/docs/cli).
+Worker i Dispatcher wymagają rezydentnego skryptu wejściowego. Classic go nie potrzebuje. Aby przejść na Classic, ustaw `mode = "classic"` albo podaj `--mode classic`. Następnie skieruj Rapirę na zwykły skrypt wejściowy. Serwer, plik binarny i [model procesów](/pl/docs/process-model) pozostają bez zmian. Więcej informacji znajdziesz w [Konfiguracji](/pl/docs/configuration) i [opisie wiersza poleceń](/pl/docs/cli).
 
 ::: tip
 Zacznij od trybu Classic, jeśli zastępujesz php-fpm i najpierw chcesz mieć wszystko działające. Przejdź na tryb Worker, gdy będziesz mieć pewność, że aplikacja startuje czysto i nie trzyma między żądaniami stanu, którego trzymać nie powinna.

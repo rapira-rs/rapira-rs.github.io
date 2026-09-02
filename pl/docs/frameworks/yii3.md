@@ -75,11 +75,11 @@ Po kolei:
 
 **`src/bootstrap.php` to bootstrap samego szablonu.** Ładuje autoloader Composera, czyta `.env`, jeśli plik istnieje, i wywołuje `Environment::prepare()` — dokładnie to, co robi `public/index.php`, zanim w ogóle dotknie runnera. Linijka z `vendor/autoload.php` nad nim jest nadmiarowa — `require_once` sprawia, że drugie wywołanie nic nie robi — ale dzięki niej workera da się czytać jak samodzielny skrypt wejściowy.
 
-**Runner powstaje raz, z argumentami z `public/index.php`.** `rootPath`, `debug`, `checkEvents` i `environment` biorą się z `App\Environment` dokładnie tak, jak przekazuje je front controller, więc worker podnosi tę samą aplikację co wejście webowe. `public/index.php` z szablonu przekazuje jeszcze jeden argument — `temporaryErrorHandler` podpięty pod logger `StreamTarget` — i dołącza `c3.php`, gdy włączone jest `APP_C3`. Sprawdzony worker pomija jedno i drugie. Tymczasowy handler obejmuje wyłącznie błędy zgłoszone w trakcie budowania konfiguracji i kontenera; bez niego runner sięga po `ErrorHandler` z `NullLogger` (`HttpApplicationRunner::createTemporaryErrorHandler()`), więc jeśli chcesz mieć w logach awarie z budowy kontenera, przekaż go również tutaj.
+**Runner powstaje raz, z argumentami z `public/index.php`.** `rootPath`, `debug`, `checkEvents` i `environment` biorą się z `App\Environment` dokładnie tak, jak przekazuje je skrypt wejściowy, więc worker podnosi tę samą aplikację co wejście webowe. `public/index.php` z szablonu przekazuje jeszcze jeden argument — `temporaryErrorHandler` podpięty pod logger `StreamTarget` — i dołącza `c3.php`, gdy włączone jest `APP_C3`. Sprawdzony worker pomija jedno i drugie. Tymczasowy handler obejmuje wyłącznie błędy zgłoszone w trakcie budowania konfiguracji i kontenera; bez niego runner sięga po `ErrorHandler` z `NullLogger` (`HttpApplicationRunner::createTemporaryErrorHandler()`), więc jeśli chcesz mieć w logach awarie z budowy kontenera, przekaż go również tutaj.
 
 **`getContainer()` należy do publicznego API**, więc kontener, który przechwytujesz, jest kontenerem aplikacji — tym samym, z którego runner skorzysta przy każdym żądaniu. `StateResetter` wyciągasz z niego już wewnątrz handlera.
 
-**Na każde żądanie: `run()`, potem `reset()`.** `run()` to dokładnie to samo wywołanie, którego używa front controller; `reset()` przechodzi po zarejestrowanych w kontenerze callbackach i przywraca serwisom trzymającym stan ich pierwotną postać, zanim nadejdzie kolejne żądanie.
+**Na każde żądanie: `run()`, potem `reset()`.** `run()` to dokładnie to samo wywołanie, którego używa skrypt wejściowy; `reset()` przechodzi po zarejestrowanych w kontenerze callbackach i przywraca serwisom trzymającym stan ich pierwotną postać, zanim nadejdzie kolejne żądanie.
 
 **`run()` przy każdym wywołaniu przechodzi całą swoją sekwencję od nowa.** Każde wywołanie rejestruje handler błędów, uruchamia `runBootstrap()`, uruchamia `checkEvents()`, a dopiero potem obsługuje żądanie; runner jest z założenia reentrantny, a przez 200 kolejnych wywołań sprawdziliśmy, że to powtórzenie jest nieszkodliwe. Kontrola zdarzeń robi cokolwiek tylko wtedy, gdy jej flaga jest prawdziwa, a szablon wiąże tę flagę z `Environment::appDebug()`, więc z wyłączonym debugiem przy każdym wywołaniu nic nie robi.
 
@@ -174,7 +174,7 @@ Szablon aplikacji wstawia `CsrfTokenMiddleware` do domyślnego łańcucha middle
 
 ## Tryb Classic jako rozwiązanie zapasowe
 
-Yii3 działa też jako zwykły front controller:
+Yii3 działa też ze zwykłym skryptem wejściowym:
 
 ```bash
 rapira serve --mode classic public/index.php
@@ -182,6 +182,6 @@ rapira serve --mode classic public/index.php
 
 Ten sam kod, żadnego skryptu workera, świeży stan przy każdym żądaniu. Więcej informacji znajdziesz w [trybie Classic](/pl/docs/classic).
 
-Skrypt workera to dodatkowy skrypt wejściowy, a nie zamiennik front controllera, więc zostaw `public/index.php`: to jego uruchamia tryb Classic i nadal przydaje się przy pracy lokalnej z wbudowanym serwerem PHP.
+Skrypt workera to dodatkowy punkt wejścia, a nie zamiennik zwykłego skryptu wejściowego. Zostaw `public/index.php`: uruchamia go tryb Classic i nadal przydaje się przy pracy lokalnej z wbudowanym serwerem PHP.
 
 `public/index.php` z szablonu ma gałąź `PHP_SAPI === 'cli-server'`, która serwuje pliki statyczne i przepisuje `SCRIPT_NAME`. Powstała z myślą o wbudowanym serwerze deweloperskim PHP i pod Rapirą nigdy się nie uruchamia, bo `PHP_SAPI` ma tu wartość `rapira` (`fastcgi` na PHP 8.4 — zobacz [Instalację](/pl/docs/intro/installation)), więc może zostać tak, jak jest.

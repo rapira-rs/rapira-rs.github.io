@@ -1,11 +1,11 @@
 ---
 title: Modo Classic
-description: "El modo Classic ejecuta un front controller de PHP normal desde cero en cada petición, igual que php-fpm, con el estado limpio cada vez."
+description: "El modo Classic ejecuta un script de entrada de PHP normal desde cero en cada petición, igual que php-fpm, con el estado limpio cada vez."
 ---
 
 # Modo Classic
 
-El modo Classic ejecuta un front controller de PHP normal y corriente —el mismo `public/index.php` al que ya apuntas con php-fpm— desde cero en cada petición que llega. Rapira ocupa el lugar de php-fpm y la aplicación no necesita ningún cambio: las superglobales se rellenan, el script se ejecuta de arriba abajo y lo que imprima se convierte en la respuesta.
+El modo Classic ejecuta un script de entrada de PHP normal, también llamado front controller. Es el mismo `public/index.php` que ejecuta php-fpm. Rapira lo ejecuta desde cero en cada petición. Rapira ocupa el lugar de php-fpm y la aplicación no necesita ningún cambio. Las superglobales se rellenan, el script se ejecuta de arriba abajo y su salida se convierte en la respuesta.
 
 ## Estado limpio en cada petición
 
@@ -60,7 +60,7 @@ De ahí salen las variables CGI: `SCRIPT_FILENAME` es siempre el script de entra
 
 ## OPcache
 
-Ejecutar desde cero reinicia el estado de tu aplicación, no el bytecode compilado. El proceso maestro arranca PHP una sola vez, al iniciar el módulo y *antes* de hacer fork de ningún worker, así que OPcache crea su segmento de memoria compartida una única vez y todos los workers heredan ese mismo mapeo. Con OPcache activado, los scripts compilados siguen en caché de una petición a otra y en todo el pool: volver a ejecutar tu front controller no significa volver a parsearlo.
+Ejecutar desde cero reinicia el estado de la aplicación, no el bytecode compilado. El proceso maestro arranca PHP una sola vez, antes de hacer fork de ningún worker. Por tanto, OPcache crea un único segmento de memoria compartida y todos los workers heredan ese mismo mapeo. Con OPcache activado, los scripts compilados siguen en caché de una petición a otra y en todo el pool. Volver a ejecutar el script de entrada no significa volver a parsearlo.
 
 El pool de procesos en sí es el mismo en los dos modos: el maestro hace fork de los workers y cada worker atiende una petición cada vez, así que la concurrencia sale del número de procesos. Consulta la página de [modelo de procesos](/es/docs/process-model) para más información sobre el proceso maestro y sus workers.
 

@@ -5,7 +5,7 @@ description: "Mechanika wspólna dla każdego frameworka działającego na Rapir
 
 # Integracja z frameworkami
 
-W trybie Classic aplikacja frameworkowa działa na Rapirze bez żadnych zmian: wskazujesz serwerowi front controller, który już masz. W trybie Worker proces PHP zostaje przy życiu między żądaniami, a to, co aplikacja może utrzymać rezydentnie, zależy od budowy samego frameworka. Ta strona opisuje mechanikę, która wygląda tak samo w każdym frameworku; trzy przewodniki po poszczególnych frameworkach zakładają, że masz ją już za sobą, i opisują wyłącznie to, co swoiste dla nich.
+W trybie Classic aplikacja frameworkowa działa na Rapirze bez żadnych zmian: wskazujesz serwerowi skrypt wejściowy, który już masz. W trybie Worker proces PHP zostaje przy życiu między żądaniami, a to, co aplikacja może utrzymać rezydentnie, zależy od budowy samego frameworka. Ta strona opisuje mechanikę, która wygląda tak samo w każdym frameworku; trzy przewodniki po poszczególnych frameworkach zakładają, że masz ją już za sobą, i opisują wyłącznie to, co swoiste dla nich.
 
 ::: info Sprawdzone na
 
@@ -18,7 +18,7 @@ Wszystko, co znajdziesz na tej stronie, zostało zaobserwowane na tych aplikacja
 
 ## Tryby Classic i Worker
 
-**W trybie Classic nie zmienia się nic.** Skryptem wejściowym jest twój front controller, Rapira wykonuje go od zera przy każdym żądaniu i działa tu każdy framework, który działa pod php-fpm, łącznie z tymi, których stan nigdy nie przeżyłby drugiego żądania. Więcej znajdziesz na stronie [tryb Classic](/pl/docs/classic); z sekcji poniżej dotyczą go tylko pliki statyczne, TLS i OPcache.
+**W trybie Classic nie zmienia się nic.** Rapira używa istniejącego skryptu wejściowego i wykonuje go od zera przy każdym żądaniu. Działa tu każdy framework, który działa pod php-fpm, łącznie z tymi, których stan nigdy nie przeżyłby drugiego żądania. Więcej znajdziesz na stronie [tryb Classic](/pl/docs/classic); z sekcji poniżej dotyczą go tylko pliki statyczne, TLS i OPcache.
 
 **W trybie Worker proces zostaje przy życiu.** Twój skrypt raz podnosi aplikację, a potem kręci się w pętli i prosi Rapirę o kolejne żądanie. Framework przestaje być rozbierany między żądaniami. Opisy trybów znajdziesz w [trybach wykonania](/pl/docs/execution-modes), a jego API opisuje [tryb Worker](/pl/docs/worker).
 
@@ -122,7 +122,7 @@ middleware = ["static"]
 root = "public"
 ```
 
-Middleware odpowiada na żądanie tylko wtedy, gdy ścieżka trafia w plik leżący w tym katalogu. Domyślna lista `forbid` trzyma poza nim pliki `.php`, więc front controller z `public/` nigdy nie zostanie oddany jako plik. Każdy inny adres URL uruchamia skrypt wejściowy, tak samo w trybie Classic, jak i w trybie Worker. `$_SERVER['REQUEST_URI']` mówi aplikacji, dokąd chciał trafić klient. Adres wskazujący katalog też uruchamia skrypt wejściowy, bo middleware nie serwuje dla niego żadnego pliku indeksu.
+Middleware odpowiada na żądanie tylko wtedy, gdy ścieżka trafia w plik leżący w tym katalogu. Domyślna lista `forbid` trzyma poza nim pliki `.php`, więc skrypt wejściowy z `public/` nigdy nie zostanie oddany jako plik. Każdy inny adres URL uruchamia skrypt wejściowy, tak samo w trybie Classic, jak i w trybie Worker. `$_SERVER['REQUEST_URI']` mówi aplikacji, dokąd chciał trafić klient. Adres wskazujący katalog też uruchamia skrypt wejściowy, bo middleware nie serwuje dla niego żadnego pliku indeksu.
 
 Zasoby może zamiast tego serwować CDN albo reverse proxy stojące z przodu. Takie proxy stawia [wdrożenie produkcyjne](/pl/docs/deployment).
 

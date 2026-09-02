@@ -173,7 +173,7 @@ request_terminate_timeout_secs = 30
 
 ## 开发时的循环
 
-`rapira serve` 跑在前台，而你的应用只启动一次，所以**改过的 PHP 代码要等 worker 被换掉之后才会生效**。正在改代码的时候，最省事的办法是把服务器停掉再起，或者干脆让前端控制器跑在 [Classic 模式](/zh/docs/classic)下——那里脚本每次都从头执行，存一次盘就生效一次：
+`rapira serve` 跑在前台，而你的应用只启动一次，所以**改过的 PHP 代码要等 worker 被换掉之后才会生效**。正在改代码的时候，最省事的办法是把服务器停掉再起，或者让入口脚本跑在 [Classic 模式](/zh/docs/classic)下——那里脚本每次都从头执行，存一次盘就生效一次：
 
 ```bash
 rapira serve --mode classic public/index.php

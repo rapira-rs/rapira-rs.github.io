@@ -173,7 +173,7 @@ Jeśli chcesz uwolnić klienta, zanim ruszą listenery po odpowiedzi, wywołaj [
 
 ## Codzienna praca nad kodem
 
-`rapira serve` działa na pierwszym planie, a twoja aplikacja podnosi się raz, więc **zmieniony kod PHP nie wejdzie w życie, dopóki nie wymienisz workerów**. W trakcie aktywnego pisania najprościej zatrzymać serwer i uruchomić go od nowa albo puścić front controller w [trybie Classic](/pl/docs/classic), gdzie skrypt wykonuje się od zera za każdym razem, a każdy zapis pliku widać natychmiast:
+`rapira serve` działa na pierwszym planie, a twoja aplikacja podnosi się raz, więc **zmieniony kod PHP nie wejdzie w życie, dopóki nie wymienisz workerów**. W trakcie aktywnego pisania najprościej zatrzymać serwer i uruchomić go od nowa albo uruchomić skrypt wejściowy w [trybie Classic](/pl/docs/classic), gdzie skrypt wykonuje się od zera za każdym razem, a każdy zapis pliku widać natychmiast:
 
 ```bash
 rapira serve --mode classic public/index.php

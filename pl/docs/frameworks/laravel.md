@@ -10,16 +10,16 @@ Rapira uruchamia Laravela w trybie Classic z fabrycznym skryptem wejściowym `pu
 ::: info Zweryfikowano na
 - **PHP 8.5.8** — NTS, SAPI embed
 - **Rapira 0.8.0**
-- szkielet **laravel/laravel** z **laravel/framework v13.23.0**
+- aplikacja bazowa **laravel/laravel** z **laravel/framework v13.23.0**
 
-Wszystko, co jest na tej stronie, sprawdziliśmy na szkielecie `laravel/laravel` z dorzuconą garstką testowych tras, w trybie Classic na jednym procesie roboczym: trasowanie, sesje, przesyłanie plików, treści JSON i formularzy, cache konfiguracji i tras, odpowiedzi błędów oraz 50 kolejnych żądań.
+Testy używały aplikacji bazowej `laravel/laravel` z dodatkowymi trasami, w trybie Classic na jednym procesie roboczym. Sprawdzały trasowanie, sesje, przesyłanie plików, treści JSON i formularzy, cache konfiguracji i tras, odpowiedzi błędów oraz 50 kolejnych żądań.
 :::
 
 ## Wymagania
 
 Potrzebujesz zainstalowanej Rapiry — patrz [Instalacja](/pl/docs/intro/installation) — i aplikacji Laravel, którą już potrafisz uruchomić. Potrzebujesz też zwykłego PHP CLI na maszynie: to przez niego uruchamiasz Composera i `artisan`. Rapira dostarcza PHP jako bibliotekę (`libphp`), a nie jako polecenie `php`, więc te kroki wykonują się na systemowym PHP, którego Rapira ani nie używa, ani nie rusza.
 
-Przed pierwszym startem sprawdź rozszerzenia bazodanowe: świeży szkielet `laravel/laravel` domyślnie sięga po bazę SQLite oraz po sterowniki sesji, cache'u i kolejek oparte na bazie, a to znaczy, że potrzebuje `pdo_sqlite`. PHP dołączone do wydań Rapiry je ma: PDO, `pdo_sqlite` i `sqlite3` są w zestawie rozszerzeń wydanej binarki, wypisanym na stronie [Instalacja](/pl/docs/intro/installation). Jeśli uruchamiasz Rapirę na własnoręcznie skompilowanym PHP, dopilnuj tych rozszerzeń w linii configure (opisuje to [Budowanie ze źródeł](/pl/docs/intro/build-from-source)) albo zamiast tego przestaw Laravela na sterowniki plikowe i synchroniczne — `SESSION_DRIVER=file`, `CACHE_STORE=file`, `QUEUE_CONNECTION=sync`. Właśnie na takim zestawie działała weryfikacja opisana na tej stronie.
+Przed pierwszym startem sprawdź rozszerzenia bazodanowe: nowa aplikacja bazowa `laravel/laravel` domyślnie sięga po bazę SQLite oraz po sterowniki sesji, cache'u i kolejek oparte na bazie, a to znaczy, że potrzebuje `pdo_sqlite`. PHP dołączone do wydań Rapiry je ma: PDO, `pdo_sqlite` i `sqlite3` są w zestawie rozszerzeń wydanej binarki, wypisanym na stronie [Instalacja](/pl/docs/intro/installation). Jeśli uruchamiasz Rapirę na własnoręcznie skompilowanym PHP, dopilnuj tych rozszerzeń w linii configure (opisuje to [Budowanie ze źródeł](/pl/docs/intro/build-from-source)) albo zamiast tego przestaw Laravela na sterowniki plikowe i synchroniczne — `SESSION_DRIVER=file`, `CACHE_STORE=file`, `QUEUE_CONNECTION=sync`. Właśnie na takim zestawie działała weryfikacja opisana na tej stronie.
 
 ## Jak to uruchomić
 
@@ -58,7 +58,7 @@ php artisan route:cache
 
 Rapira nie mapuje adresów URL na skrypty PHP: każde żądanie uruchamia skrypt wejściowy, a ścieżkę do trasowania Laravel bierze z `$_SERVER['REQUEST_URI']`. Gdy włączysz [middleware plików statycznych](/pl/docs/static-files), odpowiada on na te żądania, które potrafi obsłużyć plikiem, a każde pozostałe uruchamia skrypt wejściowy. Trasowanie, własną stronę 404 Laravela dla niedopasowanych ścieżek i generowanie adresów przez `url()` — wszystko to sprawdziliśmy: powstają czyste adresy bezwzględne bez `index.php` w środku, bez nadpisywania czegokolwiek w `$_SERVER` i bez zmian w konfiguracji tras czy adresów.
 
-Wbudowana w szkielet trasa `/up` odpowiada kodem `200`, więc nadaje się na cel health checku load balancera albo kontenera. Zasoby szkieletu Rapira serwuje przez [middleware plików statycznych](/pl/docs/static-files). Włącz go obiema połowami: wypisz `"static"` w `http.middleware` i ustaw `root` w sekcji `[http.static]` na katalog `public/` aplikacji. Z jedną połową bez drugiej Rapira odmawia startu. Zasoby może zamiast tego serwować CDN albo reverse proxy stojące z przodu. Nasłuch Rapiry mówi nieszyfrowanym HTTP i zostawia `$_SERVER['HTTPS']` puste niezależnie od `X-Forwarded-Proto`. Kiedy to proxy kończy TLS, skonfiguruj w Laravelu [zaufane proxy](https://laravel.com/docs/requests#configuring-trusted-proxies). Bez tej konfiguracji `url()` wygeneruje odnośniki `http://`.
+Wbudowana w aplikację bazową trasa `/up` odpowiada kodem `200`, więc nadaje się na cel health checku load balancera albo kontenera. Zasoby aplikacji Rapira serwuje przez [middleware plików statycznych](/pl/docs/static-files). Włącz go obiema połowami: wypisz `"static"` w `http.middleware` i ustaw `root` w sekcji `[http.static]` na katalog `public/` aplikacji. Z jedną połową bez drugiej Rapira odmawia startu. Zasoby może zamiast tego serwować CDN albo reverse proxy stojące z przodu. Nasłuch Rapiry mówi nieszyfrowanym HTTP i zostawia `$_SERVER['HTTPS']` puste niezależnie od `X-Forwarded-Proto`. Kiedy to proxy kończy TLS, skonfiguruj w Laravelu [zaufane proxy](https://laravel.com/docs/requests#configuring-trusted-proxies). Bez tej konfiguracji `url()` wygeneruje odnośniki `http://`.
 
 ## Sesje, CSRF i formularze
 

@@ -11,9 +11,9 @@ The application needs no changes. Worker mode for Laravel is under development. 
 ::: info Verified with
 - **PHP 8.5.8**: NTS, embed SAPI
 - **Rapira 0.8.0**
-- **laravel/laravel** skeleton with **laravel/framework v13.23.0**
+- Base application **laravel/laravel** with **laravel/framework v13.23.0**
 
-Tests used a `laravel/laravel` skeleton in Classic mode with one worker and additional routes.
+Tests used a base `laravel/laravel` application in Classic mode with one worker and additional routes.
 They covered routing, sessions, uploads, request bodies, cached configuration, cached routes, errors, and 50 sequential requests.
 :::
 

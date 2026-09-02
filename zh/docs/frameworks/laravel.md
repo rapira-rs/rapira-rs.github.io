@@ -10,16 +10,16 @@ Rapira 以 Classic 模式运行 Laravel，并使用原有的 `public/index.php` 
 ::: info 验证环境
 - **PHP 8.5.8**——NTS，embed SAPI
 - **Rapira 0.8.0**
-- **laravel/laravel** 骨架 + **laravel/framework v13.23.0**
+- 基础应用 **laravel/laravel** + **laravel/framework v13.23.0**
 
-本页所有内容，都是在一个加了几条测试路由的 `laravel/laravel` 骨架上、以 Classic 模式用单个 worker 进程实跑出来的：路由、session、文件上传、JSON 和表单请求体、缓存过的配置与路由、错误响应，以及 50 个顺序请求。
+测试使用了带有额外测试路由的 `laravel/laravel` 基础应用。Rapira 以 Classic 模式和单个 worker 进程运行该应用。测试覆盖了路由、session、文件上传、JSON 和表单请求体、缓存过的配置与路由、错误响应，以及 50 个顺序请求。
 :::
 
 ## 前置条件
 
 你需要装好 Rapira——见[安装](/zh/docs/intro/installation)——以及一个已经能跑起来的 Laravel 应用。机器上还得有一个普通的 PHP CLI，Composer 和 `artisan` 都要靠它跑：Rapira 把 PHP 作为库（`libphp`）提供，并不带 `php` 命令，所以这些步骤走的是你系统里的 PHP，Rapira 既不用它，也不碰它。
 
-第一次启动之前先确认数据库相关的扩展：全新的 `laravel/laravel` 骨架默认用 SQLite 数据库，session、cache 和 queue 也都走数据库驱动，也就是说它需要 `pdo_sqlite`。Rapira 发行版自带的 PHP 有这个扩展：PDO、`pdo_sqlite` 和 `sqlite3` 都在发行构建的扩展清单里，[安装](/zh/docs/intro/installation)页面列得很清楚。如果你让 Rapira 跑在自己编译的 PHP 上，记得把这些扩展写进 configure 参数（[从源码构建](/zh/docs/intro/build-from-source)讲了怎么做），或者改用文件和同步驱动——`SESSION_DRIVER=file`、`CACHE_STORE=file`、`QUEUE_CONNECTION=sync`。本页的验证用的就是这套组合。
+第一次启动之前先确认数据库相关的扩展：全新的 `laravel/laravel` 基础应用默认用 SQLite 数据库，session、cache 和 queue 也都走数据库驱动，也就是说它需要 `pdo_sqlite`。Rapira 发行版自带的 PHP 有这个扩展：PDO、`pdo_sqlite` 和 `sqlite3` 都在发行构建的扩展清单里，[安装](/zh/docs/intro/installation)页面列得很清楚。如果你让 Rapira 跑在自己编译的 PHP 上，记得把这些扩展写进 configure 参数（[从源码构建](/zh/docs/intro/build-from-source)讲了怎么做），或者改用文件和同步驱动——`SESSION_DRIVER=file`、`CACHE_STORE=file`、`QUEUE_CONNECTION=sync`。本页的验证用的就是这套组合。
 
 ## 跑起来
 
@@ -58,7 +58,7 @@ php artisan route:cache
 
 Rapira 不会把 URL 映射到 PHP 脚本：每个请求跑的都是入口脚本，路径由 `$_SERVER['REQUEST_URI']` 交给 Laravel 去路由。开启[静态文件中间件](/zh/docs/static-files)之后，凡是它能用文件应答的请求由它接走，其余的请求照旧跑入口脚本。路由、没匹配上的路径拿到的 Laravel 自带 404 页面，以及 `url()` 生成的地址，全都验证过：生成出来的是干净的绝对 URL，里面没有 `index.php`，而且既不需要覆盖 `$_SERVER`，也不需要改任何路由或 URL 配置。
 
-骨架自带的 `/up` 健康检查路由返回 `200`，拿它给负载均衡器或者容器健康检查当探测目标正合适。骨架里的静态资源由 Rapira 自己用[静态文件中间件](/zh/docs/static-files)提供。开启它要两处一起配：在 `http.middleware` 里列出 `"static"`，并把 `[http.static]` 的 `root` 指向应用的 `public/` 目录。只配了一半，Rapira 会拒绝启动。当然，也可以让前面的 CDN 或反向代理来提供这些资源。Rapira 的监听器只讲明文 HTTP，无论 `X-Forwarded-Proto` 是什么值，`$_SERVER['HTTPS']` 都是空的。TLS 在那个代理上终结时，要在 Laravel 里配置[可信代理](https://laravel.com/docs/requests#configuring-trusted-proxies)；不配的话，`url()` 生成的是 `http://` 链接。
+基础应用自带的 `/up` 健康检查路由返回 `200`，拿它给负载均衡器或者容器健康检查当探测目标正合适。Rapira 使用[静态文件中间件](/zh/docs/static-files)提供应用的静态资源。开启它要两处一起配：在 `http.middleware` 里列出 `"static"`，并把 `[http.static]` 的 `root` 指向应用的 `public/` 目录。只配了一半，Rapira 会拒绝启动。当然，也可以让前面的 CDN 或反向代理来提供这些资源。Rapira 的监听器只讲明文 HTTP，无论 `X-Forwarded-Proto` 是什么值，`$_SERVER['HTTPS']` 都是空的。TLS 在那个代理上终结时，要在 Laravel 里配置[可信代理](https://laravel.com/docs/requests#configuring-trusted-proxies)；不配的话，`url()` 生成的是 `http://` 链接。
 
 ## Session、CSRF 与表单
 

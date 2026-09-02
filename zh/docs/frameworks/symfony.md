@@ -13,7 +13,7 @@ Symfony 的结构适合常驻 worker：一个由你启动的内核，一个你�
 - **Symfony 7.4**（`symfony/framework-bundle` v7.4.15）——`dev` 和 `prod` 下都跑了整套测试
 - **Symfony 8.1**（`symfony/framework-bundle` v8.1.2）——`dev` 下跑了整套测试
 
-两个应用都是原封不动的 `symfony/skeleton`，跑在单个 worker 进程下，用的还是**同一个 `worker.php`**——逐字节相同，没有任何按版本分叉的代码。整套测试覆盖了路由、一个 404、查询串、生成的 URL、表单提交、JSON 请求体、跨请求的 session、一次文件上传、一个未捕获的异常，以及连续 200 个请求。
+两个应用都使用 `symfony/skeleton` 包创建，并在单个 worker 进程下运行。它们使用**同一个 `worker.php`**，没有任何按版本分叉的代码。测试覆盖了路由、一个 404、查询串、生成的 URL、表单提交、JSON 请求体、跨请求的 session、一次文件上传、一个未捕获的异常，以及连续 200 个请求。
 :::
 
 ## Worker 模式下的行为
@@ -37,9 +37,9 @@ session 就是原生的 PHP session，和在 php-fpm 下完全一样：每个请
 
 你需要[装好 Rapira](/zh/docs/intro/installation)，再加一个 Symfony 应用——`composer create-project symfony/skeleton my-app` 新建一个，或者直接用手上那个。应用不必做任何特别准备：worker 脚本放在 `composer.json` 旁边，其他一切原地不动。另外机器上还得有一个普通的 PHP CLI，Composer 和 `bin/console` 都要用它：Rapira 是把 PHP 以库（`libphp`）的形式带进来的，并不提供 `php` 命令，所以这些步骤跑的是你系统里的 PHP，Rapira 既不使用也不干涉它。
 
-有两个扩展要留意，因为 skeleton 在 `composer.json` 里把它们写成了硬依赖（`ext-ctype`、`ext-iconv`），*同时*还 `replace` 掉了对应的 polyfill——所以它们必须是真正的扩展，不能是 PHP 写的替身。两个 PHP 构建都需要它们，系统里那个 CLI 也一样，否则 `composer create-project` 和 `composer install` 在平台检查那一步就会失败，那时 Rapira 根本还没上场。每个 Rapira 发布版内嵌的 PHP 两个都带：`ctype` 和 `iconv` 就在构建的 configure 参数里，完整的扩展清单在[安装](/zh/docs/intro/installation)页上。如果你改用自己的 PHP 来编译 Rapira，记得把这两个都打开——那份清单在哪里设置，见[从源码构建](/zh/docs/intro/build-from-source)。
+有两个扩展要留意，因为基础应用在 `composer.json` 里把它们写成了硬依赖（`ext-ctype`、`ext-iconv`），*同时*还 `replace` 掉了对应的 polyfill——所以它们必须是真正的扩展，不能是 PHP 写的替身。两个 PHP 构建都需要它们，系统里那个 CLI 也一样，否则 `composer create-project` 和 `composer install` 在平台检查那一步就会失败，那时 Rapira 根本还没上场。每个 Rapira 发布版内嵌的 PHP 两个都带：`ctype` 和 `iconv` 就在构建的 configure 参数里，完整的扩展清单在[安装](/zh/docs/intro/installation)页上。如果你改用自己的 PHP 来编译 Rapira，记得把这两个都打开——那份清单在哪里设置，见[从源码构建](/zh/docs/intro/build-from-source)。
 
-下面这个 worker 文件还用到了 `symfony/dotenv`，skeleton 自带这个组件。如果你的部署环境本来就设好了真正的环境变量、压根没有 `.env`，那就把那一行连同这个组件一起删掉。worker 不走 `symfony/runtime`，它自己加载 `.env`、自己构造内核，但这个包还是留着，因为 `bin/console` 和 `public/index.php` 仍然要用它。
+下面这个 worker 文件还用到了 `symfony/dotenv`，基础应用自带这个组件。如果你的部署环境本来就设好了真正的环境变量、压根没有 `.env`，那就把那一行连同这个组件一起删掉。worker 不走 `symfony/runtime`，它自己加载 `.env`、自己构造内核，但这个包还是留着，因为 `bin/console` 和 `public/index.php` 仍然要用它。
 
 ## worker 脚本
 
@@ -140,7 +140,7 @@ composer install --no-dev --optimize-autoloader
 APP_ENV=prod php bin/console cache:warmup
 ```
 
-顺手把 `DEFAULT_URI` 也检查一下。skeleton 的 `config/packages/routing.yaml` 在**每个**环境里都把 `router.default_uri` 设成 `%env(DEFAULT_URI)%`，而 `.env` 里给的是 `http://localhost`，HTTP 请求之外生成的 URL（命令行命令、邮件）就是照着这个值拼出来的。把它指向你真实的源站地址。
+顺手把 `DEFAULT_URI` 也检查一下。基础应用的 `config/packages/routing.yaml` 在**每个**环境里都把 `router.default_uri` 设成 `%env(DEFAULT_URI)%`，而 `.env` 里给的是 `http://localhost`，HTTP 请求之外生成的 URL（命令行命令、邮件）就是照着这个值拼出来的。把它指向你真实的源站地址。
 
 一份用来跑它的小 `rapira.toml`：
 
@@ -180,4 +180,4 @@ rapira serve --mode classic public/index.php
 
 还是同一个应用，只是跑在 Classic 模式下。它每个请求都要启动一遍，所以改动立刻生效。每个请求也会执行一次完整的启动。至于已经在跑的生产服务器，让部署上去的代码接手而不中断连接的办法是滚动重载（给 master 发 `SIGUSR2`）——除非你开了 `opcache.validate_timestamps = 0`，那时 master 的 OPcache 段比整个进程池活得久，部署就得整个重启才行；见[进程模型](/zh/docs/process-model)和[生产环境部署](/zh/docs/deployment)。
 
-未捕获的异常由 Symfony 自己处理：框架用自己的 `500` 应答它——`dev` 下是完整的异常页面，`prod` 下是一个通用错误页——接着处理下一个请求的还是同一个 worker 进程，故障前后它的 pid 没变。异常之后留下来的是泄漏或者被弄坏的服务状态，handler 末尾那次重置正是用来清掉它的。堆栈最后落到哪儿，取决于你的日志器；原装的 skeleton 一个日志器也不带。真正会出现在 Rapira 那条 stderr 日志里的，是从 PHP 自己手里逃出去的东西，比如上面那个 `EnvNotFoundException`——怎么把级别调高，见[日志](/zh/docs/logging)。
+未捕获的异常由 Symfony 自己处理：框架用自己的 `500` 应答它——`dev` 下是完整的异常页面，`prod` 下是一个通用错误页——接着处理下一个请求的还是同一个 worker 进程，故障前后它的 pid 没变。异常之后留下来的是泄漏或者被弄坏的服务状态，handler 末尾那次重置正是用来清掉它的。堆栈最后落到哪儿，取决于你的日志器；基础应用默认不带日志器。真正会出现在 Rapira 那条 stderr 日志里的，是从 PHP 自己手里逃出去的东西，比如上面那个 `EnvNotFoundException`——怎么把级别调高，见[日志](/zh/docs/logging)。

@@ -16,7 +16,7 @@ This page describes that file, request state resets, and `.env` values.
 - **Symfony 7.4** (`symfony/framework-bundle` v7.4.15), tested in `dev` and `prod`
 - **Symfony 8.1** (`symfony/framework-bundle` v8.1.2), tested in `dev`
 
-Both applications used a standard `symfony/skeleton` and one worker. Both used the **same `worker.php`** without version conditions.
+Both base applications used the `symfony/skeleton` package and one worker. Both used the **same `worker.php`** without version conditions.
 Tests covered routing, errors, requests, sessions, uploads, and 200 sequential requests.
 :::
 
@@ -46,12 +46,12 @@ Install [Rapira](/docs/intro/installation) and create or select a Symfony applic
 Install a PHP CLI for Composer and `bin/console`. Rapira supplies PHP as a library, not as a `php` command.
 Composer and `bin/console` use the system PHP CLI. Rapira does not use or change this CLI.
 
-The skeleton requires the `ctype` and `iconv` extensions. It also replaces their PHP polyfills, so both must be native extensions.
+The base application requires the `ctype` and `iconv` extensions. It also replaces their PHP polyfills, so both must be native extensions.
 The system PHP CLI also needs them for Composer platform checks. Each Rapira release includes both extensions.
 See [Installation](/docs/intro/installation) for the complete extension list.
 Enable both extensions when you compile PHP. See [Build from source](/docs/intro/build-from-source).
 
-The worker also uses the `symfony/dotenv` component from the skeleton.
+The worker also uses the `symfony/dotenv` component from the base application.
 Remove the Dotenv call and component when the deployment provides all environment variables.
 The worker reads `.env` and creates the kernel without `symfony/runtime`. Keep `symfony/runtime` because `bin/console` and `public/index.php` use it.
 
@@ -178,7 +178,7 @@ composer install --no-dev --optimize-autoloader
 APP_ENV=prod php bin/console cache:warmup
 ```
 
-Check `DEFAULT_URI` during configuration. The skeleton sets `router.default_uri` to `%env(DEFAULT_URI)%` in each environment.
+Check `DEFAULT_URI` during configuration. The base application sets `router.default_uri` to `%env(DEFAULT_URI)%` in each environment.
 The default is `http://localhost`. Console commands and email code use this value to create URLs outside an HTTP request.
 Set it to the application origin.
 
@@ -235,5 +235,5 @@ See [process model](/docs/process-model) and [running in production](/docs/deplo
 
 Symfony handles an uncaught application exception and returns its own `500` response. `dev` shows the exception page, while `prod` shows a general error page.
 The same worker processes the next request. The final reset removes changed service state after the exception.
-The configured Symfony logger controls exception output. A standard skeleton does not include a logger.
+The configured Symfony logger controls exception output. The base application does not include a logger.
 Rapira logs PHP errors that leave the framework, such as the `EnvNotFoundException` above. See [Logging](/docs/logging) for level configuration.

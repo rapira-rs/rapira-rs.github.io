@@ -10,16 +10,16 @@ Rapira ejecuta Laravel en modo Classic con el script de entrada `public/index.ph
 ::: info Verificado con
 - **PHP 8.5.8** — NTS, SAPI embed
 - **Rapira 0.8.0**
-- Esqueleto de **laravel/laravel** con **laravel/framework v13.23.0**
+- Aplicación base **laravel/laravel** con **laravel/framework v13.23.0**
 
-Todo lo que cuenta esta página se ejecutó sobre un esqueleto `laravel/laravel` con unas cuantas rutas de prueba añadidas, en modo Classic y con un solo proceso worker: enrutado, sesiones, subidas de archivos, cuerpos JSON y de formulario, configuración y rutas cacheadas, respuestas de error y 50 peticiones seguidas.
+Las pruebas utilizaron una aplicación base `laravel/laravel` con varias rutas adicionales, en modo Classic y con un solo proceso worker: enrutado, sesiones, subidas de archivos, cuerpos JSON y de formulario, configuración y rutas cacheadas, respuestas de error y 50 peticiones seguidas.
 :::
 
 ## Requisitos previos
 
 Necesitas Rapira instalado —lo tienes en [Instalación](/es/docs/intro/installation)— y una aplicación de Laravel que ya te funcione. También necesitas un PHP CLI normal en la máquina para Composer y `artisan`: Rapira trae PHP como biblioteca (`libphp`), no como comando `php`, así que esos pasos se ejecutan con el PHP de tu sistema, que Rapira ni usa ni toca.
 
-Comprueba las extensiones de base de datos antes del primer arranque: un esqueleto recién creado de `laravel/laravel` viene con una base de datos SQLite y con los drivers de sesión, caché y colas apoyados en base de datos, lo que significa que necesita `pdo_sqlite`. El PHP que acompaña a las releases de Rapira lo trae: PDO, `pdo_sqlite` y `sqlite3` están en el conjunto de extensiones de la compilación de release, tal y como lista la página de [Instalación](/es/docs/intro/installation). Si ejecutas Rapira contra un PHP compilado por ti, asegúrate de que esas extensiones aparecen en tu línea de configure ([Compilar desde el código](/es/docs/intro/build-from-source) lo cuenta), o apunta Laravel a los drivers de archivo y sync: `SESSION_DRIVER=file`, `CACHE_STORE=file`, `QUEUE_CONNECTION=sync`. Esa es la combinación con la que se verificó esta página.
+Comprueba las extensiones de base de datos antes del primer arranque: una aplicación base nueva de `laravel/laravel` viene con una base de datos SQLite y con los drivers de sesión, caché y colas apoyados en base de datos, lo que significa que necesita `pdo_sqlite`. El PHP que acompaña a las releases de Rapira lo trae: PDO, `pdo_sqlite` y `sqlite3` están en el conjunto de extensiones de la compilación de release, tal y como lista la página de [Instalación](/es/docs/intro/installation). Si ejecutas Rapira contra un PHP compilado por ti, asegúrate de que esas extensiones aparecen en tu línea de configure ([Compilar desde el código](/es/docs/intro/build-from-source) lo cuenta), o apunta Laravel a los drivers de archivo y sync: `SESSION_DRIVER=file`, `CACHE_STORE=file`, `QUEUE_CONNECTION=sync`. Esa es la combinación con la que se verificó esta página.
 
 ## Ponerlo en marcha
 
@@ -58,7 +58,7 @@ php artisan route:cache
 
 Rapira no mapea las URL sobre scripts PHP: cada petición ejecuta el script de entrada y la ruta que Laravel enruta llega en `$_SERVER['REQUEST_URI']`. Cuando el [middleware de archivos estáticos](/es/docs/static-files) está activado, responde a las peticiones que puede servir con un archivo, y las demás ejecutan el script de entrada. El enrutado, la página 404 del propio Laravel para las rutas que no encajan y la generación con `url()` se verificaron todos: las URL que salen son absolutas y limpias, sin `index.php` por ninguna parte, y sin sobrescribir nada de `$_SERVER` ni tocar la configuración de rutas o de URLs.
 
-La ruta de salud `/up` que trae el esqueleto responde `200`, así que sirve como destino del health check de un balanceador de carga o de un contenedor. Los archivos estáticos del esqueleto los sirve Rapira con el [middleware de archivos estáticos](/es/docs/static-files). Actívalo por sus dos mitades: nombra `"static"` en `http.middleware` y pon en la clave `root` de `[http.static]` el directorio `public/` de la aplicación. Si aparece una mitad sin la otra, Rapira se niega a arrancar. Una CDN o un proxy inverso por delante también pueden servir esos archivos en su lugar. El listener de Rapira habla HTTP en claro y deja `$_SERVER['HTTPS']` vacío sea cual sea el valor de `X-Forwarded-Proto`. Cuando ese proxy termina el TLS, configura los [proxies de confianza](https://laravel.com/docs/requests#configuring-trusted-proxies) de Laravel; sin esa configuración, `url()` genera enlaces `http://`.
+La ruta de salud `/up` que trae la aplicación base responde `200`, así que sirve como destino del health check de un balanceador de carga o de un contenedor. Rapira sirve los archivos estáticos de la aplicación con el [middleware de archivos estáticos](/es/docs/static-files). Actívalo por sus dos mitades: nombra `"static"` en `http.middleware` y pon en la clave `root` de `[http.static]` el directorio `public/` de la aplicación. Si aparece una mitad sin la otra, Rapira se niega a arrancar. Una CDN o un proxy inverso por delante también pueden servir esos archivos en su lugar. El listener de Rapira habla HTTP en claro y deja `$_SERVER['HTTPS']` vacío sea cual sea el valor de `X-Forwarded-Proto`. Cuando ese proxy termina el TLS, configura los [proxies de confianza](https://laravel.com/docs/requests#configuring-trusted-proxies) de Laravel; sin esa configuración, `url()` genera enlaces `http://`.
 
 ## Sesiones, CSRF y formularios
 

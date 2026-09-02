@@ -13,7 +13,7 @@ Struktura Symfony pasuje do rezydentnego workera: kernel, który podnosisz, `Req
 - **Symfony 7.4** (`symfony/framework-bundle` v7.4.15) — pełna bateria testów w `dev` i w `prod`
 - **Symfony 8.1** (`symfony/framework-bundle` v8.1.2) — pełna bateria testów w `dev`
 
-Obie aplikacje to goły `symfony/skeleton` chodzący w jednym procesie workera i obie uruchamiały **ten sam `worker.php`** — bajt w bajt, bez żadnej gałęzi na wersję. Bateria obejmuje routing, 404, query stringi, generowanie URL-i, wysyłkę formularza, treść w JSON-ie, sesje trzymające się między żądaniami, upload pliku, nieprzechwycony wyjątek i 200 żądań pod rząd.
+Testy używały dwóch aplikacji utworzonych z pakietu `symfony/skeleton` i jednego procesu workera. Obie aplikacje uruchamiały **ten sam `worker.php`** — bajt w bajt, bez żadnej gałęzi na wersję. Testy obejmowały routing, 404, query stringi, generowanie URL-i, wysyłkę formularza, treść w JSON-ie, sesje trzymające się między żądaniami, upload pliku, nieprzechwycony wyjątek i 200 żądań pod rząd.
 :::
 
 ## Zachowanie w trybie Worker
@@ -37,9 +37,9 @@ Jeden kernel żyje w jednym procesie workera, a workery to osobne procesy system
 
 Potrzebujesz [zainstalowanej Rapiry](/pl/docs/intro/installation) i aplikacji Symfony — świeżej z `composer create-project symfony/skeleton my-app` albo tej, którą już masz. Aplikacji nie trzeba do niczego specjalnie przygotowywać: skrypt workera ląduje obok `composer.json`, a cała reszta zostaje na swoim miejscu. Na maszynie potrzebujesz też zwykłego PHP CLI — do Composera i `bin/console`. Rapira dostarcza PHP jako bibliotekę (`libphp`), a nie jako polecenie `php`, więc te kroki wykonuje systemowy PHP, którego Rapira ani nie używa, ani nie rusza.
 
-Znaczenie mają dwa rozszerzenia, bo skeleton twardo wymaga ich w `composer.json` (`ext-ctype`, `ext-iconv`), *a przy okazji* wypisuje odpowiadające im polyfille w sekcji `replace` — muszą to więc być prawdziwe rozszerzenia, a nie ich namiastki napisane w PHP. Potrzebują ich obie kompilacje PHP, systemowy CLI też: inaczej `composer create-project` i `composer install` polegną na sprawdzeniu wymagań platformy, zanim Rapira w ogóle wejdzie do gry. PHP dołączane do każdego wydania Rapiry ma oba: `ctype` i `iconv` stoją w linii konfiguracyjnej tego builda, a pełną listę rozszerzeń znajdziesz na stronie [Instalacja](/pl/docs/intro/installation). Jeśli zamiast tego kompilujesz Rapirę przeciwko własnemu PHP, zostaw oba włączone — gdzie ustawia się tę listę, pokazuje [Budowanie ze źródeł](/pl/docs/intro/build-from-source).
+Znaczenie mają dwa rozszerzenia, bo plik `composer.json` aplikacji bazowej wymaga ich (`ext-ctype`, `ext-iconv`), *a przy okazji* wypisuje odpowiadające im polyfille w sekcji `replace` — muszą to więc być prawdziwe rozszerzenia, a nie ich namiastki napisane w PHP. Potrzebują ich obie kompilacje PHP, systemowy CLI też: inaczej `composer create-project` i `composer install` polegną na sprawdzeniu wymagań platformy, zanim Rapira w ogóle wejdzie do gry. PHP dołączane do każdego wydania Rapiry ma oba: `ctype` i `iconv` stoją w linii konfiguracyjnej tego builda, a pełną listę rozszerzeń znajdziesz na stronie [Instalacja](/pl/docs/intro/installation). Jeśli zamiast tego kompilujesz Rapirę przeciwko własnemu PHP, zostaw oba włączone — gdzie ustawia się tę listę, pokazuje [Budowanie ze źródeł](/pl/docs/intro/build-from-source).
 
-Plik workera poniżej korzysta też z `symfony/dotenv`, który skeleton ma w zestawie. Jeśli twoje wdrożenie ustawia prawdziwe zmienne środowiskowe i nie ma żadnego `.env`, skasuj tę linię, a razem z nią cały komponent. Worker nie przechodzi przez `symfony/runtime` — sam wczytuje `.env` i sam buduje kernel — ale zostaw pakiet zainstalowany, bo `bin/console` i `public/index.php` nadal z niego korzystają.
+Plik workera poniżej korzysta też z `symfony/dotenv`, który zawiera aplikacja bazowa. Jeśli twoje wdrożenie ustawia prawdziwe zmienne środowiskowe i nie ma żadnego `.env`, skasuj tę linię, a razem z nią cały komponent. Worker nie przechodzi przez `symfony/runtime` — sam wczytuje `.env` i sam buduje kernel — ale zostaw pakiet zainstalowany, bo `bin/console` i `public/index.php` nadal z niego korzystają.
 
 ## Skrypt workera
 
@@ -140,7 +140,7 @@ composer install --no-dev --optimize-autoloader
 APP_ENV=prod php bin/console cache:warmup
 ```
 
-Przy okazji sprawdź `DEFAULT_URI`. Plik `config/packages/routing.yaml` ze skeletonu ustawia `router.default_uri` na `%env(DEFAULT_URI)%` w **każdym** środowisku, a `.env` przynosi tam `http://localhost` — to właśnie z tej wartości powstają URL-e generowane poza żądaniem HTTP: w poleceniach konsolowych i w mailach. Wskaż nią swój prawdziwy adres.
+Przy okazji sprawdź `DEFAULT_URI`. W aplikacji bazowej plik `config/packages/routing.yaml` ustawia `router.default_uri` na `%env(DEFAULT_URI)%` w **każdym** środowisku, a `.env` przynosi tam `http://localhost` — to właśnie z tej wartości powstają URL-e generowane poza żądaniem HTTP: w poleceniach konsolowych i w mailach. Wskaż nią swój prawdziwy adres.
 
 Mały `rapira.toml`, żeby to uruchomić:
 
@@ -180,4 +180,4 @@ rapira serve --mode classic public/index.php
 
 Ta sama aplikacja działa w trybie Classic i uruchamia się przy każdym żądaniu. Dlatego zmiany działają od razu, a każde żądanie obejmuje pełny rozruch. Na serwerze produkcyjnym wdrożony kod przejmuje pracę bez zrywania połączeń dzięki przeładowaniu kroczącemu (`SIGUSR2` do procesu nadrzędnego). Przy `opcache.validate_timestamps = 0` segment OPcache procesu nadrzędnego przeżywa całą pulę. W tej konfiguracji wdrożenie wymaga pełnego restartu. Więcej informacji zawierają [model procesów](/pl/docs/process-model) i [wdrożenie produkcyjne](/pl/docs/deployment).
 
-Nieprzechwycony wyjątek jest obsługiwany wewnątrz Symfony: framework odpowiada na niego własnym `500` — pełną stroną wyjątku w `dev`, ogólną stroną błędu w `prod` — a kolejne żądanie bierze ten sam proces workera, z niezmienionym pidem mimo awarii. Po wyjątku zostaje wyciekły albo zepsuty stan serwisów i zdejmuje go reset na końcu handlera. Gdzie wyląduje ślad stosu, zależy od twojego loggera; goły skeleton nie ma żadnego. Do logu Rapiry na stderr trafia to, co ucieknie z samego PHP, jak wspomniany wyżej `EnvNotFoundException` — jak podkręcić poziom, pokazują [Logi](/pl/docs/logging).
+Nieprzechwycony wyjątek jest obsługiwany wewnątrz Symfony: framework odpowiada na niego własnym `500` — pełną stroną wyjątku w `dev`, ogólną stroną błędu w `prod` — a kolejne żądanie bierze ten sam proces workera, z niezmienionym pidem mimo awarii. Po wyjątku zostaje wyciekły albo zepsuty stan serwisów i zdejmuje go reset na końcu handlera. Gdzie wyląduje ślad stosu, zależy od twojego loggera; aplikacja bazowa nie ma żadnego. Do logu Rapiry na stderr trafia to, co ucieknie z samego PHP, jak wspomniany wyżej `EnvNotFoundException` — jak podkręcić poziom, pokazują [Logi](/pl/docs/logging).

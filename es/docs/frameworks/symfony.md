@@ -118,7 +118,7 @@ El arreglo es esa única línea del script de arriba:
 
 La otra opción en producción es definir variables de entorno de verdad -un `Environment=` de systemd, tu runtime de contenedores, tu orquestador- y dejar el `.env` como comodidad de desarrollo. En cualquiera de los dos casos, los valores viven en un sitio que la reimportación de mitad de petición no puede borrar.
 
-Esto se aplica a cualquier runtime de PHP con workers residentes: cualquier framework que lea `$_ENV` de forma perezosa está expuesto. La página de [Frameworks](/es/docs/frameworks/) lo trata junto a los otros dos comportamientos de los procesos residentes: el destructor de un objeto de arranque y `register_shutdown_function()`, que se disparan una sola vez, al final de la primera petición.
+Esto se aplica a cualquier runtime de PHP con workers residentes: cualquier framework que lea `$_ENV` de forma perezosa está expuesto. Consulta [Frameworks](/es/docs/frameworks/) para conocer este y otros comportamientos de los procesos residentes.
 
 ## Ponerlo en marcha
 

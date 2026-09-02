@@ -11,7 +11,7 @@ Rapira nie potrzebuje pliku konfiguracyjnego, żeby wystartować - `rapira serve
 rapira serve --config /etc/rapira/rapira.toml
 ```
 
-Plik ma cztery sekcje i każda z nich jest opcjonalna: `[http]` konfiguruje nasłuch, `[pool]` procesy workerów, `[supervisor]` proces nadrzędny, a `[log]` to, co trafia na stderr. Jedyny klucz bez wartości domyślnej to skrypt wejściowy PHP - ustaw tutaj `pool.entrypoint` albo podaj skrypt jako argument pozycyjny w wierszu poleceń.
+Plik ma cztery sekcje i każda z nich jest opcjonalna: `[http]` konfiguruje nasłuch, `[pool]` procesy workerów, `[supervisor]` proces nadrzędny, a `[log]` to, co trafia na stderr. Skrypt wejściowy PHP nie ma wartości domyślnej. Ustaw `pool.entrypoint` albo podaj skrypt jako argument pozycyjny w wierszu poleceń.
 
 ::: info
 Ustawienia układają się warstwami: flaga wiersza poleceń wygrywa z plikiem konfiguracyjnym, a plik z wbudowaną wartością domyślną. `--processes 8` bierze więc górę nad `processes = 4` z pliku, dzięki czemu konfigurację trzymaną w repozytorium wciąż da się nadpisać na jedno uruchomienie. Zmienne środowiskowe nie należą do tych warstw: poza dwiema, które dotyczą wyłącznie logów, ustawienia pochodzą tylko z pliku i z flag. Same flagi opisuje [Wiersz poleceń](/pl/docs/cli).
@@ -39,7 +39,7 @@ root = "public"                       # Required. Relative paths use this file's
 forbid = [".php"]                     # Optional. Rapira does not serve these suffixes.
 
 [http.sendfile]                       # Optional. Sets the sendFile() root in Dispatcher mode.
-root = "public"                       # Optional. Uses the entrypoint directory by default.
+root = "public"                       # Optional. Uses the entry script directory by default.
 
 [http.uploads]                        # Optional. Sets multipart limits in Dispatcher mode.
 dir = "/var/spool/rapira"             # Optional. Uses the system temporary directory by default.
@@ -111,7 +111,7 @@ Katalog sendfile wyznacza jedyne miejsce, z którego czyta `sendFile()`. Rapira 
 
 | Klucz | Typ | Domyślnie | Znaczenie |
 | --- | --- | --- | --- |
-| `root` | tekst | katalog ze skryptem z `pool.entrypoint` | Jedyny katalog, z którego `sendFile()` może czytać. Ścieżkę względną Rapira liczy od katalogu z plikiem konfiguracyjnym. |
+| `root` | tekst | katalog ze skryptem wejściowym | Jedyny katalog, z którego `sendFile()` może czytać. Ścieżkę względną Rapira liczy od katalogu z plikiem konfiguracyjnym. |
 
 Katalogu, którego przy starcie serwera nie ma, nie da się sprowadzić do postaci kanonicznej, a wtedy `sendFile()` odrzuca każdą ścieżkę. Utwórz katalog, zanim uruchomisz serwer.
 

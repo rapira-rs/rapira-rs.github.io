@@ -84,9 +84,9 @@ See [Logging](/docs/logging) for more information.
 
 HTTP permits repeated fields, but CGI provides one value for each variable. Rapira combines repeated values according to the field syntax:
 
-- **List fields:** Rapira joins values with `, `. [RFC 9110 §5.3](https://www.rfc-editor.org/rfc/rfc9110#section-5.3) permits this format for comma-separated fields.
+- **List fields:** Rapira joins values with a comma and a space. [RFC 9110 §5.3](https://www.rfc-editor.org/rfc/rfc9110#section-5.3) permits this format for comma-separated fields.
 - For example, two `Accept` lines become `text/*, image/*`.
-- **`Cookie`:** Rapira joins values with `; `, which is the format that the PHP cookie parser expects.
+- **`Cookie`:** Rapira joins values with a semicolon and a space, which is the format that the PHP cookie parser expects.
 - **Single-value fields:** Rapira keeps the first `Authorization`, `Proxy-Authorization`, `Content-Type`, `Referer`, or `From` line.
 - It removes additional lines and writes a `warn` record. Combining these fields would change their values.
 - Rapira returns `400` for repeated `Content-Length` fields before this processing.
@@ -124,7 +124,7 @@ A call to `rapira_finish_request()` passes it earlier. In Dispatcher mode, PHP p
 The server controls response framing. It removes `Transfer-Encoding` and `Content-Length` fields set by PHP.
 This prevents an incorrect length from changing message boundaries.
 In Classic and Worker modes, the server sets the length of the complete PHP body.
-In Dispatcher mode, it uses `Content-Length` from the response head and counts body bytes.
+In Dispatcher mode, the server uses the `Content-Length` that PHP declares in the head. It sends this value as its own field and compares the body length with it.
 It closes the connection for a short body. It cuts a long body at the declared length.
 
 The HTTP server frames a response that declares no length. It uses chunked transfer coding for an HTTP/1.1 client.

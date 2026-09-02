@@ -118,7 +118,7 @@ while (\Rapira\handle_request($handler)) {
 
 生产环境里的另一个选择是直接设真正的环境变量（systemd 的 `Environment=`、你的容器运行时、你的编排系统），把 `.env` 留作开发时的便利。无论走哪条路，值都待在请求中途的重新导入抹不掉的地方。
 
-这一点适用于任何常驻 worker 的 PHP 运行时--只要框架是懒加载地读 `$_ENV`，就会中招。[框架集成](/zh/docs/frameworks/)页把它和另外两个常驻进程的行为放在一起讲：启动对象的析构函数和 `register_shutdown_function()` 都只在第一个请求结束时触发一次。
+这一点适用于任何常驻 worker 的 PHP 运行时：只要框架是懒加载地读 `$_ENV`，就会中招。关于这个行为以及其他常驻进程的行为，参见[框架集成](/zh/docs/frameworks/)。
 
 ## 跑起来
 

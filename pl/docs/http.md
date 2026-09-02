@@ -69,8 +69,8 @@ Jeśli twoi klienci naprawdę wysyłają nazwę z podkreśleniem, rozwiązaniem 
 
 HTTP pozwala klientowi powtórzyć pole, a CGI ma miejsce tylko na jedną wartość na zmienną - powtórzenia trzeba więc scalić w jedną wartość, zanim PHP cokolwiek zobaczy. Rapira scala je tak, jak pozwala na to gramatyka samego pola:
 
-- **Pola listowe** - wartości sklejane są przez `, `, bo taką rekombinację dopuszcza [RFC 9110 §5.3](https://www.rfc-editor.org/rfc/rfc9110#section-5.3) dla pola zdefiniowanego jako lista rozdzielana przecinkami. Z dwóch linii `Accept` wychodzi `text/*, image/*`.
-- **`Cookie`** - też lista, ale nie przecinkowa. Jej powtórzenia sklejane są przez `; `, czyli w formie cookie-string, której oczekuje parser PHP - dzięki temu `$_COOKIE` wychodzi poprawnie.
+- **Pola listowe** - wartości sklejane są przecinkiem ze spacją, bo taką rekombinację dopuszcza [RFC 9110 §5.3](https://www.rfc-editor.org/rfc/rfc9110#section-5.3) dla pola zdefiniowanego jako lista rozdzielana przecinkami. Z dwóch linii `Accept` wychodzi `text/*, image/*`.
+- **`Cookie`** - też lista, ale nie przecinkowa. Jej powtórzenia sklejane są średnikiem ze spacją, czyli w formie cookie-string, której oczekuje parser PHP - dzięki temu `$_COOKIE` wychodzi poprawnie.
 - **Pola jednowartościowe** - `Authorization`, `Proxy-Authorization`, `Content-Type`, `Content-Length`, `Referer` i `From` zachowują wyłącznie **pierwszą** linię, a nadmiarowe znikają z wpisem `warn`. Sklejenie by je zepsuło: druga linia `Authorization` doklejona do pierwszej ląduje w środku poświadczenia, które PHP zaraz zdekoduje z base64. Powtórzony `Content-Length` dostaje `400`, zanim dojdzie do scalania, więc do tej reguły trafia tylko pozostała piątka.
 - **`Host`** - więcej niż jedna linia `Host` kończy się odpowiedzią `400`, nigdy scaleniem. [RFC 9112 §3.2](https://www.rfc-editor.org/rfc/rfc9112#section-3.2) stawia tu MUST, a poprawną odpowiedź może dać tylko ta warstwa, która terminuje połączenie.
 

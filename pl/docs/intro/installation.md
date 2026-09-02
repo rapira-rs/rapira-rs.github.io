@@ -46,7 +46,7 @@ Zainstaluj pakiet z drugą wersją, a podmianę zrobi menedżer pakietów. `rapi
 
 Wszystko leży na [stronie wydań w GitHubie](https://github.com/rapira-rs/rapira/releases). [Strona pobierania](/pl/download) sama dobierze artefakt do twojej platformy - systemu, architektury, wersji PHP, formatu pakietu - i pokaże jego SHA-256; każdy artefakt `php8.5` ma bliźniaka `php8.4`.
 
-Na Linuksie weź pakiet, jeśli chcesz, żeby pliki trafiły tam, gdzie spodziewa się ich dystrybucja, a `apt` albo `dnf` dociągnęły biblioteki współdzielone potrzebne PHP; weź archiwum, jeśli cały serwer ma się zmieścić w jednym samowystarczalnym katalogu - obraz kontenera, artefakt wdrożenia, maszyna bez roota.
+Na Linuksie weź pakiet, jeśli chcesz, żeby pliki trafiły tam, gdzie spodziewa się ich dystrybucja, a `apt` albo `dnf` dociągnęły biblioteki współdzielone potrzebne PHP; weź archiwum, jeśli cały serwer ma się zmieścić w jednym katalogu - obraz kontenera, artefakt wdrożenia, maszyna bez roota.
 
 W obu przypadkach sprawdź plik z `rapira-v0.8.0-SHA256SUMS.txt` przed instalacją - polecenia znajdziesz w sekcji [Weryfikacja sum kontrolnych](#weryfikacja-sum-kontrolnych).
 

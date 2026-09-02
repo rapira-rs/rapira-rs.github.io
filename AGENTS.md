@@ -32,8 +32,8 @@ Use a literal `tagline` in every language. Describe Rapira as a PHP application 
 
 ## Structure
 
-```text
-./            # Repository root (English)
+```
+docs/         # English (root)
 ├── index.md  # Home page (layout: home)
 ├── download.md # Download page (selector for release data)
 ├── docs/     # Documentation pages (intro/ holds the entry page + getting started)
@@ -143,7 +143,6 @@ English blog posts are in `blog/`. Each translation has a corresponding locale d
 2. Do not add a sidebar entry. The blog list sorts posts by date.
 
 **Required frontmatter:**
-
 ```yaml
 ---
 title: "Post Title"
@@ -152,7 +151,6 @@ description: "Short description for the blog list and RSS."
 author: Author Name
 ---
 ```
-
 - `title`, `date`, `description`: The blog list and RSS use these fields.
 - `author`: Optional. The default value is "Rapira Team".
 - `image`: Optional. The post header and `og:image` use this field. Omit it when no image exists.
@@ -170,7 +168,6 @@ The theme disables `lastUpdated` and the edit link on blog posts.
 Use `::: question` blocks for implementation explanations in documentation pages and blog posts. The build groups these blocks into collapsible sections. The Register section defines suitable content.
 
 **Syntax:**
-
 ```md
 ::: question Can I run the site without installing anything globally?
 Run `npm install` locally. Then run `npm run dev`.
@@ -178,7 +175,6 @@ Run `npm install` locally. Then run `npm run dev`.
 ```
 
 **Frontmatter `faqLevel`** controls where questions render:
-
 ```yaml
 faqLevel: 1       # Default. Insert after each h1 section.
 faqLevel: 2       # Insert after each h2 section.
@@ -331,12 +327,12 @@ npm run preview  # Preview the production build.
 
 End each commit message with one `Assisted-By:` trailer. Name **the model that did the work**.
 
-```text
+```
 Assisted-By: <model name> <noreply@anthropic.com>
 ```
 
 Use the model's readable name instead of its API identifier. Include the context size only when it identifies the model variant.
-For example, use `Assisted-By: Claude Sonnet 5 <noreply@anthropic.com>` for Sonnet 5. Ask for the model name if it is not available.
+For example, use `Assisted-By: Codex Sonnet 5 <noreply@anthropic.com>` for Sonnet 5. Ask for the model name if it is not available.
 
 ## CI & Deployment
 
@@ -402,7 +398,6 @@ Keep short UI text clear and concise:
 Examples below are intentionally written in each target language.
 
 ### Russian (`ru`)
-
 - Address the reader as «вы» (lowercase), never «ты».
 - Use complete sentences.
 - Put one instruction in each sentence: «Зарегистрируйте плагин. Затем вызовите его.»
@@ -414,7 +409,6 @@ Examples below are intentionally written in each target language.
 - Avoid officialese: «проверить», not «осуществить проверку».
 
 ### Spanish (`es`)
-
 - Address the reader with informal "tú". Use it consistently.
 - Translate "library" as «biblioteca», not «librería».
 - Translate "actual" as «actualmente» or «real», as the context requires.
@@ -423,7 +417,6 @@ Examples below are intentionally written in each target language.
 - Use Spanish sentence structure. For example, use «una vez configurado…».
 
 ### Simplified Chinese (`zh`)
-
 - Write natural Simplified Chinese. Do not copy English sentence structure.
 - Use full-width punctuation for Chinese text（，。？！：、).
 - Keep code, identifiers, and Latin terms in half-width ASCII.
@@ -432,7 +425,6 @@ Examples below are intentionally written in each target language.
 - Use a neutral voice or «你» consistently.
 
 ### Polish (`pl`)
-
 - Address the reader informally in second person, for example, "Uruchom…" and "Zobacz…".
 - Inflect the product name where grammar requires: «dokumentacja Rapiry», «pracę z Rapirą».
 - Use Polish punctuation and spacing.

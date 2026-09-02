@@ -69,8 +69,8 @@ Si tus clientes mandan legítimamente un nombre con guion bajo, la solución es 
 
 HTTP permite que un cliente repita un campo, y en CGI solo cabe un valor por variable, así que hay que combinar las repeticiones en un único valor antes de que PHP vea nada. Rapira las combina como diga la gramática de cada campo que pueden combinarse:
 
-- **Campos de lista** - los valores se unen con `, `, que es la recombinación que la [RFC 9110 §5.3](https://www.rfc-editor.org/rfc/rfc9110#section-5.3) permite para un campo definido como lista separada por comas. Dos líneas `Accept` quedan en `text/*, image/*`.
-- **`Cookie`** - también es una lista, pero no de comas. Sus repeticiones se unen con `; `, la forma de cookie-string que espera el parser de PHP, y así `$_COOKIE` sale bien.
+- **Campos de lista** - los valores se unen con una coma y un espacio, que es la recombinación que la [RFC 9110 §5.3](https://www.rfc-editor.org/rfc/rfc9110#section-5.3) permite para un campo definido como lista separada por comas. Dos líneas `Accept` quedan en `text/*, image/*`.
+- **`Cookie`** - también es una lista, pero no de comas. Sus repeticiones se unen con un punto y coma y un espacio, la forma de cookie-string que espera el parser de PHP, y así `$_COOKIE` sale bien.
 - **Campos de valor único** - `Authorization`, `Proxy-Authorization`, `Content-Type`, `Content-Length`, `Referer` y `From` conservan solo la **primera** línea; las demás se descartan con un `warn`. Unirlas las estropearía: un segundo `Authorization` combinado con el primero acaba dentro de la credencial que PHP está a punto de decodificar en base64. A un `Content-Length` repetido se le responde `400` antes de combinar nada, así que a esta regla solo llegan los otros cinco.
 - **`Host`** - a más de una línea `Host` se le responde `400`; nunca se combinan. La [RFC 9112 §3.2](https://www.rfc-editor.org/rfc/rfc9112#section-3.2) lo marca como obligatorio, y la capa que termina la conexión es la única que puede dar la respuesta correcta.
 

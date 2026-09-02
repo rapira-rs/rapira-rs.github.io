@@ -73,20 +73,20 @@ Rapira reconstruye en cada petición todo lo de la columna izquierda, así que e
 
 En Linux (y FreeBSD), donde existe el temporizador por petición de Zend, el reloj de `max_execution_time` se rearma en cada petición y el rato que el worker pasa aparcado esperando la siguiente nunca le cuenta: en el reloj solo está la petición en sí. En el resto de sistemas, macOS incluido, no se arma ningún límite por petición.
 
-Los tres comportamientos de abajo son propiedades de un PHP residente, no de Rapira. Los tres están verificados y los tres aparecen en el arranque.
+Los tres comportamientos de abajo se aplican a un worker residente.
 
-::: warning El destructor de un objeto residente se ejecuta al final de la primera petición
+::: warning Un objeto residente mantiene su estado entre peticiones
 
-Dale un `__destruct` de userland a un objeto creado *fuera* del bucle y se ejecutará - una vez, al final de la **primera** petición, cuando PHP recorre el almacén de objetos al cerrar la petición. El objeto en sí queda perfectamente después: sigue siendo un objeto, sus métodos siguen siendo llamables y el destructor no vuelve a ejecutarse jamás, ni en las peticiones siguientes ni al apagarse el worker.
+PHP no llama al destructor de un objeto residente al final de una petición. Lo llama una sola vez, cuando termina el ciclo del worker o cuando el código elimina la última referencia.
 
-Por eso una clase que cierra un descriptor, vacía un búfer o escribe una línea de despedida en el registro desde su destructor lo hace una vez, al final de la primera petición, y nunca más en toda la vida del proceso. En cualquier cosa que mantengas residente, saca el desmontaje de los destructores.
+No uses un destructor para la limpieza de cada petición. Reinicia dentro del handler el estado de cada petición.
 :::
 
-::: warning `register_shutdown_function()` en el arranque se ejecuta una vez y nunca más
+::: warning Una función de shutdown registrada en el arranque se ejecuta una vez, al salir el worker
 
-Si lo llamas fuera del handler, el callback se ejecuta al final de la primera petición y después se libera; ninguna petición posterior lo ejecuta. Registrado *dentro* del handler se comporta exactamente igual que con php-fpm: se ejecuta al final de esa petición, en todas.
+PHP ejecuta una función de shutdown registrada fuera del handler una sola vez, al final del ciclo del worker. Una función registrada dentro del handler se ejecuta al final de esa petición.
 
-Si tu arranque instala un handler de shutdown -para volcar métricas, para cazar un error fatal, para cerrar algo-, regístralo dentro del handler, en cada vuelta del bucle.
+Registra dentro del handler las funciones de shutdown de cada petición. Algunos ejemplos son el volcado de métricas, el tratamiento de un error fatal y la liberación de los recursos de la petición.
 :::
 
 ::: warning `$_ENV` se vuelve a importar a mitad de petición y sin avisar

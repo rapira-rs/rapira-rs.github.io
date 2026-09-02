@@ -227,5 +227,5 @@ See [Classic mode](/docs/classic) for more information.
 The worker script is an additional entry point, not a replacement for the standard entry script. Keep `public/index.php` because Classic mode uses it. It is also useful for local work with PHP's built-in server.
 
 The template `public/index.php` contains a `PHP_SAPI === 'cli-server'` condition. It serves static files and changes `SCRIPT_NAME` for the PHP development server.
-Rapira does not run this condition because its `PHP_SAPI` is `rapira`. PHP 8.4 uses `fastcgi`.
+Rapira does not run this condition because `PHP_SAPI` is `fastcgi` on PHP 8.4 and `rapira` on PHP 8.5.
 See [Installation](/docs/intro/installation) for more information. The condition can remain unchanged.

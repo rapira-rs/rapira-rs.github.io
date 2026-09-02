@@ -73,20 +73,20 @@ Wszystko z lewej kolumny Rapira odbudowuje przy każdym żądaniu, więc zwykły
 
 Na Linuksie (i na FreeBSD), gdzie zendowy licznik czasu żądania w ogóle istnieje, zegar `max_execution_time` jest uzbrajany na nowo przy każdym żądaniu, a czas, który worker spędza zaparkowany w oczekiwaniu na kolejne, nigdy się do niego nie wlicza - na zegarze tyka wyłącznie samo żądanie. Wszędzie indziej, macOS w to wliczając, żaden limit czasu żądania nie jest uzbrajany w ogóle.
 
-Trzy opisane niżej zachowania są cechą rezydentnego PHP, a nie Rapiry. Wszystkie trzy są sprawdzone i wszystkie trzy pojawiają się na etapie rozruchu.
+Trzy opisane niżej zachowania dotyczą rezydentnego workera.
 
-::: warning Destruktor rezydentnego obiektu odpala się na końcu pierwszego żądania
+::: warning Rezydentny obiekt zachowuje stan między żądaniami
 
-Daj obiektowi utworzonemu *poza* pętlą `__destruct` napisany w PHP, a ten się wykona - raz, na końcu **pierwszego** żądania, kiedy PHP przy zamykaniu żądania przechodzi po swoim magazynie obiektów. Samemu obiektowi nic się przy tym nie dzieje: dalej jest obiektem, metody dalej można wywoływać, a destruktor już nigdy się nie odpali - ani przy kolejnych żądaniach, ani przy zamykaniu workera.
+PHP nie wywołuje destruktora rezydentnego obiektu na końcu żądania. Wywołuje go raz, gdy kończy się cykl workera albo gdy kod usuwa ostatnią referencję do obiektu.
 
-Klasa, która w destruktorze zamyka uchwyt, opróżnia bufor albo dopisuje pożegnalną linię do logu, zrobi to więc raz, na końcu pierwszego żądania, i nigdy więcej przez całe życie procesu. Ze wszystkiego, co trzymasz rezydentnie, wynieś sprzątanie poza destruktor.
+Nie używaj destruktora do sprzątania po pojedynczym żądaniu. Stan żądania resetuj wewnątrz handlera.
 :::
 
-::: warning `register_shutdown_function()` w rozruchu odpala się raz i nigdy więcej
+::: warning Funkcja shutdown z rozruchu wykonuje się raz przy zamknięciu workera
 
-Wywołana poza handlerem, funkcja zwrotna wykona się na końcu pierwszego żądania i zostanie zwolniona; żadne późniejsze żądanie już jej nie uruchomi. Zarejestrowana *wewnątrz* handlera zachowuje się dokładnie tak jak pod php-fpm: wykonuje się na końcu tego żądania, i tak przy każdym.
+PHP wykonuje funkcję shutdown zarejestrowaną poza handlerem jeden raz na końcu cyklu workera. Funkcja zarejestrowana wewnątrz handlera wykonuje się na końcu tego żądania.
 
-Jeśli twój rozruch instaluje handler shutdown - żeby wypchnąć metryki, złapać błąd krytyczny albo coś domknąć - zarejestruj go zamiast tego w środku handlera, przy każdym obrocie pętli.
+Funkcje shutdown dla żądania rejestruj wewnątrz handlera. Dotyczy to na przykład zapisu metryk, obsługi błędu krytycznego i zwolnienia zasobów żądania.
 :::
 
 ::: warning `$_ENV` po cichu importuje się na nowo w środku żądania

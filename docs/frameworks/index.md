@@ -88,20 +88,20 @@ Everything in the right column persists for the worker lifetime. The worker scri
 On Linux and FreeBSD, Zend starts a new `max_execution_time` timer for each request. Worker wait time does not count toward this limit.
 On other systems, including macOS, PHP does not start a request timer.
 
-The following three behaviors are properties of persistent PHP. Tests confirmed each behavior during application initialization.
+The following three behaviors apply to a persistent worker.
 
-::: warning A resident object's destructor fires at the end of the first request
+::: warning A resident object keeps its state between requests
 
-PHP calls a user `__destruct` method on a persistent object at the end of the **first** request.
-The object remains valid, and its methods remain callable. PHP does not call the destructor again during later requests or worker shutdown.
+PHP does not call the destructor of a persistent object at the end of a request.
+It calls the destructor once when the worker cycle ends, or when code removes the last reference.
 
-A persistent object must not use its destructor for required cleanup. The destructor runs only at the end of the first request.
+Do not use a destructor for per-request cleanup. Reset per-request state inside the handler.
 :::
 
-::: warning An initialization shutdown function runs once
+::: warning An initialization shutdown function runs once at worker exit
 
-PHP runs a callback registered outside the handler at the end of the first request. It then releases the callback.
-A callback registered inside the handler runs at the end of that request.
+PHP runs a shutdown function registered outside the handler once, at the end of the worker cycle.
+A function registered inside the handler runs at the end of that request.
 
 Register request shutdown functions inside the handler. Examples include metric output, fatal error processing, and request resource cleanup.
 :::

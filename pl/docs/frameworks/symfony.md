@@ -118,7 +118,7 @@ Naprawia to jedna linia ze skryptu powyżej:
 
 Drugą opcją na produkcji jest ustawienie prawdziwych zmiennych środowiskowych (`Environment=` w systemd, twój runtime kontenerowy, twój orkiestrator) i zostawienie `.env` jako wygody na czas pisania kodu. Tak czy inaczej wartości lądują tam, gdzie ponowny import w środku żądania ich nie skasuje.
 
-Dotyczy to każdego środowiska PHP z rezydentnym workerem - narażony jest na to każdy framework, który czyta `$_ENV` leniwie. Strona [Frameworki](/pl/docs/frameworks/) opisuje to razem z dwoma pozostałymi zachowaniami rezydentnego procesu: destruktor obiektu z rozruchu i `register_shutdown_function()` odpalają się raz, na końcu pierwszego żądania.
+Dotyczy to każdego środowiska PHP z rezydentnym workerem - narażony jest na to każdy framework, który czyta `$_ENV` leniwie. Zobacz [Frameworki](/pl/docs/frameworks/), aby poznać to zachowanie i pozostałe cechy rezydentnego procesu.
 
 ## Uruchomienie
 

@@ -69,8 +69,8 @@ unsafe_field_names = "drop"
 
 HTTP 允许客户端重复发送同一个字段，而 CGI 一个变量只放得下一个值，所以在 PHP 看到任何东西之前，这些重复必须合并成一个值。至于怎么合，Rapira 按字段自身的语法来处理：
 
-- **列表型字段**--各个值用 `, ` 拼接，这正是 [RFC 9110 §5.3](https://www.rfc-editor.org/rfc/rfc9110#section-5.3) 为“以逗号分隔的列表”类字段所允许的重组方式。两行 `Accept` 会变成 `text/*, image/*`。
-- **`Cookie`**--同样是列表，但分隔符不是逗号。它的重复项用 `; ` 拼接，这正是 PHP 解析器期待的 cookie 字符串形式，`$_COOKIE` 才会解析正确。
+- **列表型字段**--各个值用逗号和空格拼接，这正是 [RFC 9110 §5.3](https://www.rfc-editor.org/rfc/rfc9110#section-5.3) 为“以逗号分隔的列表”类字段所允许的重组方式。两行 `Accept` 会变成 `text/*, image/*`。
+- **`Cookie`**--同样是列表，但分隔符不是逗号。它的重复项用分号和空格拼接，这正是 PHP 解析器期待的 cookie 字符串形式，`$_COOKIE` 才会解析正确。
 - **单值字段**--`Authorization`、`Proxy-Authorization`、`Content-Type`、`Content-Length`、`Referer` 和 `From` 只保留**第一**行，多出来的会被丢弃并记一条 `warn`。把它们拼起来会破坏字段值：第二个 `Authorization` 拼进第一个之后，就混进了 PHP 马上要 base64 解码的那段凭据里。重复的 `Content-Length` 在合并之前就会以 `400` 作答，真正走到这条规则的只有其余五个字段。
 - **`Host`**--出现不止一行 `Host` 时一律以 `400` 作答，绝不合并。[RFC 9112 §3.2](https://www.rfc-editor.org/rfc/rfc9112#section-3.2) 把这条定为 MUST，而且只有终结连接的那一层才给得出正确的答复。
 

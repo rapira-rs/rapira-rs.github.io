@@ -86,10 +86,10 @@ The following fields occur in a response that serves a file. The middleware `500
 
 The middleware sets `Content-Type` from the file extension. A name with no known extension gets `application/octet-stream`.
 
-The response contains `ETag` and `Last-Modified` fields. The middleware creates both fields from the file modification time.
+The response contains `ETag` and `Last-Modified` fields. The middleware creates `Last-Modified` from the file modification time. It creates `ETag` from the modification time and the file length.
 A file without a modification time gets neither field. A time before the epoch prevents only the `ETag`.
 
-The middleware returns `304 Not Modified` when `If-None-Match` or `If-Modified-Since` matches the file.
+The middleware returns `304 Not Modified` when `If-None-Match` matches the `ETag`. A request without `If-None-Match` gets `304 Not Modified` when the file modification time is not later than the `If-Modified-Since` time.
 This response contains only `ETag` and `Last-Modified`. It has no body.
 
 The response also contains `Accept-Ranges: bytes`. A `Range` request can return `206 Partial Content` and a `Content-Range` field.
@@ -109,9 +109,9 @@ A worker stores at most 16 MiB. A full cache continues to serve its current entr
 It removes expired entries before it rejects a new file. Thus, each worker can use 16 MiB for this cache.
 A restart clears the cache.
 
-Each worker validates its own entries. A changed, deleted, or replaced file affects responses after at most one second.
+Each worker validates its own entries. A deleted file affects responses after at most one second. A changed or replaced file affects responses after at most one second when its modification time or length changes.
 A permission change does not remove an entry when the modification time and length remain equal.
-Delete or replace the file to remove the entry. Alternatively, restart the server.
+Delete the file to remove the entry. A replacement removes the entry only with a new modification time or length. Alternatively, restart the server.
 
 The root must use local storage. The middleware runs `stat` and `open` on the thread that serves requests.
 A slow file system delays other connections in that worker.

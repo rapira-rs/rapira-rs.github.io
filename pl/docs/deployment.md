@@ -109,7 +109,7 @@ process_control_timeout_secs = 30
 kill -USR2 "$(cat /run/rapira/rapira.pid)"
 ```
 
-Ten plik zapisuje wyłącznie proces nadrzędny - workery nie mają do niego dostępu - i sam go usuwa na każdej ścieżce wyjścia, którą kontroluje. Plik, który został po zgaszonym serwerze, znaczy więc, że proces nadrzędny zginął bez własnego zamykania: `SIGKILL`, twarda awaria albo padnięta maszyna.
+Ten plik zapisuje wyłącznie proces nadrzędny - workery go nie dotykają - i sam go usuwa na każdej ścieżce wyjścia, którą kontroluje. Plik, który został po zgaszonym serwerze, znaczy więc, że proces nadrzędny zginął bez własnego zamykania: `SIGKILL`, twarda awaria albo padnięta maszyna.
 
 `process_control_timeout_secs` to czas, jaki proces nadrzędny daje workerowi na dokończenie pracy, zanim zacznie eskalować; ten sam limit obejmuje każdy krok przeładowania kroczącego, więc jeden zakleszczony worker nie zatrzyma całej wymiany - kolejność eskalacji i pełną tabelę sygnałów znajdziesz w [Modelu procesów](/pl/docs/process-model). Trzymaj tę wartość z zapasem poniżej `TimeoutStopSec` z systemd, bo inaczej limit systemd wygaśnie pierwszy i to systemd ubije proces nadrzędny w środku eskalacji.
 

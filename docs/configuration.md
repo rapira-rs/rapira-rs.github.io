@@ -47,7 +47,7 @@ root = "public"                       # Required. Relative paths use this file's
 forbid = [".php"]                     # Optional. Rapira does not serve these suffixes.
 
 [http.sendfile]                       # Optional. Sets the sendFile() root in Dispatcher mode.
-root = "public"                       # Optional. Uses the entrypoint directory by default.
+root = "public"                       # Optional. Uses the entry script directory by default.
 
 [http.uploads]                        # Optional. Sets multipart limits in Dispatcher mode.
 dir = "/var/spool/rapira"             # Optional. Uses the system temporary directory by default.
@@ -125,7 +125,7 @@ Therefore, this table affects only Dispatcher mode. Classic and Worker modes acc
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `root` | string | the directory holding `pool.entrypoint` | The only directory `sendFile()` may read. A relative path resolves against the directory holding the config file. |
+| `root` | string | the directory holding the entry script | The only directory `sendFile()` may read. A relative path resolves against the directory holding the config file. |
 
 Rapira cannot resolve a root that does not exist during initialization. In this condition, `sendFile()` rejects every path.
 Create the directory before you start the server.

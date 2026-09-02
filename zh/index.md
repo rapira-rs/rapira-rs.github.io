@@ -55,7 +55,8 @@ Rapira 把这个服务器补上了：它自带一个 HTTP 接入层，用 Rust �
 
 <RapiraSection title="零中间层：Rust 直接调用 PHP" link="/zh/docs/process-model" link-text="进程模型">
 
-Rapira 用 Rust 编写，PHP 用 C 编写。Rust 原生调用 C 函数，两种语言之间的互操作没有任何开销：从 Rust 调用一个 PHP 函数，就是一次普通的函数调用。解释器内嵌在服务器进程里，Rapira 通过直接绑定驱动它--从启动引擎到处理每一个请求。
+Rapira 用 Rust 编写，PHP 用 C 编写。Rust 直接调用 C 函数。因此，Rust 可以直接调用 PHP 函数。
+Rapira 把解释器内嵌在服务器进程中。直接绑定控制解释器的初始化和请求处理。
 
 这里没有 FastCGI，没有 Goridge，也没有 CGO：请求从不序列化，也从不离开进程。在 Classic 模式和 Worker 模式下，Rapira 直接写入超全局变量。
 

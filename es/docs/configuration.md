@@ -11,7 +11,7 @@ Rapira arranca sin ningún archivo de configuración: `rapira serve --mode worke
 rapira serve --config /etc/rapira/rapira.toml
 ```
 
-El archivo tiene cuatro secciones y todas son opcionales: `[http]` configura la escucha, `[pool]` los procesos worker, `[supervisor]` el proceso maestro y `[log]` lo que se escribe en stderr. La única clave sin valor por defecto es el script de entrada de PHP: o lo pones aquí en `pool.entrypoint`, o lo pasas como argumento posicional en la línea de comandos.
+El archivo tiene cuatro secciones y todas son opcionales: `[http]` configura la escucha, `[pool]` los procesos worker, `[supervisor]` el proceso maestro y `[log]` lo que se escribe en stderr. El script de entrada de PHP no tiene valor por defecto. Pon `pool.entrypoint` o pasa el script como argumento posicional en la línea de comandos.
 
 ::: info
 Los ajustes van por capas: una opción de la línea de comandos gana al archivo de configuración, y el archivo gana al valor por defecto. Por eso `--processes 8` se impone a un `processes = 4` del archivo, y una configuración que tienes en el control de versiones se puede sobrescribir para una ejecución suelta. Las variables de entorno quedan fuera de esas capas: salvo dos que solo afectan a los registros, los ajustes salen del archivo y de las opciones, y de nada más. Las opciones en sí están documentadas en la [página de la línea de comandos](/es/docs/cli).
@@ -39,7 +39,7 @@ root = "public"                       # Required. Relative paths use this file's
 forbid = [".php"]                     # Optional. Rapira does not serve these suffixes.
 
 [http.sendfile]                       # Optional. Sets the sendFile() root in Dispatcher mode.
-root = "public"                       # Optional. Uses the entrypoint directory by default.
+root = "public"                       # Optional. Uses the entry script directory by default.
 
 [http.uploads]                        # Optional. Sets multipart limits in Dispatcher mode.
 dir = "/var/spool/rapira"             # Optional. Uses the system temporary directory by default.
@@ -111,7 +111,7 @@ La raíz de sendfile es el directorio del que lee `sendFile()`. Rapira canonical
 
 | Clave | Tipo | Por defecto | Significado |
 | --- | --- | --- | --- |
-| `root` | cadena | el directorio donde está `pool.entrypoint` | El único directorio del que puede leer `sendFile()`. Una ruta relativa se resuelve respecto al directorio donde está el archivo de configuración. |
+| `root` | cadena | el directorio donde está el script de entrada | El único directorio del que puede leer `sendFile()`. Una ruta relativa se resuelve respecto al directorio donde está el archivo de configuración. |
 
 Una raíz que no existe cuando arranca el servidor no se puede canonicalizar, y entonces `sendFile()` rechaza cualquier ruta. Crea el directorio antes de arrancar el servidor.
 

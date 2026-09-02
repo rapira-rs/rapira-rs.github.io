@@ -38,7 +38,8 @@ declare const data: BuildsData
 export { data }
 
 // Parse the three release asset name formats.
-// New PHP versions and architectures do not require a separate list.
+// A new PHP version needs no change.
+// A new architecture needs a new pattern alternative here and an entry in DownloadBuilds.vue.
 function parseAsset(name: string): Pick<Build, 'os' | 'arch' | 'php' | 'format'> | null {
   let m = name.match(/^rapira-v[\d.]+-php([\d.]+)-(linux|macos|windows)-(x86_64|aarch64)\.(tar\.gz|zip)$/)
   if (m) return { php: m[1], os: m[2], arch: m[3], format: m[4] }

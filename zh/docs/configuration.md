@@ -11,7 +11,7 @@ Rapira 不需要配置文件也能启动--`rapira serve --mode worker app/worker
 rapira serve --config /etc/rapira/rapira.toml
 ```
 
-文件由四个小节组成，每一节都可以不写：`[http]` 管监听器，`[pool]` 管 worker 进程，`[supervisor]` 管 master 进程，`[log]` 管往 stderr 写什么。唯一没有默认值的是 PHP 入口脚本--要么在这里设 `pool.entrypoint`，要么在命令行上把脚本作为位置参数传进去。
+文件由四个小节组成，每一节都可以不写：`[http]` 管监听器，`[pool]` 管 worker 进程，`[supervisor]` 管 master 进程，`[log]` 管往 stderr 写什么。PHP 入口脚本没有默认值。设置 `pool.entrypoint`，或者在命令行上把脚本作为位置参数传入。
 
 ::: info
 设置是分层的：命令行参数压过配置文件，配置文件压过内置默认值。所以 `--processes 8` 会盖掉文件里的 `processes = 4`--纳入版本控制的配置，照样能为某一次运行临时覆盖。环境变量不在这个分层之内：除了两个只影响日志的变量，设置只来自配置文件和命令行参数。参数本身见[命令行](/zh/docs/cli)那一页。
@@ -39,7 +39,7 @@ root = "public"                       # Required. Relative paths use this file's
 forbid = [".php"]                     # Optional. Rapira does not serve these suffixes.
 
 [http.sendfile]                       # Optional. Sets the sendFile() root in Dispatcher mode.
-root = "public"                       # Optional. Uses the entrypoint directory by default.
+root = "public"                       # Optional. Uses the entry script directory by default.
 
 [http.uploads]                        # Optional. Sets multipart limits in Dispatcher mode.
 dir = "/var/spool/rapira"             # Optional. Uses the system temporary directory by default.
@@ -111,7 +111,7 @@ sendfile 根目录就是 `sendFile()` 能读取的那个目录。Rapira 会把�
 
 | 键 | 类型 | 默认值 | 含义 |
 | --- | --- | --- | --- |
-| `root` | 字符串 | `pool.entrypoint` 所在的目录 | `sendFile()` 唯一可以读取的目录。相对路径按配置文件所在的目录解析。 |
+| `root` | 字符串 | 入口脚本所在的目录 | `sendFile()` 唯一可以读取的目录。相对路径按配置文件所在的目录解析。 |
 
 服务器启动时不存在的根目录没法规范化，此后 `sendFile()` 会拒绝所有路径。请在启动服务器之前先把目录建好。
 

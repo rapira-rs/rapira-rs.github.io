@@ -55,11 +55,9 @@ These six settings require explanation:
 
 - `Type=exec`: Rapira runs in the **foreground**. The process that systemd starts is the master, so `$MAINPID` identifies it.
 - `ExecReload`: `systemctl reload rapira` sends `SIGUSR2` to the master. This signal starts the reload process described below.
-- `KillMode=mixed`: systemd sends the stop signal only to the master. The master then sends `SIGQUIT` to workers and waits for them.
-- After `TimeoutStopSec`, systemd sends `SIGKILL` to the complete group. Without `KillMode=mixed`, a stop can terminate current requests.
+- `KillMode=mixed`: systemd sends the stop signal only to the master. The master then sends `SIGQUIT` to workers and waits for them. After `TimeoutStopSec`, systemd sends `SIGKILL` to the complete group. Without `KillMode=mixed`, a stop can terminate current requests.
 - `Restart=on-failure`: systemd restarts Rapira after a failure. It does not restart Rapira after a normal stop.
-- `RuntimeDirectory=rapira`: systemd creates `/run/rapira` during start and removes it during stop.
-- The following examples put the pidfile and Unix socket in this directory.
+- `RuntimeDirectory=rapira`: systemd creates `/run/rapira` during start and removes it during stop. The following examples put the pidfile and Unix socket in this directory.
 - `Environment=PHPRC`: PHP uses this directory to find `php.ini`.
 
 ::: tip Running as a non-root user

@@ -71,9 +71,9 @@ Pola opisane niżej należą do odpowiedzi, która serwuje plik. Odpowiedź `500
 
 Middleware ustawia `Content-Type` na podstawie rozszerzenia pliku. Nazwa bez znanego rozszerzenia dostaje `application/octet-stream`.
 
-Odpowiedź niesie pola `ETag` i `Last-Modified`. Middleware buduje oba z czasu modyfikacji pliku. Plik bez czasu modyfikacji nie dostaje żadnego z nich, a plik z czasem modyfikacji sprzed epoki nie dostaje `ETag`.
+Odpowiedź niesie pola `ETag` i `Last-Modified`. Middleware buduje `Last-Modified` z czasu modyfikacji pliku, a `ETag` z czasu modyfikacji i długości pliku. Plik bez czasu modyfikacji nie dostaje żadnego z nich, a plik z czasem modyfikacji sprzed epoki nie dostaje `ETag`.
 
-Middleware odpowiada `304 Not Modified`, gdy pole `If-None-Match` albo `If-Modified-Since` żądania pasuje do pliku. Taka odpowiedź niesie wyłącznie `ETag` i `Last-Modified`, a treści nie ma w ogóle.
+Middleware odpowiada `304 Not Modified`, gdy pole `If-None-Match` pasuje do `ETag`. Żądanie bez pola `If-None-Match` dostaje `304 Not Modified`, gdy czas modyfikacji pliku nie jest późniejszy niż czas z pola `If-Modified-Since`. Taka odpowiedź niesie wyłącznie `ETag` i `Last-Modified`, a treści nie ma w ogóle.
 
 Odpowiedź niesie też `Accept-Ranges: bytes`. Żądanie z polem `Range` dostaje `206 Partial Content` i pole `Content-Range`. Zakres, którego plik nie potrafi spełnić, dostaje `416 Range Not Satisfiable`, a takie żądanie również nie dociera do PHP.
 
@@ -87,7 +87,7 @@ Plik większy niż 256 KiB nigdy nie trafia do cache'u. Taki plik przy każdym �
 
 Jeden worker trzyma najwyżej 16 MiB. Cache na tym limicie dalej serwuje wpisy, które już ma, i najpierw wyrzuca własne nieświeże wpisy, a dopiero potem odmawia przyjęcia nowego pliku. Koszt pamięci to więc do 16 MiB na każdy proces z `pool.processes`. Restart opróżnia cache.
 
-Każdy worker odświeża własne wpisy, więc zmiana pod katalogiem głównym dociera do klienta najpóźniej po sekundzie. Skasowany i podmieniony plik znikają z cache'u w tym samym oknie. Sama zmiana uprawnień wpisu nie usuwa, bo `stat` podaje ten sam czas modyfikacji i tę samą długość co wcześniej: żeby wyrzucić taki plik z cache'u, skasuj go, podmień albo zrestartuj serwer.
+Każdy worker sprawdza własne wpisy. Skasowany plik wpływa na odpowiedzi najpóźniej po sekundzie. Zmieniony albo podmieniony plik wpływa na odpowiedzi najpóźniej po sekundzie, jeśli zmienia się jego czas modyfikacji albo długość. Sama zmiana uprawnień wpisu nie usuwa, bo `stat` podaje ten sam czas modyfikacji i tę samą długość co wcześniej. Skasuj plik, aby usunąć wpis. Podmiana usuwa wpis tylko wtedy, gdy plik dostaje nowy czas modyfikacji albo nową długość. Możesz też zrestartować serwer.
 
 Katalog główny musi leżeć na lokalnym nośniku. Middleware wywołuje `stat` i `open` na tym samym wątku runtime'u, który obsługuje żądania, więc system plików odpowiadający wolno na te wywołania wstrzymuje pozostałe połączenia tego workera.
 

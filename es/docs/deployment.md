@@ -109,7 +109,7 @@ process_control_timeout_secs = 30
 kill -USR2 "$(cat /run/rapira/rapira.pid)"
 ```
 
-Ese archivo lo escribe solo el maestro -los workers no lo pueden tocar- y el maestro lo borra en todos los caminos de salida que controla, así que uno que se queda ahí significa que el maestro murió sin ejecutar su propio apagado: un `SIGKILL`, una caída dura o la máquina apagándose.
+Ese archivo lo escribe solo el maestro -los workers no lo tocan- y el maestro lo borra en todos los caminos de salida que controla, así que uno que se queda ahí significa que el maestro murió sin ejecutar su propio apagado: un `SIGKILL`, una caída dura o la máquina apagándose.
 
 `process_control_timeout_secs` es el tiempo que le da el maestro a un worker para que termine antes de escalar, y también limita cada paso de una recarga progresiva, para que un worker atascado no pare el relevo entero; la secuencia de escalada y la tabla completa de señales están en [Modelo de procesos](/es/docs/process-model). Mantenlo holgadamente por debajo del `TimeoutStopSec` de systemd, o será el tiempo de espera de systemd el que se agote primero y mate al maestro a media escalada.
 

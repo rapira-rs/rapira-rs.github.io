@@ -71,9 +71,9 @@ Los campos de abajo pertenecen a una respuesta que sirve un archivo. La respuest
 
 El middleware pone el `Content-Type` a partir de la extensión del archivo. Un nombre sin extensión conocida recibe `application/octet-stream`.
 
-La respuesta lleva un campo `ETag` y otro `Last-Modified`. El middleware construye los dos a partir de la fecha de modificación del archivo. Un archivo sin fecha de modificación no recibe ninguno de los dos, y uno con una fecha de modificación anterior a la época Unix se queda sin `ETag`.
+La respuesta lleva un campo `ETag` y otro `Last-Modified`. El middleware construye `Last-Modified` a partir de la fecha de modificación del archivo. Construye `ETag` a partir de la fecha de modificación y del tamaño del archivo. Un archivo sin fecha de modificación no recibe ninguno de los dos, y uno con una fecha de modificación anterior a la época Unix se queda sin `ETag`.
 
-El middleware responde `304 Not Modified` cuando el campo `If-None-Match` o el `If-Modified-Since` de la petición coincide con el archivo. Esa respuesta lleva solo los campos `ETag` y `Last-Modified`, y no tiene cuerpo.
+El middleware responde `304 Not Modified` cuando el campo `If-None-Match` coincide con el `ETag`. Una petición sin `If-None-Match` recibe `304 Not Modified` cuando la fecha de modificación del archivo no es posterior a la fecha de `If-Modified-Since`. Esa respuesta lleva solo los campos `ETag` y `Last-Modified`, y no tiene cuerpo.
 
 La respuesta lleva además `Accept-Ranges: bytes`. Una petición con `Range` se responde con `206 Partial Content` y un campo `Content-Range`. Un rango que el archivo no puede satisfacer se responde con `416 Range Not Satisfiable`, y esa petición tampoco llega a PHP.
 
@@ -87,7 +87,7 @@ Un archivo de más de 256 KiB no se guarda nunca: ese archivo se transmite desde
 
 Un worker guarda 16 MiB como mucho. Una caché que llega a ese límite sigue sirviendo las entradas que tiene, y descarta las caducadas antes de rechazar un archivo nuevo. El coste de memoria es, por tanto, de hasta 16 MiB por cada proceso de `pool.processes`. Un reinicio vacía la caché.
 
-Cada worker revalida sus propias entradas, así que un cambio bajo la raíz llega al cliente en un segundo como mucho. Un archivo borrado y otro sustituido salen los dos de la caché dentro de esa ventana. Un cambio de permisos por sí solo no retira ninguna entrada, porque `stat` informa de la misma fecha de modificación y del mismo tamaño que antes: para sacar un archivo de la caché, bórralo, sustitúyelo o reinicia el servidor.
+Cada worker valida sus propias entradas. Un archivo borrado afecta a las respuestas en un segundo como mucho. Un archivo modificado o sustituido afecta a las respuestas en un segundo como mucho si cambia su fecha de modificación o su tamaño. Un cambio de permisos por sí solo no retira ninguna entrada, porque `stat` informa de la misma fecha de modificación y del mismo tamaño que antes. Borra el archivo para retirar la entrada. Una sustitución solo retira la entrada si deja una fecha de modificación nueva o un tamaño distinto. Otra opción es reiniciar el servidor.
 
 La raíz tiene que estar en almacenamiento local. El middleware ejecuta `stat` y `open` en el hilo del runtime que atiende las peticiones, así que un sistema de archivos que responda despacio a esas llamadas frena las demás conexiones de ese worker.
 

@@ -6,23 +6,23 @@ faqLevel: 2
 
 # HTTP 请求与响应
 
-HTTP 接入层是 Rapira 里负责把客户端连接变成一个 PHP 请求、再把 PHP 的响应变回网络字节的那个部件。它基于 [hyper](https://hyper.rs) 库构建，并且已经打包进二进制文件。它终结 HTTP/1.1 和 HTTP/1.0：在主进程绑定好的 socket 上接受连接，解析请求，把请求交给 PHP，再把 PHP 产出的内容写回去。这里没有上游：没有任何东西被代理出去，每个请求都在本地作答。PHP 前面的中间件也可以自己把请求应答掉，[静态文件](/zh/docs/static-files)正是这么提供的。
+HTTP 服务器将客户端连接转换为 PHP 请求，并将 PHP 响应转换为网络数据。 Rapira 二进制文件使用 [hyper](https://hyper.rs) 库。服务器在主进程 socket 上接受 HTTP/1.1 和 HTTP/1.0。 服务器解析请求，将请求传给 PHP，然后写入响应。它不会将请求代理到其他服务器。 中间件可以在 PHP 运行前响应请求。Rapira 用此方式提供[静态文件](/zh/docs/static-files)。
 
-本页讲的是 HTTP 和 PHP 之间对不上号的那些地方：接入层在 PHP 跑起来之前会挡下什么、哪个请求头字段会落到哪个 `$_SERVER` 键上、客户端把同一个字段发两遍会怎么样、请求体最大能有多大，以及响应发出去时是怎么定界的。
+本页说明请求检查、`$_SERVER` 字段映射、重复字段、请求体限制和响应定界。
 
 ::: info
-接入层只处理明文 HTTP。需要 TLS 的话，请在 Rapira 前面的代理上终结它，见[生产环境部署](/zh/docs/deployment)。
+HTTP 服务器接受明文 HTTP。使用代理终止 TLS。请参阅[生产环境部署](/zh/docs/deployment)。
 :::
 
 ## 请求检查
 
-接入层会在 PHP 跑起来之前先检查每个请求。没通过检查的请求由接入层自己作答，PHP 根本看不到它。
+HTTP 服务器在 PHP 运行前检查每个请求。检查失败时，服务器不调用 PHP，直接返回响应。
 
-`CONNECT` 请求一律以 `501` 作答。接入层不实现任何隧道。
+Rapira 对 `CONNECT` 请求返回 `501`。HTTP 服务器不创建隧道。
 
-绝对形式的请求目标是接受的，例如 `GET http://host.example/admin?x=1 HTTP/1.1`。目标里的 authority 会顶掉 `Host` 字段，并且先把 authority 里的 userinfo 部分去掉，所以 `$_SERVER['HTTP_HOST']` 不可能和请求目标对不上。PHP 在 `$_SERVER['REQUEST_URI']` 里看到的是源形式的路径和查询串。
+Rapira 接受绝对形式的目标，例如 `GET http://host.example/admin?x=1 HTTP/1.1`。目标 authority 会替换 `Host` 字段。 Rapira 先删除 authority 中的用户信息。这样可以防止 `$_SERVER['HTTP_HOST']` 发生冲突。 PHP 在 `$_SERVER['REQUEST_URI']` 中收到路径和查询字符串。
 
-`http.keepalive_timeout_secs` 给每一次从客户端读取都设了上限。它会关掉闲置的 keep-alive 连接，也管着请求头的读取。请求体在这段时间里读不出任何进展，就以 `408` 作答，连接随即关闭。默认是 60 秒。
+`http.keepalive_timeout_secs` 限制每次客户端读取。此限制适用于空闲连接和请求头。 如果请求体读取在限制时间内没有进展，Rapira 返回 `408`，然后关闭连接。 默认值为 60 秒。
 
 ```toml
 [http]
@@ -31,9 +31,9 @@ keepalive_timeout_secs = 60
 
 ## 从请求头名字到 `$_SERVER` 键
 
-CGI 把请求头字段暴露给脚本只有一条规则：把字段名转成大写，每个 `-` 换成 `_`，再加上 `HTTP_` 前缀（[RFC 3875 §4.1.18](https://www.rfc-editor.org/rfc/rfc3875#section-4.1.18)）。于是 `X-Forwarded-For` 变成 `HTTP_X_FORWARDED_FOR`，你的代码读的就是这个键。
+CGI 将请求字段名转换为大写，将每个 `-` 替换为 `_`，并添加 `HTTP_`。 请参阅 [RFC 3875 §4.1.18](https://www.rfc-editor.org/rfc/rfc3875#section-4.1.18)。因此，`X-Forwarded-For` 变为 `HTTP_X_FORWARDED_FOR`。
 
-接着 PHP 在注册变量时又自己做了一次改写：`.` 同样变成 `_`。两次映射各自把不同的字符压成同一个下划线，结果就是报文里三个不同的名字，最后落在同一个键上：
+PHP 注册变量时还会将 `.` 替换为 `_`。 因此，三个网络字段名会映射到同一个 PHP 键：
 
 | 报文里的写法      | 在 PHP 中                            |
 | ----------------- | ----------------------------------- |
@@ -42,12 +42,12 @@ CGI 把请求头字段暴露给脚本只有一条规则：把字段名转成大�
 | `X.Forwarded.For` | `$_SERVER['HTTP_X_FORWARDED_FOR']`  |
 
 ::: warning
-这种名字冲突是一个安全问题。假设 Rapira 前面有一个可信代理会设置 `X-Forwarded-For`，那么客户端只要发 `X_Forwarded_For`，就能命中同一个 `$_SERVER` 键--而代理自己的请求头过滤只认带连字符的写法，永远看不见带下划线的那个。于是客户端可以写入一个值，而你的应用会把它当作来自代理的值。
+如果没有 Rapira 强制执行的字段名检查，这种名称冲突会带来安全风险。代理可以设置 `X-Forwarded-For`，客户端可以发送 `X_Forwarded_For`。 两个名称都映射到同一个 `$_SERVER` 键。代理针对带连字符名称的过滤器可能不会移除带下划线的名称。 应用可能会信任客户端提供的值。
 :::
 
 ## 会撞上 CGI 变量的名字
 
-正因如此，在其他任何一层看到这些请求头之前，Rapira 会先筛一遍字段名：每个字节都落在 `[A-Za-z0-9-]` 里，这个名字才放行。会造成撞名的字符是 `_` 和 `.`--它们都会压到与连字符写法相同的那个 `$_SERVER` 键上。这条规则用的是白名单，而不是把这两个字节列进黑名单，所以像 `~` 这种合法但少见的字符同样会被拒绝；将来两套映射里任何一套放宽了范围，这道筛查也依然成立。被拒绝的名字会怎么处理，由 `http.unsafe_field_names` 决定：
+Rapira 在其他处理前检查请求字段名。它仅接受 `[A-Za-z0-9-]` 中的字节。 `_` 和 `.` 可以与 `-` 映射到同一个 `$_SERVER` 键。允许列表也会拒绝 `~` 等其他字符。 `http.unsafe_field_names` 控制如何处理被拒绝的名称：
 
 - **`drop`**（默认）--字段在 PHP 看到之前就被摘掉，每摘一次都会在 `http` 目标上记一条 `warn` 日志。
 - **`reject`**--请求以 `400` 作答，不会提供任何内容。
@@ -57,35 +57,37 @@ CGI 把请求头字段暴露给脚本只有一条规则：把字段名转成大�
 unsafe_field_names = "drop"
 ```
 
-没有第三个选项把这道筛查整个关掉，也没有针对单个名字的例外，因为它挡下的撞名本身就是一个安全问题--这个配置项在整套设置中的位置，见[配置](/zh/docs/configuration)。
+不能禁用此检查，也不能为单个名称添加例外。 请参阅[配置](/zh/docs/configuration)以了解所有设置。
 
-如果你的客户端确实要发带下划线的字段名，正确的做法是把它改成用 `-` 的写法。代理自己设的字段也一视同仁：带下划线的字段是可信代理写的还是客户端伪造的，Rapira 分辨不出来，所以代理设的 `X_Forwarded_For` 同样会在 PHP 运行之前被摘掉。Rapira 前面的代理只要在自己的配置里加一行就能完成这次改写，之后这个名字就是普通名字，原样通过。
+将必需字段名中的下划线改为连字符。Rapira 对代理字段使用相同规则。 Rapira 无法确定带下划线字段的来源。请配置代理，在发送前更改字段名。
 
 ::: tip
-`drop` 每摘掉一个字段都会记一条 `warn`，但默认日志级别是 `error`，不调高就看不到这些行。如果某个请求头意外没有出现在 `$_SERVER` 里，先把级别调上去，盯着 `http` 目标看--具体怎么做见[日志](/zh/docs/logging)。
+`drop` 以 `warn` 级别记录每次删除，但默认日志级别为 `error`。 将 `http` 目标设置为 `warn` 以查看这些记录。请参阅[日志](/zh/docs/logging)。
 :::
 
 ## 发了不止一次的字段
 
-HTTP 允许客户端重复发送同一个字段，而 CGI 一个变量只放得下一个值，所以在 PHP 看到任何东西之前，这些重复必须合并成一个值。至于怎么合，Rapira 按字段自身的语法来处理：
+HTTP 允许重复字段，但 CGI 为每个变量提供一个值。Rapira 根据字段语法合并值：
 
-- **列表型字段**--各个值用逗号和空格拼接，这正是 [RFC 9110 §5.3](https://www.rfc-editor.org/rfc/rfc9110#section-5.3) 为“以逗号分隔的列表”类字段所允许的重组方式。两行 `Accept` 会变成 `text/*, image/*`。
-- **`Cookie`**--同样是列表，但分隔符不是逗号。它的重复项用分号和空格拼接，这正是 PHP 解析器期待的 cookie 字符串形式，`$_COOKIE` 才会解析正确。
-- **单值字段**--`Authorization`、`Proxy-Authorization`、`Content-Type`、`Content-Length`、`Referer` 和 `From` 只保留**第一**行，多出来的会被丢弃并记一条 `warn`。把它们拼起来会破坏字段值：第二个 `Authorization` 拼进第一个之后，就混进了 PHP 马上要 base64 解码的那段凭据里。重复的 `Content-Length` 在合并之前就会以 `400` 作答，真正走到这条规则的只有其余五个字段。
-- **`Host`**--出现不止一行 `Host` 时一律以 `400` 作答，绝不合并。[RFC 9112 §3.2](https://www.rfc-editor.org/rfc/rfc9112#section-3.2) 把这条定为 MUST，而且只有终结连接的那一层才给得出正确的答复。
+- **列表字段：** Rapira 使用逗号和空格连接值。请参阅 [RFC 9110 §5.3](https://www.rfc-editor.org/rfc/rfc9110#section-5.3)。
+- 例如，两行 `Accept` 变为 `text/*, image/*`。
+- **`Cookie`：** Rapira 使用分号和空格连接值。PHP cookie 解析器需要此格式。
+- **单值字段：** Rapira 保留第一行 `Authorization`、`Proxy-Authorization`、`Content-Type`、`Referer` 或 `From`。
+- Rapira 删除其他行并写入 `warn` 记录。重复的 `Content-Length` 会收到 `400`。
+- **`Host`：** Rapira 对多个 `Host` 行返回 `400`。请参阅 [RFC 9112 §3.2](https://www.rfc-editor.org/rfc/rfc9112#section-3.2)。
 
-字段值自始至终以原始字节交给 PHP。latin1 编码的 cookie、带签名的请求头，客户端发来的每一个字节都原封不动--中途做一次 UTF-8 转换，毁掉的恰恰是那些一个字节都不能变的值。
+PHP 接收未修改的字段值字节。因此，Latin-1 cookie 或签名字段会保留客户端发送的每个字节。
 
 ## 请求体
 
-PHP 开跑之前，请求体会先被整个读进内存，而 Rapira 为它占用多少内存，由 `http.max_body_size_mb` 封顶。默认是 8 MiB，和 PHP 自己 `post_max_size` 的默认值一样。超过上限的请求体会得到 `413`，而且由于剩下的数据还在链路上，这个响应还会顺手关掉连接，而不去尝试复用。
+Rapira 在 PHP 运行前将请求体读入内存。`http.max_body_size_mb` 限制一个请求体使用的内存。 默认值为 8 MiB，与 PHP 的 `post_max_size` 默认值相同。 Rapira 对更大的请求体返回 `413` 并关闭连接。服务器不读取剩余数据。
 
 这个上限会检查两次：
 
-- 一次是对着声明的 `Content-Length` 查，此时请求体一个字节都还没读。
-- 另一次是在请求体逐块到达的过程中反复查。分块（chunked）请求事先并不声明长度，限制它内存占用的就只有这第二道检查。
+- Rapira 先在读取请求体前检查声明的 `Content-Length`。
+- 然后检查每个请求体块。此检查限制没有声明长度的 chunked 请求。
 
-对 HTTP/1.1 请求，`Expect: 100-continue` 会被兑现：Rapira 先写出中间响应 `100 Continue`，客户端再把一直攥着的请求体发过来。这里的关键是顺序：`Content-Length` 检查跑在**前面**，所以客户端一旦声明了超大的请求体，还没上传就先收到 `413`。HTTP/1.0 请求带的这个期望会被忽略，[RFC 9110 §10.1.1](https://www.rfc-editor.org/rfc/rfc9110#section-10.1.1) 正是这么要求的。
+Rapira 为 HTTP/1.1 支持 `Expect: 100-continue`。服务器在客户端发送请求体前返回 `100 Continue`。 Rapira 先检查 `Content-Length`。因此，它可以在上传过大请求体前返回 `413`。 对于 HTTP/1.0，Rapira 根据 [RFC 9110 §10.1.1](https://www.rfc-editor.org/rfc/rfc9110#section-10.1.1) 忽略此预期。
 
 ```toml
 [http]
@@ -94,37 +96,37 @@ max_body_size_mb = 8
 
 ## 响应传输
 
-接入层不缓冲响应体。PHP 一提交响应头，它就把响应头写出去；PHP 每产出一块响应体，它就写出一块。PHP 什么时候产出这些东西，则由模式决定。Classic 和 Worker 模式下，PHP 攥着整个响应，等请求结束时一并交给接入层；脚本调用了 `rapira_finish_request()` 的话则更早。Dispatcher 模式下，代码写多少，PHP 就把响应头和每一块响应体往接入层交多少。
+HTTP 服务器不缓冲响应体。PHP 提交响应头时，服务器会将其写出。 PHP 生成每个响应体块时，服务器会将其写出。执行模式决定 PHP 何时传递数据。 在 Classic 和 Worker 模式下，PHP 通常在请求结束时传递完整响应。`rapira_finish_request()` 会提前传递。 在 Dispatcher 模式下，PHP 在代码写入时传递响应头和每个响应体块。
 
-定界是服务器的活儿，不是 PHP 的。你代码里设的 `Transfer-Encoding` 会被丢掉。你设的 `Content-Length` 会从字段行里摘掉，过期的长度值因此永远没机会把连接搞得不同步。在 Classic 和 Worker 模式下，接着由接入层报出 PHP 实际产出的那个长度。在 Dispatcher 模式下，你写进响应头的 `Content-Length` 就是这次响应声明的长度：接入层按这个长度发送，并对着它数响应体的字节。响应体比声明的短，连接就此断掉；比声明的长，就在这个长度上截断。
+服务器控制响应定界。它删除 PHP 设置的 `Transfer-Encoding` 和 `Content-Length` 字段。 在 Classic 和 Worker 模式下，服务器设置完整 PHP 响应体的长度。 在 Dispatcher 模式下，服务器使用 PHP 声明的 `Content-Length`，并将其与响应体长度比较。 响应体过短时，服务器关闭连接。响应体过长时，服务器按声明长度截断。
 
-没有声明长度的响应由接入层来定界：HTTP/1.1 的客户端拿到的是分块传输编码，HTTP/1.0 的客户端拿到的响应体以连接关闭为界。
+对于未声明长度的响应，服务器在 HTTP/1.1 中使用 chunked 传输。在 HTTP/1.0 中，服务器在响应体后关闭连接。
 
-按定义就没有响应体的响应，也就是 `204` 和 `304`，则根本不带 `Content-Length`。`HEAD` 请求的响应也照此办理：接入层只发响应头，既不带 `Content-Length`，也不发一个响应体字节。
+服务器从 `204` 和 `304` 响应中删除 `Content-Length`。它还会从 `HEAD` 响应中删除此字段和响应体。
 
-逐跳（hop-by-hop）字段属于某一条连接，而不属于响应本身，所以也轮不到 PHP 来设置（[RFC 9110 §7.6.1](https://www.rfc-editor.org/rfc/rfc9110#section-7.6.1)）。不管你的代码输出了什么，下面这些都会被剥掉：
+服务器删除 PHP 设置的连接特定字段。[RFC 9110 §7.6.1](https://www.rfc-editor.org/rfc/rfc9110#section-7.6.1) 定义了此行为：
 
 `Connection`、`Keep-Alive`、`Upgrade`、`Trailer`、`TE`、`Proxy-Connection`，外加两个定界字段 `Content-Length` 和 `Transfer-Encoding`。
 
-如果 PHP 确实发了 `Connection` 头，它点名的那些字段同样会被剥掉--`Connection` 的值本来就是这个意思--而且这一步跑在 Rapira 插入自己的 `Content-Length` 之前，所以 `Connection: content-length` 无法把定界字段从响应里去掉。
+PHP 发送 `Connection` 时，Rapira 也会删除该字段列出的其他字段。此操作在添加自己的 `Content-Length` 前执行。 因此，`Connection: content-length` 无法删除响应定界。
 
-其余的一切都按 PHP 写的样子原样通过，重复的也一样：`Set-Cookie`、`Vary` 和 `Link` 本来就可能正当地出现好几次，它们会被全部发出。至于压根没法在报文里表示的响应头，会被丢弃并记一条日志，而不是让整个响应失败，响应的其余部分照常发出。
+服务器不修改其他 PHP 字段，包括重复的 `Set-Cookie`、`Vary` 和 `Link`。 服务器删除无效网络字段并写入日志。它仍会发送响应的其余部分。
 
-PHP 发出的中间响应头（1xx）会被丢掉，PHP 写的 trailer 同样被丢掉，两者接入层都不转发。`Expect` 请求对应的 `100 Continue` 不算 PHP 的中间响应头：那一条是接入层自己写的。
+Rapira 删除 PHP 的临时响应和 trailer。HTTP 服务器为 `Expect` 请求创建 `100 Continue` 响应。
 
-被截断的响应会直接断开连接，不给出干净的结束标记。三种情况会让响应被截断：worker 在响应体写完之前死掉、响应体比 PHP 声明的长度短，以及脚本已经输出了内容之后遇上致命错误或未捕获的异常。客户端读到的于是是一条不完整的报文，它能据此判断出响应被切断了。
+如果 worker 在响应体完成前终止，服务器会关闭连接且不发送完整的结束标记。 如果响应体短于 PHP 声明的长度，服务器也会关闭连接。 输出开始后发生致命错误可能会终止脚本并截断响应。 在 Worker 模式下，输出开始后发生未捕获的 handler 异常会截断响应，但循环会继续。 每种情况都会产生客户端可以检测到的不完整消息。
 
-接入层自己写出的错误响应都带着 `cache-control: private, no-store` 和 `connection: close`，并且没有响应体。请求体超限时的 `413` 和 `CONNECT` 的 `501` 就属于这一类。
+HTTP 服务器创建的错误响应没有响应体。它包含 `cache-control: private, no-store` 和 `connection: close`。 例如，请求体过大时返回 `413`，`CONNECT` 请求返回 `501`。
 
 ::: question 为什么定界字段由接入层来设，而不是 PHP？
-一条响应的定界，取决于接入层真正发到线上的那些字节。接入层拿响应声明的长度，对着它数响应体的字节：响应体比声明的短，连接就断掉，客户端因此不会把下一条响应当成这一条的尾巴读进来。而以普通响应头形式设的 `Content-Length` 会绕过这次计数，所以它会被摘掉。
+HTTP 服务器将响应体大小与声明长度比较。响应体过短时，服务器关闭连接。 这可以防止客户端将下一个响应当作当前响应的一部分。服务器删除 PHP 的 `Content-Length`，因为该字段可能绕过计数。
 :::
 
 ## 提前结束响应
 
-响应准备好之后，处理逻辑往往还有事情要做：触发一个 webhook、往队列里写一条记录、把缓存预热一遍。客户端不必等这些。
+处理程序可以在响应准备完成后继续工作。例如，它可以发送 webhook、写入队列或更新缓存数据。 客户端不需要等待此工作。
 
-`rapira_finish_request()` 会在此处结束响应：PHP 的输出缓冲被刷进响应里，响应交给接入层发往客户端，而你的处理逻辑继续往下跑--此时客户端手里已经拿到了完整的响应。它和 `fastcgi_finish_request()` 是同一套契约，为 php-fpm 写的代码行为一如既往：
+`rapira_finish_request()` 在此处结束响应。PHP 刷新输出缓冲区，并将响应传给 HTTP 服务器。 处理程序继续工作时，服务器发送响应。此函数与 `fastcgi_finish_request()` 有相同约定：
 
 ```php
 <?php
@@ -139,11 +141,13 @@ $mailer->sendConfirmation($order);
 $metrics->flush();
 ```
 
-它的签名是 `rapira_finish_request(): bool`。和 Rapira 暴露给 PHP 的其他所有东西一样，它声明在 [`crates/php_sys/rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php) 里--把 IDE 指向这个文件，就能得到补全和类型提示。
+签名为 `rapira_finish_request(): bool`。 [`crates/php_sys/rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php) 文件声明此函数和其他 PHP API。 将此文件添加到 IDE 以获得补全和类型信息。
 
-这个函数按整个进程注册，作用于当前正在处理的那个请求，所以 Classic 模式同样支持它：脚本是常驻还是每个请求重跑一遍，行为都一样。不同模式之间还有哪些差别，见[执行模式](/zh/docs/execution-modes)。
+Rapira 为整个进程注册此函数。此函数作用于当前请求。 因此，Classic 模式也支持此函数。请参阅[执行模式](/zh/docs/execution-modes)。
 
-有两点要记住：
+此函数有以下限制：
 
-- **调用之后再输出，就发不出去了**。响应已经关闭，后面的 `echo` 会被直接丢掉--它不会排队等着以后冲刷。客户端必须看到的东西，都得在调用之前写完。
-- **worker 并没有闲下来**。结束响应放走的是**客户端**，不是进程。在你的处理逻辑返回之前，这个 worker 不会去接下一个请求，所以挪到调用之后的那些活儿，下一个请求照样得等--一共有多少个 worker 能等，见[进程模型](/zh/docs/process-model)。这次调用降低的是客户端的延迟，并不会带来并发，所以重活儿应该交给队列。
+- **调用后的输出不会发送。** Rapira 在响应关闭后丢弃输出。
+- 请在调用前写入所有必要输出。
+- **worker 仍然繁忙。** 在处理程序返回前，它不会接受下一个请求。
+- 此调用会减少客户端延迟，但不会增加并发。请将长时间任务放入队列。

@@ -6,7 +6,7 @@ faqLevel: 2
 
 # Execution modes
 
-Rapira runs PHP in one of three execution modes. All three ship today.
+Rapira runs PHP in one of three execution modes. All three modes are available.
 
 | Mode | Status | Description |
 | --- | --- | --- |
@@ -14,15 +14,14 @@ Rapira runs PHP in one of three execution modes. All three ship today.
 | [Worker](/docs/worker) | Available | A persistent script handles requests in a loop. Rapira refills the superglobals for each request. |
 | Dispatcher | Available | The worker gets each request through an API call and uses a request object instead of the superglobals. |
 
-The mode names are `pool.mode` values and `Rapira\Mode` enum cases. Classic removes application request state after each request.
-Worker and Dispatcher retain one initialized application for many requests. Application state and API dependencies determine which modes an application can use.
+The mode names are `pool.mode` values and `Rapira\Mode` enum cases. Classic removes application request state after each request. Worker and Dispatcher keep one initialized application for many requests. Application state and API dependencies determine which modes an application can use.
 
 ## Classic <Badge type="tip" text="available" />
 
 The entry script runs in a new PHP request each time, as it does under php-fpm. Rapira fills the superglobals and runs the script.
 It then sends the response and removes the request state. Persistent connections and extension state are exceptions because they exist in the worker process.
 
-An existing application can run without code changes when Rapira replaces php-fpm. Rapira embeds PHP in the server process and does not use FastCGI.
+A current application can run without code changes when Rapira replaces php-fpm. Rapira embeds PHP in the server process and does not use FastCGI.
 
 See [Classic mode](/docs/classic) for more information.
 
@@ -41,9 +40,8 @@ See [HTTP](/docs/http) for how Rapira handles requests and responses.
 
 ## Dispatcher <Badge type="tip" text="available" />
 
-In Dispatcher mode, the worker script requests each work unit through an API call. `Rapira\get_dispatcher()` returns the dispatcher for the pool.
-`receive(int $timeout = -1)` waits for the next unit. The timeout is in microseconds, and `-1` disables it.
-An elapsed timeout throws `Rapira\Exception\TimeoutException`. `tryReceive()` returns the next unit or `null` without waiting.
+In Dispatcher mode, the worker script requests each work unit through an API call. `Rapira\get_dispatcher()` returns the dispatcher for the pool. `receive(int $timeout = -1)` waits for the next unit. The timeout is in microseconds, and `-1` disables it. An elapsed timeout throws `Rapira\Exception\TimeoutException`. `tryReceive()` immediately returns the next unit or `null`.
+
 With the HTTP plugin, each unit is a `Rapira\Http\Exchange`.
 Its `getRequest()` method returns a `Rapira\Http\Request`. The request contains the method, target, headers, body, and peer addresses.
 The `writeHead()`, `writeBody()`, and `sendFile()` methods write the response.
@@ -52,12 +50,12 @@ The application can pass the request object to functions or middleware. Rapira d
 An application that reads superglobals needs Worker mode. Alternatively, an adapter can copy request data to the required variables.
 The `pool.mode` key or `--mode` flag selects the mode.
 
-The script controls the number of active work units. A simple loop handles one unit at a time.
-It calls `receive()`, answers the request, and calls `receive()` again.
+The script controls the number of active work units. A sequential loop handles one unit at a time. It calls `receive()`, answers the request, and calls `receive()` again.
+
 A concurrent script starts a [Fiber](https://www.php.net/manual/en/language.fibers.php) for each request. It calls `tryReceive()` while fibers are active.
 When no fiber is active, the loop waits in `receive()`. This design keeps several requests active in one interpreter.
-Concurrency is cooperative. Another request progresses only when the running code suspends its fiber.
-Process one unit at a time when a library does not support fibers.
+
+Concurrency is cooperative. Another request progresses only after the active code suspends its fiber. Process one unit at a time when a library does not support fibers.
 
 ::: info
 Dispatcher is the default `pool.mode`. A dedicated guide is not available yet.
@@ -118,6 +116,5 @@ The server, binary, and [process model](/docs/process-model) do not change.
 See [Configuration](/docs/configuration) and the [CLI reference](/docs/cli) for more information.
 
 ::: tip
-Start with Classic when you replace php-fpm. Verify that the application operates correctly.
-Select Worker after you confirm that the application initializes correctly and does not retain request state.
+Start with Classic when you replace php-fpm. Verify that the application operates correctly. Select Worker after you confirm that the application initializes correctly and does not keep request state.
 :::

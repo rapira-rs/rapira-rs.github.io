@@ -1,11 +1,11 @@
 ---
 title: Integración con frameworks
-description: "La mecánica común a todos los frameworks que corren sobre Rapira: el bucle del worker, el estado por petición y el residente, el manejo de errores, los archivos estáticos y OPcache."
+description: "Bucles de worker de frameworks, estado de petición, estado persistente, manejo de errores, archivos estáticos y OPcache."
 ---
 
 # Integración con frameworks
 
-En modo Classic una aplicación de framework corre sobre Rapira sin tocar nada: apuntas el servidor al script de entrada que ya tienes. En modo Worker el proceso de PHP sigue vivo entre una petición y la siguiente, y lo que la aplicación puede mantener residente depende del diseño del propio framework. Esta página cubre la mecánica que es igual para todos los frameworks; las tres guías específicas de cada framework dan por hecho que ya la has leído y solo cuentan lo suyo.
+En modo Classic, una aplicación de framework funciona sin cambios. Configura Rapira para usar el script de entrada existente. En modo Worker, el proceso de PHP permanece activo entre peticiones. El diseño del framework determina qué estado puede permanecer en memoria. Esta página describe el comportamiento común. Las guías de frameworks describen solo el comportamiento específico.
 
 ::: info Verificado con
 
@@ -13,20 +13,20 @@ En modo Classic una aplicación de framework corre sobre Rapira sin tocar nada: 
 - **Rapira 0.8.0**
 - **Symfony 7.4.15** y **8.1.2**, plantilla de aplicación de **Yii3** 1.4 (yii-runner-http 3.2.1)
 
-Todo lo que cuenta esta página se observó ejecutando esas aplicaciones en Linux, con un único proceso worker. Las afirmaciones de más abajo sobre el comportamiento de los frameworks salen de esas mediciones. Las claves de configuración salen de la referencia de [configuración](/es/docs/configuration) de Rapira.
+Las pruebas ejecutaron estas aplicaciones en Linux con un proceso worker. Las afirmaciones sobre los frameworks de esta página proceden de estas pruebas. Consulta [configuración](/es/docs/configuration) para ver los ajustes de Rapira.
 :::
 
 ## Modos Classic y Worker
 
-**En modo Classic no cambia nada.** Rapira usa el script de entrada existente y lo ejecuta desde cero en cada petición. Aquí funciona cualquier framework que funcione con php-fpm, incluidos aquellos cuyo estado jamás sobreviviría a una segunda petición. Consulta [modo Classic](/es/docs/classic) para más información; de las secciones de abajo solo se aplican los archivos estáticos, TLS y OPcache.
+**El modo Classic usa el script de entrada existente.** Inicia una petición PHP nueva para cada petición HTTP. Un framework que funciona con php-fpm también funciona en este modo. Consulta [modo Classic](/es/docs/classic) para obtener más información. Solo las secciones de archivos estáticos, TLS y OPcache que aparecen a continuación se aplican al modo Classic.
 
-**En modo Worker el proceso sigue vivo.** Tu script arranca la aplicación una vez y entra en un bucle pidiéndole a Rapira la siguiente petición. El framework ya no se desmonta entre petición y petición. En [modos de ejecución](/es/docs/execution-modes) tienes las descripciones de los modos, y en [modo Worker](/es/docs/worker), su referencia de API.
+**El modo Worker mantiene activo el proceso.** El script inicia la aplicación y solicita trabajo en un bucle. El estado de la aplicación permanece entre peticiones. Consulta [modos de ejecución](/es/docs/execution-modes) y [modo Worker](/es/docs/worker).
 
-Un mismo código corre en los dos modos: deja `public/index.php` tal cual está y pon un `worker.php` al lado. Las aplicaciones verificadas de Symfony y Yii3 mantienen los dos archivos uno junto al otro, y cuál de ellos se ejecuta lo elige la opción `--mode`: `rapira serve --mode classic public/index.php` o `rapira serve --mode worker worker.php`. El modo Classic sigue disponible como marcha atrás mientras haces la migración.
+Un código base puede usar ambos modos. Conserva `public/index.php`. Añade `worker.php` a la raíz del proyecto. Usa `--mode` para seleccionar el modo de ejecución. Selecciona el script con el argumento `SCRIPT` o con `pool.entrypoint`. Usa el modo Classic si falla la migración al modo Worker.
 
-## El bucle, línea a línea
+## Bucle de Worker
 
-Todos los scripts de worker tienen la misma forma, sea cual sea el framework que va dentro:
+Cada framework usa la misma estructura básica de script de worker:
 
 ```php
 <?php
@@ -46,32 +46,37 @@ while (\Rapira\handle_request($handler)) {
 }
 ```
 
-De arriba abajo:
+El script contiene estas operaciones:
 
-- **`require .../vendor/autoload.php`** - el autoloader se registra una sola vez para toda la vida del worker, y cada clase que resuelve se queda cargada.
-- **`$app = new App();`** - aquí arranca la aplicación, una sola vez, antes de que empiece el bucle. Esta línea es donde se separan las dos guías de worker: Symfony mantiene aquí un kernel residente, mientras que Yii3 o mantiene aquí un runner residente o lo construye dentro del handler - y cada guía añade su propio arranque encima del bucle y su propia limpieza por petición dentro del handler.
-- **`$handler = static function () use ($app): void`** - el handler no recibe argumentos. La petición está en las superglobales; lo demás que necesite lo captura con `use`.
-- **`header()`, `http_response_code()`, `echo`** - escribes la respuesta exactamente igual que en un script clásico. En [HTTP](/es/docs/http) tienes cómo se convierte eso en bytes por la red.
-- **`while (\Rapira\handle_request($handler))`** - `handle_request()` bloquea hasta que llega una petición. Rellena las superglobales con ella, ejecuta tu handler, cierra la petición y devuelve `true`. Devuelve `false` cuando el worker empieza a drenarse, y así es como acaba el bucle. Llámala solo desde el nivel superior del script de arranque. Fuera del modo Worker lanza `Rapira\Exception\NotInWorkerModeError`.
-- **`gc_collect_cycles();`** - el cuerpo del bucle se ejecuta *entre* peticiones, que es donde va el trabajo que debe ocurrir en un momento predecible y no durante una petición. Recoge los ciclos de referencias normales y no es un arreglo de memoria: mira [Memoria y reciclaje](#memoria-y-reciclaje).
+- **`require .../vendor/autoload.php`** registra el autoloader hasta que el script del worker se reinicia. Las clases cargadas permanecen disponibles.
+- **`$app = new App();`** inicia la aplicación antes del bucle. Symfony conserva aquí un kernel persistente.
+- Yii3 puede conservar un runner o crear uno dentro del handler. Cada guía muestra la inicialización y la limpieza necesarias.
+- **`$handler = static function () use ($app): void`** define un handler sin argumentos. El handler lee la petición de las superglobales.
+- Captura otras dependencias con `use`.
+- **`header()`, `http_response_code()` y `echo`** crean una respuesta como en un script clásico. Consulta [HTTP](/es/docs/http).
+- **`while (\Rapira\handle_request($handler))`** espera una petición. `handle_request()` rellena las superglobales, ejecuta el handler y completa la petición.
+- Devuelve `true` después de una petición y `false` durante la parada. Llámala solo desde el bucle de nivel superior.
+- Fuera del modo Worker, lanza `Rapira\Exception\NotInWorkerModeError`.
+- **`gc_collect_cycles();`** se ejecuta entre peticiones y recoge ciclos de referencias. No corrige las fugas de memoria.
+- Consulta [Memoria y reciclaje](#memoria-y-reciclaje).
 
-Tu script de entrada es `worker.php`, así que `SCRIPT_NAME` vale `/worker.php` y `DOCUMENT_ROOT` es el directorio donde está, mientras que `REQUEST_URI` lleva la ruta que el cliente pidió de verdad. Tanto Symfony como Yii3 enrutaron y generaron URLs correctamente encima de eso, sin ningún `worker.php` en las URLs generadas y sin parchear `$_SERVER` de ninguna manera. Un framework que construya las URLs a partir de `SCRIPT_NAME` en lugar de `REQUEST_URI` es el primer caso que hay que revisar.
+Rapira establece `SCRIPT_NAME` en `/worker.php` porque es el script de entrada. `DOCUMENT_ROOT` contiene el directorio del script. `REQUEST_URI` contiene la ruta del cliente. Symfony y Yii3 generaron rutas y URL correctas con estos valores. Las URL no contenían `worker.php`. Antes de integrar otro framework, comprueba si crea URL desde `SCRIPT_NAME` en lugar de `REQUEST_URI`.
 
 ## Estado por petición y estado residente
 
-Rapira reconstruye en cada petición todo lo de la columna izquierda, así que el código PHP de toda la vida que lo lee sigue funcionando. Todo lo de la columna derecha persiste durante toda la vida del worker y lo tiene que gestionar el script del worker.
+Rapira reconstruye todo lo de la columna izquierda para cada petición. El código PHP normal puede seguir leyendo estos valores. Todo lo de la columna derecha permanece entre peticiones. El script del worker debe gestionar este estado.
 
-| Nuevo en cada petición | Sobrevive a cada petición |
-| ---------------------- | ------------------------- |
-| `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE` - rellenadas con los datos de esta petición | El autoloader de Composer, y todas las clases ya cargadas a través de él |
-| `php://input` - el cuerpo crudo de esta petición, con `CONTENT_TYPE` y `CONTENT_LENGTH` al lado | Las propiedades y variables `static`, que siguen contando de una petición a otra |
-| `$_FILES`, y los archivos temporales subidos que hay detrás | Los objetos creados antes del bucle - el contenedor, el kernel, tu aplicación |
-| La fontanería de la sesión: `session_start()`, la cookie que entra, el `Set-Cookie` que sale | Los recursos abiertos: conexiones a la base de datos, clientes de caché, streams |
-| El estado de la respuesta: código de estado, cabeceras, `setcookie()`, los búferes de salida | El proceso mismo - el mismo pid, un intérprete de PHP residente por worker |
-| Las funciones de shutdown registradas **dentro** del handler | Los contadores del propio worker: `handled` y `errors` siguen incrementándose |
-| El reloj de `max_execution_time`, rearmado en cada petición | |
+| Nuevo para cada petición | Permanece entre peticiones |
+| ------------------------ | ------------------------- |
+| `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE`: Rapira las rellena con los datos de la petición | El autoloader de Composer y cada clase que ha cargado |
+| `php://input`: el cuerpo sin procesar de la petición, `CONTENT_TYPE` y `CONTENT_LENGTH` | Las propiedades y variables `static`, que conservan sus valores entre peticiones |
+| `$_FILES` y los archivos temporales subidos | Los objetos creados antes del bucle, como el contenedor, el kernel y la aplicación |
+| Datos de sesión: `session_start()`, la cookie de la petición y el campo de respuesta `Set-Cookie` | Recursos abiertos: conexiones de base de datos, clientes de caché y streams |
+| Estado de la respuesta: código de estado, cabeceras, `setcookie()` y búferes de salida | El proceso: el mismo pid y un intérprete PHP persistente para cada worker |
+| Funciones de shutdown registradas **dentro** del handler | Los contadores del worker: `handled` y `errors` continúan incrementándose |
+| El reloj de `max_execution_time`, que se reinicia para cada petición | `$_ENV`, incluidos los valores cargados antes del bucle |
 
-En Linux (y FreeBSD), donde existe el temporizador por petición de Zend, el reloj de `max_execution_time` se rearma en cada petición y el rato que el worker pasa aparcado esperando la siguiente nunca le cuenta: en el reloj solo está la petición en sí. En el resto de sistemas, macOS incluido, no se arma ningún límite por petición.
+En Linux y FreeBSD, Zend inicia un temporizador de `max_execution_time` nuevo para cada petición. El tiempo de espera del worker no se incluye en este límite. En otros sistemas, incluido macOS, PHP no inicia un temporizador de petición.
 
 Los tres comportamientos de abajo se aplican a un worker residente.
 
@@ -82,37 +87,35 @@ PHP no llama al destructor de un objeto residente al final de una petición. Lo 
 No uses un destructor para la limpieza de cada petición. Reinicia dentro del handler el estado de cada petición.
 :::
 
-::: warning Una función de shutdown registrada en el arranque se ejecuta una vez, al salir el worker
+::: warning Una función de shutdown registrada durante la inicialización se ejecuta una vez al final del ciclo del worker
 
 PHP ejecuta una función de shutdown registrada fuera del handler una sola vez, al final del ciclo del worker. Una función registrada dentro del handler se ejecuta al final de esa petición.
 
-Registra dentro del handler las funciones de shutdown de cada petición. Algunos ejemplos son el volcado de métricas, el tratamiento de un error fatal y la liberación de los recursos de la petición.
+Registra dentro del handler las funciones de shutdown de cada petición. Algunos ejemplos son la salida de métricas, el procesamiento de errores fatales y la limpieza de recursos de la petición.
 :::
 
-::: warning `$_ENV` se vuelve a importar a mitad de petición y sin avisar
+::: warning `$_ENV` permanece entre peticiones
 
-Con los ajustes de ini de fábrica (`variables_order = "GPCS"`, `auto_globals_jit = On`), PHP rearma en cada petición el flag JIT de `$_ENV`. El primer archivo que se compile durante esa petición y mencione `$_ENV` hace que PHP reconstruya la superglobal - y como en `variables_order` no hay ninguna `E`, no hay nada que importar: `$_ENV` vuelve **vacía** y todo lo que un arranque tipo Dotenv escribió en ella al levantar el worker se pierde a mitad de petición, sin que PHP emita ningún diagnóstico.
+Rapira no reconstruye `$_ENV` para cada petición. Los valores que el código escribe antes del bucle permanecen hasta que el worker vuelve a ejecutar el script. Trata `$_ENV` como estado residente de la aplicación. Carga la configuración del entorno antes del bucle. No guardes datos de peticiones en `$_ENV`.
 
-El efecto depende de *cuándo* se compila cada archivo. La configuración que un framework resuelve de golpe durante el arranque ya está cacheada y funciona bien; lo que se resuelve de forma perezosa, en la primera petición, lee un `$_ENV` que se vació un instante antes. Por eso exactamente la misma aplicación puede funcionar en un entorno y devolver un 500 en cada petición en otro.
-
-Hay dos soluciones. La primera está verificada: que el arranque escriba también los valores en el entorno de verdad - `putenv()` sobrevive a la reimportación, y un framework que tire de `getenv()` como plan B los encuentra ahí. En producción, es preferible la segunda: define variables de entorno reales en tu archivo de unidad o en tu contenedor y deja de parsear un `.env` en tiempo de ejecución. Ninguna de las dos devuelve nada a `$_ENV`: bajo `GPCS` se queda vacía por mucho que llenes el entorno, y quien ve los valores es `getenv()`. La [guía de Symfony](/es/docs/frameworks/symfony) recorre el fallo concreto y el arreglo de una línea.
-
-Le pasa a cualquier runtime de PHP que mantenga el proceso vivo entre peticiones.
+Rapira conserva los valores de `$_ENV` sin `putenv()`. Usa `putenv()` cuando el código necesite funciones del entorno del proceso, como `getenv()` o la herencia en procesos secundarios. En producción, define las variables de entorno en la unidad de servicio, el contenedor o el orquestador.
 :::
 
 ## Manejo de errores
 
-Tres formas de fallo, todas observadas contra un único worker y siguiéndole el pid:
+Las pruebas confirmaron tres tipos de fallo con un worker:
 
-- **`exit` o `die` dentro del handler** - la respuesta se vuelca al cliente, con el estado y el cuerpo que hubiera hasta ese momento, y el worker sigue atendiendo. Los frameworks lo hacen en su funcionamiento normal -una comprobación de modo mantenimiento que termina la petición con un `exit`, por ejemplo- y no es mortal para el proceso.
-- **Una excepción sin capturar** - un `500`. Si el manejador de errores de tu framework la captura antes, pinta su propia página de error; si no la captura nadie, Rapira responde un `500` con el cuerpo vacío. En cualquier caso el worker sigue atendiendo.
-- **Un `Error` sin capturar** - llamar a una función que no existe, por ejemplo. PHP lo registra como `Uncaught Error` y sigue el mismo camino que cualquier otro throwable sin capturar: un `500`, y el worker sigue atendiendo con el mismo pid.
+- **`exit` o `die` dentro del handler** envía el estado y la salida actuales. El worker continúa aceptando peticiones.
+- Un framework puede usar `exit` para una respuesta de mantenimiento sin terminar el proceso.
+- **Una excepción sin capturar** devuelve `500`. El manejador del framework puede devolver su página de error.
+- Sin este manejador, Rapira devuelve un cuerpo vacío. El worker continúa aceptando peticiones.
+- **Un `Error` sin capturar** también devuelve `500`, y el worker continúa. PHP registra `Uncaught Error`.
 
-El contador `errors` del worker sube con las dos formas de error; la petición del `exit` es un `200` normal y solo mueve `handled`. En los tres casos, `recycles` y `restarts` se quedan a cero: un throwable sin capturar no se lleva al worker por delante ni toca la petición siguiente. La única forma que hace algo más es un error fatal de los que provocan un bailout: desmonta el script residente, así que el worker vuelve a ejecutarlo desde arriba y arranca tu aplicación otra vez, que es justo lo que cuenta `recycles`. El volcado de estado de la página de [modelo de procesos](/es/docs/process-model) imprime esos contadores para cada worker.
+El contador `errors` aumenta en los dos casos de error. Una petición con `exit` devuelve `200` y solo cambia `handled`. En los tres casos, `recycles` y `restarts` permanecen en cero. Un throwable sin capturar no detiene el worker ni afecta a la siguiente petición. Un error fatal de tipo bailout termina el script persistente. El worker vuelve a iniciar el script y la aplicación. Esta acción aumenta `recycles`. Consulta estos contadores en [modelo de procesos](/es/docs/process-model).
 
 ## Archivos estáticos
 
-Rapira sirve los archivos estáticos con el [middleware de archivos estáticos](/es/docs/static-files). Apunta la clave `root` de `[http.static]` al directorio `public/` del framework y nombra el middleware en `[http]`:
+Rapira sirve los archivos estáticos con el [middleware de archivos estáticos](/es/docs/static-files). Establece `[http.static].root` en el directorio `public/` del framework. Añade el middleware a `[http]`:
 
 ```toml
 [http]
@@ -122,43 +125,46 @@ middleware = ["static"]
 root = "public"
 ```
 
-El middleware solo responde a una petición cuando la ruta coincide con un archivo que hay bajo esa raíz. Su lista `forbid` de fábrica deja fuera los archivos `.php`, así que el script de entrada de `public/` no se sirve nunca como archivo. Cualquier otra URL ejecuta el script de entrada, igual en modo Classic que en modo Worker, y `$_SERVER['REQUEST_URI']` le dice a la aplicación adónde quería ir el cliente. La URL de un directorio también ejecuta el script de entrada, porque el middleware no sirve ningún archivo de índice.
+El middleware solo responde cuando una ruta coincide con un archivo bajo la raíz. La lista `forbid` predeterminada impide el acceso a archivos `.php`. Por tanto, no sirve el script de entrada como archivo. Las demás URL ejecutan el script de entrada en los modos Classic y Worker. `$_SERVER['REQUEST_URI']` contiene la ruta del cliente. Las URL de directorios también ejecutan el script de entrada porque el middleware no sirve archivos de índice.
 
-Una CDN o un proxy inverso por delante también pueden servir esos archivos en su lugar. La [puesta en producción](/es/docs/deployment) monta un proxy de esos.
+Como alternativa, una CDN o un proxy inverso pueden servir los archivos. Consulta [En producción](/es/docs/deployment) para ver la configuración del proxy inverso.
 
 ## TLS y proxies
 
-El listener de Rapira habla HTTP en claro y en la configuración no hay ninguna sección de TLS. Termina el TLS en el proxy que ya tienes y deja que llegue a Rapira por loopback o por un socket Unix. El proxy debe escribir los campos reenviados con `-` y jamás con `_`, porque las dos grafías acaban en la misma clave de `$_SERVER`. Consulta [HTTP](/es/docs/http) para esa correspondencia y la [puesta en producción](/es/docs/deployment) para la configuración del proxy.
+Rapira acepta HTTP sin cifrar y no proporciona ajustes de TLS. Termina TLS en un proxy. Conecta el proxy mediante loopback o un socket Unix. Usa guiones en lugar de guiones bajos en los nombres de campos reenviados. Ambos caracteres se pueden asignar a la misma clave de `$_SERVER`. Consulta [HTTP](/es/docs/http) y [En producción](/es/docs/deployment).
 
 ## Memoria y reciclaje
 
-Un worker que reconstruye la aplicación dentro del handler -la más sencilla de las dos formas de Yii3- mantiene residente menos que un kernel al estilo de Symfony, pero más que el modo Classic, y el bucle está en tu propio script, así que el trabajo puede ir saliendo del handler poco a poco a medida que compruebas qué sobrevive a una segunda petición. Lo que esa forma no te da es un contenedor ya construido cuando llega la petición.
+Un worker puede crear la aplicación dentro del handler. Este diseño conserva la aplicación durante una petición. Conserva menos estado que un kernel persistente de Symfony, pero más que el modo Classic. El bucle permanece en el script del worker. Mueve la inicialización fuera del handler solo después de comprobar el estado persistente. Este diseño crea el contenedor después de recibir la petición.
 
-En esa forma, cada petición deja atrás un grafo de objetos desechado. PHP no los libera de uno en uno: los mantienen unidos ciclos de referencias, así que el heap crece petición tras petición hasta que se ejecuta el recolector de ciclos y se lleva un lote grande de golpe. Es un diente de sierra, no una fuga, pero un diente de sierra cuyo pico está bastante por encima de lo que ocupa cualquier petición suelta.
+Cada petición de este diseño crea un grafo de objetos. Los ciclos de referencias pueden conservar grafos antiguos hasta que se ejecuta el recolector. El uso de memoria aumenta durante varias peticiones y disminuye cuando PHP libera varios grafos. Este uso cíclico no siempre es una fuga. Sin embargo, el uso máximo puede ser mucho mayor que el de una petición.
 
-Llamar tú mismo a `gc_collect_cycles()` no lo aplana - verificado, tanto en el bucle como dentro del handler. Los grafos viejos siguen fuertemente referenciados hasta que un arranque posterior los suelta, así que el recolector todavía no tiene nada que llevarse. De ahí salen dos cosas. Dale a `memory_limit` un margen de verdad, porque lo que tiene que caber es el pico y no la media. Y ponle un presupuesto de reciclaje:
+Las pruebas mostraron que `gc_collect_cycles()` no evita este comportamiento en el bucle ni en el handler. Una inicialización posterior puede conservar referencias a grafos antiguos. El recolector no puede liberar un grafo mientras otro objeto lo referencia. Establece `memory_limit` por encima del máximo medido. También establece un límite de sustitución:
 
 ```toml
 [pool]
 max_requests = 100
 ```
 
-El worker termina al llegar a ese número de peticiones (más un poco de jitter, para que el pool no rote todo a la vez) y el maestro hace fork de un sustituto que empieza con el heap limpio. Verificado a lo largo de cientos de peticiones seguidas y varios reciclajes: los workers rotan, la memoria se reinicia en cada ciclo y no se cayó ni una sola petición ni hubo ninguna respuesta que no fuera un `200`. Es un límite determinista para un perfil de memoria que, si no, queda por completo en manos del recolector.
+El maestro sustituye un worker después del límite de peticiones. Rapira modifica ligeramente el límite para evitar sustituciones simultáneas. Las pruebas enviaron cientos de peticiones durante varias sustituciones. La memoria volvió a su nivel inicial y cada petición devolvió `200`. Este ajuste establece un límite predecible para el uso de memoria.
 
-Las formas residentes -el kernel de Symfony, el contenedor de Yii3 detrás de `StateResetter`- son planas en comparación: en las mismas pruebas la memoria se mantuvo estable. Mantén el reciclaje activado también para ellas, como salvaguarda. Consulta [configuración](/es/docs/configuration) para la clave y [modelo de procesos](/es/docs/process-model) para lo que el reciclaje le hace al pool.
+Las aplicaciones persistentes de Symfony y Yii3 tuvieron un uso de memoria estable durante las mismas pruebas. Mantén activada la sustitución de workers para limitar el crecimiento inesperado de la memoria. Consulta [configuración](/es/docs/configuration) y [modelo de procesos](/es/docs/process-model).
 
 ## OPcache y el código que cambia
 
-Rapira arranca PHP exactamente una vez, en el maestro, antes de hacer fork del primer worker - así que OPcache crea su segmento de memoria compartida una única vez y todos los workers heredan ese mismo mapeo. Los scripts compilados siguen calientes de una petición a otra *y* en todo el pool, en los dos modos. Un worker que vuelve a incluir los archivos de tu framework no los está volviendo a parsear.
+Rapira inicia PHP una vez en el maestro antes de crear workers. OPcache crea un segmento de memoria compartida. Cada worker hereda el mismo mapa. Los scripts compilados permanecen en caché entre peticiones y workers en ambos modos.
 
-En producción, `opcache.validate_timestamps = 0` elimina el stat por archivo de cada petición. Con este ajuste, nada invalida la caché. El segmento pertenece al maestro y sobrevive a todas las generaciones de workers. Por tanto, una recarga progresiva sigue sirviendo los opcodes antiguos y un despliegue requiere un reinicio completo. Consulta la [puesta en producción](/es/docs/deployment) para ver la secuencia.
+En producción, `opcache.validate_timestamps = 0` elimina la comprobación de archivos de cada petición. Este ajuste impide la invalidación automática de la caché. El segmento de OPcache pertenece al maestro y permanece durante la sustitución de workers. Por tanto, un despliegue requiere un reinicio completo. Consulta [En producción](/es/docs/deployment) para ver la secuencia.
 
-Mientras desarrollas, el mismo resultado tiene otra causa. Un arranque residente no vuelve a leer nunca el código que cargó al inicio, haga lo que haga OPcache: los cambios en un servicio que el contenedor ya construyó, o en el propio script del worker, no llegan al proceso en marcha. Reinicia después de cada edición: `rapira serve` corre en primer plano y no se demoniza nunca, así que es Ctrl-C y volver a lanzarlo.
+Durante el desarrollo, una aplicación persistente no vuelve a leer su código de inicialización. Este comportamiento no depende de OPcache. Reinicia el servidor después de cambiar el script del worker o los servicios iniciados. Pulsa Ctrl-C y vuelve a ejecutar `rapira serve`.
 
 ## Guías de frameworks
 
-- **[Symfony](/es/docs/frameworks/symfony)** - el kernel arranca una vez y se queda residente, y el propio `services_resetter` del framework deja entre peticiones los servicios con estado tal y como los encontró. Un único archivo de worker vale para 7.4 y 8.1, byte a byte.
-- **[Laravel](/es/docs/frameworks/laravel)** - modo Classic: el `public/index.php` de serie funciona sin tocar nada. El modo Worker para Laravel está en desarrollo: una aplicación de Laravel residente necesita el desmontaje de estado que implementa Octane, y Rapira todavía no tiene driver de Octane.
-- **[Yii3](/es/docs/frameworks/yii3)** - un contenedor residente que se reinicia en cada petición mediante `StateResetter`, que es el diseño del propio Yii3 para procesos de larga vida (su runner de RoadRunner tiene la misma forma), o un runner nuevo por petición, más sencillo, si prefieres empezar por ahí.
+- **[Symfony](/es/docs/frameworks/symfony):** El kernel se inicia una vez y permanece en memoria. `services_resetter` restablece los servicios con estado entre peticiones.
+- Un archivo de worker admite Symfony 7.4 y 8.1.
+- **[Laravel](/es/docs/frameworks/laravel):** El modo Classic ejecuta el archivo `public/index.php` estándar sin cambios.
+- El modo Worker de Laravel está en desarrollo. Rapira todavía no proporciona el driver de Octane necesario.
+- **[Yii3](/es/docs/frameworks/yii3):** `StateResetter` restablece un contenedor persistente después de cada petición.
+- Como alternativa, el worker puede crear un runner nuevo para cada petición.
 
-Un framework que no cubra ninguna de estas guías corre con el mismo script de worker, y lo que decide si puede correr en modo Worker es si la aplicación atiende una segunda petición en el mismo proceso. La forma por la que conviene empezar es reconstruir la aplicación dentro del handler, porque no le pide nada al framework; la forma a la que conviene pasar después es una aplicación residente con un reinicio de estado por petición. Si no funciona ninguna de las dos formas, el [modo Classic](/es/docs/classic) ejecuta la aplicación sin tocar nada.
+Otros frameworks pueden usar el mismo script básico. Usa el modo Worker solo si la aplicación puede procesar varias peticiones en un proceso. Primero, crea la aplicación dentro del handler. Este diseño no requiere que el framework admita procesos persistentes. Valida la aplicación con este diseño. Después, conserva la aplicación. Restablece su estado de petición después de cada petición. Usa el [modo Classic](/es/docs/classic) si ninguno de los diseños Worker funciona correctamente.

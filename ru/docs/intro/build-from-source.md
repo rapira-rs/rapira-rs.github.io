@@ -11,23 +11,23 @@ Rapira собирается из исходников на Linux и macOS. Са�
 
 - **Для вашей платформы нет готового бинарника** - необычная архитектура процессора или дистрибутив на musl вроде Alpine.
 - **Дистрибутив старше, чем поддерживают пакеты.** Релизы собраны под glibc 2.34, так что самые старые системы, куда они встанут, - это Debian 12, Ubuntu 22.04 и RHEL 9 (подробности на странице [Установка](/ru/docs/intro/installation)).
-- **Нужен другой набор расширений PHP.** В релизные сборки вложен PHP, собранный по списку флагов из [`ci/php-configure-flags.txt`](https://github.com/rapira-rs/rapira/blob/main/ci/php-configure-flags.txt), а список этот намеренно короткий: session, mbstring, OPcache, OpenSSL, curl, семейство XML, PDO с SQLite. Если приложению нужны `pdo_mysql`, `intl` или `gd`, соберите Rapira с тем PHP, где они есть.
+- **Нужен другой набор расширений PHP.** В релизные сборки вложен PHP, собранный по списку флагов из [`.github/php-configure-flags.txt`](https://github.com/rapira-rs/rapira/blob/main/.github/php-configure-flags.txt), а список этот намеренно короткий: session, mbstring, OPcache, OpenSSL, curl, семейство XML, PDO с SQLite. Если приложению нужны `pdo_mysql`, `intl` или `gd`, соберите Rapira с тем PHP, где они есть.
 - **Вы дорабатываете саму Rapira** или хотите то, что ещё не попало в релиз.
 
 ## Инструменты сборки
 
-Кроме привычного набора для сборки понадобятся три вещи:
+Для сборки нужны следующие инструменты:
 
-- **Rust, стабильный канал.** Версия закреплена в `rust-toolchain.toml` в репозитории, поэтому [rustup](https://rustup.rs/) сам выбирает нужный тулчейн.
-- **Компилятор C и `pkg-config`.** Часть сборки написана на C - небольшие прослойки, которые компилируются с заголовками PHP.
-- **libclang** - привязки к Zend API генерирует bindgen прямо во время сборки. Пакет называется `libclang-dev` в Debian/Ubuntu, `clang-devel` в Fedora и `clang` в Arch.
+- **Rust, стабильный канал.** Файл `rust-toolchain.toml` выбирает версию через [rustup](https://rustup.rs/).
+- **Компилятор C и `pkg-config`.** Сборка компилирует небольшие прослойки C с заголовками PHP.
+- **libclang.** Bindgen использует его для создания привязок Zend API. Пакет называется `libclang-dev` в Debian и Ubuntu, `clang-devel` в Fedora и `clang` в Arch.
 
 ## PHP с embed SAPI
 
-Rapira линкует интерпретатор прямо в свой процесс, а не обращается к нему через сокет, поэтому PHP должен существовать в виде разделяемой библиотеки: **версия 8.4 или 8.5, сборка NTS (непотокобезопасная), собранная с `--enable-embed=shared`** - именно этот флаг и даёт `libphp.so` (на macOS - `libphp.dylib`).
+Rapira линкует интерпретатор в свой процесс и не использует сокет. PHP должен быть разделяемой библиотекой NTS версии 8.4 или 8.5. Настройте PHP с `--enable-embed=shared`. Эта опция создаёт `libphp.so` или `libphp.dylib` в macOS.
 
 ::: warning Сборки ZTS отвергаются
-Потокобезопасный (ZTS) PHP валит сборку с внятной ошибкой: Rapira работает только с NTS, потому что держит по одному интерпретатору на процесс-воркер. Если PHP в вашем `PATH` собран как ZTS, поставьте сборку NTS и укажите на неё через `PHP_CONFIG` (см. ниже).
+Потокобезопасный PHP вызывает ошибку сборки. Rapira требует NTS, потому что каждый процесс воркера запускает один интерпретатор. Если `PATH` выбирает сборку ZTS, установите PHP NTS. Задайте путь к `php-config` через `PHP_CONFIG`.
 :::
 
 В нескольких дистрибутивах embed SAPI уже лежит в пакетах:
@@ -40,26 +40,26 @@ sudo apk add php84-dev php84-embed            # Alpine
 ```
 
 ::: warning В macOS готового embed SAPI нет
-Формула `php` в Homebrew собрана без него, так что линковаться просто не с чем. На macOS придётся собрать PHP из исходников.
+Формула Homebrew `php` не включает embed SAPI. Соберите PHP из исходников в macOS.
 :::
 
-### Самостоятельная сборка PHP
+### Сборка PHP из исходников
 
-Собирайте PHP сами, если в дистрибутиве нет пакета с embed SAPI, если вы работаете на macOS или если в пакетной сборке нет расширений, которые нужны вашему приложению.
+Соберите PHP, если пакет embed недоступен. Также соберите PHP, если пакет не содержит нужные расширения.
 
-Эталонная строка `configure` лежит в репозитории - это `ci/php-configure-flags.txt`, тот самый список, по которому собираются релизы. Передайте его в `configure` в распакованных исходниках PHP и допишите расширения, которые нужны вашему приложению:
+Файл `.github/php-configure-flags.txt` содержит параметры выпусков. Передайте его в `configure` в распакованном каталоге исходного кода PHP. Добавьте параметры нужных расширений в конец строки `./configure`:
 
 ```bash
-./configure --prefix="$HOME/.local/php-nts" $(tr '\n' ' ' < /path/to/rapira/ci/php-configure-flags.txt)
+./configure --prefix="$HOME/.local/php-nts" $(tr '\n' ' ' < /path/to/rapira/.github/php-configure-flags.txt)
 make -j"$(getconf _NPROCESSORS_ONLN)"
 make install
 ```
 
-На macOS сначала поставьте зависимости (`brew install pkg-config openssl@3 curl oniguruma libxml2 sqlite`), добавьте их каталоги `lib/pkgconfig` в `PKG_CONFIG_PATH`, а после файла с флагами допишите `--with-iconv="$(xcrun --show-sdk-path)/usr"`: голый `--with-iconv` там libiconv не находит, а в autoconf побеждает последнее вхождение.
+В macOS установите зависимости командой `brew install pkg-config openssl@3 curl oniguruma libxml2 sqlite`. Добавьте их каталоги `lib/pkgconfig` в `PKG_CONFIG_PATH`. После параметров из файла добавьте `--with-iconv="$(xcrun --show-sdk-path)/usr"`. Этот путь позволяет `configure` найти libiconv в macOS. Autoconf использует последнее значение повторяющегося параметра.
 
 ### Простое имя `libphp.so`
 
-Сборка линкуется с `-lphp` и ищет библиотеку только в `lib` и `lib64` внутри префикса PHP, поэтому файл ровно с именем `libphp.so` (или `libphp.dylib`) должен лежать в одном из них. Debian и Ubuntu кладут только версионный `libphp8.4.so`, у Alpine имя простое, но сам файл лежит в `lib/phpXX`, который сборка не просматривает. И там, и там линковка падает, пока вы не положите в `lib` или `lib64` префикса симлинк с простым именем:
+Сборка компонует `-lphp`. Она ищет библиотеку только в каталогах `lib` и `lib64` префикса PHP. Один из этих каталогов должен содержать `libphp.so` или `libphp.dylib` в macOS. Debian и Ubuntu предоставляют только версионный файл `libphp8.4.so`. Alpine помещает `libphp.so` в каталог `lib/phpXX`, который сборка не проверяет. Создайте ссылку с требуемым именем в каталоге `lib` или `lib64` префикса:
 
 ```bash
 sudo ln -sf /usr/lib/libphp8.4.so /usr/lib/libphp.so        # Debian/Ubuntu
@@ -77,7 +77,7 @@ export LD_LIBRARY_PATH="$HOME/.local/phplib:/usr/lib"
 
 ## Сборка Rapira
 
-Когда PHP на месте, дальше всё как в любом проекте на Rust - обычная сборка через cargo:
+После установки PHP соберите Rapira с помощью Cargo:
 
 ```bash
 git clone https://github.com/rapira-rs/rapira.git
@@ -85,7 +85,7 @@ cd rapira
 cargo build --release
 ```
 
-Готовый бинарник окажется в `target/release/rapira`.
+Сборка записывает бинарный файл в `target/release/rapira`.
 
 PHP находится через `php-config`. Если тот, что лежит в `PATH`, - не та сборка, которую вы хотите встроить, укажите нужную явно:
 
@@ -106,7 +106,7 @@ LD_LIBRARY_PATH="$HOME/.local/php-nts/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" 
 DYLD_LIBRARY_PATH="$HOME/.local/php-nts/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" ./target/release/rapira serve --mode worker worker.php   # macOS
 ```
 
-В результате получается тот же сервер, что ставится из пакетов: [Быстрый старт](/ru/docs/intro/quickstart) проведёт через первый скрипт, [Командная строка](/ru/docs/cli) перечисляет всё, что принимает `serve`, а [Конфигурация](/ru/docs/configuration) разбирает `rapira.toml`.
+Результат предоставляет те же функции, что и сервер из пакета. См. разделы [Быстрый старт](/ru/docs/intro/quickstart), [Командная строка](/ru/docs/cli) и [Конфигурация](/ru/docs/configuration).
 
 ## Разработка самой Rapira
 

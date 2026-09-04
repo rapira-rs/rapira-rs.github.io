@@ -5,23 +5,23 @@ description: "La referencia completa de rapira.toml: todas las claves de [http],
 
 # Configuración
 
-Rapira arranca sin ningún archivo de configuración: `rapira serve --mode worker app/worker.php` elige un valor por defecto para todo. Añades un `rapira.toml` cuando esos valores se te quedan cortos - otra dirección de escucha, un número fijo de workers, una política de reciclaje, un pidfile que tu sistema de init pueda leer, un nivel de registro más detallado. Apunta el servidor al archivo y el servidor lee de ahí sus ajustes:
+Rapira puede iniciarse sin un archivo de configuración. `rapira serve --mode worker app/worker.php` usa los ajustes predeterminados. Crea `rapira.toml` para cambiar la dirección, los workers, la sustitución, el pidfile o el nivel de registro. Indica el archivo con este comando:
 
 ```bash
 rapira serve --config /etc/rapira/rapira.toml
 ```
 
-El archivo tiene cuatro secciones y todas son opcionales: `[http]` configura la escucha, `[pool]` los procesos worker, `[supervisor]` el proceso maestro y `[log]` lo que se escribe en stderr. El script de entrada de PHP no tiene valor por defecto. Pon `pool.entrypoint` o pasa el script como argumento posicional en la línea de comandos.
+El archivo tiene cuatro secciones opcionales. `[http]` configura la escucha y `[pool]` configura los workers. `[supervisor]` configura el proceso maestro. `[log]` configura la salida a stderr. El script de entrada de PHP no tiene valor predeterminado. Define `pool.entrypoint` o pasa el script como argumento.
 
 ::: info
-Los ajustes van por capas: una opción de la línea de comandos gana al archivo de configuración, y el archivo gana al valor por defecto. Por eso `--processes 8` se impone a un `processes = 4` del archivo, y una configuración que tienes en el control de versiones se puede sobrescribir para una ejecución suelta. Las variables de entorno quedan fuera de esas capas: salvo dos que solo afectan a los registros, los ajustes salen del archivo y de las opciones, y de nada más. Las opciones en sí están documentadas en la [página de la línea de comandos](/es/docs/cli).
+Las opciones de línea de comandos sustituyen los valores del archivo. Los valores del archivo sustituyen los valores predeterminados. Por ejemplo, `--processes 8` sustituye `processes = 4` durante una ejecución. Solo dos variables de entorno de registro afectan a los ajustes. Consulta las opciones en la [página de la línea de comandos](/es/docs/cli).
 :::
 
 ## Un rapira.toml completo
 
-Todas las claves que Rapira entiende, en un solo archivo. Nada de lo que hay abajo es obligatorio: borra cualquier línea y entra su valor por defecto. Con cuatro excepciones. `pool.entrypoint` no tiene ningún valor por defecto al que recurrir. `min_spare` y `max_spare` son obligatorias mientras esté puesto `scaling = "dynamic"`. Y `http.static.root` es obligatoria mientras esté presente la tabla `[http.static]`.
+El siguiente archivo contiene todas las claves admitidas. La mayoría de las claves ausentes usan su valor predeterminado. `pool.entrypoint` no tiene valor predeterminado. El escalado dinámico requiere `min_spare` y `max_spare`. La tabla `[http.static]` requiere `http.static.root`.
 
-Hay además dos grupos de claves que van juntas, así que borrar solo una parte corta el arranque. Borra a la vez la tabla `[http.static]` y la entrada `"static"` de `middleware`: Rapira rechaza la tabla sin la entrada, y rechaza la entrada sin la tabla. Y borra `min_spare` y `max_spare` a la vez que `scaling = "dynamic"`: Rapira rechaza las dos claves de reserva con el escalado `static` y con el `ondemand`.
+Algunas claves deben aparecer juntas. La tabla `[http.static]` requiere la entrada `"static"` de `middleware`, y la entrada requiere la tabla. Elimina `min_spare` y `max_spare` cuando el escalado no sea `dynamic`. Rapira rechaza estas claves con `static` y `ondemand`.
 
 ```toml
 [http]
@@ -62,7 +62,7 @@ request_terminate_timeout_secs = 0    # Replaces a worker when one request excee
 
 [supervisor]                          # Optional. Sets master process behavior.
 pidfile = "/run/rapira.pid"           # Optional. Relative paths use this file's directory.
-process_control_timeout_secs = 30     # Sets the stop timeout before QUIT, TERM, and KILL.
+process_control_timeout_secs = 30     # Waits after SIGQUIT before SIGTERM. SIGKILL follows one second later.
 
 [log]                                 # Optional. Sets the level and record format.
 level = "error"                       # Use error, warn, info, debug, or trace. Default: error.
@@ -143,7 +143,7 @@ Los workers son los procesos que ejecutan PHP de verdad, y esta sección dice qu
 | `min_spare` | entero | ninguno | Solo con el escalado `dynamic`, y ahí obligatoria: mantén al menos este número de workers ociosos y listos. |
 | `max_spare` | entero | ninguno | Solo con el escalado `dynamic`, y ahí obligatoria: recorta hasta dejar como mucho este número de workers ociosos. El par tiene que cumplir `1 <= min_spare <= max_spare <= processes`; ponerlas con otro valor de escalado es un error. |
 | `max_requests` | entero | `0` | Recicla el worker cuando haya atendido este número de peticiones, más un pequeño margen aleatorio para que el pool entero no se renueve de golpe. `0` significa nunca. |
-| `process_idle_timeout_secs` | entero | `10` | La lee el escalado `ondemand`: cuánto tiempo puede estar un worker ocioso antes de que el maestro lo retire. |
+| `process_idle_timeout_secs` | entero | `10` | Con el escalado `ondemand`, el maestro retira un worker después de este tiempo de inactividad. |
 | `request_terminate_timeout_secs` | entero | `0` | El tiempo real máximo para una sola petición. Al worker que siga con ella pasado ese límite se le mata y se le sustituye. Con `0` no se comprueba nada. |
 
 `mode` y `scaling` son dos ejes distintos: `mode` dice qué hace un worker con el script de entrada, y `scaling`, cuántos workers hay.
@@ -157,11 +157,11 @@ Las reglas del proceso maestro: el que es dueño del socket de escucha, supervis
 | Clave | Tipo | Por defecto | Significado |
 | --- | --- | --- | --- |
 | `pidfile` | cadena | ninguno | Dónde escribe el maestro su propio pid. Una ruta relativa se resuelve respecto al directorio donde está el archivo de configuración. A ese pid es al que van las señales, y la [página del modelo de procesos](/es/docs/process-model) tiene la tabla completa de qué hace cada una. |
-| `process_control_timeout_secs` | entero | `30` | Cuánto le deja el maestro a un worker para terminar por las buenas antes de escalar QUIT → TERM → KILL. |
+| `process_control_timeout_secs` | entero | `30` | Cuánto espera el maestro después de `SIGQUIT` antes de enviar `SIGTERM`. El maestro envía `SIGKILL` un segundo después de `SIGTERM`. |
 
 ## La sección `[log]`
 
-Rapira lo escribe todo en stderr, con una escritura por entrada, para que la salida del maestro y la de los workers nunca se mezclen a mitad de línea. Esta sección decide cuánto detalle tiene ese flujo y qué forma tiene cada entrada; en [Registros](/es/docs/logging) están los targets uno a uno, los formatos y cómo se corresponden los diagnósticos de PHP con los niveles.
+Rapira escribe todos los registros en stderr. Esta sección decide cuánto detalle tiene ese flujo y qué forma tiene cada entrada; en [Registros](/es/docs/logging) están los targets uno a uno, los formatos y cómo se corresponden los diagnósticos de PHP con los niveles.
 
 | Clave | Tipo | Por defecto | Significado |
 | --- | --- | --- | --- |
@@ -169,15 +169,20 @@ Rapira lo escribe todo en stderr, con una escritura por entrada, para que la sal
 | `format` | `"plain"` \| `"json"` | `"plain"` | La forma de cada entrada: líneas legibles para una persona (con color cuando stderr es un terminal), o un objeto JSON por línea para un recolector de registros. |
 | `[log.targets]` | tabla de target → nivel | vacía | Ajustes por target que se aplican encima de `level`. Cada clave nombra uno de los targets bajo los que Rapira emite: `php` lleva la salida del propio PHP, y `http`, el frontal HTTP. La coincidencia es por prefijo, así que `php` cubre también `php_sys::callbacks` y todo lo que cuelgue de ahí. En [Registros](/es/docs/logging) están todos los targets. |
 
-Una clave de `[log.targets]` tiene que parecerse a una ruta de módulo: letras, dígitos y `_` `:` `.` `-`, empezando por letra, dígito o `_`. Con las claves se monta una cadena de filtro, así que cualquier cosa fuera de esa forma se leería como sintaxis del filtro en lugar de como nombre de target, y por eso se rechaza de entrada.
+Una clave de `[log.targets]` puede usar letras, dígitos, `_`, `:`, `.` y `-`. Debe empezar con una letra, un dígito o `_`. Rapira rechaza otros caracteres porque el filtro puede interpretarlos como sintaxis. Una clave de target que contiene `:` o `.` debe ir entre comillas porque TOML no permite estos caracteres en una clave simple sin comillas. Por ejemplo:
 
-`RUST_LOG` y `NO_COLOR` son las únicas variables de entorno que Rapira lee, y las dos afectan solo a los registros: `RUST_LOG` reemplaza el filtro entero durante una ejecución, así que una sesión ruidosa de depuración no obliga a editar la configuración, y `NO_COLOR` le quita el color al formato `plain` con cualquier valor no vacío, incluso cuando stderr es un terminal.
+```toml
+[log.targets]
+"php_sys::callbacks" = "debug"
+```
+
+Rapira solo lee las variables de entorno `RUST_LOG` y `NO_COLOR`. Ambas afectan solo a los registros. `RUST_LOG` sustituye el filtro completo durante una ejecución. Un valor no vacío de `NO_COLOR` desactiva los colores del formato `plain`.
 
 ## Las claves desconocidas se rechazan
 
-Rapira analiza `rapira.toml` de forma estricta. Cada tabla y cada clave dentro de ella tiene que ser una que el servidor conozca, así que un `[htttp]` o un `lissten = ":8000"` tumban el arranque con un mensaje que dice qué no ha reconocido, en lugar de quedarse en una línea ignorada sin avisar. Cada clave tiene además una única tabla: `max_requests` es de `[pool]` y de ningún otro sitio, `pidfile` de `[supervisor]` y de ningún otro sitio, y colocar una bajo la tabla equivocada falla igual que una errata.
+Rapira solo acepta las tablas y claves documentadas. Por ejemplo, `[htttp]` o `lissten = ":8000"` impiden la inicialización. El error identifica el nombre desconocido. Rapira no lo ignora. Cada clave pertenece a una tabla. Por ejemplo, `max_requests` pertenece a `[pool]` y `pidfile` pertenece a `[supervisor]`.
 
-Los valores se comprueban igual. `level = "verbose"`, `format = "pretty"` y `unsafe_field_names = "allow"` son errores que impiden arrancar, no una vuelta silenciosa al valor por defecto, de modo que una errata no puede rebajar en silencio un ajuste de seguridad. Los números también tienen límites: `pool.processes`, `http.max_body_size_mb`, los dos tiempos límite de `[http]` y todos los límites de `[http.uploads]` tienen que ser 1 como mínimo, y toda clave `*_secs` topa en `86400`, un día.
+Rapira también valida los valores. Rechaza los valores no admitidos en lugar de usar los predeterminados. Por ejemplo, rechaza `level = "verbose"`, `format = "pretty"` y `unsafe_field_names = "allow"`. Los valores numéricos tienen límites. Los workers, cuerpos, tiempos HTTP y límites de carga deben ser como mínimo 1. Cada clave `*_secs` tiene un máximo de `86400`, que equivale a un día.
 
 ::: warning
 La validación ocurre antes de que arranque nada, así que una clave que no se reconoce corta el arranque en vez de degradar la ejecución en silencio. Editar `rapira.toml` en una máquina que está sirviendo ahora mismo no le hace nada al proceso en marcha, pero el siguiente arranque es el que tiene que salir bien.
@@ -185,10 +190,10 @@ La validación ocurre antes de que arranque nada, así que una clave que no se r
 
 ## Rutas relativas
 
-Cinco claves guardan una ruta del sistema de archivos, y todas se resuelven respecto al directorio que contiene el archivo de configuración y no respecto al directorio de trabajo de quien arrancó el servidor: `pool.entrypoint`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root` y `http.uploads.dir`. Con `/etc/rapira/rapira.toml` y `entrypoint = "app/worker.php"`, el script es `/etc/rapira/app/worker.php` da igual desde dónde se haya lanzado `rapira serve`.
+Cinco claves contienen rutas: `pool.entrypoint`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root` y `http.uploads.dir`. Cada ruta relativa usa como base el directorio del archivo de configuración. Por ejemplo, `entrypoint = "app/worker.php"` en `/etc/rapira/rapira.toml` produce `/etc/rapira/app/worker.php`.
 
-El argumento posicional `SCRIPT` funciona justo al revés. Es un valor de la línea de comandos, así que una ruta relativa ahí se resuelve respecto al directorio de trabajo actual.
+El argumento posicional `SCRIPT` usa el directorio actual como base de una ruta relativa.
 
 ::: tip
-Guarda `rapira.toml` dentro de la aplicación y escribe sus rutas en relativo. Así, mover el directorio se lleva consigo toda la configuración, y nada depende del directorio en el que al servicio le toque arrancar.
+Guarda `rapira.toml` dentro de la aplicación. Escribe sus rutas respecto al archivo. Este diseño permite mover el directorio de la aplicación sin cambiar las rutas.
 :::

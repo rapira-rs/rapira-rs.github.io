@@ -11,23 +11,23 @@ Rapira se compila desde el código en Linux y macOS. Compilarlo tú mismo resuel
 
 - **No hay binario para tu plataforma**: una arquitectura de CPU poco habitual, o una distro basada en musl como Alpine.
 - **Tu distribución es más antigua de lo que admiten los paquetes.** Las releases se compilan contra glibc 2.34, así que Debian 12, Ubuntu 22.04 y RHEL 9 son las versiones más antiguas donde llegan a instalarse (lo tienes en [Instalación](/es/docs/intro/installation)).
-- **Necesitas otro conjunto de extensiones de PHP.** Las compilaciones de release incluyen un PHP construido con la lista de flags de [`ci/php-configure-flags.txt`](https://github.com/rapira-rs/rapira/blob/main/ci/php-configure-flags.txt), que es corta a propósito: session, mbstring, OPcache, OpenSSL, curl, la familia XML y PDO con SQLite. Si tu aplicación necesita `pdo_mysql`, `intl` o `gd`, compila Rapira contra un PHP que las traiga.
+- **Necesitas otro conjunto de extensiones de PHP.** Las compilaciones de release incluyen un PHP construido con la lista de flags de [`.github/php-configure-flags.txt`](https://github.com/rapira-rs/rapira/blob/main/.github/php-configure-flags.txt), que es corta a propósito: session, mbstring, OPcache, OpenSSL, curl, la familia XML y PDO con SQLite. Si tu aplicación necesita `pdo_mysql`, `intl` o `gd`, compila Rapira contra un PHP que las traiga.
 - **Estás trabajando en el propio Rapira**, o quieres algo que todavía no se ha publicado.
 
 ## Las herramientas
 
-Aparte de lo básico para compilar cualquier cosa, hacen falta tres cosas:
+La compilación requiere estas herramientas:
 
-- **Rust, canal stable.** El `rust-toolchain.toml` del repositorio lo fija, así que [rustup](https://rustup.rs/) elige el toolchain correcto él solo.
-- **Un compilador de C y `pkg-config`.** Parte de la compilación es C: unos shims pequeños que se compilan contra las cabeceras de PHP.
-- **libclang**, porque bindgen genera los bindings de la API de Zend durante la compilación. El paquete se llama `libclang-dev` en Debian/Ubuntu, `clang-devel` en Fedora y `clang` en Arch.
+- **Rust, canal estable.** El archivo `rust-toolchain.toml` selecciona la versión mediante [rustup](https://rustup.rs/).
+- **Un compilador de C y `pkg-config`.** La compilación crea pequeños adaptadores de C con las cabeceras de PHP.
+- **libclang.** Bindgen lo usa para crear los enlaces de la API de Zend. El paquete se llama `libclang-dev` en Debian y Ubuntu, `clang-devel` en Fedora y `clang` en Arch.
 
 ## PHP con el SAPI embed
 
-Rapira enlaza el intérprete dentro de su propio proceso en lugar de hablar con él por un socket, así que PHP tiene que existir como biblioteca compartida: **versión 8.4 u 8.5, NTS (no thread-safe) y configurado con `--enable-embed=shared`**, que es lo que produce `libphp.so` (`libphp.dylib` en macOS).
+Rapira enlaza el intérprete en su proceso y no usa un socket. PHP debe ser una biblioteca compartida NTS, versión 8.4 u 8.5. Configura PHP con `--enable-embed=shared`. Esta opción crea `libphp.so`, o `libphp.dylib` en macOS.
 
 ::: warning Las compilaciones ZTS se rechazan
-Un PHP thread-safe (ZTS) tumba la compilación con un error explícito: Rapira es solo NTS, porque ejecuta un intérprete por proceso worker. Si el PHP que tienes en el `PATH` es una compilación ZTS, instala uno NTS y apunta `PHP_CONFIG` hacia él (lo verás más abajo).
+Un PHP con seguridad de hilos causa un error de compilación. Rapira requiere NTS porque ejecuta un intérprete en cada proceso worker. Si `PATH` selecciona una compilación ZTS, instala PHP NTS. Define `PHP_CONFIG` con la ruta de su `php-config`.
 :::
 
 Varias distribuciones ya empaquetan el SAPI embed:
@@ -40,17 +40,17 @@ sudo apk add php84-dev php84-embed            # Alpine
 ```
 
 ::: warning En macOS no hay ningún paquete con el SAPI embed
-La fórmula `php` de Homebrew se compila sin él, así que no queda nada con lo que enlazar. En macOS toca compilar PHP desde el código.
+La fórmula `php` de Homebrew no incluye el SAPI embed. Compila PHP desde el código fuente en macOS.
 :::
 
-### Compilar PHP tú mismo
+### Compilar PHP desde el código fuente
 
-Compila PHP tú mismo cuando tu distribución no tenga paquete embed, cuando estés en macOS o cuando la compilación empaquetada no traiga las extensiones que necesita tu aplicación.
+Compila PHP cuando no haya un paquete embed. Compílalo también cuando el paquete no incluya las extensiones necesarias.
 
-El `ci/php-configure-flags.txt` del repositorio es la línea de `configure` de referencia: la misma lista que usan las compilaciones de release. Pásasela a `configure` dentro de un árbol de fuentes de PHP ya desempaquetado y añade las extensiones que necesite tu aplicación:
+El archivo `.github/php-configure-flags.txt` contiene las opciones de las compilaciones publicadas. Pásalo a `configure` dentro del código fuente de PHP extraído. Añade las opciones de las extensiones necesarias al final de la línea de `./configure`:
 
 ```bash
-./configure --prefix="$HOME/.local/php-nts" $(tr '\n' ' ' < /path/to/rapira/ci/php-configure-flags.txt)
+./configure --prefix="$HOME/.local/php-nts" $(tr '\n' ' ' < /path/to/rapira/.github/php-configure-flags.txt)
 make -j"$(getconf _NPROCESSORS_ONLN)"
 make install
 ```

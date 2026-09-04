@@ -5,23 +5,23 @@ description: "rapira.toml 完整参考：[http]、[pool]、[supervisor] 和 [log
 
 # 配置
 
-Rapira 不需要配置文件也能启动--`rapira serve --mode worker app/worker.php` 会替每一项设置挑好默认值。等默认值不够用了，就该加一个 `rapira.toml`：换一个监听地址、把 worker 数量固定下来、定一套回收策略、写一个 init 系统读得到的 pidfile、把日志级别调得更详细。把服务器指向这个文件，它就从这个文件读取设置：
+Rapira 可以在没有配置文件的情况下启动。`rapira serve --mode worker app/worker.php` 使用默认设置。 创建 `rapira.toml` 以更改地址、worker 数量、替换策略、pidfile 或日志级别。使用此命令指定文件：
 
 ```bash
 rapira serve --config /etc/rapira/rapira.toml
 ```
 
-文件由四个小节组成，每一节都可以不写：`[http]` 管监听器，`[pool]` 管 worker 进程，`[supervisor]` 管 master 进程，`[log]` 管往 stderr 写什么。PHP 入口脚本没有默认值。设置 `pool.entrypoint`，或者在命令行上把脚本作为位置参数传入。
+文件包含四个可选部分。`[http]` 配置监听器，`[pool]` 配置 worker。 `[supervisor]` 配置 master 进程。`[log]` 配置 stderr 输出。 PHP 入口脚本没有默认值。请设置 `pool.entrypoint`，或将脚本作为命令行参数传递。
 
 ::: info
-设置是分层的：命令行参数压过配置文件，配置文件压过内置默认值。所以 `--processes 8` 会盖掉文件里的 `processes = 4`--纳入版本控制的配置，照样能为某一次运行临时覆盖。环境变量不在这个分层之内：除了两个只影响日志的变量，设置只来自配置文件和命令行参数。参数本身见[命令行](/zh/docs/cli)那一页。
+命令行参数覆盖配置文件值。配置文件值覆盖内置默认值。 例如，`--processes 8` 会为一次运行覆盖 `processes = 4`。 只有两个日志环境变量会影响设置。有关可用参数，请参阅[命令行](/zh/docs/cli)。
 :::
 
 ## 一份完整的 rapira.toml
 
-Rapira 认识的每一个键，都在这一个文件里。下面没有一行是必填的：删掉哪一行，就用哪一行的默认值。只有四个键是例外。`pool.entrypoint` 没有默认值可退。只要设了 `scaling = "dynamic"`，`min_spare` 和 `max_spare` 就必须给。只要出现了 `[http.static]` 这张表，`http.static.root` 就必须给。
+以下文件包含所有支持的键。大多数缺少的键使用默认值。 `pool.entrypoint` 没有默认值。动态伸缩需要 `min_spare` 和 `max_spare`。 `[http.static]` 表需要 `http.static.root`。
 
-还有两组键必须成对出现，删一半会挡下启动。`[http.static]` 表和 `middleware` 里的 `"static"` 要删就一起删：只有表没有这个名字，Rapira 会拒绝；只有名字没有表，Rapira 同样拒绝。`min_spare`、`max_spare` 要删也得和 `scaling = "dynamic"` 一起删：在 `static` 和 `ondemand` 这两种伸缩方式下，这两个空闲数的键都会被拒绝。
+部分键必须一起出现。`[http.static]` 表需要 `middleware` 中的 `"static"`，该条目也需要此表。 当伸缩方式不是 `dynamic` 时，请删除 `min_spare` 和 `max_spare`。Rapira 会拒绝 `static` 和 `ondemand` 中的这些键。
 
 ```toml
 [http]
@@ -62,7 +62,7 @@ request_terminate_timeout_secs = 0    # Replaces a worker when one request excee
 
 [supervisor]                          # Optional. Sets master process behavior.
 pidfile = "/run/rapira.pid"           # Optional. Relative paths use this file's directory.
-process_control_timeout_secs = 30     # Sets the stop timeout before QUIT, TERM, and KILL.
+process_control_timeout_secs = 30     # Waits after SIGQUIT before SIGTERM. SIGKILL follows one second later.
 
 [log]                                 # Optional. Sets the level and record format.
 level = "error"                       # Use error, warn, info, debug, or trace. Default: error.
@@ -143,7 +143,7 @@ sendfile 根目录就是 `sendFile()` 能读取的那个目录。Rapira 会把�
 | `min_spare` | 整数 | 无 | 仅用于 `dynamic` 伸缩，并且在那里是必填：至少保留这么多个空闲待命的 worker。 |
 | `max_spare` | 整数 | 无 | 仅用于 `dynamic` 伸缩，并且在那里是必填：空闲 worker 最多留这么多，多的裁掉。两者必须满足 `1 <= min_spare <= max_spare <= processes`；在别的伸缩方式下写任何一个都是错误。 |
 | `max_requests` | 整数 | `0` | 一个 worker 处理够这么多请求就回收掉，另外加一点抖动，免得整个进程池同时被回收。`0` 表示永不回收。 |
-| `process_idle_timeout_secs` | 整数 | `10` | 只有 `ondemand` 伸缩会读它：一个 worker 最多能空闲多久，超过就被 master 收走。 |
+| `process_idle_timeout_secs` | 整数 | `10` | 使用 `ondemand` 伸缩时，master 会在 worker 空闲这么久后将其删除。 |
 | `request_terminate_timeout_secs` | 整数 | `0` | 单个请求的墙钟时间预算。超时还没处理完的 worker 会被杀掉并换新。`0` 表示关掉这项检查。 |
 
 `mode` 和 `scaling` 是两条互不相干的轴：`mode` 决定一个 worker 拿入口脚本怎么办，`scaling` 决定同时存在多少个 worker。
@@ -157,11 +157,11 @@ master 进程的策略--监听 socket 归它掌管，worker 由它照看，你�
 | 键 | 类型 | 默认值 | 含义 |
 | --- | --- | --- | --- |
 | `pidfile` | 字符串 | 无 | master 把自己的 pid 写到哪里。相对路径按配置文件所在的目录解析。信号要发的就是这个 pid--每个信号各做什么，[进程模型](/zh/docs/process-model)那一页有完整的对照表。 |
-| `process_control_timeout_secs` | 整数 | `30` | master 给 worker 多少时间优雅收尾，超时就按 QUIT → TERM → KILL 逐级升级。 |
+| `process_control_timeout_secs` | 整数 | `30` | master 在发送 `SIGQUIT` 后等待多久才发送 `SIGTERM`。master 在 `SIGTERM` 一秒后发送 `SIGKILL`。 |
 
 ## `[log]` 小节
 
-Rapira 把所有日志都写到 stderr，一条记录一次写入，所以 master 和 worker 的输出绝不会在一行中间串到一起。这一节决定这股流有多详细、每条记录长什么样；具体有哪些 target、有哪些格式，以及 PHP 的诊断信息怎么对应到级别，都在[日志](/zh/docs/logging)那一页。
+Rapira 将所有日志记录写入 stderr。这一节决定日志的详细程度和每条记录的格式；具体目标、格式和 PHP 诊断级别见[日志](/zh/docs/logging)。
 
 | 键 | 类型 | 默认值 | 含义 |
 | --- | --- | --- | --- |
@@ -169,15 +169,20 @@ Rapira 把所有日志都写到 stderr，一条记录一次写入，所以 maste
 | `format` | `"plain"` \| `"json"` | `"plain"` | 记录的形态：便于人读的文本行（stderr 是终端时带颜色），或者每行一个 JSON 对象，喂给日志收集器。 |
 | `[log.targets]` | target → 级别 的表 | 空 | 在 `level` 之上按 target 单独覆盖。每个键都对应 Rapira 实际会用到的一个 target：`php` 是 PHP 自己的输出，`http` 是 HTTP 接入层。键按前缀匹配，所以 `php` 也覆盖 `php_sys::callbacks` 和它下面的一切。全部 target 列在[日志](/zh/docs/logging)那一页。 |
 
-`[log.targets]` 的键必须长得像一个模块路径：由字母、数字以及 `_` `:` `.` `-` 组成，开头是字母、数字或 `_`。这些键会被拼成一个过滤器字符串，所以超出这个形状的写法会被当成过滤器语法而不是 target 名，一开始就会被拒绝。
+`[log.targets]` 键可以使用字母、数字、`_`、`:`、`.` 和 `-`。第一个字符必须是字母、数字或 `_`。 Rapira 会拒绝其他字符，因为过滤器可能将其解释为语法。 包含 `:` 或 `.` 的目标键必须加引号，因为 TOML 的裸键不允许这些字符。例如：
 
-`RUST_LOG` 和 `NO_COLOR` 是 Rapira 唯二会读取的环境变量，而且都只管日志：`RUST_LOG` 会在这一次运行中整体替换掉过滤器，想让某次调试会话更详细，就不必改配置；`NO_COLOR` 只要取值非空，就会去掉 `plain` 格式里的颜色，哪怕 stderr 是终端。
+```toml
+[log.targets]
+"php_sys::callbacks" = "debug"
+```
+
+Rapira 只读取 `RUST_LOG` 和 `NO_COLOR` 环境变量。这两个变量仅影响日志。 `RUST_LOG` 在一次运行中替换完整过滤器。非空的 `NO_COLOR` 值会禁用 `plain` 格式的颜色。
 
 ## 不认识的键会被拒绝
 
-Rapira 解析 `rapira.toml` 时非常严格。每一个表、以及表里的每一个键，都必须是服务器认识的，所以 `[htttp]` 或者 `lissten = ":8000"` 会让启动失败，并明确报出它不认识的是什么，而不是默默跳过这一行。每个键也都只有一个归属：`max_requests` 只属于 `[pool]`，`pidfile` 只属于 `[supervisor]`，放错表和拼错字母一样通不过。
+Rapira 只接受文档中的表和键。例如，`[htttp]` 或 `lissten = ":8000"` 会导致初始化失败。 错误会标识未知名称。Rapira 不会忽略它。 每个键属于一个表。例如，`max_requests` 属于 `[pool]`，`pidfile` 属于 `[supervisor]`。
 
-值也一样要过检查。`level = "verbose"`、`format = "pretty"`、`unsafe_field_names = "allow"` 全是硬错误，而不是悄悄退回默认值，这样拼写错误就不会悄悄削弱安全设置。数字也有范围：`pool.processes`、`http.max_body_size_mb`、`[http]` 里的两个超时以及 `[http.uploads]` 里的每一项上限都至少为 1，所有 `*_secs` 键的上限是 `86400`，也就是一天。
+Rapira 还会验证值。它拒绝不支持的值，不会使用默认值替换。 例如，它拒绝 `level = "verbose"`、`format = "pretty"` 和 `unsafe_field_names = "allow"`。 数值有范围限制。worker 数量、正文大小、HTTP 超时和上传限制必须至少为 1。 每个 `*_secs` 键的最大值为 `86400`，即一天。
 
 ::: warning
 校验发生在一切启动之前，所以不认识的键会挡下启动，而不是让这次运行悄悄降级。在正对外服务的机器上改 `rapira.toml`，正在跑的进程不受影响，但下一次启动必须成功。
@@ -185,10 +190,10 @@ Rapira 解析 `rapira.toml` 时非常严格。每一个表、以及表里的每�
 
 ## 相对路径
 
-有五个键存的是文件系统路径：`pool.entrypoint`、`supervisor.pidfile`、`http.static.root`、`http.sendfile.root` 和 `http.uploads.dir`。它们都按配置文件所在的目录解析，而不是按启动服务器那个人的工作目录。配置文件是 `/etc/rapira/rapira.toml`、`entrypoint = "app/worker.php"` 时，脚本就是 `/etc/rapira/app/worker.php`，跟在哪个目录下执行 `rapira serve` 无关。
+五个键包含路径：`pool.entrypoint`、`supervisor.pidfile`、`http.static.root`、`http.sendfile.root` 和 `http.uploads.dir`。 每个相对路径都以配置文件目录为基准。 例如，`/etc/rapira/rapira.toml` 中的 `entrypoint = "app/worker.php"` 产生 `/etc/rapira/app/worker.php`。
 
-位置参数 `SCRIPT` 正好反过来。它是命令行上的值，相对路径按当前工作目录解析。
+位置参数 `SCRIPT` 使用当前目录作为相对路径的基准。
 
 ::: tip
-把 `rapira.toml` 放进应用里，里面的路径都写成相对它的。这样整个目录搬走时配置跟着一起走，也没有任何东西依赖服务恰好从哪个目录启动。
+将 `rapira.toml` 保存在应用内。相对于此文件指定路径。 此结构允许移动应用目录而不更改路径。
 :::

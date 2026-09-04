@@ -1,6 +1,6 @@
 ---
 title: Installation
-description: Install Rapira from a deb, RPM, or tarball. Verify the checksum and identify the included libphp build.
+description: Install Rapira from a deb, RPM, or tarball. Verify its checksum. Identify the included libphp build.
 faqLevel: 2
 ---
 
@@ -22,17 +22,15 @@ Each uses the Zend engine and extensions, but it has a different program interfa
 Rapira includes the embed SAPI because the server controls requests. The `php` command uses a different SAPI, so artifacts do not contain it.
 :::
 
-::: question Why is `libphp` not taken from the system?
+::: question Why does Rapira include its own `libphp`?
 PHP must use `--enable-embed=shared` to create `libphp.so`. Few distributions provide this build.
 Fedora and RHEL provide `php-embedded`, and Arch provides `php-embed`. Deb.sury.org provides `libphpX.Y-embed` for Debian and Ubuntu.
-These packages have fixed PHP versions and extension sets. Homebrew PHP does not include the embed SAPI.
-Therefore, each Rapira release builds `libphp` from an official PHP source archive and includes it with the binary.
+
+These packages have fixed PHP versions and extension sets. Homebrew PHP does not include the embed SAPI. Thus, each Rapira release builds `libphp` from an official PHP source archive and includes it with the binary.
 :::
 
 ::: question What does "PHP runs inside the Rapira process" mean?
-During initialization, the `rapira` process loads `libphp` into its address space. Rapira calls PHP functions in the same process.
-It does not use a socket, FastCGI, or request serialization. The library remains a separate file next to the binary.
-Therefore, do not move the binary without the library. See [Tarballs on Linux and macOS](#tarballs-on-linux-and-macos).
+During initialization, the `rapira` process loads `libphp` into its address space. Rapira calls PHP functions in the same process. It does not use a socket, FastCGI, or request serialization. The library remains a separate file next to the binary. Thus, do not move the binary without the library. See [Tarballs on Linux and macOS](#tarballs-on-linux-and-macos).
 :::
 
 ## Choosing a PHP version
@@ -44,9 +42,7 @@ Rapira does not use or change an existing system PHP, php-fpm pool, or Homebrew 
 Artifacts do not contain a `php` command. Composer, `bin/console`, and `artisan` continue to use the system PHP CLI.
 
 ::: question Why does each PHP version get its own Rapira build?
-The artifact `libphp` is part of the build and is not interchangeable. The `rapira` binary links to one specific library.
-The PHP ABI changes between minor versions. Therefore, one Rapira build supports one PHP minor version.
-The file name identifies this version. You do not need to install PHP or configure `php-config`.
+The artifact `libphp` is part of the build and is not interchangeable. The `rapira` binary links to one specific library. The PHP ABI changes between minor versions. Thus, one Rapira build supports one PHP minor version. The file name identifies this version. You do not need to install PHP or configure `php-config`.
 :::
 
 ::: question How do I switch from 8.4 to 8.5?
@@ -67,7 +63,7 @@ On Linux, the tarball also requires system libraries. See [Tarballs, on Linux an
 
 Check the file with `rapira-v0.8.0-SHA256SUMS.txt` before installation. See [Verifying checksums](#verifying-checksums).
 
-::: question Why verify the checksum before installing?
+::: question Why must I verify the checksum before installation?
 `.deb` and `.rpm` packages run installation scripts as root. A changed package could execute unwanted code with root permission.
 Checksum verification detects a changed package before installation.
 :::
@@ -91,13 +87,13 @@ The packages require glibc 2.34 or newer. The minimum supported versions are **D
 The leading `./` tells apt to use a local file instead of a repository package name.
 :::
 
-::: question Which files end up on the system?
+::: question Which files does the package install?
 The package installs `/usr/bin/rapira` and `/usr/lib/rapira/libphp.so`. It installs the license and README under `/usr/share/doc/rapira/`.
 :::
 
 ## RHEL, Rocky and Fedora
 
-The same thing, through `dnf`:
+Install the RPM through `dnf`:
 
 ```bash
 curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.8.0/rapira-php8.5-0.8.0-1.x86_64.rpm
@@ -105,9 +101,9 @@ sudo dnf install ./rapira-php8.5-0.8.0-1.x86_64.rpm
 rapira --version
 ```
 
-The glibc 2.34 requirement supports **RHEL 9**, Rocky 9, AlmaLinux 9, and current Fedora versions.
+The RPM requires glibc 2.34 or newer. **RHEL 9**, Rocky 9, AlmaLinux 9, and current Fedora versions meet this requirement.
 
-## Tarballs, on Linux and macOS
+## Tarballs on Linux and macOS
 
 A tarball unpacks into a single directory that holds the whole server:
 
@@ -141,6 +137,19 @@ rapira --version
 ```
 
 :::
+
+### Installation without root access
+
+For an installation without root access, keep the complete directory in your home directory. Create a symbolic link in `~/.local/bin`:
+
+```bash
+mkdir -p "$HOME/.local/opt" "$HOME/.local/bin"
+mv rapira-v0.8.0-php8.5-linux-x86_64 "$HOME/.local/opt/rapira"
+ln -s "$HOME/.local/opt/rapira/bin/rapira" "$HOME/.local/bin/rapira"
+"$HOME/.local/bin/rapira" --version
+```
+
+On macOS, replace the source directory name with the extracted macOS directory name. Add `$HOME/.local/bin` to `PATH` if the shell does not include it.
 
 ::: warning
 The binary uses a relative path to find its interpreter. Move the complete directory together.
@@ -205,7 +214,7 @@ A scratch image contains only files that the build copies into it.
 Thus, `COPY --from=ghcr.io/rapira-rs/rapira:php8.5 / /` copies only Rapira files. You select the application base image.
 :::
 
-Each tag identifies its PHP minor version. The following tags support amd64 and arm64:
+Each tag identifies its PHP minor version. These tags support amd64 and arm64:
 
 | Tag | What it points at |
 | --- | --- |
@@ -216,17 +225,15 @@ Each tag identifies its PHP minor version. The following tags support amd64 and 
 
 The registry also contains architecture-specific tags such as `X.Y.Z-php8.5-amd64` and `X.Y.Z-php8.5-arm64`.
 
-There is no `latest` tag. Rapira binds the Zend structures at build time. It refuses to start with a `libphp.so` from another PHP minor version. Therefore, every tag names the PHP minor version that it contains.
+There is no `latest` tag. Rapira binds the Zend structures at build time. It refuses to start with a `libphp.so` from another PHP minor version. Thus, every tag names the PHP minor version that it contains.
 
 ::: question What does a nightly tag point at?
-Each successful CI run on `main` builds images from that commit. The build gets an immutable `X.Y.Z-nightly.<short-sha>-php8.5` tag.
-`X.Y.Z` is the repository version. `<short-sha>` is the first seven characters of the commit identifier.
-The `nightly-php8.5` tag points to that build. The registry retains the ten newest nightly builds.
+Each successful CI run on `main` builds images from that commit. The build gets an immutable `X.Y.Z-nightly.<short-sha>-php8.5` tag. `X.Y.Z` is the repository version. `<short-sha>` is the first seven characters of the commit identifier. The `nightly-php8.5` tag points to that build. The registry keeps the ten newest nightly builds.
 :::
 
 ## The libphp build
 
-`libphp` is built with `--disable-all`, with a fixed set of extensions turned back on:
+Rapira builds `libphp` with `--disable-all` and enables this fixed set of extensions:
 
 - **Runtime basics**: session, filter, mbstring, iconv, ctype, tokenizer, fileinfo, phar, posix.
 - **OPcache** and PCRE with JIT enabled.
@@ -236,14 +243,13 @@ The `nightly-php8.5` tag points to that build. The registry retains the ten newe
 - **Shared memory and System V IPC**: shmop, sysvmsg, sysvsem, sysvshm.
 - **Dates, image metadata and translations**: calendar, exif, gettext.
 - **Foreign function interface**: ffi.
-- Everything PHP always builds in: Core, standard, SPL, date, json, hash, random, Reflection.
+- **Required PHP components**: Core, standard, SPL, date, json, hash, random, Reflection.
 
 The build does not include `pdo_mysql`, `pgsql`, Redis, APCu, or Imagick.
 If the application requires another extension, build `libphp` with it. Then compile Rapira against that library.
 See [Build from source](/docs/intro/build-from-source).
 
-Each release takes the newest patch version of the branch it builds. In a tarball, `share/php/PHP_VERSION.txt` contains the exact version.
-On a running server, `PHP_VERSION` and `phpinfo()` report it.
+Each artifact uses the latest available patch release in its PHP 8.4 or PHP 8.5 series. In a tarball, `share/php/PHP_VERSION.txt` contains the exact version. On an active server, `PHP_VERSION` and `phpinfo()` report it.
 
 ::: question Why does `PHP_SAPI` return `fastcgi` on PHP 8.4?
 On PHP 8.4, OPcache starts only for a fixed list of SAPI names. Rapira registers the SAPI as `fastcgi` to enable OPcache.
@@ -275,8 +281,8 @@ A plain `php.ini` supports both versions.
 GitHub Releases contains tarballs, packages, and checksum files. `ghcr.io/rapira-rs/rapira` contains container images.
 No apt or yum repository is available yet.
 To update a package, download and install the new version. The package manager replaces the installed version.
-To update a tarball, extract the new directory next to the old directory. Then change the symbolic link.
-Retain the previous directory if you must restore it.
+
+To update a tarball, extract the new directory next to the old directory. Then change the symbolic link. Keep the previous directory if you must restore it.
 
 Each successful CI run on `main` publishes nightly container tags. It also uploads tarballs to the `nightly` prerelease on GitHub Releases.
 Release commits do not upload nightly tarballs because the release contains them.
@@ -287,4 +293,4 @@ The macOS build supports **Apple Silicon** and **macOS 14 or newer**. It uses an
 macOS can request confirmation before the first run. There is no Intel build.
 [rapira-rs/rapira-windows](https://github.com/rapira-rs/rapira-windows) provides Windows builds for local development. Use Linux or macOS for production.
 
-[Quickstart](/docs/intro/quickstart) covers serving a first request once the binary is in place.
+[Quickstart](/docs/intro/quickstart) explains how to serve the first request after you install the binary.

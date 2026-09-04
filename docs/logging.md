@@ -5,8 +5,7 @@ description: Rapira log levels, target overrides, PHP diagnostics, application r
 
 # Logging
 
-Rapira writes all log records to stderr. These records include server events, master decisions, HTTP events, PHP diagnostics, and application messages.
-A PHP warning uses this log instead of a separate `error_log` file. The same level filter applies to all records.
+Rapira writes all log records to stderr. These records include server events, master decisions, HTTP events, PHP diagnostics, and application messages. Rapira sends PHP diagnostics to this log instead of a separate `error_log` destination. The configured level filter controls which records it writes.
 
 The default level is `error`, so the server writes only errors. Change the configuration or set `RUST_LOG` to select another level.
 
@@ -23,11 +22,11 @@ format = "plain"  # Use plain or json. Default: plain.
 `level` sets the minimum level for all targets. `error` shows only errors, while each following level adds more records.
 `trace` shows all records. `format` selects readable lines or one JSON object per line.
 
-Both keys and the complete section are optional. See [configuration](/docs/configuration) for the other file sections.
+Both keys and the complete section are optional. See [configuration](/docs/configuration) for the other configuration file sections.
 
 ## Per-target overrides
 
-`[log.targets]` overrides the global level for individual targets. For example, it can enable PHP debug records without enabling HTTP debug records:
+`[log.targets]` overrides the global level for individual targets. For example, it can enable PHP debug records and leave HTTP debug records disabled:
 
 ```toml
 [log]
@@ -41,7 +40,7 @@ http = "warn"
 Each key names one target. Other targets use `level`.
 A key matches **by prefix**, so `php` also matches `php_sys` and `php_sys::callbacks`. You do not need to list submodules.
 
-The targets Rapira itself emits under:
+Rapira uses these targets:
 
 | Target   | What it covers                                                  |
 | -------- | --------------------------------------------------------------- |
@@ -49,7 +48,7 @@ The targets Rapira itself emits under:
 | `master` | supervision: forks, reaps, respawns, reloads, pool scaling      |
 | `http`   | HTTP listeners, request and response field processing, shutdown |
 | `ext`    | extension task outcomes                                          |
-| `php`    | output and diagnostics coming from PHP itself                   |
+| `php`    | output and diagnostics from PHP itself                          |
 | `app`    | records the application writes with `\Rapira\log()`              |
 
 Rapira does not write an access log with one line for each request. The [HTTP](/docs/http) page lists field records from the `http` target.
@@ -63,7 +62,7 @@ The `master` target contains worker replacement, reload, and pool scaling record
 
 ## PHP diagnostics
 
-Rapira writes all PHP diagnostics to the `php` target. Each PHP error type maps to a log level:
+Rapira maps PHP diagnostics to the `php` target. Each PHP error type maps to a log level:
 
 | Diagnostic                                                                                     | Level   |
 | ---------------------------------------------------------------------------------------------- | ------- |
@@ -72,16 +71,17 @@ Rapira writes all PHP diagnostics to the `php` target. Each PHP error type maps 
 | Notices: `E_NOTICE`, `E_USER_NOTICE`                                                          | `info`  |
 | Deprecations: `E_DEPRECATED`, `E_USER_DEPRECATED`                                             | `debug` |
 
-Deprecations use `debug`. This prevents many vendor deprecations from hiding warnings and errors.
+Deprecations use `debug`. Thus, vendor deprecations do not hide warnings and errors.
 
-A diagnostic excluded by [`error_reporting`](https://www.php.net/manual/en/function.error-reporting.php) changes to `trace`. For example:
+Rapira sets a diagnostic's level to `trace` when [`error_reporting`](https://www.php.net/manual/en/function.error-reporting.php) excludes it. For example:
 
 ```php
 <?php
 error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
 ```
 
-This mask excludes vendor deprecations at normal levels. Set `level = "trace"` to include them.
+This mask excludes vendor deprecations. Rapira sets their level to `trace`. Set `level = "trace"` to write them.
+
 Fatal errors never change to a lower level because they explain worker termination. Thus, `error_reporting(0)` cannot hide them.
 PHP raises `E_CORE_ERROR` and `E_CORE_WARNING` before a script can set a mask. The mask does not apply to them.
 
@@ -103,7 +103,7 @@ The function is available in each execution mode:
 \Rapira\log('cache miss', \Rapira\LogLevel::Debug, ['key' => 'user:42', 'ttl' => 300]);
 ```
 
-The level is a case of the `\Rapira\LogLevel` enum, and each case maps onto the level the rest of the log already uses:
+The level is a case of the `\Rapira\LogLevel` enum. Each case maps to a Rapira log level:
 
 | `LogLevel` case | Record level |
 | --------------- | ------------ |
@@ -113,11 +113,9 @@ The level is a case of the `\Rapira\LogLevel` enum, and each case maps onto the 
 | `Debug`         | `debug`      |
 | `Trace`         | `trace`      |
 
-The default level is `Info`. `[log.targets]` and `RUST_LOG` filter application and server records in the same way.
-For example, `app = "debug"` changes only the application target.
+`\Rapira\log()` uses `Info` when you omit `level`. The global `error` filter suppresses this record unless you change the filter. `[log.targets]` and `RUST_LOG` filter application and server records in the same way. For example, `app = "debug"` changes only the application target.
 
-Rapira serializes the context array to JSON and adds it as a `context` field. In JSON output, `fields` contains this field.
-Rapira preserves key names and nested array structure:
+Rapira serializes the context array to JSON and adds it as a `context` field. In JSON output, `fields` contains this field. Rapira keeps key names and the nested array structure:
 
 ```php
 <?php
@@ -142,17 +140,13 @@ try {
 }
 ```
 
-`\Rapira\log()` does not throw. If a context `jsonSerialize()` call throws, Rapira writes `null` for that value.
-It preserves the other keys.
+`\Rapira\log()` does not throw. If a context `jsonSerialize()` call throws, Rapira writes `null` for that value. It keeps the other keys.
 
-Context values have two limits. Rapira replaces values that JSON cannot represent with a placeholder.
-These values include resources, closures, `NAN`, `INF`, and invalid UTF-8 strings. Rapira preserves the other fields in the record.
-Rapira does not limit the context size. It serializes large arrays and strings completely.
-Pass identifiers instead of large objects.
+Rapira replaces values that JSON cannot represent with a placeholder. These values include resources, closures, `NAN`, `INF`, and invalid UTF-8 strings. Rapira keeps the other fields in the record. Rapira does not limit the context size. It serializes large arrays and strings completely. Pass identifiers instead of large objects.
 
 ## Formats
 
-Rapira writes both formats to stderr with one operation per record. Therefore, output from different processes cannot combine within a record.
+Rapira writes both formats to stderr. Large records from different processes can interleave when the processes write to the same stderr pipe.
 
 Rapira does not write logs to other destinations. Redirect stderr to write logs to a file.
 A service manager can collect stderr. See [deployment](/docs/deployment) for more information.
@@ -172,14 +166,11 @@ Set [`NO_COLOR`](https://no-color.org/) to any non-empty value to disable termin
 {"timestamp":…,"level":"ERROR","fields":{"message":…},"target":…}
 ```
 
-`timestamp` uses RFC 3339 UTC with milliseconds. The `fields` object contains the message and other record fields.
-For example, it can contain the application `context` field.
-Rapira escapes newlines in messages, including PHP stack traces. Therefore, each record uses exactly one line.
-JSON output does not use colors.
+`timestamp` uses RFC 3339 UTC with milliseconds. The `fields` object contains the message and other record fields. For example, it can contain the application `context` field. Rapira escapes newlines in messages, such as PHP stack traces. Thus, each record uses exactly one line. JSON output does not use colors.
 
 ## `RUST_LOG`
 
-`RUST_LOG` sets the log filter from the environment. It can change the filter without a configuration edit:
+`RUST_LOG` sets the log filter from the environment. The commands below change the filter and keep the configuration file unchanged:
 
 ```sh
 RUST_LOG=info rapira serve --mode worker worker.php
@@ -192,6 +183,5 @@ The third sets all targets to `warn` and `rapira` to `trace`. The `rapira` targe
 Add other target names as required. For example, use `RUST_LOG=warn,rapira=trace,master=trace`.
 
 ::: warning
-A non-blank `RUST_LOG` value **replaces** `level` and `[log.targets]`. Rapira does not combine the environment and file filters.
-Remove the variable or set it to an empty value to use the file. `RUST_LOG` does not affect `format`.
+A non-blank `RUST_LOG` value **replaces** `level` and `[log.targets]`. Rapira does not combine the environment and file filters. Remove the variable to use the configuration file settings. Alternatively, set the variable to an empty value. `RUST_LOG` does not affect `format`.
 :::

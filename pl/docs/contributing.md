@@ -1,8 +1,8 @@
 # Współtworzenie dokumentacji
 
-Ta strona opisuje wszystkie elementy składni, które obsługuje silnik dokumentacji - każdy blok poniżej powstaje z tego samego Markdownu, który będziesz pisać, więc miej ją pod ręką jako ściągę podczas edycji stron.
+Ta strona opisuje funkcje tworzenia dokumentacji. Każdy przykład powstaje z przedstawionego kodu Markdown.
 
-Aby podejrzeć swoje zmiany, uruchom raz `npm install`, a potem `npm run dev` i otwórz wyświetlony lokalny adres. Każdy język ma własny katalog z tłumaczeniami - `ru/`, `es/`, `zh/`, `pl/` - o tej samej strukturze co wersja angielska, a angielski jest źródłem prawdy.
+Uruchom `npm ci`, aby zainstalować zablokowane zależności. Następnie uruchom `npm run dev`. Otwórz lokalny adres z danych wyjściowych polecenia. Katalogi tłumaczeń mają taką samą strukturę jak kanoniczne pliki angielskie.
 
 ## Bloki z wyróżnieniem
 
@@ -39,7 +39,7 @@ Coś, na co trzeba uważać.
 Realne ryzyko - działaj ostrożnie.
 :::
 
-Zaraz po typie możesz podać własny tytuł:
+Dodaj konkretny tytuł po typie:
 
 ::: tip Wskazówka
 Nadaj blokowi własny tytuł, gdy domyślna etykieta nie wystarcza.
@@ -223,7 +223,7 @@ flowchart LR
 
 ## Tabele i plakietki
 
-Zwykłe tabele Markdown działają od razu:
+Standardowy Markdown tworzy tabele:
 
 | Funkcja          | W zestawie |
 | ---------------- | :--------: |
@@ -231,7 +231,8 @@ Zwykłe tabele Markdown działają od razu:
 | Grupy kodu       |     ✅     |
 | Mermaid          |     ✅     |
 
-Plakietki w tekście świetnie nadają się do oznaczania statusu: <Badge type="tip" text="nowość" /> <Badge type="warning" text="beta" /> <Badge type="danger" text="wycofane" />.
+Plakietki w tekście mogą przedstawiać status:
+<Badge type="tip" text="nowość" /> <Badge type="warning" text="beta" /> <Badge type="danger" text="wycofane" />
 
 ## Frontmatter strony
 

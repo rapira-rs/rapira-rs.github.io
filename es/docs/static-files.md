@@ -6,11 +6,11 @@ faqLevel: 2
 
 # Archivos estáticos
 
-Rapira sirve archivos de un directorio con el middleware de archivos estáticos, antes de que la petición llegue a PHP. El middleware vive en el frontal HTTP, por delante del handler de PHP: responde a las peticiones que se resuelven en un archivo dentro de su raíz y deja pasar todas las demás por la cadena, sin tocarlas.
+Rapira ejecuta el middleware de archivos estáticos antes de PHP. Responde cuando la ruta corresponde a un archivo dentro de la raíz. Pasa las demás peticiones al siguiente handler sin cambios.
 
-## Activar el middleware
+## Configuración del middleware
 
-El middleware se activa con dos partes de `rapira.toml`: el nombre `static` en la lista `middleware` de `[http]` y una sección `[http.static]` que dice dónde están los archivos.
+Dos partes de `rapira.toml` activan el middleware. Añade `static` a `http.middleware`, la lista `middleware` de `[http]`. Después añade una sección `[http.static]` con el directorio.
 
 ```toml
 [http]
@@ -23,24 +23,30 @@ forbid = [".php"]   # Optional. This list replaces the default.
 
 `middleware` guarda la cadena de middleware en el orden de la lista. Por ahora, `static` es el único nombre que admite.
 
-`root` nombra el directorio desde el que sirve el middleware. No tiene valor por defecto, así que la sección tiene que ponerlo. Una ruta relativa se resuelve respecto al directorio donde está el archivo de configuración, igual que hace `pool.entrypoint`.
+`root` define el directorio de archivos. No tiene valor predeterminado. Una ruta relativa usa el directorio del archivo de configuración. `pool.entrypoint` usa la misma regla.
 
-`forbid` guarda las extensiones que el middleware no sirve nunca. Por defecto vale `[".php"]`, y una lista explícita sustituye a ese valor: con `forbid = [".php", ".env"]` ninguna de las dos extensiones aparece en una respuesta, y con `forbid = []` se sirve cualquier archivo bajo la raíz, fuentes PHP incluidas. Cada entrada es una extensión que empieza por un punto, tiene dos caracteres como mínimo y no lleva ni `/` ni espacios en blanco. Una entrada que se salga de esa forma corta el arranque.
+`forbid` contiene sufijos de nombres de archivo que el middleware no sirve. El valor predeterminado es `[".php"]`. Una lista explícita sustituye este valor. Por ejemplo, `forbid = [".php", ".env"]` bloquea ambos sufijos.
+
+::: danger
+`forbid = []` permite todos los archivos, incluido el código PHP. No uses este valor con una raíz pública. Puede exponer el código de la aplicación y los secretos incrustados.
+:::
+
+Cada entrada empieza por un punto, contiene al menos dos caracteres y no contiene `/` ni espacios en blanco. Una entrada no válida impide iniciar el servidor.
 
 Las demás claves del archivo están en la página de [Configuración](/es/docs/configuration).
 
-::: question ¿Por qué una entrada de `forbid` tiene que parecerse a una extensión?
-El middleware compara cada entrada como sufijo del nombre del archivo. Ni un separador ni un espacio pueden terminar nunca un nombre de archivo, así que una entrada que lleve uno de los dos no coincide con nada y el archivo que iba a proteger sigue estando al alcance. La comprobación rechaza una entrada así en lugar de aceptar una protección que no protege nada.
+::: question ¿Por qué una entrada de `forbid` debe ser un sufijo?
+El middleware compara cada entrada con el final del nombre de archivo. Rapira solo acepta sufijos con dos o más caracteres que empiezan por `.` y no contienen barras ni espacios en blanco.
 :::
 
 ## Validación en el arranque
 
-El servidor comprueba la raíz antes de servir nada. La raíz tiene que existir, tiene que ser un directorio y el usuario con el que corre el servidor tiene que poder recorrerla. Una raíz que falle una de esas comprobaciones corta el arranque con un mensaje que dice de qué ruta se trata.
+El servidor comprueba la raíz antes de aceptar peticiones. La ruta debe existir, ser un directorio y permitir la búsqueda al usuario. Un error impide iniciar el servidor e indica la ruta.
 
-Las dos partes de la configuración tienen que concordar. Un `middleware = ["static"]` sin sección `[http.static]` corta el arranque, y una sección `[http.static]` que `middleware` no menciona lo corta igual. Un nombre repetido en `middleware` también se rechaza.
+Las dos partes de la configuración deben aparecer juntas. Una entrada `"static"` requiere `[http.static]` y la sección requiere la entrada. Rapira también rechaza nombres de middleware repetidos.
 
 ::: question ¿Por qué el servidor comprueba la raíz dos veces?
-La primera comprobación lee los metadatos de la raíz, y con eso queda claro que la ruta existe y que es un directorio. La segunda resuelve `.` dentro de la raíz, y con eso queda claro que hay permiso de búsqueda, que es el que necesita cualquier lectura bajo la raíz. El permiso de búsqueda de un directorio es un bit distinto del de lectura, así que una raíz que pasa la primera comprobación todavía puede fallar la segunda. En [`stat`](https://pubs.opengroup.org/onlinepubs/9799919799/functions/stat.html) tienes los permisos que necesita cada llamada.
+La primera comprobación lee los metadatos y confirma que la ruta es un directorio. La segunda resuelve `.` y comprueba el permiso de búsqueda. Los permisos de búsqueda y lectura usan bits distintos. Por tanto, la primera comprobación puede pasar y la segunda fallar. Consulta [`stat`](https://pubs.opengroup.org/onlinepubs/9799919799/functions/stat.html).
 :::
 
 ## Reglas de servicio
@@ -55,14 +61,16 @@ El resto lo decide la ruta:
 - Una ruta que no tiene ningún archivo detrás va a PHP. Un error de permisos va a PHP también, igual que un nombre que el sistema de archivos no acepta.
 - Cualquier otro fallo de lectura se responde con un `500`. Esa petición no llega a PHP, y el fallo queda registrado en el target `http`.
 
-Una petición que va a PHP llega con su cuerpo, sus campos y sus extensiones intactos. En [Peticiones y respuestas HTTP](/es/docs/http) tienes qué lee PHP de ella.
+PHP recibe sin cambios una petición transferida. Consulta [Peticiones y respuestas HTTP](/es/docs/http).
 
 ::: question ¿Por qué la URL de un directorio no se responde con `index.html`?
-El espacio de URLs es de PHP: la URL de un directorio es una ruta de la aplicación. Un archivo de índice implícito daría dos respuestas para una misma URL, una del sistema de archivos y otra del router, e impediría que el script de entrada gestionara `/`.
+PHP controla el espacio de URL, por lo que una URL de directorio es una ruta. Un índice automático crearía dos respuestas posibles. El sistema de archivos podría devolver una respuesta y el router de la aplicación otra. El script de entrada no recibiría las peticiones para `/`.
 :::
 
 ::: question ¿Cómo distingue el middleware un archivo que no está de un fallo de lectura?
-Hay seis resultados que significan que no hay ningún archivo que servir: la ruta no existe, el proceso no puede leerla, la ruta es un directorio, algún componente de la ruta no es un directorio, el nombre es demasiado largo para el sistema de archivos y el nombre contiene un byte NUL. En esos seis casos no hay archivo, y la petición sigue su camino hacia PHP. Cualquier otro error habla de un archivo que existe y no se puede leer, algo que PHP tampoco sabría responder, así que el middleware lo informa como `500`.
+Seis resultados indican que no hay un archivo disponible. La ruta puede faltar, ser inaccesible o ser un directorio. Un componente puede tener un tipo incorrecto. El nombre puede ser demasiado largo o contener un byte NUL. En estos casos, la petición sigue a PHP.
+
+Otros errores indican un archivo existente que Rapira no puede leer. Para estos errores, el middleware devuelve `500`.
 :::
 
 ## Campos de la respuesta
@@ -71,7 +79,7 @@ Los campos de abajo pertenecen a una respuesta que sirve un archivo. La respuest
 
 El middleware pone el `Content-Type` a partir de la extensión del archivo. Un nombre sin extensión conocida recibe `application/octet-stream`.
 
-La respuesta lleva un campo `ETag` y otro `Last-Modified`. El middleware construye `Last-Modified` a partir de la fecha de modificación del archivo. Construye `ETag` a partir de la fecha de modificación y del tamaño del archivo. Un archivo sin fecha de modificación no recibe ninguno de los dos, y uno con una fecha de modificación anterior a la época Unix se queda sin `ETag`.
+La respuesta contiene `ETag` y `Last-Modified`. El middleware crea `Last-Modified` a partir de la fecha del archivo. Crea `ETag` a partir de la fecha y el tamaño. Un archivo sin fecha no recibe estos campos. Una fecha anterior a la época Unix impide solo el `ETag`.
 
 El middleware responde `304 Not Modified` cuando el campo `If-None-Match` coincide con el `ETag`. Una petición sin `If-None-Match` recibe `304 Not Modified` cuando la fecha de modificación del archivo no es posterior a la fecha de `If-Modified-Since`. Esa respuesta lleva solo los campos `ETag` y `Last-Modified`, y no tiene cuerpo.
 
@@ -79,20 +87,20 @@ La respuesta lleva además `Accept-Ranges: bytes`. Una petición con `Range` se 
 
 ## La caché de archivos
 
-Cada proceso worker guarda en memoria los archivos que sirve. La caché no tiene claves de configuración: los valores de abajo son fijos.
+Cada worker guarda en memoria los archivos que sirve. No puedes configurar la caché.
 
-Una entrada se mantiene fresca durante un segundo. La primera petición que llega pasada esa ventana hace un `stat` y renueva la entrada si la fecha de modificación y el tamaño siguen coincidiendo con el archivo. Un archivo que ha cambiado se vuelve a leer.
+Una entrada es válida durante un segundo. Después, la siguiente petición usa `stat` para comparar el archivo. El worker conserva la entrada si la fecha y el tamaño coinciden. Vuelve a leer un archivo modificado.
 
 Un archivo de más de 256 KiB no se guarda nunca: ese archivo se transmite desde el disco en cada petición.
 
-Un worker guarda 16 MiB como mucho. Una caché que llega a ese límite sigue sirviendo las entradas que tiene, y descarta las caducadas antes de rechazar un archivo nuevo. El coste de memoria es, por tanto, de hasta 16 MiB por cada proceso de `pool.processes`. Un reinicio vacía la caché.
+Un worker guarda hasta 16 MiB. Una caché llena sigue sirviendo sus entradas. La caché elimina primero las entradas caducadas. Si sigue llena, no guarda el archivo nuevo. Cada worker usa hasta 16 MiB para esta caché. Un reinicio vacía la caché.
 
-Cada worker valida sus propias entradas. Un archivo borrado afecta a las respuestas en un segundo como mucho. Un archivo modificado o sustituido afecta a las respuestas en un segundo como mucho si cambia su fecha de modificación o su tamaño. Un cambio de permisos por sí solo no retira ninguna entrada, porque `stat` informa de la misma fecha de modificación y del mismo tamaño que antes. Borra el archivo para retirar la entrada. Una sustitución solo retira la entrada si deja una fecha de modificación nueva o un tamaño distinto. Otra opción es reiniciar el servidor.
+Cada worker valida sus entradas. Un archivo eliminado afecta a las respuestas después de un segundo como máximo. Un archivo modificado o sustituido afecta a las respuestas después de un segundo como máximo cuando cambia su fecha de modificación o tamaño. Un cambio de permisos no elimina la entrada si la fecha y el tamaño no cambian. Elimina el archivo para retirar la entrada. Una sustitución retira la entrada solo con una fecha de modificación o un tamaño nuevos. También puedes reiniciar el servidor.
 
-La raíz tiene que estar en almacenamiento local. El middleware ejecuta `stat` y `open` en el hilo del runtime que atiende las peticiones, así que un sistema de archivos que responda despacio a esas llamadas frena las demás conexiones de ese worker.
+La raíz debe usar almacenamiento local. El middleware ejecuta `stat` y `open` en el hilo que atiende peticiones. Un sistema de archivos lento retrasa las demás conexiones del worker.
 
 ::: question ¿Cómo detecta la caché que un archivo ha cambiado?
-Compara la fecha de modificación y el tamaño del archivo con los dos valores que guardó, y el ETag codifica ese mismo par. Una sustitución que conserva los dos valores no se detecta, así que un despliegue que copia archivos tiene que dejar en cada archivo sustituido una fecha de modificación nueva o un tamaño distinto.
+La caché compara la fecha y el tamaño con los valores guardados. El ETag contiene los mismos valores. La caché no detecta una sustitución que conserva ambos valores. Cambia la fecha o el tamaño de cada archivo sustituido.
 :::
 
 Consulta [Configuración](/es/docs/configuration) para más información.

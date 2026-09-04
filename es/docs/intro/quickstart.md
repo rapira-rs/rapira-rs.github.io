@@ -1,15 +1,15 @@
 ---
 title: Inicio rápido
-description: "Servir una aplicación PHP con Rapira en los modos Classic y Worker, y llevar los ajustes a un archivo rapira.toml."
+description: "Inicia una aplicación PHP en los modos Classic y Worker y guarda los ajustes en rapira.toml."
 ---
 
 # Inicio rápido
 
-Esta página explica cómo servir una página en modo Classic, convertir esa misma aplicación al modo Worker y llevar los ajustes a un archivo de configuración. Da por hecho que tienes un binario `rapira` que funciona, con el PHP que trae incluido; consulta [Instalación](/es/docs/intro/installation) para más información.
+Esta guía inicia una aplicación en modo Classic y la convierte al modo Worker. Después, guarda los ajustes en un archivo de configuración. Los pasos requieren un binario `rapira` funcional con el PHP incluido. Consulta [Instalación](/es/docs/intro/installation).
 
 ## Modo Classic
 
-El modo Classic está disponible para cualquier aplicación. Rapira vuelve a incluir el script de entrada en cada petición, igual que php-fpm. No hay que cambiar nada del código.
+El modo Classic está disponible para cualquier aplicación. Rapira incluye el script de entrada en cada petición, como php-fpm. El código no necesita cambios.
 
 Crea `public/index.php`:
 
@@ -20,13 +20,13 @@ echo "Hello, " . ($_GET['name'] ?? 'anonymous') . "!\n";
 echo "Method: {$_SERVER['REQUEST_METHOD']}\n";
 ```
 
-Arranca el servidor. La opción `--mode classic` selecciona el modo y el argumento posicional es el script de entrada:
+Inicia el servidor. La opción `--mode classic` selecciona el modo. El argumento posicional especifica el script de entrada:
 
 ```bash
 rapira serve --mode classic public/index.php
 ```
 
-Rapira escucha en `127.0.0.1:8000` mientras no le digas otra cosa. Desde otra terminal:
+Rapira escucha en `127.0.0.1:8000` de forma predeterminada. Envía una petición desde otra terminal:
 
 ```bash
 curl '127.0.0.1:8000/?name=world'
@@ -37,11 +37,11 @@ Hello, world!
 Method: GET
 ```
 
-El proceso no se tira entre peticiones: Rapira hace fork de sus workers una sola vez y mantiene un intérprete de PHP arrancado dentro de cada uno. Lo que se descarta es el estado de tu script: las variables, el autoloader, todo lo que haya construido el framework.
+Los procesos worker permanecen activos entre peticiones. Rapira crea los workers una vez y mantiene un intérprete de PHP inicializado en cada uno. El modo Classic elimina el estado del script después de cada petición. Este estado incluye variables, el autoloader y los objetos del framework.
 
 ## Modo Worker
 
-El modo Worker mantiene el script vivo. Arranca una vez y se queda en un bucle pidiéndole a Rapira la siguiente petición; Rapira vuelve a rellenar las superglobales y llama a tu handler. El código PHP conserva la forma de siempre -sigues leyendo `$_GET` y devolviendo la respuesta con `echo`-, pero el arranque ocurre una vez por proceso en lugar de una vez por petición. Consulta [Modos de ejecución](/es/docs/execution-modes) para más información.
+El modo Worker mantiene activo el script. Lo inicializa una vez y espera peticiones en un bucle. Rapira rellena las superglobales y llama al handler. PHP puede leer `$_GET` y crear una respuesta con `echo`. La aplicación se inicializa una vez por proceso. Consulta [Modos de ejecución](/es/docs/execution-modes).
 
 Crea `worker.php` en la raíz del proyecto:
 
@@ -63,11 +63,11 @@ while (\Rapira\handle_request($handler)) {
 }
 ```
 
-`\Rapira\handle_request()` se bloquea hasta que llega el trabajo siguiente, se lo entrega a tu callback y devuelve `true`. Devuelve `false` mientras el worker se drena, y eso es lo que termina el bucle. El callback lee las superglobales y responde con `echo` y `header()`. Llama a `\Rapira\handle_request()` solo desde el nivel superior del script de arranque: en cualquier otro modo lanza `Rapira\Exception\NotInWorkerModeError`.
+`\Rapira\handle_request()` espera la siguiente petición. La función llama al handler y devuelve `true`. Durante la parada del worker, devuelve `false` y termina el bucle. El handler lee las superglobales y responde con `echo` y `header()`. Llama a `\Rapira\handle_request()` solo desde el bucle principal. En otros modos, lanza `Rapira\Exception\NotInWorkerModeError`.
 
-`\Rapira\handle_request()` viene del módulo PHP que Rapira registra al arrancar el intérprete, así que el script de arriba funciona sin autoloader. Una aplicación con dependencias de Composer carga su propio `vendor/autoload.php` antes del bucle.
+El módulo PHP de Rapira proporciona `\Rapira\handle_request()`. Por tanto, el ejemplo no necesita un autoloader. Una aplicación con dependencias de Composer debe cargar `vendor/autoload.php` antes del bucle.
 
-Antes de nada, para el servidor Classic con `Ctrl-C` en su terminal, porque los dos escuchan en `127.0.0.1:8000`. El modo por defecto es Dispatcher, así que el modo Worker necesita la opción `--mode worker`:
+Detén el servidor Classic con `Ctrl-C`. Ambos servidores usan `127.0.0.1:8000`. Dispatcher es el modo predeterminado. Usa la opción `--mode worker` para seleccionar el modo Worker:
 
 ```bash
 rapira serve --mode worker worker.php
@@ -77,19 +77,19 @@ rapira serve --mode worker worker.php
 curl '127.0.0.1:8000/?name=world'
 ```
 
-Lanza ese `curl` unas cuantas veces y el contador sube, porque es el mismo proceso el que sigue atendiendo las peticiones. Por defecto Rapira arranca un worker por CPU lógica, así que una petición puede caer en cualquiera de ellos: es el kernel quien decide qué worker la acepta. Cada worker lleva su propia cuenta, y el pid de la salida te dice cuál respondió. Si quieres que la cuenta avance como una única secuencia, arranca el servidor con `rapira serve --mode worker --processes 1 worker.php`. El [modelo de procesos](/es/docs/process-model) explica cómo se supervisa el pool.
+Ejecuta el comando `curl` varias veces. El contador de un worker aumenta cuando ese proceso gestiona otra petición. Rapira crea un worker por CPU lógica de forma predeterminada. El sistema operativo selecciona un worker para cada conexión. Cada worker tiene su propio contador. El identificador del proceso en la respuesta muestra qué worker respondió. Usa `rapira serve --mode worker --processes 1 worker.php` para crear un solo worker. Consulta [Modelo de procesos](/es/docs/process-model).
 
-Todo lo que construyas antes del bucle `while` se queda en memoria durante toda la vida del worker: el autoloader de Composer, un contenedor de dependencias, las conexiones a la base de datos y a la caché, las rutas y las plantillas compiladas; todo eso se construye una sola vez, al arrancar, y no en cada petición. Lo único que se rehace en cada vuelta es el estado propio de la petición.
+Los objetos creados antes del bucle `while` permanecen en memoria hasta que el script del worker se reinicia. Estos objetos incluyen el autoloader de Composer, el contenedor, las conexiones, las rutas y las plantillas. Rapira inicializa este estado una vez. Solo el estado de la petición es nuevo en cada iteración.
 
 ::: warning
-El estado que sobrevive entre peticiones lo tiene que reiniciar el propio script del worker. Una propiedad estática, una variable global o una transacción abierta que dejó una petición siguen ahí para la siguiente. [Modo Worker](/es/docs/worker) explica a qué prestar atención y cómo mantener limpio un worker.
+El script del worker debe reiniciar el estado de la petición que permanece en memoria. Este estado incluye propiedades estáticas, valores globales y transacciones abiertas. Consulta [Modo Worker](/es/docs/worker).
 :::
 
-Dentro del handler funcionan las funciones de siempre: `header()`, `http_response_code()`, `echo` y `rapira_finish_request()` para enviar la respuesta antes de tiempo y seguir trabajando después. Consulta [HTTP](/es/docs/http) para más información.
+El handler puede usar `header()`, `http_response_code()` y `echo`. `rapira_finish_request()` envía la respuesta antes de que termine el handler. Consulta [HTTP](/es/docs/http).
 
 ## Archivo de configuración
 
-Los ajustes pueden vivir en un archivo `rapira.toml` en lugar de ir en la línea de comandos. Para empezar basta con un archivo junto a tu código:
+Guarda los ajustes en `rapira.toml` en lugar de la línea de comandos. Crea este archivo junto a la aplicación:
 
 ```toml
 [http]
@@ -106,14 +106,14 @@ rapira serve --config rapira.toml
 ```
 
 ::: info
-Un `pool.entrypoint` relativo se resuelve respecto al directorio del propio archivo de configuración, así que el mismo archivo funciona estés donde estés. Las opciones de línea de comandos siguen ganando al archivo: `rapira serve --config rapira.toml --processes 1` conserva todo lo demás y arranca un único worker.
+Un `pool.entrypoint` relativo usa como base el directorio del archivo de configuración. El directorio actual no lo afecta. Las opciones de línea de comandos sustituyen los valores del archivo. Por ejemplo, `--processes 1` cambia solo el número de workers.
 :::
 
-El archivo admite además modos de escalado del pool, reciclaje de workers, tiempos límite de las peticiones, registros y el pidfile del supervisor. Las claves desconocidas se rechazan en vez de ignorarse, así que una errata tumba el arranque en lugar de quedarse en nada sin avisar. La referencia completa está en [Configuración](/es/docs/configuration), y las opciones en [CLI](/es/docs/cli).
+El archivo también controla el escalado del pool, la sustitución de workers, los tiempos límite, los registros y el pidfile. Una clave desconocida impide el inicio. Consulta [Configuración](/es/docs/configuration) y [Línea de comandos](/es/docs/cli).
 
 ## Parar el servidor
 
-Pulsa `Ctrl-C` y Rapira se apaga de forma ordenada: deja de aceptar trabajo nuevo, espera a que terminen las peticiones que ya estaban en curso, apaga las extensiones y sale. Un segundo `Ctrl-C` se salta la espera y fuerza la salida, de modo que una petición atascada no mantiene el servidor abierto. `SIGTERM` se comporta igual, y por eso el reinicio desde un gestor de servicios resulta igual de limpio. En [Modelo de procesos](/es/docs/process-model) tienes la tabla completa de señales, incluida la recarga sin perder conexiones.
+Pulsa `Ctrl-C` para iniciar una parada controlada. Rapira deja de aceptar trabajo, termina las peticiones actuales, detiene las extensiones y sale. Pulsa `Ctrl-C` otra vez para forzar la salida. `SIGTERM` tiene el mismo comportamiento. Consulta [Modelo de procesos](/es/docs/process-model) para ver la tabla completa de señales.
 
 ## Próximos pasos
 

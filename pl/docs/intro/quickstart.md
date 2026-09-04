@@ -1,15 +1,15 @@
 ---
 title: Szybki start
-description: "Obsługa aplikacji PHP na Rapirze w trybach Classic i Worker oraz przeniesienie ustawień do pliku rapira.toml."
+description: "Uruchomienie aplikacji PHP w trybach Classic i Worker oraz zapisanie ustawień w rapira.toml."
 ---
 
 # Szybki start
 
-Ta strona pokazuje, jak wystawić stronę w trybie Classic, zamienić tę samą aplikację na tryb Worker i przenieść ustawienia do pliku konfiguracyjnego. Zakłada, że masz działający plik binarny `rapira` razem z dołączonym do niego PHP; więcej informacji znajdziesz w [Instalacji](/pl/docs/intro/installation).
+Ten przewodnik uruchamia aplikację w trybie Classic, a następnie przekształca ją do trybu Worker. Potem zapisuje ustawienia w pliku konfiguracyjnym. Te kroki wymagają działającego pliku binarnego `rapira` z dołączonym PHP. Więcej informacji zawiera [Instalacja](/pl/docs/intro/installation).
 
 ## Tryb Classic
 
-Tryb Classic jest dostępny dla każdej aplikacji. Przy każdym żądaniu Rapira na nowo dołącza skrypt wejściowy, dokładnie tak jak php-fpm. Kod nie wymaga żadnych zmian.
+Tryb Classic jest dostępny dla każdej aplikacji. Rapira dołącza skrypt wejściowy przy każdym żądaniu, tak jak php-fpm. Kod nie wymaga zmian.
 
 Utwórz `public/index.php`:
 
@@ -20,13 +20,13 @@ echo "Hello, " . ($_GET['name'] ?? 'anonymous') . "!\n";
 echo "Method: {$_SERVER['REQUEST_METHOD']}\n";
 ```
 
-Uruchom serwer. Tryb wybiera flaga `--mode classic`, a argument pozycyjny to skrypt wejściowy:
+Uruchom serwer. Flaga `--mode classic` wybiera tryb. Argument pozycyjny wskazuje skrypt wejściowy:
 
 ```bash
 rapira serve --mode classic public/index.php
 ```
 
-Bez dodatkowych ustawień Rapira nasłuchuje na `127.0.0.1:8000`. Z drugiego terminala:
+Rapira domyślnie nasłuchuje na `127.0.0.1:8000`. Wyślij żądanie z drugiego terminala:
 
 ```bash
 curl '127.0.0.1:8000/?name=world'
@@ -37,11 +37,11 @@ Hello, world!
 Method: GET
 ```
 
-Proces nie ginie między żądaniami - Rapira raz forkuje swoje workery i w każdym z nich trzyma uruchomiony interpreter PHP. Znika za to stan twojego skryptu: zmienne, autoloader, wszystko, co zbudował framework.
+Procesy worker pozostają aktywne między żądaniami. Rapira tworzy je raz i zachowuje w każdym zainicjalizowany interpreter PHP. Tryb Classic usuwa stan skryptu po każdym żądaniu. Ten stan obejmuje zmienne, autoloader i obiekty frameworka.
 
 ## Tryb Worker
 
-Tryb Worker utrzymuje skrypt przy życiu. Startuje raz, a potem kręci się w pętli i prosi Rapirę o kolejne żądanie; Rapira wypełnia zmienne superglobalne i wywołuje twój handler. Kod PHP wygląda znajomo - nadal czytasz `$_GET` i wypisujesz odpowiedź przez `echo` - ale praca startowa wykonuje się raz na proces, a nie raz na żądanie. Więcej informacji znajdziesz w [Trybach wykonania](/pl/docs/execution-modes).
+Tryb Worker utrzymuje skrypt aktywny. Skrypt inicjalizuje się raz, a następnie czeka na żądania w pętli. Rapira wypełnia zmienne superglobalne i wywołuje handler. PHP może odczytać `$_GET` i utworzyć odpowiedź przez `echo`. Aplikacja inicjalizuje się raz dla każdego procesu. Więcej informacji zawierają [Tryby wykonania](/pl/docs/execution-modes).
 
 Utwórz `worker.php` w katalogu głównym projektu:
 
@@ -63,11 +63,11 @@ while (\Rapira\handle_request($handler)) {
 }
 ```
 
-`\Rapira\handle_request()` blokuje wykonanie aż do nadejścia kolejnego zadania, oddaje je twojemu callbackowi i zwraca `true`. Gdy worker się wygasza, zwraca `false` i to kończy pętlę. Callback czyta zmienne superglobalne i odpowiada przez `echo` oraz `header()`. Wywołuj `\Rapira\handle_request()` wyłącznie na najwyższym poziomie skryptu startowego. W każdym innym trybie funkcja rzuca `Rapira\Exception\NotInWorkerModeError`.
+`\Rapira\handle_request()` czeka na kolejne żądanie. Funkcja wywołuje handler i zwraca `true`. Podczas zatrzymywania workera zwraca `false`, co kończy pętlę. Handler odczytuje zmienne superglobalne i odpowiada przez `echo` oraz `header()`. Wywołuj `\Rapira\handle_request()` tylko z głównej pętli. W innych trybach funkcja rzuca `Rapira\Exception\NotInWorkerModeError`.
 
-`\Rapira\handle_request()` pochodzi z modułu PHP, który Rapira rejestruje przy starcie interpretera, więc powyższy skrypt działa bez autoloadera. Aplikacja z zależnościami Composera ładuje własny `vendor/autoload.php` przed pętlą.
+Moduł PHP Rapiry udostępnia `\Rapira\handle_request()`. Dlatego przykład nie wymaga autoloadera. Aplikacja z zależnościami Composera musi wczytać `vendor/autoload.php` przed pętlą.
 
-Najpierw zatrzymaj serwer w trybie Classic przez `Ctrl-C` w jego terminalu, bo oba zajmują `127.0.0.1:8000`. Domyślnym trybem jest Dispatcher, więc tryb Worker trzeba włączyć flagą `--mode worker`:
+Zatrzymaj serwer Classic przez `Ctrl-C`. Oba serwery używają adresu `127.0.0.1:8000`. Dispatcher jest trybem domyślnym. Wybierz tryb Worker flagą `--mode worker`:
 
 ```bash
 rapira serve --mode worker worker.php
@@ -77,19 +77,19 @@ rapira serve --mode worker worker.php
 curl '127.0.0.1:8000/?name=world'
 ```
 
-Puść tego `curla` kilka razy: licznik rośnie, bo żądania obsługuje wciąż ten sam proces. Domyślnie Rapira forkuje po jednym workerze na logiczny rdzeń CPU, więc żądanie może trafić do dowolnego z nich, a o tym, który je odbierze, decyduje jądro systemu. Każdy worker liczy po swojemu, a pid w odpowiedzi mówi, który z nich odpowiedział. Jeśli chcesz, żeby licznik rósł jednym ciągiem, uruchom serwer poleceniem `rapira serve --mode worker --processes 1 worker.php`. O tym, jak nadzorowana jest pula, mówi [model procesów](/pl/docs/process-model).
+Uruchom polecenie `curl` kilka razy. Licznik danego workera rośnie, gdy ten sam proces obsłuży kolejne żądanie. Rapira domyślnie tworzy jednego workera na każdy logiczny procesor. System operacyjny wybiera workera dla każdego połączenia. Każdy worker ma oddzielny licznik. Identyfikator procesu w odpowiedzi wskazuje wybranego workera. Użyj `rapira serve --mode worker --processes 1 worker.php`, aby utworzyć jednego workera. Więcej informacji zawiera [Model procesów](/pl/docs/process-model).
 
-Wszystko, co zbudujesz przed pętlą `while`, zostaje w pamięci przez całe życie workera: autoloader Composera, kontener DI, połączenia z bazą i cache'em, skompilowane trasy i szablony - wszystko to powstaje raz, przy starcie, a nie przy każdym żądaniu. Od nowa powstaje tylko stan związany z konkretnym żądaniem.
+Obiekty utworzone przed pętlą `while` pozostają w pamięci do ponownego uruchomienia skryptu workera. Obejmują one autoloader Composera, kontener, połączenia, trasy i szablony. Rapira inicjalizuje ten stan raz. Tylko stan żądania jest nowy w każdej iteracji.
 
 ::: warning
-Stan, który zostaje między żądaniami, musi resetować sam skrypt workera. Statyczna właściwość, zmienna globalna czy otwarta transakcja zostawiona przez jedno żądanie czekają na następne. [Tryb Worker](/pl/docs/worker) opisuje, na co uważać i jak utrzymać workera w czystości.
+Skrypt workera musi resetować stan żądania, który pozostaje w pamięci. Ten stan obejmuje właściwości statyczne, wartości globalne i otwarte transakcje. Więcej informacji zawiera [Tryb Worker](/pl/docs/worker).
 :::
 
-Wewnątrz handlera działają zwykłe funkcje - `header()`, `http_response_code()`, `echo` oraz `rapira_finish_request()`, które odsyła odpowiedź od razu i pozwala pracować dalej. Więcej informacji znajdziesz w [HTTP](/pl/docs/http).
+Handler może używać `header()`, `http_response_code()` i `echo`. Funkcja `rapira_finish_request()` wysyła odpowiedź przed zakończeniem handlera. Więcej informacji zawiera strona [HTTP](/pl/docs/http).
 
 ## Plik konfiguracyjny
 
-Ustawienia mogą trafić do pliku `rapira.toml` zamiast do wiersza poleceń. Na początek wystarczy plik obok kodu:
+Zapisz ustawienia w `rapira.toml` zamiast w wierszu poleceń. Utwórz ten plik obok aplikacji:
 
 ```toml
 [http]
@@ -106,14 +106,14 @@ rapira serve --config rapira.toml
 ```
 
 ::: info
-Względną ścieżkę w `pool.entrypoint` Rapira liczy od katalogu samego pliku konfiguracyjnego, więc ten sam plik zadziała niezależnie od tego, w jakim katalogu akurat jesteś. Flagi wciąż mają pierwszeństwo przed plikiem - `rapira serve --config rapira.toml --processes 1` zachowa całą resztę i uruchomi tylko jeden worker.
+Względna wartość `pool.entrypoint` używa katalogu pliku konfiguracyjnego jako podstawy. Bieżący katalog jej nie zmienia. Flagi wiersza poleceń zastępują wartości z pliku. Na przykład `--processes 1` zmienia tylko liczbę workerów.
 :::
 
-Plik przyjmuje też tryby skalowania puli, recykling workerów, limity czasu żądań, logowanie i pidfile supervisora. Nieznane klucze są odrzucane, a nie ignorowane, więc literówka przerwie start serwera, zamiast po cichu nic nie zmienić. Pełny opis znajdziesz w [Konfiguracji](/pl/docs/configuration), a flagi w [Wierszu poleceń](/pl/docs/cli).
+Plik kontroluje też skalowanie puli, wymianę workerów, limity czasu, logowanie i pidfile. Nieznany klucz uniemożliwia uruchomienie. Więcej informacji zawierają [Konfiguracja](/pl/docs/configuration) i [Wiersz poleceń](/pl/docs/cli).
 
 ## Zatrzymywanie serwera
 
-Naciśnij `Ctrl-C`, a Rapira zacznie się wygaszać: przestanie przyjmować nową pracę, pozwoli dokończyć żądania będące już w toku, zamknie rozszerzenia i zakończy działanie. Drugie `Ctrl-C` pomija czekanie i wymusza wyjście, dzięki czemu zacięte żądanie nie blokuje serwera. `SIGTERM` działa tak samo i to dzięki temu restart z poziomu menedżera usług przebiega łagodnie. Pełną tabelę sygnałów - razem z przeładowaniem bez zrywania połączeń - znajdziesz w [Modelu procesów](/pl/docs/process-model).
+Naciśnij `Ctrl-C`, aby rozpocząć kontrolowane zatrzymanie. Rapira przestaje przyjmować pracę, kończy bieżące żądania, zatrzymuje rozszerzenia i wychodzi. Naciśnij `Ctrl-C` ponownie, aby wymusić wyjście. `SIGTERM` działa tak samo. Pełną tabelę sygnałów zawiera [Model procesów](/pl/docs/process-model).
 
 ## Co dalej
 

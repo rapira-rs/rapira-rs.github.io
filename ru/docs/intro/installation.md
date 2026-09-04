@@ -79,7 +79,7 @@ rapira --version
 
 ## RHEL, Rocky и Fedora
 
-То же самое, только через `dnf`:
+Установите RPM через `dnf`:
 
 ```bash
 curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.8.0/rapira-php8.5-0.8.0-1.x86_64.rpm
@@ -123,6 +123,19 @@ rapira --version
 ```
 
 :::
+
+### Установка без прав root
+
+Для установки без прав root сохраните весь каталог в домашнем каталоге. Создайте симлинк в `~/.local/bin`:
+
+```bash
+mkdir -p "$HOME/.local/opt" "$HOME/.local/bin"
+mv rapira-v0.8.0-php8.5-linux-x86_64 "$HOME/.local/opt/rapira"
+ln -s "$HOME/.local/opt/rapira/bin/rapira" "$HOME/.local/bin/rapira"
+"$HOME/.local/bin/rapira" --version
+```
+
+В macOS замените имя исходного каталога на имя распакованного каталога macOS. Добавьте `$HOME/.local/bin` в `PATH`, если оболочка ещё не использует этот каталог.
 
 ::: warning
 Бинарник ищет свой интерпретатор рядом с собой, поэтому переносить каталог можно только целиком: `cp bin/rapira /usr/local/bin/` ломает запуск. В `PATH` добавляйте симлинк, как в командах выше.
@@ -192,7 +205,7 @@ CMD ["rapira", "serve", "--listen", ":8000", "--mode", "classic", "/app/public/i
 
 ## Сборка libphp
 
-`libphp` собрана с `--disable-all`, после чего обратно включён фиксированный набор расширений:
+Rapira собирает `libphp` с `--disable-all` и включает фиксированный набор расширений:
 
 - **Основа рантайма**: session, filter, mbstring, iconv, ctype, tokenizer, fileinfo, phar, posix.
 - **OPcache** и PCRE с включённым JIT.
@@ -202,11 +215,11 @@ CMD ["rapira", "serve", "--listen", ":8000", "--mode", "classic", "/app/public/i
 - **Разделяемая память и System V IPC**: shmop, sysvmsg, sysvsem, sysvshm.
 - **Даты, метаданные изображений и переводы**: calendar, exif, gettext.
 - **Интерфейс к внешним функциям**: ffi.
-- Всё, что PHP собирает в себя всегда: Core, standard, SPL, date, json, hash, random, Reflection.
+- **Обязательные компоненты PHP**: Core, standard, SPL, date, json, hash, random, Reflection.
 
 Чего в ней *нет*: `pdo_mysql`, `pgsql`, redis, apcu, imagick и всего остального из этого ряда. Если вашему приложению нужно такое расширение, соберите `libphp` с ним и скомпилируйте Rapira под него - как, описано на странице [Сборка из исходников](/ru/docs/intro/build-from-source).
 
-Каждый релиз берёт самую свежую патч-версию той ветки, которую собирает. В архиве точная версия записана в `share/php/PHP_VERSION.txt`, а на работающем сервере её сообщают `PHP_VERSION` и `phpinfo()`.
+Каждый релиз использует последнюю доступную патч-версию ветки PHP. В архиве точная версия записана в `share/php/PHP_VERSION.txt`. На работающем сервере версию сообщают `PHP_VERSION` и `phpinfo()`.
 
 ::: question Почему `PHP_SAPI` возвращает `fastcgi` на PHP 8.4?
 На PHP 8.4 OPcache запускается только для фиксированного списка имён SAPI, а имя не из списка означает, что общего кеша опкодов не будет вовсе, - поэтому там SAPI регистрируется под именем `fastcgi`. В PHP 8.5 список убрали, и `PHP_SAPI` с `php_sapi_name()` возвращают `rapira`. Строка *Server API* в `phpinfo()` в обоих случаях показывает `Rapira`. Код, который ветвится по `PHP_SAPI`, должен понимать оба значения.

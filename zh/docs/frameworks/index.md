@@ -1,11 +1,11 @@
 ---
 title: 框架集成
-description: "在 Rapira 上运行的每个框架都共通的机制：worker 循环、单请求状态与常驻状态、错误处理、静态文件和 OPcache。"
+description: "框架 worker 循环、请求状态、常驻状态、错误处理、静态文件和 OPcache。"
 ---
 
 # 框架集成
 
-Classic 模式下，框架应用无需任何改动就能跑在 Rapira 上：让服务器指向现有的入口脚本即可。Worker 模式下 PHP 进程在两次请求之间保持存活，而应用能常驻多少东西，取决于框架自身的设计。这一页讲的是不管用哪个框架都一样的那部分机制；后面三份分框架的指南默认你已经读过本页，只讲各自特有的部分。
+在 Classic 模式下，框架应用无需更改。配置 Rapira 以使用现有入口脚本。 在 Worker 模式下，PHP 进程在请求之间保持活动。框架设计决定哪些应用状态可以保留在内存中。 本页介绍所有框架的通用行为。各框架指南只介绍特定行为。
 
 ::: info 验证环境
 
@@ -13,20 +13,20 @@ Classic 模式下，框架应用无需任何改动就能跑在 Rapira 上：让�
 - **Rapira 0.8.0**
 - **Symfony 7.4.15** 和 **8.1.2**、**Yii3** 应用模板 1.4（yii-runner-http 3.2.1）
 
-本页的每一条结论，都来自在 Linux 上用单个 worker 进程实际跑这些应用观察到的结果。下面凡是讲框架行为的说法，都以这些实测为依据；配置键则来自 Rapira 自己的[配置](/zh/docs/configuration)参考。
+测试在 Linux 上使用一个 worker 进程运行这些应用。本页的框架说明来自这些测试。 有关 Rapira 设置，请参阅[配置](/zh/docs/configuration)。
 :::
 
 ## Classic 模式与 Worker 模式
 
-**Classic 模式下，什么都不变。**Rapira 使用现有的入口脚本，并为每个请求从头运行它。凡是能在 php-fpm 下运行的框架，在这里都能运行，包括状态无法维持到第二个请求的框架。更多内容见 [Classic 模式](/zh/docs/classic)；下面几节里，只有静态文件、TLS 和 OPcache 适用于 Classic 模式。
+**Classic 模式使用现有入口脚本。**它为每个 HTTP 请求启动一个新的 PHP 请求。 在 php-fpm 下运行的框架也可以在此模式下运行。有关详细信息，请参阅 [Classic 模式](/zh/docs/classic)。 下面只有静态文件、TLS 和 OPcache 部分适用于 Classic 模式。
 
-**Worker 模式下，进程不会退出。**脚本把应用启动一次，然后待在循环里，一遍遍向 Rapira 要下一个请求。框架不再在两次请求之间被拆掉。[执行模式](/zh/docs/execution-modes)介绍全部三种模式；Worker 模式的 API 参考见 [Worker 模式](/zh/docs/worker)。
+**Worker 模式使进程保持活动。**脚本初始化应用，并在循环中请求工作。 应用状态保留在请求之间。有关详细信息，请参阅[执行模式](/zh/docs/execution-modes)和 [Worker 模式](/zh/docs/worker)。
 
-同一份代码可以跑在两种模式下：`public/index.php` 原样留着，在旁边加一个 `worker.php`。验证过的 Symfony 和 Yii3 应用都是两个文件并存，跑哪一个由 `--mode` 参数选定：`rapira serve --mode classic public/index.php` 或者 `rapira serve --mode worker worker.php`。所以迁移期间 Classic 模式一直是随时可用的回滚方案。
+一个代码库可以使用两种模式。保留 `public/index.php`。将 `worker.php` 添加到项目根目录。 使用 `--mode` 选择执行模式。使用 `SCRIPT` 参数或 `pool.entrypoint` 选择脚本。 如果 Worker 模式迁移失败，请使用 Classic 模式。
 
-## 逐行读这个循环
+## Worker 循环
 
-不管里面装的是哪个框架，worker 脚本都长同一个样：
+每个框架都使用相同的基本 worker 脚本结构：
 
 ```php
 <?php
@@ -46,32 +46,37 @@ while (\Rapira\handle_request($handler)) {
 }
 ```
 
-从上往下读：
+脚本包含以下操作：
 
-- **`require .../vendor/autoload.php`**--自动加载器在 worker 的一生里只注册一次，它解析过的每个类此后都留在内存里。
-- **`$app = new App();`**--应用在这里启动，只启动一次，而且在循环开始之前。两份 worker 指南的分歧从这一行开始：Symfony 在这里保留一个常驻的内核，Yii3 要么在这里保留一个常驻的 runner，要么在 handler 内部构建一个--每份指南在循环之上还有各自的引导代码，handler 内部也有各自的单请求清理。
-- **`$handler = static function () use ($app): void`**--handler 不接收任何参数。请求就在超全局变量里；它还需要别的什么，用 `use` 捕获进去。
-- **`header()`、`http_response_code()`、`echo`**--响应的写法和经典脚本一模一样。这些东西怎么变成网络上的字节，见 [HTTP](/zh/docs/http)。
-- **`while (\Rapira\handle_request($handler))`**--`handle_request()` 会一直阻塞到请求到来，为这个请求填好超全局变量，跑你的 handler，把请求收尾，然后返回 `true`。worker 开始排空时它返回 `false`，循环也就是这样结束的。它只能在启动脚本的顶层调用；在 Worker 模式之外调用会抛出 `Rapira\Exception\NotInWorkerModeError`。
-- **`gc_collect_cycles();`**--循环体跑在两次请求*之间*，凡是应当发生在一个可预期的时刻、而不是在处理请求过程中的活儿，都该放在这里。它回收的是普通的循环引用，并不是内存增长的解决办法--见[内存与回收](#内存与回收)。
+- **`require .../vendor/autoload.php`** 注册自动加载器，其注册状态保留到 worker 脚本重新启动。已加载的类保持可用。
+- **`$app = new App();`** 在循环前初始化应用。Symfony 在此处保留常驻内核。
+- Yii3 可以保留常驻 runner，也可以在 handler 中创建 runner。每个指南都说明所需的初始化和请求清理。
+- **`$handler = static function () use ($app): void`** 定义不带参数的 handler。handler 从超全局变量读取请求。
+- 使用 `use` 捕获其他依赖项。
+- **`header()`、`http_response_code()` 和 `echo`** 创建响应，方式与经典脚本相同。请参阅 [HTTP](/zh/docs/http)。
+- **`while (\Rapira\handle_request($handler))`** 等待请求。`handle_request()` 填充超全局变量，运行 handler 并完成请求。
+- 它在请求后返回 `true`，在 worker 停止期间返回 `false`。只能从顶层循环调用。
+- 在 Worker 模式之外，它会抛出 `Rapira\Exception\NotInWorkerModeError`。
+- **`gc_collect_cycles();`** 在请求之间运行并回收循环引用。它不会修复内存泄漏。
+- 请参阅[内存与回收](#内存与回收)。
 
-入口脚本是 `worker.php`，于是 `SCRIPT_NAME` 是 `/worker.php`，`DOCUMENT_ROOT` 是它所在的目录，而客户端真正请求的路径在 `REQUEST_URI` 里。Symfony 和 Yii3 在这个前提下都能正确路由、正确生成 URL，生成出来的 URL 里没有 `worker.php`，也不需要给 `$_SERVER` 打任何补丁。如果某个框架是拿 `SCRIPT_NAME` 而不是 `REQUEST_URI` 拼 URL，那这就是首先要检查的情况。
+Rapira 将 `SCRIPT_NAME` 设置为 `/worker.php`，因为它是入口脚本。 `DOCUMENT_ROOT` 包含脚本目录。`REQUEST_URI` 包含客户端路径。 Symfony 和 Yii3 使用这些值正确路由请求和生成 URL。生成的 URL 不包含 `worker.php`。 集成其他框架前，请检查它是否使用 `SCRIPT_NAME` 而不是 `REQUEST_URI` 生成 URL。
 
 ## 单请求状态与常驻状态
 
-左边一列的东西 Rapira 每个请求都会重建，所以读它们的普通 PHP 代码照常工作。右边一列的东西在 worker 的整个生命周期里一直存在，得由 worker 脚本自己管理。
+Rapira 为每个请求重建左列中的所有内容。普通 PHP 代码可以继续读取这些值。 右列中的所有内容在请求之间保留。worker 脚本必须管理此状态。
 
-| 每个请求都是全新的 | 跨请求留下来的 |
-| ------------------ | -------------- |
-| `$_GET`、`$_POST`、`$_SERVER`、`$_COOKIE`--用这次请求的数据重新填好 | Composer 自动加载器，以及通过它加载过的每一个类 |
-| `php://input`--这次请求的原始请求体，旁边配好 `CONTENT_TYPE` 和 `CONTENT_LENGTH` | `static` 属性和静态变量，它们会跨请求一路累加 |
-| `$_FILES`，以及它背后那些上传的临时文件 | 循环之前创建的对象--容器、内核、你的应用 |
-| session 那一套：`session_start()`、进来的 cookie、出去的 `Set-Cookie` | 已经打开的资源：数据库句柄、缓存客户端、流 |
-| 响应状态：状态码、响应头、`setcookie()`、输出缓冲区 | 进程本身--同一个 pid，每个 worker 一个常驻的 PHP 解释器 |
-| 在 handler **内部**注册的 shutdown 函数 | worker 自己的计数器：`handled` 和 `errors` 会持续累加 |
-| `max_execution_time` 的计时，每个请求重新起算 | |
+| 每个请求的新内容 | 在请求之间保留的内容 |
+| ---------------- | -------------------- |
+| `$_GET`、`$_POST`、`$_SERVER`、`$_COOKIE`：Rapira 使用请求数据重新填充它们 | Composer 自动加载器及其加载的每个类 |
+| `php://input`：原始请求体、`CONTENT_TYPE` 和 `CONTENT_LENGTH` | `static` 属性和变量，它们在请求之间保留值 |
+| `$_FILES` 和上传的临时文件 | 循环前创建的对象，例如容器、内核和应用 |
+| 会话数据：`session_start()`、请求 cookie 和响应 `Set-Cookie` 字段 | 打开的资源：数据库连接、缓存客户端和流 |
+| 响应状态：状态码、响应头、`setcookie()` 和输出缓冲区 | 进程：相同的 pid，且每个 worker 有一个常驻 PHP 解释器 |
+| 在 handler **内部**注册的 shutdown 函数 | worker 计数器：`handled` 和 `errors` 继续增加 |
+| 为每个请求重新启动的 `max_execution_time` 计时器 | `$_ENV`，包括循环前加载的值 |
 
-在 Linux（以及 FreeBSD）上，Zend 的单请求计时器是存在的，`max_execution_time` 的计时会为每个请求重新起算，worker 停下来等下一个请求的那段时间从不计入其中，只有请求本身在计时。其他平台上--包括 macOS--根本不会设置单请求超时。
+在 Linux 和 FreeBSD 上，Zend 为每个请求启动新的 `max_execution_time` 计时器。worker 的等待时间不计入此限制。 在包括 macOS 的其他系统上，PHP 不启动请求计时器。
 
 下面三种行为适用于常驻的 worker 进程。
 
@@ -82,37 +87,35 @@ while (\Rapira\handle_request($handler)) {
 不要用析构函数做每个请求的清理。请在 handler 内部重置每个请求的状态。
 :::
 
-::: warning 启动阶段注册的 shutdown 函数只在 worker 退出时运行一次
+::: warning 初始化期间注册的 shutdown 函数在 worker 循环结束时运行一次
 
 对于在 handler 之外注册的 shutdown 函数，PHP 只在 worker 循环结束时运行它一次。在 handler 内部注册的函数会在当次请求结束时运行。
 
-请在 handler 内部注册每个请求需要的 shutdown 函数，例如输出指标、处理致命错误、释放请求占用的资源。
+请在 handler 内部注册每个请求的 shutdown 函数。例如，指标输出、致命错误处理和请求资源清理。
 :::
 
-::: warning `$_ENV` 会在请求中途被悄悄重建
+::: warning `$_ENV` 在请求之间保留
 
-在默认的 ini 设置下（`variables_order = "GPCS"`、`auto_globals_jit = On`），PHP 每个请求都会重新给 `$_ENV` 挂上 JIT 标记。这次请求里第一个提到 `$_ENV` 的文件一被编译，PHP 就会重建这个超全局变量--而 `variables_order` 里没有 `E`，就没有任何东西可导入，于是重建出来的 `$_ENV` 是**空的**：Dotenv 那类启动流程在 worker 启动时写进去的一切，都在请求中途丢失，而 PHP 不会给出任何诊断信息。
+Rapira 不会为每个请求重建 `$_ENV`。代码在循环前写入的值会保留到 worker 重新运行脚本为止。 请将 `$_ENV` 视为常驻应用状态。在循环前加载环境配置。不要在 `$_ENV` 中存储请求数据。
 
-这个效应取决于文件*什么时候*被编译。框架在启动阶段就急切解析掉的配置早已缓存好，工作正常；而任何拖到第一个请求才延迟解析的东西，读到的都是刚被清空的 `$_ENV`。同一个应用在一个环境里一切正常、在另一个环境里每个请求都 500，原因往往就在这里。
-
-有两种绕开的办法。第一种经过验证：让启动流程把这些值同时写进真正的环境变量--`putenv()` 扛得住这次重建，而会回退到 `getenv()` 的框架就能找到它们。生产环境里优先用第二种：把真正的环境变量写在 unit 文件或者容器里，别再在运行时解析 `.env`。两条路都不会往 `$_ENV` 里放回任何东西--在 `GPCS` 下，不管环境变量是怎么设进去的，它都是空的，能看到这些值的是 `getenv()`。具体的故障现场和那行一句话的修复，见 [Symfony 指南](/zh/docs/frameworks/symfony)。
-
-任何让进程跨请求活着的 PHP 运行时都会撞上这一点。
+Rapira 无需 `putenv()` 即可保留 `$_ENV` 中的值。 当代码需要进程环境行为时，请使用 `putenv()`，例如 `getenv()` 或子进程继承。 在生产环境中，请在服务 unit、容器或编排器中设置环境变量。
 :::
 
 ## 错误处理
 
-三种出错形态，全都是盯着单个 worker、跟踪它的 pid 观察出来的：
+测试在一个 worker 中确认了三种故障：
 
-- **handler 里的 `exit` 或 `die`**--响应会刷给客户端，状态码和已经产出的响应体都在里面，worker 继续服务。框架在正常运行中就会这么做--比如维护模式检查以 `exit` 结束请求--而这对进程来说并不致命。
-- **未捕获的异常**--一个 `500`。如果框架自己的错误处理器先接住了它，就渲染出自己的错误页；如果没有任何东西接住，Rapira 就用空的响应体应答 `500`。无论哪种情况，worker 都继续服务。
-- **未捕获的 `Error`**--比如调用了一个不存在的函数。PHP 会以 `Uncaught Error` 把它记下来；它走的路径和其他未捕获的 throwable 一样--一个 `500`，worker 照旧在同一个 pid 上继续服务。
+- **handler 中的 `exit` 或 `die`** 会发送当前状态和输出。worker 继续接受请求。
+- 框架可以使用 `exit` 返回维护响应，而不终止进程。
+- **未捕获的异常**返回 `500`。框架错误处理器可以返回自己的错误页。
+- 如果没有此处理器，Rapira 返回空响应体。worker 继续接受请求。
+- **未捕获的 `Error`** 也返回 `500`，worker 继续运行。PHP 会记录 `Uncaught Error`。
 
-后两种形态会让 worker 的 `errors` 往上走；`exit` 那个请求是普通的 `200`，只动 `handled`。三种情况下 `recycles` 和 `restarts` 都停在零：未捕获的 throwable 既不会把 worker 带走，也碰不到下一个请求。只有 bailout 级的致命错误做得更多--它会让常驻脚本直接终止，于是 worker 从头把它重跑一遍，你的应用也随之重新启动，`recycles` 数的就是这件事。[进程模型](/zh/docs/process-model)页里那份状态快照，会把这几个计数逐个 worker 打印出来。
+两个错误情况会增加 worker 的 `errors` 计数器。`exit` 请求返回 `200`，只增加 `handled`。 在三种情况下，`recycles` 和 `restarts` 都保持为零。未捕获的 throwable 不会停止 worker 或影响下一个请求。 bailout 类型的致命错误会结束常驻脚本。worker 随后重新运行脚本并初始化应用。 此操作会增加 `recycles`。有关这些计数器，请参阅[进程模型](/zh/docs/process-model)。
 
 ## 静态文件
 
-Rapira 用[静态文件中间件](/zh/docs/static-files)提供静态资源。把 `[http.static]` 里的 `root` 指向框架的 `public/` 目录，再在 `[http]` 里把中间件列出来：
+Rapira 使用[静态文件中间件](/zh/docs/static-files)提供静态资源。将 `[http.static].root` 设置为框架的 `public/` 目录。将中间件添加到 `[http]`：
 
 ```toml
 [http]
@@ -122,43 +125,46 @@ middleware = ["static"]
 root = "public"
 ```
 
-只有路径在这个根目录下确实对应到一个文件时，中间件才会应答。它默认的 `forbid` 列表把 `.php` 文件挡在外面，所以 `public/` 里的入口脚本绝不会被当作文件发出去。其余的 URL 照旧跑入口脚本，Classic 模式和 Worker 模式下都是如此，客户端想去哪儿由 `$_SERVER['REQUEST_URI']` 告诉应用。目录 URL 同样跑入口脚本，因为这个中间件不为它提供任何索引文件。
+仅当路径与根目录下的文件匹配时，中间件才返回响应。 默认的 `forbid` 列表禁止访问 `.php` 文件。因此，它不会将入口脚本作为文件提供。 其他 URL 在 Classic 和 Worker 模式下运行入口脚本。`$_SERVER['REQUEST_URI']` 包含客户端路径。 目录 URL 也运行入口脚本，因为中间件不提供索引文件。
 
-当然，也可以让前面的 CDN 或反向代理来提供这些资源，[生产环境部署](/zh/docs/deployment)里就搭了这么一层代理。
+CDN 或反向代理也可以提供这些资源。有关反向代理配置，请参阅[生产环境部署](/zh/docs/deployment)。
 
 ## TLS 与代理
 
-Rapira 的监听器只说明文 HTTP，配置里也没有 TLS 这一段。让 TLS 在你已经在跑的那层代理上终结，再由它通过环回地址或者 Unix socket 连到 Rapira。代理必须把转发字段的名字用 `-` 连接，绝不要用 `_`，因为两种写法会折叠到同一个 `$_SERVER` 键上。这套映射见 [HTTP](/zh/docs/http)，代理的具体配置见[生产环境部署](/zh/docs/deployment)。
+Rapira 接受明文 HTTP，并且不提供 TLS 设置。请在代理处终止 TLS。 通过环回地址或 Unix socket 连接代理。转发字段名称使用连字符，不要使用下划线。 这两个字符可以映射到同一个 `$_SERVER` 键。请参阅 [HTTP](/zh/docs/http)和[生产环境部署](/zh/docs/deployment)。
 
 ## 内存与回收
 
-在 handler 里重建应用的 worker--也就是 Yii3 两种写法里较简单的那种--常驻的东西比 Symfony 那种内核少，但比 Classic 模式多，而且循环就在你自己的脚本里，所以可以随着确认哪些内容能挺过第二个请求，一块一块地把工作挪出 handler。这种写法给不了你的，是一个在请求到来时就已经造好的容器。
+worker 可以在 handler 中创建应用。此设计只在一个请求期间保留应用。 它保留的应用状态少于常驻 Symfony 内核，但多于 Classic 模式。 循环仍位于 worker 脚本中。确认常驻状态后，才将初始化移出 handler。 此设计在请求到达后创建容器。
 
-这种写法下，每个请求都会丢下一整张废弃的对象图。PHP 不会一个一个把它们收走：它们被循环引用拴在一起，于是堆内存随着请求一路增长，直到循环回收器跑起来，一次性收掉一大批。这是锯齿，不是泄漏，但这条锯齿的峰值比任何单个请求的内存占用都高出不少。
+此设计中的每个请求都会创建一个对象图。循环引用可能会保留旧图，直到循环回收器运行。 内存使用量会在多个请求中增加，并在 PHP 释放多个图时减少。此循环使用不一定是内存泄漏。 但是，内存峰值可能远大于一个请求的内存。
 
-自己调 `gc_collect_cycles()` 也无法消除它--放在循环里调和放在 handler 里调都验证过了。旧的对象图在下一次启动把它们释放掉之前一直被强引用着，所以回收器还没有东西可收。由此有两条结论。一是给 `memory_limit` 留出真正的余量，因为要装得下的是峰值，不是平均值。二是设一个回收配额：
+测试发现，在循环或 handler 中调用 `gc_collect_cycles()` 都无法防止此行为。 后续初始化可能会保留对旧图的引用。其他对象引用图时，回收器无法释放它。 将 `memory_limit` 设置为高于测量的峰值。还要设置 worker 替换限制：
 
 ```toml
 [pool]
 max_requests = 100
 ```
 
-worker 处理够这么多请求就结束（另外加一点抖动，免得整个进程池同时轮换），master 再 fork 一个顶上，新进程从一张干净的堆开始。几百个连续请求、跨越好几轮回收，都验证过：worker 正常轮换，内存每一轮都重置回去，没有一个请求被丢掉，也没有一个请求的应答不是 `200`。对于一条本来完全交给回收器决定的内存曲线，它是一个确定性的上界。
+达到请求限制后，master 会替换 worker。Rapira 会稍微改变限制，以防止同时替换。 测试在多次替换期间发送了数百个请求。内存恢复到初始水平，每个请求都返回 `200`。 此设置为内存使用提供可预测的限制。
 
-常驻式的写法--Symfony 的内核、Yii3 那个藏在 `StateResetter` 后面的容器--相比之下是平的：同样的跑法下内存一直很稳。对它们也把回收开着，作为一层保障。配置项见[配置](/zh/docs/configuration)，回收对进程池意味着什么见[进程模型](/zh/docs/process-model)。
+常驻 Symfony 和 Yii3 应用在相同测试中保持稳定的内存使用。请保持启用 worker 替换，以限制意外的内存增长。 有关详细信息，请参阅[配置](/zh/docs/configuration)和[进程模型](/zh/docs/process-model)。
 
 ## OPcache 与改动过的代码
 
-Rapira 只启动一次 PHP，在 master 里，而且是在 fork 出任何一个 worker *之前*--所以 OPcache 的共享内存段只创建一次，每个 worker 继承的都是同一份映射。编译好的脚本既跨请求、*也*跨整个进程池保持热度，两种模式下都是如此。worker 重新 include 框架的文件时，并不会重新解析它们。
+Rapira 在创建 worker 之前在 master 中启动一次 PHP。OPcache 创建一个共享内存段。 每个 worker 继承相同的映射。在两种模式下，已编译脚本都会在请求和 worker 之间保持缓存。
 
-生产环境里，`opcache.validate_timestamps = 0` 会去掉每个请求对每个文件的 stat。此设置不会使缓存失效。内存段属于 master，比任何一代 worker 都存活得更久。因此，滚动重载会继续提供旧的 opcode，部署时需要完整重启。具体步骤见[生产环境部署](/zh/docs/deployment)。
+在生产环境中，`opcache.validate_timestamps = 0` 会删除每个请求的文件检查。此设置会阻止自动缓存失效。 OPcache 段属于 master，并在 worker 替换期间保留。因此，部署需要完整重启。 有关步骤，请参阅[生产环境部署](/zh/docs/deployment)。
 
-开发的时候，同样的结果来自另一个原因。不管 OPcache 在干什么，一个常驻的启动流程都不会去重读它启动时加载的代码：改动容器已经造好的服务，或者改动 worker 脚本本身，都传不到跑着的进程里。每改一次就重启一次--`rapira serve` 跑在前台，从不 daemonize，所以 Ctrl-C 之后再跑一遍就是了。
+在开发期间，常驻应用不会再次读取初始化代码。此行为与 OPcache 无关。 更改 worker 脚本或已初始化服务后，请重启服务器。按 Ctrl-C，然后再次运行 `rapira serve`。
 
 ## 框架指南
 
-- **[Symfony](/zh/docs/frameworks/symfony)**--内核只启动一次，之后一直常驻，框架自带的 `services_resetter` 会在两次请求之间把有状态的服务恢复原样。同一个 worker 文件一字不差地同时适用于 7.4 和 8.1。
-- **[Laravel](/zh/docs/frameworks/laravel)**--Classic 模式：原装的 `public/index.php` 原封不动就能跑。Laravel 的 Worker 模式还在开发中--常驻的 Laravel 应用需要 Octane 实现的那套状态复原，而 Rapira 目前还没有 Octane driver。
-- **[Yii3](/zh/docs/frameworks/yii3)**--容器常驻，每个请求通过 `StateResetter` 重置一次，这本来就是 Yii3 为长期运行的进程设计的方案（它的 RoadRunner runner 也是这个形状）；如果你更想从简单的起步，也可以每个请求起一个全新的 runner。
+- **[Symfony](/zh/docs/frameworks/symfony)：**内核初始化一次并保留在内存中。`services_resetter` 在请求之间重置有状态服务。
+- 一个 worker 文件支持 Symfony 7.4 和 8.1。
+- **[Laravel](/zh/docs/frameworks/laravel)：**Classic 模式运行标准 `public/index.php`，无需更改。
+- Laravel Worker 模式正在开发中。Rapira 尚未提供所需的 Octane driver。
+- **[Yii3](/zh/docs/frameworks/yii3)：**`StateResetter` 在每个请求后重置常驻容器。
+- worker 也可以为每个请求创建新 runner。
 
-这些指南都没覆盖到的框架，用的是同一个 worker 脚本，而它能不能跑在 Worker 模式下，取决于应用能否在同一个进程里处理第二个请求。可以从在 handler 里重建应用这种写法起步，因为它对框架没有任何要求；之后再过渡到常驻应用加每请求重置状态的写法。如果两种写法都不行，[Classic 模式](/zh/docs/classic)原封不动就能跑这个应用。
+其他框架可以使用相同的基本 worker 脚本。仅当应用可以在一个进程中处理多个请求时，才使用 Worker 模式。 首先，在 handler 中创建应用。此设计不要求框架支持常驻进程。 使用此设计验证应用。然后保留应用。在每个请求后重置其请求状态。 如果两种 Worker 设计都无法正常运行，请使用 [Classic 模式](/zh/docs/classic)。

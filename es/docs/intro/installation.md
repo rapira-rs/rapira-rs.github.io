@@ -79,7 +79,7 @@ Cuatro: el binario `/usr/bin/rapira`, el intérprete `/usr/lib/rapira/libphp.so`
 
 ## RHEL, Rocky y Fedora
 
-Lo mismo, con `dnf`:
+Instala el RPM mediante `dnf`:
 
 ```bash
 curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.8.0/rapira-php8.5-0.8.0-1.x86_64.rpm
@@ -89,7 +89,7 @@ rapira --version
 
 El mismo suelo de glibc 2.34 marca el mínimo: **RHEL 9** y sus recompilaciones -Rocky 9, AlmaLinux 9- más cualquier Fedora actual.
 
-## Tarballs, en Linux y macOS
+## Tarballs en Linux y macOS
 
 El tarball se descomprime en un único directorio con el servidor entero:
 
@@ -123,6 +123,19 @@ rapira --version
 ```
 
 :::
+
+### Instalación sin acceso root
+
+Para instalar sin acceso root, conserva el directorio completo dentro de tu directorio personal. Crea un enlace simbólico en `~/.local/bin`:
+
+```bash
+mkdir -p "$HOME/.local/opt" "$HOME/.local/bin"
+mv rapira-v0.8.0-php8.5-linux-x86_64 "$HOME/.local/opt/rapira"
+ln -s "$HOME/.local/opt/rapira/bin/rapira" "$HOME/.local/bin/rapira"
+"$HOME/.local/bin/rapira" --version
+```
+
+En macOS, sustituye el nombre del directorio de origen por el directorio extraído para macOS. Añade `$HOME/.local/bin` a `PATH` si el shell todavía no incluye ese directorio.
 
 ::: warning
 El binario busca su intérprete junto a sí mismo, así que el directorio solo se puede mover entero: `cp bin/rapira /usr/local/bin/` rompe el arranque. Para el `PATH`, usa un enlace simbólico como en los comandos de arriba.
@@ -192,7 +205,7 @@ Cada ejecución de CI que pasa en `main` vuelve a construir las imágenes a part
 
 ## La compilación de libphp
 
-`libphp` se compila con `--disable-all` y luego se vuelve a activar un conjunto fijo de extensiones:
+Rapira compila `libphp` con `--disable-all` y activa un conjunto fijo de extensiones:
 
 - **Base del runtime**: session, filter, mbstring, iconv, ctype, tokenizer, fileinfo, phar, posix.
 - **OPcache** y PCRE con JIT activado.
@@ -202,7 +215,7 @@ Cada ejecución de CI que pasa en `main` vuelve a construir las imágenes a part
 - **Memoria compartida e IPC de System V**: shmop, sysvmsg, sysvsem, sysvshm.
 - **Fechas, metadatos de imagen y traducciones**: calendar, exif, gettext.
 - **Interfaz de funciones externas**: ffi.
-- Todo lo que PHP compila siempre: Core, standard, SPL, date, json, hash, random, Reflection.
+- **Componentes necesarios de PHP**: Core, standard, SPL, date, json, hash, random, Reflection.
 
 Lo que *no* lleva: `pdo_mysql`, `pgsql`, redis, apcu, imagick y demás. Si tu aplicación necesita una de esas extensiones, compila `libphp` con ella y compila Rapira contra esa biblioteca; [Compilar desde el código](/es/docs/intro/build-from-source) explica cómo.
 
@@ -225,7 +238,7 @@ Como siempre: primero mira `PHPRC`, luego el directorio de trabajo actual y por 
 :::
 
 ::: question ¿Por qué el archivo se llama `php.ini` y no `php-rapira.ini`?
-PHP busca primero `php-<nombre-de-sapi>.ini` y solo después el `php.ini` normal, y el nombre de la SAPI depende de la versión: `fastcgi` en 8.4 y `rapira` en 8.5. Un `php.ini` normal sirve para las dos.
+PHP busca primero `php-<sapi-name>.ini` y solo después el `php.ini` normal, y el nombre de la SAPI depende de la versión: `fastcgi` en 8.4 y `rapira` en 8.5. Un `php.ini` normal sirve para las dos.
 :::
 
 ## Distribución

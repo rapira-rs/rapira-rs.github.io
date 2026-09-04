@@ -55,9 +55,9 @@ See [CLI](/docs/cli) for the rest of the flags, and [Configuration](/docs/config
 
 `\Rapira\handle_request(callable $handler): bool` has this contract:
 
-- **It waits** until a request arrives for this worker. A waiting worker uses no CPU.
-- It retains its interpreter and initialized application in memory.
-- **It fills the superglobals** (`$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE` and others) before the handler runs. Ordinary PHP code can read them as it does under php-fpm.
+- **It waits** until a request arrives for this worker. The worker uses no CPU while it waits.
+- It keeps its interpreter and initialized application in memory.
+- **It fills request data** in `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE`, `$_FILES`, and `$_REQUEST` before the handler runs. Ordinary PHP code can read these superglobals as it does under php-fpm.
 - **It calls the handler without arguments.** Request data is in the superglobals. The callable signature is `function (): void`.
 - Capture dependencies, such as the container or logger, with `use`.
 - **Handler output is the response.** The handler can use `echo`, `print`, `header()`, `http_response_code()`, and `setcookie()`.
@@ -72,9 +72,7 @@ A request in Worker mode is one iteration of the `while` loop. Rapira completes 
 
 `handle_request()` returns after every request. The worker script must provide the loop that keeps the worker alive.
 
-A worker script drives one handler at a time. If you write two consecutive loops, the second loop cannot run until the first loop exits.
-The first loop exits when `handle_request()` returns `false`, which means that the worker is stopping.
-Route requests inside one handler instead of using multiple loops.
+A worker script drives one handler at a time. If you write two consecutive loops, the second loop cannot run until the first loop exits. The first loop exits when `handle_request()` returns `false`, which means that the worker is in shutdown. Use one handler to route requests. Do not use multiple loops.
 
 ```php
 while (\Rapira\handle_request($api)) {
@@ -87,25 +85,22 @@ while (\Rapira\handle_request($web)) {
 
 ## State that remains between requests
 
-Objects created **outside** the handler remain for the worker lifetime.
-Examples include the autoloader, container, routes, configuration, open connections, and cached data. Rapira does not create this state for each request.
+Objects created **outside** the handler remain until the worker script restarts. Examples include the autoloader, container, routes, configuration, open connections, and cached data. Rapira does not create this state for each request.
 
 Values created **inside** the handler belong to one request. PHP frees them after the handler returns and code removes their last references.
 
-The worker script defines the state lifetime. Put shared state before the loop.
-Put request state in the handler or reset it before the next request.
+The worker script defines the state lifetime. Put application state before the loop. Put request state in the handler or reset it before the next request.
 
 ::: warning
 Global state also remains between requests. Examples include static properties, singletons, registries, and persistent `ini_set()` changes.
 php-fpm resets these values during request shutdown. A Rapira worker does not reset them.
-Use [Classic mode](/docs/classic) if the application cannot reset global state. Classic mode is a compatible php-fpm replacement.
-You can select Worker mode after you correct the shared state.
+
+Use [Classic mode](/docs/classic) if the application cannot reset global state. Classic mode is a compatible php-fpm replacement. Select Worker mode after you correct the global state.
 :::
 
 ## Shutdown functions
 
-A shutdown function registered during initialization runs once when the worker cycle ends. It does not run at the end of each request.
-A shutdown function registered by the handler runs once at the end of that request.
+PHP runs each shutdown function that code registers during initialization once when the worker cycle ends. PHP does not run these functions after each request. PHP runs each shutdown function that the handler registers once at the end of that request.
 
 Register process resource cleanup during initialization. Register request resource cleanup inside the handler.
 
@@ -126,20 +121,19 @@ while (\Rapira\handle_request($handler)) {
 
 At the end of the cycle, initialization registrations run first in registration order. A function registered after the loop runs after them.
 
-Objects use a different rule. Rapira does not run all destructors at the end of a request.
-PHP destroys an object after code removes its last reference. Therefore, PHP destroys a handler object when the handler returns.
-A global object created during initialization remains between requests. Its `__destruct()` method runs once when the cycle ends.
+Objects use a different rule. Rapira does not run all destructors at the end of a request. PHP destroys an object after code removes its last reference. Thus, PHP destroys a handler object when the handler returns. A global object created during initialization remains between requests. Its `__destruct()` method runs once when the cycle ends.
 
 ::: question Why does an initialization shutdown function not run after the first request?
 PHP stores shutdown functions in request state. Request shutdown calls the functions and then releases the list.
 At the first `handle_request()` call, Rapira removes and stores the initialization registrations. Each request then has only its own registrations.
+
 At the end of the cycle, Rapira restores the stored list. It then adds registrations from after the loop.
 Final shutdown runs the initialization entries first in registration order. It then runs the later entries.
 :::
 
 ## Worker mode only
 
-`handle_request()` needs the resident loop that only Worker mode has. In Classic mode and in Dispatcher mode it throws a `Rapira\Exception\NotInWorkerModeError`. Every class Rapira throws implements the marker interface `Rapira\Exception\RapiraThrowable`, so one `catch` covers all of them.
+`handle_request()` needs the resident loop that only Worker mode has. In Classic mode and in Dispatcher mode it throws a `Rapira\Exception\NotInWorkerModeError`. Every exception that Rapira throws implements the marker interface `Rapira\Exception\RapiraThrowable`, so one `catch` covers all of them.
 
 `Rapira\get_mode()` returns the [mode](/docs/execution-modes) of the current process as a `Rapira\Mode` case. A script that runs in more than one mode reads it before it enters the loop:
 
@@ -150,10 +144,10 @@ if (\Rapira\get_mode() === \Rapira\Mode::Worker) {
 }
 ```
 
-## Pitfalls
+## Common problems
 
-**State retained between requests.** Check for retained request state when an application fails only in Worker mode.
-Examples include a growing static array, a request object in a singleton, or old user data in a logger.
+**Request state remains between requests.** Check for request state that remains when an application fails only in Worker mode. Examples include a static array that grows, a request object in a singleton, or old user data in a logger.
+
 Reset this state at the start or end of the handler. Also reset request state in libraries.
 `pool.max_requests` replaces a worker after a specified request count. This limits the effect of a memory leak but does not correct it.
 
@@ -164,9 +158,7 @@ The example calls `gc_collect_cycles()` between requests. This call is optional,
 `pool.request_terminate_timeout_secs` limits the elapsed time of one request. Rapira terminates a worker that exceeds it.
 See [Configuration](/docs/configuration) for this key and `pool.max_requests`. See [Process model](/docs/process-model) for worker termination processing.
 
-**An uncaught exception affects one request, not the worker.** An uncaught handler exception returns `500` unless the handler already sent the response head.
-The loop continues, so the exception does not stop the worker. A fatal error ends the persistent script.
-The worker then starts the script again and initializes the application.
+**An uncaught exception affects one request, not the worker.** Rapira returns `500` for an uncaught handler exception unless the handler already sent the response head. Rapira cannot change the status after the handler sends the response head. The loop continues, so the exception does not stop the worker. A fatal error ends the persistent script. The worker then starts the script again and initializes the application.
 
 **Work after the response.** `rapira_finish_request()` sends the response before the handler ends. For example, the handler can then write an audit record.
 See [HTTP](/docs/http) for more information.

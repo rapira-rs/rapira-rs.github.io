@@ -6,23 +6,23 @@ faqLevel: 2
 
 # Żądania i odpowiedzi HTTP
 
-Front HTTP to ten element Rapiry, który zamienia połączenie klienta w żądanie PHP, a odpowiedź PHP z powrotem w bajty lecące do klienta. Opiera się na bibliotece [hyper](https://hyper.rs) i jest wbudowany w binarkę. Kończy na sobie HTTP/1.1 i HTTP/1.0. Przyjmuje połączenia na gnieździe, które otworzył proces nadrzędny, parsuje żądanie, podaje je do PHP i odsyła to, co PHP wyprodukowało. Nie ma tu żadnego upstreamu: nic nie leci dalej do innego serwera, a każde żądanie obsługiwane jest na miejscu. Middleware stojące przed PHP może odpowiedzieć na żądanie samodzielnie i tak właśnie serwowane są [pliki statyczne](/pl/docs/static-files).
+Serwer HTTP zamienia połączenie klienta w żądanie PHP. Zamienia odpowiedź PHP w dane sieciowe. Używa biblioteki [hyper](https://hyper.rs) w pliku binarnym Rapiry. Przyjmuje HTTP/1.1 i HTTP/1.0 na gnieździe procesu nadrzędnego. Serwer analizuje żądanie, przekazuje je do PHP i wysyła odpowiedź. Nie przekazuje żądań do innego serwera. Middleware może odpowiedzieć przed uruchomieniem PHP. Rapira używa tego mechanizmu dla [plików statycznych](/pl/docs/static-files).
 
-Ta strona opisuje te miejsca, w których przekład między HTTP a PHP nie jest jeden do jednego: co front odrzuca, zanim ruszy PHP, które pole nagłówka ląduje pod którym kluczem `$_SERVER`, co się dzieje, gdy klient wyśle to samo pole dwa razy, jak duża może być treść żądania i jak wyznaczane są granice twojej odpowiedzi w drodze do klienta.
+Ta strona opisuje kontrolę żądań, klucze `$_SERVER`, powtórzone pola, limity treści i granice odpowiedzi.
 
 ::: info
-Front obsługuje wyłącznie nieszyfrowany HTTP. Jeśli potrzebujesz TLS-a, zakończ go na proxy stojącym przed Rapirą - zobacz [Wdrożenie produkcyjne](/pl/docs/deployment).
+Serwer przyjmuje nieszyfrowany HTTP. Użyj proxy do zakończenia TLS. Zobacz [Wdrożenie produkcyjne](/pl/docs/deployment).
 :::
 
 ## Sprawdzanie żądania
 
-Front sprawdza każde żądanie, zanim ruszy PHP. Żądanie, które nie przejdzie kontroli, dostaje odpowiedź od samego frontu i nigdy nie trafia do PHP.
+Serwer HTTP sprawdza każde żądanie przed uruchomieniem PHP. Odpowiada na nieprawidłowe żądanie bez wywołania PHP.
 
-Żądanie `CONNECT` dostaje `501`. Front nie stawia żadnych tuneli.
+Rapira zwraca `501` dla żądania `CONNECT`. Serwer HTTP nie tworzy tuneli.
 
-Front przyjmuje cel żądania w postaci absolutnej, na przykład `GET http://host.example/admin?x=1 HTTP/1.1`. Autorytet z celu zastępuje wtedy pole `Host`, a część userinfo jest z autorytetu usuwana jeszcze wcześniej, więc `$_SERVER['HTTP_HOST']` nie może być sprzeczny z celem żądania. PHP widzi w `$_SERVER['REQUEST_URI']` ścieżkę i zapytanie w postaci origin.
+Rapira przyjmuje bezwzględny cel, na przykład `GET http://host.example/admin?x=1 HTTP/1.1`. Autorytet celu zastępuje pole `Host`. Rapira najpierw usuwa dane użytkownika z autorytetu. Zapobiega to konfliktowi w `$_SERVER['HTTP_HOST']`. PHP otrzymuje ścieżkę i zapytanie w `$_SERVER['REQUEST_URI']`.
 
-`http.keepalive_timeout_secs` ogranicza każdy odczyt od klienta. Zamyka bezczynne połączenie keep-alive, a przy okazji ogranicza też odczyt nagłówków żądania. Treść żądania, która przez ten czas nie posunie się do przodu, dostaje `408`, a połączenie zostaje zamknięte. Domyślnie to 60 sekund.
+`http.keepalive_timeout_secs` ogranicza każdy odczyt od klienta. Dotyczy bezczynnego połączenia i nagłówków żądania. Rapira zwraca `408`, jeśli odczyt treści nie postępuje przed upływem limitu. Następnie zamyka połączenie. Wartość domyślna to 60 sekund.
 
 ```toml
 [http]
@@ -31,9 +31,9 @@ keepalive_timeout_secs = 60
 
 ## Od nazwy nagłówka do klucza `$_SERVER`
 
-CGI ma na przekazywanie pól żądania do skryptu jedną regułę: weź nazwę pola, zamień ją na wielkie litery, każdy `-` zastąp `_` i dopisz z przodu `HTTP_` ([RFC 3875 §4.1.18](https://www.rfc-editor.org/rfc/rfc3875#section-4.1.18)). Z `X-Forwarded-For` robi się więc `HTTP_X_FORWARDED_FOR` i to właśnie ten klucz czyta twój kod.
+CGI zmienia nazwę pola na wielkie litery. Zastępuje każdy `-` znakiem `_` i dodaje `HTTP_`. Zobacz [RFC 3875 §4.1.18](https://www.rfc-editor.org/rfc/rfc3875#section-4.1.18). Dlatego `X-Forwarded-For` staje się `HTTP_X_FORWARDED_FOR`.
 
-Rejestrując zmienną, PHP dokłada do tego własne przekształcenie: `.` również zamienia się w `_`. Dwa mapowania, każde sprowadzające inny znak do tego samego podkreślenia - a w efekcie trzy różne nazwy przesłane przez klienta trafiają dokładnie pod jeden klucz:
+PHP wykonuje dodatkową konwersję podczas rejestracji zmiennej. Zastępuje także `.` znakiem `_`. Dlatego trzy nazwy sieciowe wskazują ten sam klucz PHP:
 
 | Nazwa w żądaniu   | Klucz w PHP                         |
 | ----------------- | ----------------------------------- |
@@ -42,12 +42,12 @@ Rejestrując zmienną, PHP dokłada do tego własne przekształcenie: `.` równi
 | `X.Forwarded.For` | `$_SERVER['HTTP_X_FORWARDED_FOR']`  |
 
 ::: warning
-Ta kolizja nazw to problem bezpieczeństwa. Jeśli zaufane proxy przed Rapirą ustawia `X-Forwarded-For`, to klient, który wyśle `X_Forwarded_For`, trafi pod ten sam klucz `$_SERVER` - a filtr nagłówków w proxy, wycinający pisownię z myślnikami, wersji z podkreśleniem w ogóle nie zauważy. Klient może wtedy ustawić wartość, którą twoja aplikacja traktuje jako pochodzącą od proxy.
+Bez obowiązkowej kontroli nazw pól w Rapirze ta kolizja może stwarzać zagrożenie bezpieczeństwa. Proxy może ustawić `X-Forwarded-For`, a klient może wysłać `X_Forwarded_For`. Obie nazwy wskazują ten sam klucz `$_SERVER`. Filtr proxy dla nazwy z łącznikami może nie usunąć nazwy z podkreśleniami. Aplikacja może wtedy zaufać wartości klienta.
 :::
 
 ## Nazwy kolidujące ze zmienną CGI
 
-Dlatego Rapira sprawdza nazwy pól żądania, zanim zobaczy je jakakolwiek inna warstwa. Nazwa przechodzi, gdy każdy jej bajt mieści się w `[A-Za-z0-9-]`. Kolidują dwa znaki, `_` i `.` - oba sprowadzają się do tego samego klucza `$_SERVER` co pisownia z myślnikiem. Reguła jest jednak listą znaków dozwolonych, a nie listą tych dwóch zakazanych: odrzuca też znak legalny, ale nietypowy, choćby `~`, i pozostanie poprawna, gdyby któreś z mapowań kiedyś się rozszerzyło. O tym, co dzieje się z odrzuconą nazwą, decyduje `http.unsafe_field_names`:
+Rapira sprawdza nazwy pól przed innym przetwarzaniem. Przyjmuje tylko bajty z `[A-Za-z0-9-]`. Znaki `_` i `.` mogą wskazać ten sam klucz `$_SERVER` co `-`. Lista odrzuca też inne znaki, na przykład `~`. Ustawienie `http.unsafe_field_names` kontroluje odrzucone nazwy:
 
 - **`drop`** (domyślnie) - pole znika, zanim PHP je zobaczy, a każde usunięcie trafia do logu na poziomie `warn` z targetem `http`.
 - **`reject`** - żądanie dostaje odpowiedź `400` i nic nie zostaje obsłużone.
@@ -57,35 +57,37 @@ Dlatego Rapira sprawdza nazwy pól żądania, zanim zobaczy je jakakolwiek inna 
 unsafe_field_names = "drop"
 ```
 
-Nie ma trzeciej opcji, która wyłącza tę kontrolę, ani wyjątku dla pojedynczej nazwy, bo kolizja, przed którą kontrola chroni, jest problemem bezpieczeństwa - gdzie ten klucz stoi wśród pozostałych ustawień, pokazuje [Konfiguracja](/pl/docs/configuration).
+Nie można wyłączyć kontroli ani dodać wyjątków dla pojedynczych nazw. Zobacz [Konfiguracja](/pl/docs/configuration), aby poznać wszystkie ustawienia.
 
-Jeśli twoi klienci naprawdę wysyłają nazwę z podkreśleniem, rozwiązaniem jest zmiana jej na pisownię z `-`. Pola ustawiane przez samo proxy kontrola traktuje tak samo: Rapira nie odróżni pola z podkreśleniem zapisanego przez zaufane proxy od podrobionego przez klienta, więc `X_Forwarded_For` ustawiony przez proxy również znika, zanim ruszy PHP. Proxy stojące przed Rapirą zrobi taką podmianę jedną linijką własnej konfiguracji, a wtedy nazwa jest już zwyczajna i przechodzi nietknięta.
+Zmień wymaganą nazwę pola z podkreśleniami na nazwę z myślnikami. Rapira stosuje tę samą regułę do pól proxy. Rapira nie może ustalić źródła pola z podkreśleniami. Skonfiguruj proxy, aby zmieniało nazwę przed wysłaniem.
 
 ::: tip
-`drop` loguje każde usunięcie na poziomie `warn`, ale domyślny poziom logowania to `error`, więc tych linii nie zobaczysz, dopóki go nie podniesiesz. Jeśli w `$_SERVER` nieoczekiwanie brakuje nagłówka, podnieś poziom i zajrzyj najpierw do wpisów z targetem `http` - jak to zrobić, pokazują [Logi](/pl/docs/logging).
+`drop` zapisuje każde usunięcie na poziomie `warn`, ale poziom domyślny to `error`. Ustaw target `http` na `warn`, aby zobaczyć te wpisy. Zobacz [Logi](/pl/docs/logging).
 :::
 
 ## Pola wysłane więcej niż raz
 
-HTTP pozwala klientowi powtórzyć pole, a CGI ma miejsce tylko na jedną wartość na zmienną - powtórzenia trzeba więc scalić w jedną wartość, zanim PHP cokolwiek zobaczy. Rapira scala je tak, jak pozwala na to gramatyka samego pola:
+HTTP pozwala na powtórzone pola, ale CGI udostępnia jedną wartość dla zmiennej. Rapira łączy wartości według składni pola:
 
-- **Pola listowe** - wartości sklejane są przecinkiem ze spacją, bo taką rekombinację dopuszcza [RFC 9110 §5.3](https://www.rfc-editor.org/rfc/rfc9110#section-5.3) dla pola zdefiniowanego jako lista rozdzielana przecinkami. Z dwóch linii `Accept` wychodzi `text/*, image/*`.
-- **`Cookie`** - też lista, ale nie przecinkowa. Jej powtórzenia sklejane są średnikiem ze spacją, czyli w formie cookie-string, której oczekuje parser PHP - dzięki temu `$_COOKIE` wychodzi poprawnie.
-- **Pola jednowartościowe** - `Authorization`, `Proxy-Authorization`, `Content-Type`, `Content-Length`, `Referer` i `From` zachowują wyłącznie **pierwszą** linię, a nadmiarowe znikają z wpisem `warn`. Sklejenie by je zepsuło: druga linia `Authorization` doklejona do pierwszej ląduje w środku poświadczenia, które PHP zaraz zdekoduje z base64. Powtórzony `Content-Length` dostaje `400`, zanim dojdzie do scalania, więc do tej reguły trafia tylko pozostała piątka.
-- **`Host`** - więcej niż jedna linia `Host` kończy się odpowiedzią `400`, nigdy scaleniem. [RFC 9112 §3.2](https://www.rfc-editor.org/rfc/rfc9112#section-3.2) stawia tu MUST, a poprawną odpowiedź może dać tylko ta warstwa, która terminuje połączenie.
+- **Pola listowe:** Rapira łączy wartości przecinkiem i spacją. Zobacz [RFC 9110 §5.3](https://www.rfc-editor.org/rfc/rfc9110#section-5.3).
+- Na przykład dwie linie `Accept` stają się `text/*, image/*`.
+- **`Cookie`:** Rapira łączy wartości średnikiem i spacją. Parser ciasteczek PHP oczekuje tego formatu.
+- **Pola jednowartościowe:** Rapira zachowuje pierwszą linię `Authorization`, `Proxy-Authorization`, `Content-Type`, `Referer` lub `From`.
+- Usuwa dodatkowe linie i zapisuje wpis `warn`. Dla powtórzonego `Content-Length` zwraca `400`.
+- **`Host`:** Rapira zwraca `400` dla wielu linii `Host`. Zobacz [RFC 9112 §3.2](https://www.rfc-editor.org/rfc/rfc9112#section-3.2).
 
-Wartości pól docierają do PHP wszędzie jako surowe bajty. Ciasteczko w latin1 czy podpisany nagłówek zachowują każdy oktet wysłany przez klienta, bo konwersja na UTF-8 po drodze zepsułaby dokładnie te wartości, które zmienić się nie mogą.
+PHP otrzymuje wartości pól jako niezmienione bajty. Ciasteczko Latin-1 lub podpisane pole zachowuje więc każdy bajt klienta.
 
 ## Treść żądania
 
-Treść żądania trafia do pamięci, zanim ruszy PHP, a `http.max_body_size_mb` ogranicza, ile Rapira jej przechowuje. Domyślnie jest to 8 MiB - tyle samo, ile wynosi domyślne `post_max_size` w samym PHP. Treść ponad limit dostaje `413`, a ponieważ reszta wciąż płynie do serwera, ta odpowiedź od razu zamyka połączenie, zamiast próbować użyć go ponownie.
+Rapira odczytuje treść do pamięci przed uruchomieniem PHP. `http.max_body_size_mb` ogranicza pamięć dla jednej treści. Wartość domyślna to 8 MiB, tak samo jak `post_max_size` w PHP. Rapira zwraca `413` dla większej treści i zamyka połączenie. Nie odczytuje pozostałych danych.
 
 Limit sprawdzany jest dwa razy:
 
-- Najpierw wobec zadeklarowanego `Content-Length`, zanim wczytany zostanie choćby jeden bajt treści.
-- Potem jeszcze raz w trakcie odbierania treści, kawałek po kawałku. Żądanie chunked nie deklaruje długości z góry, więc to drugie sprawdzenie jest tym, co ogranicza jego zużycie pamięci.
+- Najpierw Rapira sprawdza zadeklarowany `Content-Length` przed odczytem treści.
+- Następnie sprawdza każdy fragment. To sprawdzenie ogranicza żądania chunked bez zadeklarowanej długości.
 
-W żądaniach HTTP/1.1 Rapira honoruje `Expect: 100-continue`: odsyła tymczasową odpowiedź `100 Continue`, a klient dopiero wtedy wysyła wstrzymaną treść. Ważna jest kolejność: sprawdzenie `Content-Length` idzie *pierwsze*, więc klient zapowiadający zbyt dużą treść dostaje `413`, zanim cokolwiek wyśle. Oczekiwanie zgłoszone w żądaniu HTTP/1.0 jest ignorowane, tak jak wymaga tego [RFC 9110 §10.1.1](https://www.rfc-editor.org/rfc/rfc9110#section-10.1.1).
+Rapira obsługuje `Expect: 100-continue` dla HTTP/1.1. Wysyła `100 Continue` przed wysłaniem treści przez klienta. Rapira najpierw sprawdza `Content-Length`. Może więc zwrócić `413` przed przesłaniem zbyt dużej treści. Dla HTTP/1.0 ignoruje to oczekiwanie zgodnie z [RFC 9110 §10.1.1](https://www.rfc-editor.org/rfc/rfc9110#section-10.1.1).
 
 ```toml
 [http]
@@ -94,37 +96,37 @@ max_body_size_mb = 8
 
 ## Przesyłanie odpowiedzi
 
-Front nie buforuje treści odpowiedzi. Nagłówki wypisuje, gdy tylko PHP je zatwierdzi, a każdą ramkę treści wtedy, gdy PHP ją wyprodukuje. O tym, kiedy PHP je produkuje, decyduje tryb. W trybach Classic i Worker PHP trzyma całą odpowiedź u siebie i oddaje ją frontowi na koniec żądania albo wcześniej, jeśli skrypt wywoła `rapira_finish_request()`. W trybie Dispatcher PHP oddaje frontowi nagłówki i każdy kawałek treści w miarę, jak kod je wypisuje.
+Serwer HTTP nie buforuje treści odpowiedzi. Wysyła nagłówki po zatwierdzeniu ich przez PHP. Następnie wysyła każdy fragment, gdy PHP go utworzy. Tryb określa czas przekazania danych. W trybach Classic i Worker PHP zwykle przekazuje pełną odpowiedź na końcu. `rapira_finish_request()` przekazuje ją wcześniej. W trybie Dispatcher PHP przekazuje nagłówki i fragmenty podczas ich zapisywania.
 
-Wyznaczanie granic odpowiedzi należy do serwera, a nie do PHP. `Transfer-Encoding` ustawiony przez twój kod zostaje wyrzucony. `Content-Length` ustawiony przez twój kod znika z linii nagłówków, żeby nieaktualna długość nigdy nie rozsynchronizowała połączenia. W trybach Classic i Worker front deklaruje potem długość treści, którą wyprodukowało PHP. W trybie Dispatcher `Content-Length` z wypisanych przez ciebie nagłówków staje się długością zadeklarowaną w odpowiedzi: front wysyła tę długość i liczy do niej treść. Treść krótsza od zadeklarowanej długości kończy się zamknięciem połączenia, a treść dłuższa zostaje ucięta na tej długości.
+Serwer kontroluje granice odpowiedzi. Usuwa pola `Transfer-Encoding` i `Content-Length` ustawione przez PHP. W trybach Classic i Worker serwer ustawia długość pełnej treści. W trybie Dispatcher używa `Content-Length` zadeklarowanego przez PHP i porównuje go z treścią. Zamyka połączenie dla krótkiej treści. Długą treść przycina do zadeklarowanej długości.
 
-Odpowiedź, która nie deklaruje żadnej długości, dostaje granice od frontu. Klient HTTP/1.1 dostaje kodowanie chunked, a klient HTTP/1.0 treść, której koniec wyznacza zamknięcie połączenia.
+Dla odpowiedzi bez długości serwer używa przesyłania chunked w HTTP/1.1. W HTTP/1.0 zamyka połączenie po treści.
 
-Odpowiedzi, które z definicji nie mają treści, czyli `204` i `304`, nie dostają `Content-Length` w ogóle. Tak samo traktowana jest odpowiedź na żądanie `HEAD`: front wysyła same nagłówki, bez `Content-Length` i bez ani jednego bajtu treści.
+Serwer pomija `Content-Length` w odpowiedziach `204` i `304`. Pomija też to pole i treść w odpowiedziach `HEAD`.
 
-Pola hop-by-hop należą do pojedynczego połączenia, a nie do odpowiedzi, więc PHP też ich nie ustawia ([RFC 9110 §7.6.1](https://www.rfc-editor.org/rfc/rfc9110#section-7.6.1)). Te są wycinane z tego, co wypisał twój kod:
+Serwer usuwa pola specyficzne dla połączenia ustawione przez PHP. To zachowanie definiuje [RFC 9110 §7.6.1](https://www.rfc-editor.org/rfc/rfc9110#section-7.6.1):
 
 `Connection`, `Keep-Alive`, `Upgrade`, `Trailer`, `TE`, `Proxy-Connection`, a do tego dwa pola wyznaczające granicę treści: `Content-Length` i `Transfer-Encoding`.
 
-Jeśli PHP mimo wszystko wyśle nagłówek `Connection`, wycinane są także pola, które w nim wymieniono - dokładnie to znaczy wartość `Connection` - a dzieje się to, zanim Rapira wstawi swój własny `Content-Length`. Dzięki temu `Connection: content-length` nie usunie z odpowiedzi pól wyznaczających granicę treści.
+Gdy PHP wysyła `Connection`, Rapira usuwa również wymienione w nim pola. Dzieje się to przed dodaniem własnego `Content-Length`. Dlatego `Connection: content-length` nie może usunąć granic odpowiedzi.
 
-Cała reszta przechodzi tak, jak zapisało ją PHP, z powtórzeniami włącznie: `Set-Cookie`, `Vary` i `Link` mogą się prawidłowo pojawić kilka razy i wszystkie zostaną wysłane. Nagłówek, którego w ogóle nie da się przesłać, znika z wpisem w logu, zamiast wywracać całą odpowiedź, a reszta odpowiedzi i tak zostaje wysłana.
+Serwer wysyła pozostałe pola PHP bez zmian, w tym powtórzone `Set-Cookie`, `Vary` i `Link`. Usuwa nieprawidłowe pole sieciowe i zapisuje wpis. Wysyła pozostałą część odpowiedzi.
 
-Tymczasowe nagłówki odpowiedzi (1xx) wypisane przez PHP są odrzucane, tak samo jak trailery. Front nie przekazuje dalej ani jednych, ani drugich. `100 Continue` dla żądania z `Expect` nie pochodzi od PHP: tę odpowiedź front wypisuje sam.
+Rapira usuwa tymczasowe odpowiedzi i trailery z PHP. Serwer HTTP tworzy odpowiedź `100 Continue` dla żądania `Expect`.
 
-Urwana odpowiedź kończy się zerwaniem połączenia, bez czystego zakończenia. Odpowiedź jest urwana wtedy, gdy worker ginie przed końcem treści, gdy treść okazuje się krótsza od długości zadeklarowanej przez PHP albo gdy błąd krytyczny lub nieprzechwycony wyjątek kończy skrypt, który zdążył już coś wypisać. Klient odczytuje wtedy niekompletną wiadomość, więc pozna po niej, że odpowiedź została ucięta.
+Jeśli worker zakończy się przed końcem treści, serwer zamyka połączenie bez pełnego terminatora. Serwer zamyka połączenie także wtedy, gdy treść jest krótsza od długości zadeklarowanej przez PHP. Błąd krytyczny po rozpoczęciu wysyłania może zakończyć skrypt i uciąć odpowiedź. W trybie Worker nieprzechwycony wyjątek handlera po rozpoczęciu wysyłania ucina odpowiedź, ale pętla działa dalej. Każdy z tych przypadków tworzy niekompletną wiadomość, którą klient może wykryć.
 
-Odpowiedź z błędem, którą front wypisuje sam, niesie `cache-control: private, no-store` oraz `connection: close` i nie ma treści. Takie są `413` dla zbyt dużej treści żądania i `501` dla `CONNECT`.
+Odpowiedź błędu serwera HTTP nie ma treści. Zawiera `cache-control: private, no-store` i `connection: close`. Przykłady to `413` dla dużej treści i `501` dla `CONNECT`.
 
 ::: question Dlaczego to front, a nie PHP, ustawia pola wyznaczające granice odpowiedzi?
-O granicach odpowiedzi decydują bajty, które front wypuszcza w sieć. Front bierze długość zadeklarowaną w odpowiedzi i liczy do niej treść. Treść krótsza od zadeklarowanej kończy się zamknięciem połączenia, więc klient nie odczyta następnej odpowiedzi jako dalszego ciągu tej. `Content-Length` ustawiony jako zwykły nagłówek omijałby to liczenie, dlatego zostaje wycięty.
+Serwer HTTP porównuje rozmiar treści z zadeklarowaną długością. Zamyka połączenie, gdy treść jest zbyt krótka. Dzięki temu klient nie odczyta następnej odpowiedzi jako części bieżącej. Serwer usuwa `Content-Length` z PHP, ponieważ mógłby ominąć liczenie.
 :::
 
 ## Wcześniejsze zakończenie odpowiedzi
 
-Gdy odpowiedź jest już gotowa, handlerowi często zostaje jeszcze praca: webhook do wysłania, wpis do kolejki, cache do rozgrzania. Klient nie musi na to czekać.
+Handler może kontynuować pracę po przygotowaniu odpowiedzi. Może na przykład wysłać webhook, dodać wpis do kolejki lub zaktualizować cache. Klient nie musi czekać na tę pracę.
 
-`rapira_finish_request()` kończy odpowiedź w tym miejscu. Bufory wyjścia PHP zostają wypchnięte do odpowiedzi, odpowiedź trafia do frontu i wychodzi do klienta, a twój handler biegnie dalej, gdy klient ma już całość u siebie. To ten sam kontrakt co `fastcgi_finish_request()`, więc kod pisany pod php-fpm zachowuje się dokładnie tak jak zawsze:
+`rapira_finish_request()` kończy odpowiedź w tym miejscu. PHP opróżnia bufory wyjścia i przekazuje odpowiedź serwerowi HTTP. Serwer wysyła odpowiedź, gdy handler kontynuuje pracę. Funkcja ma ten sam kontrakt co `fastcgi_finish_request()`:
 
 ```php
 <?php
@@ -139,11 +141,13 @@ $mailer->sendConfirmation($order);
 $metrics->flush();
 ```
 
-Sygnatura to `rapira_finish_request(): bool`. Deklaruje ją, razem z całą resztą tego, co Rapira udostępnia PHP, plik [`crates/php_sys/rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php) - wskaż go swojemu IDE, żeby mieć podpowiadanie i typy.
+Sygnatura to `rapira_finish_request(): bool`. Plik [`crates/php_sys/rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php) deklaruje ją i pozostałe API PHP. Dodaj ten plik do IDE, aby uzyskać uzupełnianie i informacje o typach.
 
-Funkcja jest zarejestrowana dla całego procesu i działa na aktualnie obsługiwanym żądaniu, więc tryb Classic również ją obsługuje: zachowanie jest takie samo niezależnie od tego, czy skrypt jest rezydentny, czy wykonuje się od nowa przy każdym żądaniu. Co jeszcze różni się między trybami, opisują [Tryby wykonania](/pl/docs/execution-modes).
+Rapira rejestruje funkcję dla całego procesu. Funkcja działa na bieżącym żądaniu. Dlatego tryb Classic również ją obsługuje. Zobacz [Tryby wykonania](/pl/docs/execution-modes).
 
-O dwóch rzeczach warto pamiętać:
+Funkcja ma następujące ograniczenia:
 
-- **Wyjście po wywołaniu nie dociera do klienta.** Odpowiedź jest zamknięta, więc `echo` po tej linii zostaje odrzucony - nie czeka w kolejce na późniejsze opróżnienie bufora. Wszystko, co klient ma zobaczyć, musisz wypisać wcześniej.
-- **Worker nadal jest zajęty.** Zakończenie odpowiedzi uwalnia *klienta*, a nie proces. Ten worker nie weźmie kolejnego żądania, dopóki twój handler się nie zakończy, więc praca przesunięta za wywołanie to praca, na którą następne żądanie i tak czeka - ilu jest workerów do czekania, opisuje [Model procesów](/pl/docs/process-model). Wywołanie obniża opóźnienie po stronie klienta, ale nie daje współbieżności, więc ciężka praca należy do kolejki.
+- **Wyjście po wywołaniu nie jest wysyłane.** Rapira odrzuca wyjście po zamknięciu odpowiedzi.
+- Zapisz wszystkie wymagane dane wyjściowe przed wywołaniem.
+- **Worker pozostaje zajęty.** Nie przyjmie kolejnego żądania przed zakończeniem handlera.
+- Wywołanie zmniejsza opóźnienie klienta, ale nie zwiększa współbieżności. Przekaż długą pracę do kolejki.

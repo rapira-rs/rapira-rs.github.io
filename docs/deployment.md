@@ -5,8 +5,7 @@ description: A production systemd unit, configuration layout, reverse proxy, rel
 
 # Running in production
 
-Production deployments must keep Rapira available after restarts and code changes. They start Rapira during system initialization and restart it after failures.
-They also reload code without dropped requests and preserve logs. This page describes a systemd unit, a reverse proxy, and persistent worker settings.
+Production deployments must keep Rapira available after restarts and code changes. They start Rapira during system initialization and restart it after failures. They also reload code without dropped requests and keep logs. This page describes a systemd unit, a reverse proxy, and persistent worker settings.
 
 Rapira does not define a deployment layout. It does not require a specific configuration path or process supervisor. This page establishes the convention that the other documentation uses. Install the binary first, as described in [Installation](/docs/intro/installation).
 
@@ -23,7 +22,7 @@ The `.deb` and `.rpm` packages install the binary and the embedded PHP runtime. 
 These files contain site-specific settings. Package updates must not replace them.
 See [Installation](/docs/intro/installation) for the installed files.
 
-Write your own into `/etc/systemd/system/rapira.service`:
+Create `/etc/systemd/system/rapira.service`:
 
 ```ini
 [Unit]
@@ -44,20 +43,25 @@ Environment=PHPRC=/etc/rapira
 WantedBy=multi-user.target
 ```
 
-Load and enable the unit:
+Reload the systemd configuration:
 
 ```bash
 sudo systemctl daemon-reload
+```
+
+Enable Rapira with `--now`:
+
+```bash
 sudo systemctl enable --now rapira
 ```
 
-These six settings require explanation:
+The unit uses these settings:
 
 - `Type=exec`: Rapira runs in the **foreground**. The process that systemd starts is the master, so `$MAINPID` identifies it.
 - `ExecReload`: `systemctl reload rapira` sends `SIGUSR2` to the master. This signal starts the reload process described below.
 - `KillMode=mixed`: systemd sends the stop signal only to the master. The master then sends `SIGQUIT` to workers and waits for them. After `TimeoutStopSec`, systemd sends `SIGKILL` to the complete group. Without `KillMode=mixed`, a stop can terminate current requests.
 - `Restart=on-failure`: systemd restarts Rapira after a failure. It does not restart Rapira after a normal stop.
-- `RuntimeDirectory=rapira`: systemd creates `/run/rapira` during start and removes it during stop. The following examples put the pidfile and Unix socket in this directory.
+- `RuntimeDirectory=rapira`: systemd creates `/run/rapira` during start and removes it during stop. The examples below put the pidfile and Unix socket in this directory.
 - `Environment=PHPRC`: PHP uses this directory to find `php.ini`.
 
 ::: tip Running as a non-root user
@@ -79,11 +83,12 @@ Create `/etc/rapira/php.ini` to configure OPcache, a memory limit, or a time zon
 
 A relative `pool.entrypoint` uses the **configuration file directory** as its base. In this layout, `entrypoint = "index.php"` means `/etc/rapira/index.php`.
 Use an absolute entry point path in production. `supervisor.pidfile` uses the same resolution rule.
+
 The positional `SCRIPT` argument and PHP file operations use the working directory. Rapira does not change this directory.
 Systemd uses `/` by default, so the unit sets `WorkingDirectory=/srv/app`. PHP also searches this directory for an ini file.
 See [Configuration](/docs/configuration) for all keys and defaults.
 
-## Behind a reverse proxy
+## Reverse proxy
 
 Rapira accepts plain HTTP and does not provide TLS settings.
 A [TLS termination proxy](https://en.wikipedia.org/wiki/TLS_termination_proxy) accepts HTTPS from a client, decrypts the connection, and sends plain HTTP to Rapira.
@@ -109,7 +114,7 @@ A proxy or CDN can serve the assets instead.
 
 ## Zero-downtime deploys
 
-Deploy the new code, then:
+Deploy the new code. Then reload Rapira:
 
 ```bash
 sudo systemctl reload rapira
@@ -119,9 +124,7 @@ This command sends `SIGUSR2` to the master. The master replaces one worker at a 
 If a worker exceeds `process_control_timeout_secs`, the master sends `SIGTERM` and then `SIGKILL`. This termination ends the current request.
 See [Process model](/docs/process-model) for the worker replacement sequence.
 
-Send the signal directly when systemd does not manage the process. Set `supervisor.pidfile` to record the master process identifier.
-Create the pidfile directory before you start Rapira. Alternatively, select an existing directory.
-The master does not start if it cannot write the file.
+Send the signal directly when systemd does not manage the process. Set `supervisor.pidfile` to record the master process identifier. Create the pidfile directory before you start Rapira. Alternatively, select a directory that exists. The master does not start if it cannot write the file.
 
 ```toml
 [supervisor]
@@ -133,22 +136,19 @@ process_control_timeout_secs = 30
 kill -USR2 "$(cat /run/rapira/rapira.pid)"
 ```
 
-Only the master writes the pidfile. It removes the file during a controlled exit.
-A remaining file can indicate `SIGKILL`, a process failure, or a system failure.
+Only the master writes the pidfile. It removes the file during a controlled exit. A file that remains can indicate `SIGKILL`, a process failure, or a system failure.
 
 `process_control_timeout_secs` limits each wait for a worker during shutdown and reload. After the limit, the master sends the next termination signal.
 Set this value below the systemd `TimeoutStopSec` value. Otherwise, systemd can terminate the master before the sequence finishes.
 See [Process model](/docs/process-model) for the signal sequence.
 
 ::: warning What a reload does not do
-The master retains its initial settings and OPcache shared memory during a reload. Restart Rapira after you change `rapira.toml`.
-Also restart it when `opcache.validate_timestamps = 0`. A reload does not replace the cached opcodes in this configuration.
+The master keeps its initial settings and OPcache shared memory during a reload. Restart Rapira after you change `rapira.toml`. Also restart it when `opcache.validate_timestamps = 0`. A reload does not replace the cached opcodes in this configuration.
 :::
 
 ## Logs
 
-Rapira writes each log record to **stderr** with one operation. Therefore, records cannot combine within a line.
-Systemd sends stderr to the journal. Use JSON format in production:
+Rapira writes each log record to **stderr**. Systemd sends stderr to the journal. Use JSON format in production:
 
 ```toml
 [log]
@@ -156,8 +156,7 @@ level = "info"
 format = "json"
 ```
 
-Each line contains one object with `timestamp`, `level`, `message`, and `target`. The timestamp uses RFC 3339 UTC.
-Rapira escapes newline characters in messages. Journald sends the object to log collectors without changes.
+Each line contains one object with `timestamp`, `level`, `target`, and `fields`. The `fields` object contains `message` and other event fields. The timestamp uses RFC 3339 UTC. Rapira escapes newline characters in messages. Journald sends the object to log collectors without changes.
 
 ```bash
 journalctl -u rapira -f
@@ -169,8 +168,7 @@ See [Logging](/docs/logging) for target levels and the `RUST_LOG` override.
 
 ## Recycling and request timeouts
 
-In [Worker mode](/docs/execution-modes), the process retains application state between requests. A memory leak can therefore increase process memory over time.
-Use these two settings to limit the effect:
+In [Worker mode](/docs/execution-modes), the process keeps application state between requests. Thus, a memory leak can increase process memory over time. Use these two settings to limit the effect:
 
 ```toml
 [pool]
@@ -180,6 +178,7 @@ request_terminate_timeout_secs = 30
 
 `max_requests` replaces a worker after the specified request count. Rapira varies each count slightly to prevent simultaneous worker replacement.
 This setting limits the effect of a memory leak but does not correct it.
+
 `request_terminate_timeout_secs` limits the elapsed time for one request. Rapira terminates and replaces a worker that exceeds the limit.
 Both settings have a default value of zero. Enable them for production.
 

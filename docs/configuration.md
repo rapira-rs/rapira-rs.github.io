@@ -5,16 +5,13 @@ description: "All rapira.toml keys, types, defaults, and validation rules."
 
 # Configuration
 
-Rapira can start without a configuration file. `rapira serve --mode worker app/worker.php` uses the default settings.
-Create a `rapira.toml` to change the address, worker count, recycling policy, pidfile, or log level. Specify the file with this command:
+Rapira can start without a configuration file. `rapira serve --mode worker app/worker.php` uses the default settings. Create a configuration file named `rapira.toml` to change the address, worker count, recycling policy, pidfile, or log level. Specify the configuration file with this command:
 
 ```bash
 rapira serve --config /etc/rapira/rapira.toml
 ```
 
-The file has four optional sections. `[http]` configures the listener, and `[pool]` configures worker processes.
-`[supervisor]` configures the master process. `[log]` configures output to stderr.
-The PHP entry script has no default. Set `pool.entrypoint` or pass the script as a CLI argument.
+The configuration file has four optional sections. `[http]` configures the listener, and `[pool]` configures worker processes. `[supervisor]` configures the master process. `[log]` configures output to stderr. The PHP entry script has no default. Set `pool.entrypoint` or pass the script as a CLI argument.
 
 ::: info
 CLI flags override configuration file values. Configuration file values override built-in defaults.
@@ -24,9 +21,7 @@ Only two logging environment variables affect the settings. See the [CLI page](/
 
 ## A complete rapira.toml
 
-The following file contains each supported key. Most keys use their default when they are absent.
-`pool.entrypoint` has no default. Dynamic scaling requires `min_spare` and `max_spare`.
-The `[http.static]` table requires `http.static.root`.
+The following configuration file contains each supported key. Most keys use their default when they are absent. `pool.entrypoint` has no default. Dynamic scaling requires `min_spare` and `max_spare`. The `[http.static]` table requires `http.static.root`.
 
 Some keys must occur together. The `[http.static]` table requires a `"static"` middleware entry, and that entry requires the table.
 Remove `min_spare` and `max_spare` when scaling is not `dynamic`. Rapira rejects these keys with `static` and `ondemand` scaling.
@@ -70,7 +65,7 @@ request_terminate_timeout_secs = 0    # Replaces a worker when one request excee
 
 [supervisor]                          # Optional. Sets master process behavior.
 pidfile = "/run/rapira.pid"           # Optional. Relative paths use this file's directory.
-process_control_timeout_secs = 30     # Sets the stop timeout before QUIT, TERM, and KILL.
+process_control_timeout_secs = 30     # Waits after SIGQUIT before SIGTERM. SIGKILL follows one second later.
 
 [log]                                 # Optional. Sets the level and record format.
 level = "error"                       # Use error, warn, info, debug, or trace. Default: error.
@@ -120,12 +115,12 @@ See [Static files](/docs/static-files) for more information.
 
 The sendfile root is the directory that `sendFile()` can read. Rapira resolves the root and requested path to canonical paths.
 It rejects a path outside the root.
-`sendFile()` is a method of `Rapira\Http\Exchange`. Only Dispatcher mode gives an exchange to the script.
-Therefore, this table affects only Dispatcher mode. Classic and Worker modes accept but do not use it.
+
+`sendFile()` is a method of `Rapira\Http\Exchange`. Only Dispatcher mode gives an exchange to the script. Thus, this table affects only Dispatcher mode. Classic and Worker modes accept but do not use it.
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `root` | string | the directory holding the entry script | The only directory `sendFile()` may read. A relative path resolves against the directory holding the config file. |
+| `root` | string | the directory that contains the entry script | The only directory `sendFile()` may read. A relative path resolves against the directory that contains the configuration file. |
 
 Rapira cannot resolve a root that does not exist during initialization. In this condition, `sendFile()` rejects every path.
 Create the directory before you start the server.
@@ -153,18 +148,18 @@ Workers run PHP. This section defines what they run, how many run, and when the 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `entrypoint` | string | none, required | The PHP script that each worker runs. A relative path uses the configuration file directory as its base. A `SCRIPT` CLI argument overrides this key. You must set one value. |
-| `mode` | `"classic"` \| `"worker"` \| `"dispatcher"` | `"dispatcher"` | How a worker runs the entry script. `classic` starts a new PHP request each time. `worker` retains the script and refills the superglobals. `dispatcher` gives a dispatcher object to the retained script. The `--mode` flag overrides this key. See [execution modes](/docs/execution-modes). |
+| `mode` | `"classic"` \| `"worker"` \| `"dispatcher"` | `"dispatcher"` | How a worker runs the entry script. `classic` starts a new PHP request each time. `worker` keeps the script and refills the superglobals. `dispatcher` keeps the script and gives it a dispatcher object. The `--mode` flag overrides this key. See [execution modes](/docs/execution-modes). |
 | `processes` | integer | one per logical CPU | The worker count. With `dynamic` and `ondemand` scaling, it is the maximum count. The minimum is 1. |
-| `scaling` | `"static"` \| `"dynamic"` \| `"ondemand"` | `"static"` | The pool size policy. `static` retains `processes` workers. `dynamic` uses the spare limits. `ondemand` creates workers for requests and removes idle workers. |
+| `scaling` | `"static"` \| `"dynamic"` \| `"ondemand"` | `"static"` | The pool size policy. `static` keeps `processes` workers. `dynamic` uses the spare limits. `ondemand` creates workers for requests and removes idle workers. |
 | `min_spare` | integer | none | Required with `dynamic` scaling. The master keeps at least this many idle workers. |
 | `max_spare` | integer | none | Required with `dynamic` scaling. The master keeps no more than this many idle workers. The values must satisfy `1 <= min_spare <= max_spare <= processes`. |
 | `max_requests` | integer | `0` | The request limit before worker replacement. Rapira varies the limit slightly to prevent simultaneous replacements. `0` disables the limit. |
-| `process_idle_timeout_secs` | integer | `10` | Read by `ondemand` scaling: how long a worker may remain idle before the master removes it. |
+| `process_idle_timeout_secs` | integer | `10` | With `ondemand` scaling, the master removes a worker after this idle time. |
 | `request_terminate_timeout_secs` | integer | `0` | Wall-clock limit for one request. Rapira terminates and replaces a worker that exceeds this limit. `0` disables the check. |
 
 `mode` controls entry script execution. `scaling` controls the worker count.
 
-Rapira checks the spare limits against the effective `processes` value. Therefore, `--processes` can reduce the permitted `max_spare` value.
+Rapira checks the spare limits against the effective `processes` value. Thus, `--processes` can reduce the permitted `max_spare` value.
 
 ## The `[supervisor]` section
 
@@ -174,12 +169,11 @@ The init system controls the master. See [deployment](/docs/deployment) for a un
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `pidfile` | string | none | The file for the master process identifier. A relative path uses the configuration file directory as its base. Send process signals to this identifier. See [process model](/docs/process-model). |
-| `process_control_timeout_secs` | integer | `30` | How long the master lets a worker finish before it sends QUIT, TERM, and KILL. |
+| `process_control_timeout_secs` | integer | `30` | How long the master waits after `SIGQUIT` before it sends `SIGTERM`. The master sends `SIGKILL` one second after `SIGTERM`. |
 
 ## The `[log]` section
 
-Rapira writes each log record to stderr with one operation. Therefore, master and worker output cannot combine within a line.
-This section controls the log level and format. See [logging](/docs/logging) for targets, formats, and PHP diagnostic levels.
+Rapira writes each log record to stderr. This section controls the log level and format. See [logging](/docs/logging) for targets, formats, and PHP diagnostic levels.
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
@@ -187,8 +181,12 @@ This section controls the log level and format. See [logging](/docs/logging) for
 | `format` | `"plain"` \| `"json"` | `"plain"` | The record format. Plain output contains readable lines and can use colors. JSON output contains one object per line. |
 | `[log.targets]` | table of target → level | empty | Log level overrides for targets. `php` contains PHP output, and `http` contains HTTP server output. Keys match target prefixes. See [Logging](/docs/logging). |
 
-A `[log.targets]` key uses letters, digits, `_`, `:`, `.`, or `-`. It must start with a letter, digit, or `_`.
-Rapira rejects other characters because the log filter can interpret them as syntax.
+A `[log.targets]` key uses letters, digits, `_`, `:`, `.`, or `-`. It must start with a letter, digit, or `_`. Rapira rejects other characters because the log filter can interpret them as syntax. A target key that contains `:` or `.` must use quotes because TOML does not permit these characters in a bare key. For example:
+
+```toml
+[log.targets]
+"php_sys::callbacks" = "debug"
+```
 
 Rapira reads only the `RUST_LOG` and `NO_COLOR` environment variables. Both variables affect only logs.
 `RUST_LOG` replaces the complete filter for one run. `NO_COLOR` disables plain output colors when its value is not empty.
@@ -199,25 +197,18 @@ Rapira accepts only documented tables and keys. For example, `[htttp]` or `lisst
 The error identifies the unknown name. Rapira does not ignore it.
 Each key belongs to one table. For example, `max_requests` belongs to `[pool]`, and `pidfile` belongs to `[supervisor]`.
 
-Rapira also validates values. It rejects unsupported values instead of replacing them with defaults.
-For example, it rejects `level = "verbose"`, `format = "pretty"`, and `unsafe_field_names = "allow"`.
-Numeric values have limits. Worker counts, body sizes, HTTP timeouts, and upload limits must be at least 1.
-Each `*_secs` key has a maximum of `86400`, which is one day.
+Rapira also validates values. It rejects unsupported values and does not replace them with defaults. For example, it rejects `level = "verbose"`, `format = "pretty"`, and `unsafe_field_names = "allow"`. Numeric values have limits. Worker counts, body sizes, HTTP timeouts, and upload limits must be at least 1. Each `*_secs` key has a maximum of `86400`, which is one day.
 
 ::: warning
-Rapira validates the file before initialization. An unknown key prevents the server from starting.
-Changes to `rapira.toml` do not affect a running process. Rapira validates the changed file during the next start.
+Rapira validates the configuration file before initialization. An unknown key stops server initialization. Configuration file changes do not affect an active process. Rapira validates the changed configuration file during the next start.
 :::
 
 ## Relative paths
 
-Five keys contain file system paths: `pool.entrypoint`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root`, and `http.uploads.dir`.
-Each relative path uses the configuration file directory as its base.
-For example, set `entrypoint = "app/worker.php"` in `/etc/rapira/rapira.toml`. The resulting path is `/etc/rapira/app/worker.php`.
+Five keys contain file system paths: `pool.entrypoint`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root`, and `http.uploads.dir`. Each relative path uses the configuration file directory as its base. For example, set `entrypoint = "app/worker.php"` in `/etc/rapira/rapira.toml`. Rapira then uses `/etc/rapira/app/worker.php`.
 
 The positional `SCRIPT` argument uses the current directory as the base for a relative path.
 
 ::: tip
-Keep `rapira.toml` inside the application. Write its paths relative to the file.
-You can then move the application directory without changing the paths.
+Keep the `rapira.toml` configuration file inside the application. Write its paths relative to the configuration file. You can move the application directory. These paths do not change.
 :::

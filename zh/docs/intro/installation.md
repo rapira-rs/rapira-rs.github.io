@@ -25,7 +25,7 @@ Rapira 带的是 embed 构建，因为掌控请求流程的是服务器而不是
 :::
 
 ::: question 「PHP 跑在 Rapira 进程内」是什么意思？
-启动时 `libphp` 会被加载进 `rapira` 进程的地址空间，之后调用 PHP 就是在同一块内存里做一次函数调用：没有 socket，没有 FastCGI，也不需要把请求和响应序列化来序列化去。这说的是代码怎么执行--就文件而言，这个库依然是独立的一份，躺在二进制文件旁边，所以二进制文件不能撇下它单独搬走（见[压缩包：Linux 与 macOS](#压缩包-linux-与-macos)）。
+初始化期间，`rapira` 进程将 `libphp` 加载到其地址空间。Rapira 在同一进程中调用 PHP 函数。 它不使用 socket、FastCGI 或请求序列化。此库仍是二进制文件旁的独立文件。 因此，不要只移动二进制文件。请参阅 [Linux 与 macOS 压缩包](#linux-与-macos-压缩包)。
 :::
 
 ## 选择 PHP 版本
@@ -46,8 +46,7 @@ Rapira 带的是 embed 构建，因为掌控请求流程的是服务器而不是
 
 Linux 和 macOS 文件位于 [Rapira 发布页](https://github.com/rapira-rs/rapira/releases)。Windows 文件位于 [Rapira Windows 发布页](https://github.com/rapira-rs/rapira-windows/releases)。[下载页](/zh/download)会按你的平台--系统、架构、PHP 版本、包格式--挑好产物，并显示它的 SHA-256；每个 `php8.5` 产物都有一个对应的 `php8.4`。
 
-在 Linux 上：如果你希望文件落在发行版预期的位置，并让 `apt` 或 `dnf` 顺带装好 PHP 需要的共享库，就选软件包；如果服务器必须塞进一个目录里--容器镜像、部署产物、没有 root 权限的机器--就选压缩包。
-在 Linux 上，压缩包还需要系统库。库的列表见[压缩包：Linux 与 macOS](#压缩包-linux-与-macos)。
+在 Linux 上，软件包使用标准文件路径并自动安装库依赖项。 压缩包适用于单目录、容器镜像、部署产物或无 root 权限的安装。 Linux 压缩包还需要系统库。请参阅 [Linux 与 macOS 压缩包](#linux-与-macos-压缩包)。
 
 两种情况都请在安装前用 `rapira-v0.8.0-SHA256SUMS.txt` 核对一遍，命令见[验证校验和](#验证校验和)。
 
@@ -79,7 +78,7 @@ rapira --version
 
 ## RHEL、Rocky 与 Fedora
 
-一样的做法，换成 `dnf`：
+使用 `dnf` 安装 RPM：
 
 ```bash
 curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.8.0/rapira-php8.5-0.8.0-1.x86_64.rpm
@@ -89,7 +88,7 @@ rapira --version
 
 同样的 glibc 2.34 下限决定了最低要求：**RHEL 9** 及其重构版--Rocky 9、AlmaLinux 9--再加上任何当前的 Fedora。
 
-## 压缩包：Linux 与 macOS
+## Linux 与 macOS 压缩包
 
 压缩包解压出来是一个目录，整台服务器都在里面：
 
@@ -123,6 +122,19 @@ rapira --version
 ```
 
 :::
+
+### 无 root 权限安装
+
+如果没有 root 权限，请将整个目录保存在你的主目录中。在 `~/.local/bin` 中创建符号链接：
+
+```bash
+mkdir -p "$HOME/.local/opt" "$HOME/.local/bin"
+mv rapira-v0.8.0-php8.5-linux-x86_64 "$HOME/.local/opt/rapira"
+ln -s "$HOME/.local/opt/rapira/bin/rapira" "$HOME/.local/bin/rapira"
+"$HOME/.local/bin/rapira" --version
+```
+
+在 macOS 上，请把源目录名换成解压后的 macOS 目录名。如果 shell 尚未包含此目录，请将 `$HOME/.local/bin` 添加到 `PATH`。
 
 ::: warning
 二进制文件是在自己旁边找解释器的，所以目录只能整个搬：`cp bin/rapira /usr/local/bin/` 会让它起不来。要进 `PATH`，请照上面的命令做符号链接。
@@ -192,7 +204,7 @@ registry 里还有构建过程中先产出的那些单架构标签，比如 `X.Y
 
 ## libphp 构建
 
-`libphp` 用 `--disable-all` 编译，然后再逐一打开一组固定的扩展：
+Rapira 使用 `--disable-all` 构建 `libphp`，并启用以下固定扩展：
 
 - **运行时基础**：session、filter、mbstring、iconv、ctype、tokenizer、fileinfo、phar、posix。
 - **OPcache**，以及开启了 JIT 的 PCRE。
@@ -202,11 +214,11 @@ registry 里还有构建过程中先产出的那些单架构标签，比如 `X.Y
 - **共享内存与 System V IPC**：shmop、sysvmsg、sysvsem、sysvshm。
 - **日期、图像元数据与翻译**：calendar、exif、gettext。
 - **外部函数接口**：ffi。
-- PHP 总是会编进去的那些：Core、standard、SPL、date、json、hash、random、Reflection。
+- **必要的 PHP 组件**：Core、standard、SPL、date、json、hash、random、Reflection。
 
 *没有*的是：`pdo_mysql`、`pgsql`、redis、apcu、imagick 之类。如果你的应用需要其中某个扩展，就把它编进 `libphp`，再用这份库编译 Rapira--具体做法见[从源码构建](/zh/docs/intro/build-from-source)。
 
-每次发版都会取所构建分支的最新补丁版本。压缩包里，确切版本写在 `share/php/PHP_VERSION.txt`；服务器跑起来之后，`PHP_VERSION` 和 `phpinfo()` 都会报告它。
+每个版本使用其 PHP 分支中可用的最新补丁版本。压缩包的 `share/php/PHP_VERSION.txt` 包含确切版本。 在运行的服务器上，`PHP_VERSION` 和 `phpinfo()` 会报告此版本。
 
 ::: question 为什么在 PHP 8.4 上 `PHP_SAPI` 返回 `fastcgi`？
 在 PHP 8.4 上，OPcache 只对固定的一批 SAPI 名字启动，名字不在名单里就意味着压根没有共享 opcode 缓存--所以在那里 SAPI 注册成了 `fastcgi`。PHP 8.5 去掉了这份名单，于是 `PHP_SAPI` 和 `php_sapi_name()` 返回 `rapira`。而 `phpinfo()` 里的 *Server API* 一行两种情况下都显示 `Rapira`。按 `PHP_SAPI` 分支的代码要能认得这两个值。
@@ -225,7 +237,7 @@ PHPRC=/etc/rapira/php.ini rapira serve --config /etc/rapira/rapira.toml
 :::
 
 ::: question 为什么文件叫 `php.ini`，而不是 `php-rapira.ini`？
-PHP 会先找 `php-<sapi 名>.ini`，找不到才用普通的 `php.ini`，而 SAPI 名字随版本而变--8.4 上是 `fastcgi`，8.5 上是 `rapira`。普通的 `php.ini` 两边都适用。
+PHP 会先找 `php-<sapi-name>.ini`，找不到才用普通的 `php.ini`，而 SAPI 名字随版本而变--8.4 上是 `fastcgi`，8.5 上是 `rapira`。普通的 `php.ini` 两边都适用。
 :::
 
 ## 分发

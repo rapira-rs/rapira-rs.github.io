@@ -18,8 +18,7 @@ blog/                    # Blog index and posts
 public/blog/             # Blog images
 ```
 
-English is canonical. Apply each content change to English and all four translations. A correction that changes only translation quality does not require an English change.
-Translations must preserve the complete technical meaning of the English source. Do not translate identifiers, package names, CLI flags, configuration keys, or functional code. You may translate explanatory comments and user-facing text in examples.
+English is canonical. Apply each content change to English and all four translations. A correction that changes only translation quality does not require an English change. Translations must keep the complete technical meaning of the English source. Do not translate identifiers, package names, CLI flags, configuration keys, or functional code. You may translate explanatory comments and user-facing text in examples.
 
 When you add a documentation page:
 
@@ -41,7 +40,11 @@ Prefer the GitHub CLI (`gh`) for GitHub operations when it is available. This pr
 
 ## Writing rule
 
-English content must follow ASD-STE100 Simplified Technical English. Use active voice. Use literal language. Use one term for each meaning. Limit descriptive sentences to 25 words. Limit procedural sentences to 20 words. Put one instruction in each procedural sentence.
+English content must follow ASD-STE100 Simplified Technical English. Use active voice. Use literal language. Use one term for each meaning.
+
+Limit descriptive sentences to 25 words. Limit procedural sentences to 20 words. Put one instruction in each procedural sentence. Use no more than six sentences in each paragraph.
+
+Do not hard-wrap prose inside a paragraph. Use a blank line to separate paragraphs.
 
 ## Page tools
 
@@ -67,14 +70,14 @@ Pages support standard Markdown and these features:
 
 `docs/contributing.md` and its translations contain rendered examples. Update those pages when you change an authoring feature.
 
-Use VitePress variables, components, classes, and frontmatter before adding custom CSS. Use theme variables for colors and spacing. Prefix project classes with `rapira-` or the feature name. Verify CSS in light and dark themes.
+Use VitePress variables, components, classes, and frontmatter before you add custom CSS. Use theme variables for colors and spacing. Prefix project classes with `rapira-` or the feature name. Verify CSS in light and dark themes.
 
 ## FAQ
 
 Use `::: question` for implementation details that are not required for the main procedure:
 
 ```md
-::: question Can I run the site without installing anything globally?
+::: question Can I run the site if I install nothing globally?
 Run `npm ci` locally. Then run `npm run dev`.
 :::
 ```

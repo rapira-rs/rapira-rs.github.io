@@ -5,10 +5,7 @@ description: "Cómo ejecutar una aplicación Symfony sobre Rapira en modo Worker
 
 # Symfony
 
-Symfony admite un worker persistente. La aplicación inicia un kernel, le pasa una `Request` y recibe una `Response`.
-Rapira inicia el kernel una vez por worker. Después, cada petición llama a `handle()` en el contenedor iniciado.
-El código de la aplicación no cambia. Un script de worker sustituye `public/index.php`.
-Esta página describe ese archivo, el reinicio del estado y los valores de `.env`.
+Symfony admite un worker persistente. La aplicación inicia un kernel, le pasa una `Request` y recibe una `Response`. Rapira inicia el kernel una vez por worker. Después, cada petición llama a `handle()` en el contenedor iniciado. El código de la aplicación no cambia. Un script de worker sustituye `public/index.php`. Esta página describe ese archivo, el reinicio del estado y los valores de `.env`.
 
 ::: info Verificado con
 - **PHP 8.5.8** - NTS, SAPI embed
@@ -21,8 +18,7 @@ Las dos aplicaciones se crearon con el paquete `symfony/skeleton` y usaron un ú
 
 ## Comportamiento en modo Worker
 
-El kernel se inicia fuera del bucle y permanece durante la vida del worker. El autoloader, el contenedor, el router, el dispatcher de eventos y las conexiones se inician una vez.
-Consulta [modo Worker](/es/docs/worker) y [Modos de ejecución](/es/docs/execution-modes) para obtener más información.
+El kernel se inicia fuera del bucle y permanece hasta que el script del worker se reinicia. El autoloader, el contenedor, el router, el dispatcher de eventos y las conexiones se inician una vez. Consulta [modo Worker](/es/docs/worker) y [Modos de ejecución](/es/docs/execution-modes) para obtener más información.
 
 En cada petición, el handler hace cuatro cosas y después limpia:
 
@@ -39,9 +35,7 @@ Un kernel vive en un proceso worker, y los workers son procesos independientes d
 
 ## Requisitos previos
 
-Instala [Rapira](/es/docs/intro/installation) y crea o selecciona una aplicación Symfony. Coloca el script del worker junto a `composer.json`.
-Instala un PHP CLI para Composer y `bin/console`. Rapira proporciona PHP como biblioteca, no como comando `php`.
-Composer y `bin/console` usan el PHP CLI del sistema. Rapira no usa ni cambia este CLI.
+Instala [Rapira](/es/docs/intro/installation) y crea o selecciona una aplicación Symfony. Coloca el script del worker junto a `composer.json`. Instala un PHP CLI para Composer y `bin/console`. Rapira proporciona PHP como biblioteca, no como comando `php`. Composer y `bin/console` usan el PHP CLI del sistema. Rapira no usa ni cambia este CLI.
 
 Hay dos extensiones que sí importan, porque el archivo `composer.json` de la aplicación base las exige de forma estricta (`ext-ctype`, `ext-iconv`) *y además* hace `replace` de los polyfills correspondientes, así que tienen que ser extensiones de verdad y no sustitutos escritos en PHP. Las necesitan las dos compilaciones de PHP, también el CLI del sistema: si no, `composer create-project` y `composer install` fallan en la comprobación de plataforma mucho antes de que Rapira entre en juego. El PHP que va dentro de cada release de Rapira trae las dos: `ctype` e `iconv` están en la línea de configure de la compilación, y la lista completa de extensiones está en la página de [Instalación](/es/docs/intro/installation). Si en vez de eso compilas Rapira contra un PHP tuyo, deja las dos activadas; en [Compilar desde el código](/es/docs/intro/build-from-source) se ve dónde se fija esa lista.
 
@@ -94,28 +88,19 @@ while (\Rapira\handle_request($handler)) {
 
 Casi todo es arranque normal y corriente de Symfony. Cuatro líneas son propias de este montaje:
 
-**`(new Dotenv())->bootEnv(...)`.** El `public/index.php` estándar delega esta operación a `symfony/runtime`.
-El worker lee `.env` una vez antes de crear el kernel. Rapira conserva estos valores de `$_ENV` entre peticiones.
+**`(new Dotenv())->bootEnv(...)`.** El `public/index.php` estándar delega esta operación a `symfony/runtime`. El worker lee `.env` una vez antes de crear el kernel. Rapira conserva estos valores de `$_ENV` entre peticiones.
 
-**El kernel se inicia antes del bucle.** `new Kernel(...)`, `boot()` y `getContainer()` se ejecutan al iniciar el worker.
-El kernel lee `$_SERVER['APP_ENV']` durante el inicio del worker. Cada petición usa el mismo contenedor.
+**El kernel se inicia antes del bucle.** `new Kernel(...)`, `boot()` y `getContainer()` se ejecutan al iniciar el worker. El kernel lee `$_SERVER['APP_ENV']` durante el inicio del worker. Cada petición usa el mismo contenedor.
 
-**`$container->has('services_resetter')` antes de `get()`.** El identificador `services_resetter` es público en las dos versiones admitidas.
-La clase de implementación usa espacios de nombres diferentes en 7.4 y 8.1. El identificador del servicio evita una condición de versión.
-La comprobación `has()` evita un error cuando el contenedor no define el servicio.
+**`$container->has('services_resetter')` antes de `get()`.** El identificador `services_resetter` es público en las dos versiones admitidas. La clase de implementación usa espacios de nombres diferentes en 7.4 y 8.1. El identificador del servicio evita una condición de versión. La comprobación `has()` evita un error cuando el contenedor no define el servicio.
 
 **El bucle y `gc_collect_cycles()`.** `\Rapira\handle_request()` se bloquea hasta que llega una petición, ejecuta tu handler y devuelve `true`. Devuelve `false` cuando el worker empieza a drenarse, que es lo que termina el bucle. Recoger los ciclos una vez por vuelta mantiene ese trabajo entre peticiones y no en mitad de una. El contrato completo está en [Modo Worker](/es/docs/worker).
 
-Si el resetter no es suficiente, usa `$container->reset()` o `$kernel->reboot(null)`. La primera opción elimina todos los servicios creados.
-La segunda elimina el contenedor y crea uno nuevo.
-Después de `$kernel->reboot(null)`, obtiene el contenedor nuevo con `$kernel->getContainer()`. El handler no debe usar el contenedor anterior.
-Ambas opciones eliminan el estado en caché. Úsalas para encontrar una fuga, no como configuración predeterminada.
+Si el resetter no es suficiente, usa `$container->reset()` o `$kernel->reboot(null)`. La primera opción elimina todos los servicios creados. La segunda elimina el contenedor y crea uno nuevo. Después de `$kernel->reboot(null)`, obtén el contenedor nuevo con `$kernel->getContainer()`. El handler no debe usar el contenedor anterior. Ambas opciones eliminan el estado en caché. Úsalas para encontrar una fuga, no como configuración predeterminada.
 
 ## `$_ENV` y el entorno del proceso
 
-Rapira conserva `$_ENV` hasta que el worker vuelve a ejecutar el script. No reconstruye esta superglobal para cada petición.
-Los valores que `bootEnv()` carga antes del bucle permanecen disponibles durante las peticiones posteriores.
-Este comportamiento también se aplica con `variables_order = "GPCS"` y `auto_globals_jit = On`.
+Rapira conserva `$_ENV` hasta que el worker vuelve a ejecutar el script. No reconstruye esta superglobal para cada petición. Los valores que `bootEnv()` carga antes del bucle permanecen disponibles durante las peticiones posteriores. Este comportamiento también se aplica con `variables_order = "GPCS"` y `auto_globals_jit = On`.
 
 Por ejemplo, añade `usePutenv()` si el código de la aplicación debe leer valores de Dotenv con `getenv()`:
 
@@ -123,12 +108,9 @@ Por ejemplo, añade `usePutenv()` si el código de la aplicación debe leer valo
 (new Dotenv())->usePutenv()->bootEnv(__DIR__ . '/.env');
 ```
 
-`usePutenv()` escribe los valores de Dotenv en el entorno del proceso.
-Symfony `%env(...)%` puede leer los valores conservados en `$_ENV` sin esta llamada.
-Rapira ejecuta un intérprete PHP NTS en cada proceso. PHP no llama a `putenv()` desde hilos simultáneos.
+`usePutenv()` escribe los valores de Dotenv en el entorno del proceso. Symfony `%env(...)%` puede leer los valores conservados en `$_ENV` sin esta llamada. Rapira ejecuta un intérprete PHP NTS en cada proceso. PHP no llama a `putenv()` desde hilos simultáneos.
 
-En producción, define variables de entorno mediante systemd, el contenedor o el orquestador.
-Usa `.env` solo durante el desarrollo.
+En producción, define variables de entorno mediante systemd, el contenedor o el orquestador. Usa `.env` solo durante el desarrollo.
 
 ## Iniciar Rapira
 
@@ -138,8 +120,7 @@ Inicia Rapira:
 rapira serve --mode worker worker.php
 ```
 
-`--mode worker` selecciona el modo Worker. `127.0.0.1:8000` es la dirección predeterminada.
-`rapira serve` permanece en primer plano.
+`--mode worker` selecciona el modo Worker. `127.0.0.1:8000` es la dirección predeterminada. `rapira serve` permanece en primer plano.
 
 Abre otro terminal. Envía una petición:
 
@@ -149,15 +130,11 @@ curl -i http://127.0.0.1:8000/
 
 Pulsa `Ctrl-C` en el primer terminal para detener Rapira.
 
-El script de entrada es `worker.php`, por lo que `$_SERVER['SCRIPT_NAME']` contiene `/worker.php`. Symfony no encuentra este valor al principio de la URI.
-Después, establece la URL base en `""`. `getPathInfo()` devuelve la ruta y el enrutado funciona correctamente.
-`generateUrl()` crea rutas sin el prefijo `/worker.php`. No necesitas modificar `$_SERVER` ni usar `Request::setTrustedProxies()`.
+El script de entrada es `worker.php`, por lo que `$_SERVER['SCRIPT_NAME']` contiene `/worker.php`. Symfony no encuentra este valor al principio de la URI. Después, establece la URL base en `""`. `getPathInfo()` devuelve la ruta y el enrutado funciona correctamente. `generateUrl()` crea rutas sin el prefijo `/worker.php`. No necesitas modificar `$_SERVER` ni usar `Request::setTrustedProxies()`.
 
 ## Pasar a producción
 
-Establece `APP_ENV=prod`. Instala sin dependencias de desarrollo.
-Crea la caché antes de iniciar el servidor. Las pruebas confirmaron la inicialización correcta con `php bin/console cache:warmup`.
-Este comando también compila el contenedor antes de la primera petición:
+Establece `APP_ENV=prod`. Instala sin dependencias de desarrollo. Crea la caché antes de iniciar el servidor. Las pruebas confirmaron la inicialización correcta con `php bin/console cache:warmup`. Este comando también compila el contenedor antes de la primera petición:
 
 ```bash
 composer install --no-dev --optimize-autoloader
@@ -180,32 +157,23 @@ max_requests = 500
 request_terminate_timeout_secs = 30
 ```
 
-`max_requests` sustituye un worker después del número especificado de peticiones. Limita una fuga de memoria, pero no la corrige.
-`request_terminate_timeout_secs` limita el tiempo de una petición.
-Inicia el servidor con `APP_ENV=prod rapira serve --config rapira.toml`.
-Un `entrypoint` relativo usa el directorio del archivo. Consulta todos los ajustes en [Configuración](/es/docs/configuration).
+`max_requests` sustituye un worker después del número especificado de peticiones. Limita una fuga de memoria, pero no la corrige. `request_terminate_timeout_secs` limita el tiempo de una petición. Inicia el servidor con `APP_ENV=prod rapira serve --config rapira.toml`. Un `entrypoint` relativo usa el directorio del archivo. Consulta todos los ajustes en [Configuración](/es/docs/configuration).
 
 ## Reinicio del estado entre peticiones
 
-`services_resetter` llama a `reset()` en cada servicio con la etiqueta `kernel.reset`. Los bundles instalados determinan estos servicios.
-Algunos ejemplos son los handlers de registro con búfer y los recolectores de depuración. Los servicios registran la etiqueta.
+`services_resetter` llama a `reset()` en cada servicio con la etiqueta `kernel.reset`. Los bundles instalados determinan estos servicios. Algunos ejemplos son los handlers de registro con búfer y los recolectores de depuración. Los servicios registran la etiqueta.
 
-No reinicia las propiedades estáticas, los valores globales, los registros de bibliotecas ni los cambios persistentes de `ini_set()`.
-Este estado permanece en cada worker persistente. Reinícialo en el código de la aplicación.
-Consulta la duración del estado en [Frameworks](/es/docs/frameworks/).
+No reinicia las propiedades estáticas, los valores globales, los registros de bibliotecas ni los cambios persistentes de `ini_set()`. Este estado permanece en cada worker persistente. Reinícialo en el código de la aplicación. Consulta la duración del estado en [Frameworks](/es/docs/frameworks/).
 
-Las pruebas con el resetter mostraron memoria estable durante 200 peticiones en `dev` y `prod`.
-Si aumenta la memoria, el código de la aplicación o un bundle puede estar conservando el estado de petición.
+Las pruebas con el resetter mostraron memoria estable durante 200 peticiones en `dev` y `prod`. Si aumenta la memoria, el código de la aplicación o un bundle puede estar conservando el estado de petición.
 
 ## Trabajo después de la respuesta
 
-Llama a [`rapira_finish_request()`](/es/docs/http) entre `$response->send()` y `$kernel->terminate()` para enviar la respuesta antes de los listeners posteriores.
-El worker continúa ejecutando `terminate()` hasta que retorna el handler. Esto puede reducir la espera del cliente, pero no añade concurrencia.
+Llama a [`rapira_finish_request()`](/es/docs/http) entre `$response->send()` y `$kernel->terminate()` para enviar la respuesta antes de los listeners posteriores. El worker continúa ejecutando `terminate()` hasta que retorna el handler. Esto puede reducir la espera del cliente, pero no añade concurrencia.
 
 ## El bucle de desarrollo
 
-`rapira serve` se ejecuta en primer plano e inicia la aplicación una vez. Por tanto, **sustituye el worker para cargar el código PHP modificado**.
-Reinicia el servidor después de cada cambio durante el desarrollo. Como alternativa, usa el [modo Classic](/es/docs/classic):
+`rapira serve` se ejecuta en primer plano e inicia la aplicación una vez. Por tanto, **sustituye el worker para cargar el código PHP modificado**. Reinicia el servidor después de cada cambio durante el desarrollo. Como alternativa, usa el [modo Classic](/es/docs/classic):
 
 ```bash
 rapira serve --mode classic public/index.php
@@ -213,7 +181,4 @@ rapira serve --mode classic public/index.php
 
 Es la misma aplicación en modo Classic: arranca en cada petición, así que los cambios surten efecto al momento, a costa de un arranque completo por petición. En un servidor de producción ya en marcha, el código recién desplegado toma el relevo con una recarga progresiva (`SIGUSR2` al maestro). Las peticiones actuales pueden terminar, pero las conexiones keep-alive inactivas se cierran. Si usas `opcache.validate_timestamps = 0`, el segmento de OPcache del maestro sobrevive al pool y el despliegue necesita un reinicio completo. Mira [Modelo de procesos](/es/docs/process-model) y [cómo ejecutarlo en producción](/es/docs/deployment).
 
-Symfony gestiona una excepción de la aplicación y devuelve su respuesta `500`. `dev` muestra la página de excepción.
-`prod` muestra una página de error general. El mismo worker procesa la siguiente petición.
-El reinicio final elimina el estado modificado de los servicios. El logger de Symfony configurado controla la salida de la excepción. La aplicación base no incluye un logger.
-Rapira registra los errores PHP que salen del framework. Consulta los niveles en [Registros](/es/docs/logging).
+Symfony gestiona una excepción de la aplicación y devuelve su respuesta `500`. `dev` muestra la página de excepción. `prod` muestra una página de error general. El mismo worker procesa la siguiente petición. El reinicio final elimina el estado modificado de los servicios. El logger de Symfony configurado controla la salida de la excepción. La aplicación base no incluye un logger. Rapira registra los errores PHP que Symfony no gestiona. Consulta [Registros](/es/docs/logging) para configurar los niveles.

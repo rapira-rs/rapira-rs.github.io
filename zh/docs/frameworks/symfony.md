@@ -5,10 +5,7 @@ description: "如何在 Rapira 的 Worker 模式下运行 Symfony 应用：worke
 
 # Symfony
 
-Symfony 支持常驻 worker。应用初始化内核，向其传递 `Request`，并接收 `Response`。
-Rapira 为每个 worker 初始化一次内核。之后，每个请求在已初始化的容器上调用 `handle()`。
-应用代码不变。worker 脚本替换 `public/index.php`。
-本页介绍此文件、请求状态重置和 `.env` 值。
+Symfony 支持常驻 worker。应用初始化内核，向其传递 `Request`，并接收 `Response`。 Rapira 为每个 worker 初始化一次内核。之后，每个请求在已初始化的容器上调用 `handle()`。 应用代码不变。worker 脚本替换 `public/index.php`。 本页介绍此文件、请求状态重置和 `.env` 值。
 
 ::: info 验证环境
 - **PHP 8.5.8**--NTS、embed SAPI
@@ -21,8 +18,7 @@ Rapira 为每个 worker 初始化一次内核。之后，每个请求在已初�
 
 ## Worker 模式下的行为
 
-内核在循环外初始化，并保留到 worker 结束。自动加载器、容器、路由器、事件分发器和连接只初始化一次。
-有关详细信息，请参阅 [Worker 模式](/zh/docs/worker)和[执行模式](/zh/docs/execution-modes)。
+内核在循环外初始化，并保留到 worker 脚本重新启动。自动加载器、容器、路由器、事件分发器和连接只初始化一次。 有关详细信息，请参阅 [Worker 模式](/zh/docs/worker)和[执行模式](/zh/docs/execution-modes)。
 
 每个请求里，handler 做四件事，然后收尾：
 
@@ -39,9 +35,7 @@ session 就是原生的 PHP session，和在 php-fpm 下完全一样：每个请
 
 ## 前置条件
 
-安装 [Rapira](/zh/docs/intro/installation)，并创建或选择 Symfony 应用。将 worker 脚本放在 `composer.json` 旁边。
-为 Composer 和 `bin/console` 安装 PHP CLI。Rapira 以库的形式提供 PHP，不提供 `php` 命令。
-Composer 和 `bin/console` 使用系统 PHP CLI。Rapira 不使用或更改此 CLI。
+安装 [Rapira](/zh/docs/intro/installation)，并创建或选择 Symfony 应用。将 worker 脚本放在 `composer.json` 旁边。 为 Composer 和 `bin/console` 安装 PHP CLI。Rapira 以库的形式提供 PHP，不提供 `php` 命令。 Composer 和 `bin/console` 使用系统 PHP CLI。Rapira 不使用或更改此 CLI。
 
 有两个扩展要留意，因为基础应用在 `composer.json` 里把它们写成了硬依赖（`ext-ctype`、`ext-iconv`），*同时*还 `replace` 掉了对应的 polyfill--所以它们必须是真正的扩展，不能是 PHP 写的替身。两个 PHP 构建都需要它们，系统里那个 CLI 也一样，否则 `composer create-project` 和 `composer install` 在平台检查那一步就会失败，那时 Rapira 根本还没上场。每个 Rapira 发布版内嵌的 PHP 两个都带：`ctype` 和 `iconv` 就在构建的 configure 参数里，完整的扩展清单在[安装](/zh/docs/intro/installation)页上。如果你改用自己的 PHP 来编译 Rapira，记得把这两个都打开--那份清单在哪里设置，见[从源码构建](/zh/docs/intro/build-from-source)。
 
@@ -94,28 +88,19 @@ while (\Rapira\handle_request($handler)) {
 
 大部分都是普通的 Symfony 启动代码，只有四行是这套方案特有的：
 
-**`(new Dotenv())->bootEnv(...)`。**标准 `public/index.php` 将此操作委托给 `symfony/runtime`。
-worker 在创建内核前读取一次 `.env`。Rapira 在请求之间保留这些 `$_ENV` 值。
+**`(new Dotenv())->bootEnv(...)`。**标准 `public/index.php` 将此操作委托给 `symfony/runtime`。 worker 在创建内核前读取一次 `.env`。Rapira 在请求之间保留这些 `$_ENV` 值。
 
-**内核在循环前初始化。**`new Kernel(...)`、`boot()` 和 `getContainer()` 在 worker 初始化期间运行。
-内核在 worker 初始化期间读取 `$_SERVER['APP_ENV']`。每个请求使用相同的容器。
+**内核在循环前初始化。**`new Kernel(...)`、`boot()` 和 `getContainer()` 在 worker 初始化期间运行。 内核在 worker 初始化期间读取 `$_SERVER['APP_ENV']`。每个请求使用相同的容器。
 
-**在 `get()` 前调用 `$container->has('services_resetter')`。**`services_resetter` 标识符在两个支持的版本中都是公开的。
-其实现类在 7.4 和 8.1 中使用不同的命名空间。服务标识符不需要版本条件。
-如果容器未定义服务，`has()` 检查可以防止错误。
+**在 `get()` 前调用 `$container->has('services_resetter')`。**`services_resetter` 标识符在两个支持的版本中都是公开的。 其实现类在 7.4 和 8.1 中使用不同的命名空间。服务标识符不需要版本条件。 如果容器未定义服务，`has()` 检查可以防止错误。
 
 **循环和 `gc_collect_cycles()`。**`\Rapira\handle_request()` 会一直阻塞到有请求上门，跑你的 handler，然后返回 `true`；worker 开始排空时它返回 `false`，循环也就到此为止。每转一圈回收一次循环引用，这份开销就固定落在两次请求之间，而不是某个请求处理到一半的时候。完整契约见 [Worker 模式](/zh/docs/worker)。
 
-如果 resetter 不足，请使用 `$container->reset()` 或 `$kernel->reboot(null)`。第一个选项删除所有已创建的服务。
-第二个选项删除容器并创建新容器。
-运行 `$kernel->reboot(null)` 后，使用 `$kernel->getContainer()` 获取新容器。handler 不得使用旧容器。
-两个选项都会删除缓存的应用状态。请将它们用于查找泄漏，不要作为默认配置。
+如果 resetter 不足，请使用 `$container->reset()` 或 `$kernel->reboot(null)`。第一个选项删除所有已创建的服务。 第二个选项删除容器并创建新容器。 运行 `$kernel->reboot(null)` 后，使用 `$kernel->getContainer()` 获取新容器。handler 不得使用旧容器。 两个选项都会删除缓存的应用状态。请将它们用于查找泄漏，不要作为默认配置。
 
 ## `$_ENV` 与进程环境
 
-Rapira 会保留 `$_ENV`，直到 worker 重新运行脚本。它不会为每个请求重建此超全局变量。
-`bootEnv()` 在循环前加载的值仍可用于后续请求。
-此行为也适用于 `variables_order = "GPCS"` 和 `auto_globals_jit = On`。
+Rapira 会保留 `$_ENV`，直到 worker 重新运行脚本。它不会为每个请求重建此超全局变量。 `bootEnv()` 在循环前加载的值仍可用于后续请求。 此行为也适用于 `variables_order = "GPCS"` 和 `auto_globals_jit = On`。
 
 例如，如果应用代码必须使用 `getenv()` 读取 Dotenv 值，请添加 `usePutenv()`：
 
@@ -123,12 +108,9 @@ Rapira 会保留 `$_ENV`，直到 worker 重新运行脚本。它不会为每个
 (new Dotenv())->usePutenv()->bootEnv(__DIR__ . '/.env');
 ```
 
-`usePutenv()` 将 Dotenv 值写入进程环境。
-Symfony `%env(...)%` 无需此调用即可读取保留的 `$_ENV` 值。
-Rapira 在每个进程中运行一个 NTS PHP 解释器。PHP 不会从并发线程调用 `putenv()`。
+`usePutenv()` 将 Dotenv 值写入进程环境。 Symfony `%env(...)%` 无需此调用即可读取保留的 `$_ENV` 值。 Rapira 在每个进程中运行一个 NTS PHP 解释器。PHP 不会从并发线程调用 `putenv()`。
 
-在生产环境中，请通过 systemd、容器或编排器设置环境变量。
-仅在开发期间使用 `.env`。
+在生产环境中，请通过 systemd、容器或编排器设置环境变量。 仅在开发期间使用 `.env`。
 
 ## 启动 Rapira
 
@@ -138,8 +120,7 @@ Rapira 在每个进程中运行一个 NTS PHP 解释器。PHP 不会从并发线
 rapira serve --mode worker worker.php
 ```
 
-`--mode worker` 选择 Worker 模式。`127.0.0.1:8000` 是默认监听地址。
-`rapira serve` 在前台运行。
+`--mode worker` 选择 Worker 模式。`127.0.0.1:8000` 是默认监听地址。 `rapira serve` 在前台运行。
 
 打开另一个终端。发送请求：
 
@@ -149,15 +130,11 @@ curl -i http://127.0.0.1:8000/
 
 在第一个终端中按 `Ctrl-C` 停止 Rapira。
 
-入口脚本是 `worker.php`，因此 `$_SERVER['SCRIPT_NAME']` 包含 `/worker.php`。Symfony 在 URI 开头找不到此值。
-然后，它将 base URL 设置为 `""`。`getPathInfo()` 返回请求路径，路由可以正常工作。
-`generateUrl()` 创建不带 `/worker.php` 前缀的路径。不需要覆盖 `$_SERVER` 或使用 `Request::setTrustedProxies()`。
+入口脚本是 `worker.php`，因此 `$_SERVER['SCRIPT_NAME']` 包含 `/worker.php`。Symfony 在 URI 开头找不到此值。 然后，它将 base URL 设置为 `""`。`getPathInfo()` 返回请求路径，路由可以正常工作。 `generateUrl()` 创建不带 `/worker.php` 前缀的路径。不需要覆盖 `$_SERVER` 或使用 `Request::setTrustedProxies()`。
 
 ## 上生产环境
 
-设置 `APP_ENV=prod`。安装时不包含开发依赖。
-在服务器启动前创建缓存。测试确认 `php bin/console cache:warmup` 可正确初始化应用。
-此命令还会在第一个请求前编译容器：
+设置 `APP_ENV=prod`。安装时不包含开发依赖。 在服务器启动前创建缓存。测试确认 `php bin/console cache:warmup` 可正确初始化应用。 此命令还会在第一个请求前编译容器：
 
 ```bash
 composer install --no-dev --optimize-autoloader
@@ -180,32 +157,23 @@ max_requests = 500
 request_terminate_timeout_secs = 30
 ```
 
-`max_requests` 在指定请求数后替换 worker。它限制内存泄漏的影响，但不会修复泄漏。
-`request_terminate_timeout_secs` 限制一个请求的运行时间。
-使用 `APP_ENV=prod rapira serve --config rapira.toml` 启动服务器。
-相对 `entrypoint` 使用配置文件目录。有关所有设置，请参阅[配置](/zh/docs/configuration)。
+`max_requests` 在指定请求数后替换 worker。它限制内存泄漏的影响，但不会修复泄漏。 `request_terminate_timeout_secs` 限制一个请求的运行时间。 使用 `APP_ENV=prod rapira serve --config rapira.toml` 启动服务器。 相对 `entrypoint` 使用配置文件目录。有关所有设置，请参阅[配置](/zh/docs/configuration)。
 
 ## 请求之间的状态重置
 
-`services_resetter` 对每个带 `kernel.reset` 标签的服务调用 `reset()`。安装的 bundle 决定哪些服务带此标签。
-例如带缓冲的日志 handler 和调试数据收集器。这些服务会自行注册标签。
+`services_resetter` 对每个带 `kernel.reset` 标签的服务调用 `reset()`。安装的 bundle 决定哪些服务带此标签。 例如带缓冲的日志 handler 和调试数据收集器。这些服务会自行注册标签。
 
-它不会重置应用静态属性、全局值、库注册表或持续的 `ini_set()` 更改。
-此状态保留在每个常驻 worker 中。请在应用代码中重置。
-有关状态生命周期，请参阅[框架集成](/zh/docs/frameworks/)。
+它不会重置应用静态属性、全局值、库注册表或持续的 `ini_set()` 更改。 此状态保留在每个常驻 worker 中。请在应用代码中重置。 有关状态生命周期，请参阅[框架集成](/zh/docs/frameworks/)。
 
-使用 resetter 的测试在 `dev` 和 `prod` 的 200 个连续请求中显示稳定内存。
-如果内存增加，应用代码或 bundle 可能会保留请求状态。
+使用 resetter 的测试在 `dev` 和 `prod` 的 200 个连续请求中显示稳定内存。 如果内存增加，应用代码或 bundle 可能会保留请求状态。
 
 ## 响应后的工作
 
-在 `$response->send()` 和 `$kernel->terminate()` 之间调用 [`rapira_finish_request()`](/zh/docs/http)，可在响应后监听器前发送响应。
-worker 会继续运行 `terminate()`，直到 handler 返回。这可以减少客户端等待时间，但不会增加并发性。
+在 `$response->send()` 和 `$kernel->terminate()` 之间调用 [`rapira_finish_request()`](/zh/docs/http)，可在响应后监听器前发送响应。 worker 会继续运行 `terminate()`，直到 handler 返回。这可以减少客户端等待时间，但不会增加并发性。
 
 ## 开发时的循环
 
-`rapira serve` 在前台运行，并初始化应用一次。因此，**请替换 worker 以加载更改后的 PHP 代码**。
-开发期间，每次更改后都重启服务器。或者使用 [Classic 模式](/zh/docs/classic)：
+`rapira serve` 在前台运行，并初始化应用一次。因此，**请替换 worker 以加载更改后的 PHP 代码**。 开发期间，每次更改后都重启服务器。或者使用 [Classic 模式](/zh/docs/classic)：
 
 ```bash
 rapira serve --mode classic public/index.php
@@ -213,7 +181,4 @@ rapira serve --mode classic public/index.php
 
 还是同一个应用，只是跑在 Classic 模式下。它每个请求都要启动一遍，所以改动立刻生效。每个请求也会执行一次完整的启动。已经在跑的生产服务器可以通过滚动重载（给 master 发 `SIGUSR2`）使用新部署的代码。当前请求可以完成，但空闲 keep-alive 连接会关闭。如果启用了 `opcache.validate_timestamps = 0`，master 的 OPcache 段比整个进程池活得久，部署就需要完整重启；见[进程模型](/zh/docs/process-model)和[生产环境部署](/zh/docs/deployment)。
 
-Symfony 处理未捕获的应用异常并返回自己的 `500` 响应。`dev` 显示异常页面。
-`prod` 显示通用错误页。同一个 worker 处理下一个请求。
-最终重置会删除更改后的服务状态。配置的 Symfony 日志器控制异常输出。基础应用不包含日志器。
-Rapira 记录离开框架的 PHP 错误。有关级别设置，请参阅[日志](/zh/docs/logging)。
+Symfony 处理未捕获的应用异常并返回自己的 `500` 响应。`dev` 显示异常页面。 `prod` 显示通用错误页。同一个 worker 处理下一个请求。 最终重置会删除更改后的服务状态。配置的 Symfony 日志器控制异常输出。基础应用不包含日志器。 Rapira 记录 Symfony 未处理的 PHP 错误。有关级别设置，请参阅[日志](/zh/docs/logging)。

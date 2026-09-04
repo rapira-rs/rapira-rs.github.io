@@ -2,8 +2,7 @@
 
 Ta strona opisuje funkcje tworzenia dokumentacji. Każdy przykład powstaje z przedstawionego kodu Markdown.
 
-Uruchom `npm ci`, aby zainstalować zablokowane zależności. Następnie uruchom `npm run dev`.
-Otwórz lokalny adres z danych wyjściowych polecenia. Katalogi tłumaczeń mają taką samą strukturę jak kanoniczne pliki angielskie.
+Uruchom `npm ci`, aby zainstalować zablokowane zależności. Następnie uruchom `npm run dev`. Otwórz lokalny adres z danych wyjściowych polecenia. Katalogi tłumaczeń mają taką samą strukturę jak kanoniczne pliki angielskie.
 
 ## Bloki z wyróżnieniem
 

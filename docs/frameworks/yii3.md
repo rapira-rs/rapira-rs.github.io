@@ -26,10 +26,7 @@ A resident worker needs two pieces of public API.
 `Yiisoft\Di\StateResetter` is a service in that container. Components register callbacks that reset their request state.
 One `reset()` call runs these callbacks.
 
-An application service that contains request state must also register a callback.
-Add a `'reset' => function (): void { … }` key to its dependency injection definition.
-`yiisoft/session` and `yiisoft/router` use the same method. The closure can reset private state without creating a new object.
-See the [frameworks overview](/docs/frameworks/) and [Worker mode](/docs/worker) for state lifetime information.
+An application service that contains request state must also register a callback. Add a `'reset' => function (): void { … }` key to its dependency injection definition. `yiisoft/session` and `yiisoft/router` use the same method. The closure can reset private state and does not create a new object. See the [frameworks overview](/docs/frameworks/) and [Worker mode](/docs/worker) for state lifetime information.
 
 The persistent design has three steps. Create the runner once. Run it for each request. Reset the container after each request.
 
@@ -40,6 +37,7 @@ The persistent design has three steps. Create the runner once. Run it for each r
 
 The worker script is the only new PHP file. Put it in the project root next to `composer.json`.
 The runner uses the project root as its `rootPath`.
+
 Install a PHP CLI for Composer. Rapira supplies PHP as a library, not as a `php` command.
 Composer uses the system PHP CLI. Rapira does not use or change this CLI.
 
@@ -84,13 +82,10 @@ while (\Rapira\handle_request($handler)) {
 
 The script contains these operations:
 
-**`src/bootstrap.php` initializes the template.** It loads the Composer autoloader, reads `.env` when present, and calls `Environment::prepare()`.
-The standard `public/index.php` performs the same operations before it uses the runner.
-The explicit `vendor/autoload.php` line is not required because `src/bootstrap.php` also loads it. `require_once` prevents a second load.
+**`src/bootstrap.php` initializes the template.** It loads the Composer autoloader, reads `.env` when present, and calls `Environment::prepare()`. The standard `public/index.php` does the same operations before it uses the runner. The explicit `vendor/autoload.php` line is not required because `src/bootstrap.php` also loads it. `require_once` prevents a second load.
 
-**The worker creates the runner once with arguments from `public/index.php`.**
-It passes `rootPath`, `debug`, `checkEvents`, and `environment` from `App\Environment`. Therefore, it initializes the same application.
-The template also passes `temporaryErrorHandler` with a `StreamTarget` logger. It loads `c3.php` when you enable `APP_C3`.
+**The worker creates the runner once with arguments from `public/index.php`.** It passes `rootPath`, `debug`, `checkEvents`, and `environment` from `App\Environment`. Thus, it initializes the same application. The template also passes `temporaryErrorHandler` with a `StreamTarget` logger. It loads `c3.php` when you enable `APP_C3`.
+
 The tested worker omits both parts.
 The temporary handler logs errors during configuration and container creation.
 Without it, `HttpApplicationRunner::createTemporaryErrorHandler()` creates an `ErrorHandler` with a `NullLogger`.
@@ -151,15 +146,13 @@ Tests also confirmed this design.
 
 The container initializes for each request. This adds initialization time and creates objects that PHP must later release.
 Memory can increase until PHP releases several old containers together. This cyclic pattern is not necessarily a memory leak.
+
 Set `pool.max_requests` to replace workers periodically.
 See the [frameworks overview](/docs/frameworks/) for this memory pattern. See [Configuration](/docs/configuration) for the setting.
 
-The autoloader and template bootstrap remain resident. The request loop also remains in the worker script. Therefore, this design is still a worker that discards its application between requests. It is not [Classic mode](/docs/classic).
+The autoloader and template bootstrap remain resident. The request loop also remains in the worker script. Thus, this design is still a worker that discards its application between requests. It is not [Classic mode](/docs/classic).
 
-Use the persistent runner by default. It follows the framework design and requires one reset call.
-Tests showed stable memory use.
-Use a per-request runner when initialization order or request setup prevents a complete `StateResetter` callback.
-Changing between these designs requires changes only to the worker script.
+Use the persistent runner by default. It follows the framework design and requires one reset call. Tests showed stable memory use. Use a per-request runner when initialization order or request setup prevents a complete `StateResetter` callback. Changing between these designs requires changes only to the worker script.
 
 ## Starting Rapira
 
@@ -167,7 +160,7 @@ Changing between these designs requires changes only to the worker script.
 rapira serve --mode worker worker.php
 ```
 
-`--mode worker` selects Worker mode. See [CLI](/docs/cli) for the remaining flags.
+`--mode worker` selects Worker mode. See [CLI](/docs/cli) for the other flags.
 
 For production, store the settings in `rapira.toml`:
 
@@ -203,8 +196,7 @@ An unknown path returned the framework `404` response. Tests did not change `SCR
 
 **Generated URLs do not include the worker file name.** `UrlGeneratorInterface::generate()` returned ordinary application paths.
 
-**Yii3 isolates each client session.** One client retained its counter between requests.
-A second client received a new session. This also applied to the persistent container design.
+**Yii3 isolates each client session.** One client kept its counter between requests. A second client received a new session. This also applied to the persistent container design.
 
 **The application receives form data, JSON bodies, and uploads.** `$_POST` contained form fields, and `php://input` contained the JSON body.
 The temporary upload file was readable during the request. The PSR-7 `ServerRequest` contained all these values.

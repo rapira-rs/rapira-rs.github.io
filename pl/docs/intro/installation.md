@@ -219,8 +219,7 @@ Rapira buduje `libphp` z `--disable-all` i włącza stały zestaw rozszerzeń:
 
 Czego w niej *nie ma*: `pdo_mysql`, `pgsql`, redis, apcu, imagick i reszty z tej półki. Jeśli twoja aplikacja potrzebuje takiego rozszerzenia, skompiluj `libphp` razem z nim i zbuduj Rapirę pod tę bibliotekę - jak, opisuje strona [Budowanie ze źródeł](/pl/docs/intro/build-from-source).
 
-Każde wydanie używa najnowszej dostępnej wersji poprawkowej swojej gałęzi PHP. Plik `share/php/PHP_VERSION.txt` w archiwum zawiera dokładną wersję.
-Na działającym serwerze wersję podają `PHP_VERSION` i `phpinfo()`.
+Każde wydanie używa najnowszej dostępnej wersji poprawkowej swojej gałęzi PHP. Plik `share/php/PHP_VERSION.txt` w archiwum zawiera dokładną wersję. Na działającym serwerze wersję podają `PHP_VERSION` i `phpinfo()`.
 
 ::: question Dlaczego na PHP 8.4 `PHP_SAPI` zwraca `fastcgi`?
 Na PHP 8.4 OPcache startuje tylko dla zamkniętej listy nazw SAPI, a nazwa spoza listy oznacza brak wspólnego cache'u opcode'ów w ogóle - dlatego tam SAPI rejestruje się jako `fastcgi`. PHP 8.5 zniosło tę listę, więc `PHP_SAPI` i `php_sapi_name()` zwracają `rapira`. Wiersz *Server API* w `phpinfo()` w obu przypadkach pokazuje `Rapira`. Kod, który rozgałęzia się po `PHP_SAPI`, musi rozumieć obie wartości.

@@ -50,7 +50,7 @@ Po uruchomieniu puli proces nadrzędny wykonuje obsługę mniej więcej raz na s
 - Po awarii opóźnienie zaczyna się od 100 ms. Podwaja się po każdej kolejnej awarii i przestaje rosnąć przy około 25 sekundach.
 - Dziesięć sekund działania workera zeruje opóźnienie.
 - **Awarie inicjalizacji.** Proces nadrzędny kończy pracę, jeśli wszystkie początkowe workery ulegną awarii przed obsłużeniem żądania.
-- Po pierwszym żądaniu proces nadrzędny używa zwykłego opóźnienia. Nieudane przeładowanie nie zatrzymuje istniejących workerów.
+- Po pierwszym żądaniu proces nadrzędny używa zwykłego opóźnienia. Błąd inicjalizacji workera podczas przeładowania nie powoduje zakończenia procesu nadrzędnego.
 - **Limity żądań.** Z `pool.max_requests` worker kończy pracę po osiągnięciu limitu. Proces nadrzędny go zastępuje.
 - Rapira dodaje losową wartość do połowy limitu. Zapobiega to jednoczesnej wymianie workerów.
 - **Limit czasu żądania.** Z `pool.request_terminate_timeout_secs` proces nadrzędny wysyła `SIGTERM`, gdy żądanie przekroczy limit.
@@ -63,9 +63,7 @@ Po uruchomieniu puli proces nadrzędny wykonuje obsługę mniej więcej raz na s
 
 ## Skalowanie puli
 
-`pool.scaling` określa sposób zmiany rozmiaru puli. Jest niezależny od `pool.mode`.
-Klucz `pool.mode` ustawia tryb wykonania w workerze. Przy `static` wartość `pool.processes` jest dokładną liczbą.
-Przy `dynamic` i `ondemand` jest liczbą maksymalną. Domyślna wartość to jeden worker na logiczny procesor.
+`pool.scaling` określa sposób zmiany rozmiaru puli. Jest niezależny od `pool.mode`. Klucz `pool.mode` ustawia tryb wykonania w workerze. Przy `static` wartość `pool.processes` jest dokładną liczbą. Przy `dynamic` i `ondemand` jest liczbą maksymalną. Domyślna wartość to jeden worker na logiczny procesor.
 
 | Skalowanie | Ile workerów | Klucze, które działają |
 | --- | --- | --- |
@@ -73,13 +71,9 @@ Przy `dynamic` i `ondemand` jest liczbą maksymalną. Domyślna wartość to jed
 | `dynamic` | Tyle, ile wymaga ruch, maksymalnie `pool.processes`; proces nadrzędny trzyma liczbę *bezczynnych* w wyznaczonym paśmie. | `min_spare`, `max_spare` |
 | `ondemand` | Zero przy starcie; forkowane wraz z napływem ruchu, maksymalnie `pool.processes`. | `process_idle_timeout_secs` |
 
-**`static`** jest odpowiedni dla większości wdrożeń. Używa stałej liczby workerów i zastępuje zakończone workery.
-PHP działa synchronicznie, więc każdy worker obsługuje jedno żądanie naraz. Aplikacje wykonujące dużo operacji wejścia i wyjścia mogą wymagać większej liczby workerów.
-Aplikacje ograniczone przez procesor zwykle jej nie wymagają.
+**`static`** jest odpowiedni dla większości wdrożeń. Używa stałej liczby workerów i zastępuje zakończone workery. PHP działa synchronicznie, więc każdy worker obsługuje jedno żądanie naraz. Aplikacje wykonujące dużo operacji wejścia i wyjścia mogą wymagać większej liczby workerów. Aplikacje ograniczone przez procesor zwykle jej nie wymagają.
 
-**`dynamic`** utrzymuje liczbę bezczynnych workerów między dwoma limitami. Tworzy workery, gdy liczba jest mniejsza niż `min_spare`.
-Liczba nowych workerów podwaja się w kolejnych cyklach z niewystarczającą wydajnością. Powyżej `max_spare` usuwa najstarszy bezczynny worker.
-Liczba początkowa jest środkiem między limitami. Rapira zapisuje jedno ostrzeżenie, gdy zapotrzebowanie przekracza `pool.processes`.
+**`dynamic`** utrzymuje liczbę bezczynnych workerów między dwoma limitami. Tworzy workery, gdy liczba jest mniejsza niż `min_spare`. Liczba nowych workerów podwaja się w kolejnych cyklach z niewystarczającą wydajnością. Powyżej `max_spare` usuwa najstarszy bezczynny worker. Liczba początkowa jest środkiem między limitami. Rapira zapisuje jedno ostrzeżenie, gdy zapotrzebowanie przekracza `pool.processes`.
 
 ```toml
 [pool]
@@ -91,10 +85,7 @@ max_spare = 3
 
 Granice muszą spełniać `1 <= min_spare <= max_spare <= processes`. W polityce `dynamic` są wymagane, a w pozostałych odrzucane. Ustawienie ich gdzie indziej to błąd konfiguracji, a nie po cichu zignorowany klucz.
 
-**`ondemand`** nie tworzy workerów przy uruchomieniu. Proces nadrzędny obserwuje gniazdo nasłuchujące.
-Gdy połączenie przychodzi bez bezczynnego workera, proces nadrzędny tworzy worker. Worker kończy pracę po `pool.process_idle_timeout_secs` bezczynności.
-Pierwsze żądanie do pustej puli czeka na utworzenie workera. Użyj `ondemand` dla środowisk testowych i stron z małym ruchem.
-Użyj innej polityki dla stałego ruchu.
+**`ondemand`** nie tworzy workerów przy uruchomieniu. Proces nadrzędny obserwuje gniazdo nasłuchujące. Gdy połączenie przychodzi bez bezczynnego workera, proces nadrzędny tworzy worker. Worker kończy pracę po `pool.process_idle_timeout_secs` bezczynności. Pierwsze żądanie do pustej puli czeka na utworzenie workera. Użyj `ondemand` dla środowisk testowych i stron z małym ruchem. Użyj innej polityki dla stałego ruchu.
 
 Pełny wykaz kluczy znajdziesz w [Konfiguracji](/pl/docs/configuration).
 
@@ -119,16 +110,12 @@ kill -TERM $(cat /run/rapira.pid)   # Stop after current requests finish.
 ```
 
 ::: warning
-Wysyłaj sygnały tylko do procesu nadrzędnego. Workery ignorują `SIGUSR1` i `SIGUSR2`.
-Workery traktują `SIGTERM` jako natychmiastowe zakończenie. Limit czasu żądania używa tego sygnału.
-Bezpośredni sygnał do workera omija nadzór procesu nadrzędnego.
+Wysyłaj sygnały tylko do procesu nadrzędnego. Workery ignorują `SIGUSR1` i `SIGUSR2`. Workery traktują `SIGTERM` jako natychmiastowe zakończenie. Limit czasu żądania używa tego sygnału. Bezpośredni sygnał do workera omija nadzór procesu nadrzędnego.
 :::
 
 ### Zatrzymywanie
 
-Dla każdego sygnału zatrzymania proces nadrzędny natychmiast wysyła `SIGQUIT` do wszystkich workerów. Workery przestają przyjmować pracę i kończą bieżące żądania.
-Po `supervisor.process_control_timeout_secs` proces nadrzędny wysyła `SIGTERM` do pozostałych workerów. Wartość domyślna wynosi 30 sekund.
-Jeśli pozostały workery, proces nadrzędny wysyła `SIGKILL` sekundę po `SIGTERM`.
+Dla każdego sygnału zatrzymania proces nadrzędny natychmiast wysyła `SIGQUIT` do wszystkich workerów. Workery przestają przyjmować pracę i kończą bieżące żądania. Po `supervisor.process_control_timeout_secs` proces nadrzędny wysyła `SIGTERM` do pozostałych workerów. Wartość domyślna wynosi 30 sekund. Jeśli pozostały workery, proces nadrzędny wysyła `SIGKILL` sekundę po `SIGTERM`.
 
 Drugi `SIGTERM` albo `SIGINT` pomija czekanie i wymusza natychmiastowe wyjście.
 
@@ -136,25 +123,16 @@ Drugi `SIGTERM` albo `SIGINT` pomija czekanie i wymusza natychmiastowe wyjście.
 
 `SIGUSR2` lub `SIGHUP` wymienia całą pulę. Każdy nowy worker inicjalizuje aplikację z wdrożonego kodu.
 
-W trybie Classic skrypt wejściowy wykonuje się w nowym żądaniu PHP. Nowy kod działa bez przeładowania.
-Jednak `opcache.validate_timestamps = 0` wymaga pełnego restartu.
-Worker i Dispatcher zachowują zainicjalizowaną aplikację. Przeładuj pulę po każdym wdrożeniu w tych trybach.
-Zobacz [Wdrożenie](/pl/docs/deployment).
+W trybie Classic skrypt wejściowy wykonuje się w nowym żądaniu PHP. Nowy kod działa bez przeładowania. Jednak `opcache.validate_timestamps = 0` wymaga pełnego restartu. Worker i Dispatcher zachowują zainicjalizowaną aplikację. Przeładuj pulę po każdym wdrożeniu w tych trybach. Zobacz [Wdrożenie](/pl/docs/deployment).
 
-Proces nadrzędny uruchamia nowego workera i czeka, aż zgłosi on stan `idle` lub `active`.
-Następnie zatrzymuje jednego starego workera. Po jego zakończeniu uruchamia nowego workera w następnym miejscu.
-Każde zatrzymanie używa sekwencji `SIGQUIT` → `SIGTERM` → `SIGKILL`. Ten sam limit sterowania dotyczy każdego workera.
-Stary worker zamyka bezczynne połączenia keep-alive, gdy zaczyna się zatrzymywać. Bieżące żądania mogą zakończyć się przed upływem limitu sterowania.
+Proces nadrzędny uruchamia nowego workera i czeka, aż zgłosi on stan `idle` lub `active`. Następnie zatrzymuje jednego starego workera. Po jego zakończeniu uruchamia nowego workera w następnym miejscu. Każde zatrzymanie używa sekwencji `SIGQUIT` → `SIGTERM` → `SIGKILL`. Ten sam limit sterowania dotyczy każdego workera. Stary worker zamyka bezczynne połączenia keep-alive po otrzymaniu `SIGQUIT`. Bieżące żądania mogą zakończyć się przed upływem limitu sterowania.
 
-Jeśli nowy worker nie zgłosi żadnego z tych stanów przed upływem limitu sterowania, proces nadrzędny zapisuje ostrzeżenie.
-Następnie proces nadrzędny zatrzymuje kolejnego starego workera, nawet jeśli nowy worker nie obsługuje jeszcze żądań.
-W trybie `ondemand` usuwa stare workery pojedynczo. Nowe połączenia tworzą zastępstwa.
+Jeśli nowy worker nie zgłosi żadnego z tych stanów przed upływem limitu sterowania, proces nadrzędny zapisuje ostrzeżenie. Następnie proces nadrzędny zatrzymuje kolejnego starego workera, nawet jeśli nowy worker nie obsługuje jeszcze żądań. W trybie `ondemand` usuwa stare workery pojedynczo. Nowe połączenia tworzą zastępstwa.
 
 Przeładowanie zgłoszone w trakcie zatrzymywania jest ignorowane: zatrzymanie ma zawsze pierwszeństwo.
 
 ::: info
-Przeładowanie wymienia workery, a nie proces nadrzędny. Nowe workery używają tego samego obrazu silnika.
-Zmiany `rapira.toml`, `php.ini` i pliku binarnego wymagają pełnego restartu.
+Przeładowanie wymienia workery, a nie proces nadrzędny. Nowe workery używają tego samego obrazu silnika. Zmiany `rapira.toml`, `php.ini` i pliku binarnego wymagają pełnego restartu.
 :::
 
 ### Zrzut stanu

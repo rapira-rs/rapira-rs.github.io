@@ -6,13 +6,11 @@ faqLevel: 2
 
 # Pliki statyczne
 
-Rapira uruchamia middleware plików statycznych przed PHP. Odpowiada, gdy ścieżka wskazuje plik w katalogu głównym.
-Pozostałe żądania przekazuje bez zmian do następnego handlera.
+Rapira uruchamia middleware plików statycznych przed PHP. Odpowiada, gdy ścieżka wskazuje plik w katalogu głównym. Pozostałe żądania przekazuje bez zmian do następnego handlera.
 
 ## Konfiguracja middleware
 
-Dwa fragmenty `rapira.toml` włączają middleware. Dodaj `static` do listy `[http].middleware`.
-Następnie dodaj sekcję `[http.static]` z katalogiem plików.
+Dwa fragmenty `rapira.toml` włączają middleware. Dodaj `static` do listy `middleware` w sekcji `[http]`. Następnie dodaj sekcję `[http.static]` z katalogiem plików.
 
 ```toml
 [http]
@@ -25,19 +23,15 @@ forbid = [".php"]   # Optional. This list replaces the default.
 
 `middleware` trzyma łańcuch middleware w kolejności listy. `static` to na razie jedyna nazwa, jaką ten klucz przyjmuje.
 
-`root` określa katalog plików. Nie ma wartości domyślnej.
-Ścieżka względna używa katalogu pliku konfiguracyjnego. `pool.entrypoint` używa tej samej reguły.
+`root` określa katalog plików. Nie ma wartości domyślnej. Ścieżka względna używa katalogu pliku konfiguracyjnego. `pool.entrypoint` używa tej samej reguły.
 
-`forbid` zawiera przyrostki nazw plików, których middleware nie serwuje. Domyślna wartość to `[".php"]`.
-Jawna lista zastępuje tę wartość. Na przykład `forbid = [".php", ".env"]` blokuje oba przyrostki.
+`forbid` zawiera przyrostki nazw plików, których middleware nie serwuje. Domyślna wartość to `[".php"]`. Jawna lista zastępuje tę wartość. Na przykład `forbid = [".php", ".env"]` blokuje oba przyrostki.
 
 ::: danger
-`forbid = []` zezwala na wszystkie pliki, w tym kod źródłowy PHP.
-Nie używaj tej wartości dla publicznego katalogu głównego. Może ujawnić kod aplikacji i osadzone sekrety.
+`forbid = []` zezwala na wszystkie pliki, w tym kod źródłowy PHP. Nie używaj tej wartości dla publicznego katalogu głównego. Może ujawnić kod aplikacji i osadzone sekrety.
 :::
 
-Każdy wpis zaczyna się kropką, ma co najmniej dwa znaki i nie zawiera `/` ani spacji.
-Nieprawidłowy wpis zatrzymuje uruchamianie serwera.
+Każdy wpis zaczyna się kropką, ma co najmniej dwa znaki i nie zawiera `/` ani białych znaków. Nieprawidłowy wpis zatrzymuje uruchamianie serwera.
 
 Pozostałe klucze tego pliku opisuje [Konfiguracja](/pl/docs/configuration).
 
@@ -47,16 +41,12 @@ Middleware porównuje każdy wpis z końcem nazwy pliku. Rapira akceptuje tylko 
 
 ## Walidacja przy starcie
 
-Serwer sprawdza katalog główny przed przyjęciem żądań. Ścieżka musi istnieć, być katalogiem i zezwalać użytkownikowi na przeszukiwanie.
-Błąd zatrzymuje uruchamianie i wskazuje ścieżkę.
+Serwer sprawdza katalog główny przed przyjęciem żądań. Ścieżka musi istnieć, być katalogiem i zezwalać użytkownikowi na przeszukiwanie. Błąd zatrzymuje uruchamianie i wskazuje ścieżkę.
 
-Oba fragmenty konfiguracji muszą występować razem. Wpis `"static"` wymaga `[http.static]`, a sekcja wymaga wpisu.
-Rapira odrzuca też powtórzone nazwy middleware.
+Oba fragmenty konfiguracji muszą występować razem. Wpis `"static"` wymaga `[http.static]`, a sekcja wymaga wpisu. Rapira odrzuca też powtórzone nazwy middleware.
 
 ::: question Dlaczego serwer sprawdza katalog główny dwa razy?
-Pierwsza kontrola czyta metadane i potwierdza typ katalogu. Druga rozwiązuje `.` i sprawdza prawo przeszukiwania.
-Prawa przeszukiwania i odczytu używają innych bitów. Dlatego pierwsza kontrola może przejść, a druga zakończyć się błędem.
-Zobacz dokumentację [`stat`](https://pubs.opengroup.org/onlinepubs/9799919799/functions/stat.html).
+Pierwsza kontrola czyta metadane i potwierdza typ katalogu. Druga rozwiązuje `.` i sprawdza prawo przeszukiwania. Prawa przeszukiwania i odczytu używają innych bitów. Dlatego pierwsza kontrola może przejść, a druga zakończyć się błędem. Zobacz dokumentację [`stat`](https://pubs.opengroup.org/onlinepubs/9799919799/functions/stat.html).
 :::
 
 ## Reguły serwowania
@@ -74,14 +64,13 @@ O reszcie decyduje ścieżka:
 PHP otrzymuje przekazane żądanie bez zmian. Zobacz [Żądania i odpowiedzi HTTP](/pl/docs/http).
 
 ::: question Dlaczego URL katalogu nie dostaje w odpowiedzi `index.html`?
-PHP kontroluje przestrzeń adresów, więc URL katalogu jest trasą aplikacji. Automatyczny indeks utworzyłby dwie możliwe odpowiedzi.
-Uniemożliwiłby też skryptowi wejściowemu przetworzenie `/`.
+PHP kontroluje przestrzeń adresów, więc URL katalogu jest trasą aplikacji. Automatyczny indeks utworzyłby dwie możliwe odpowiedzi. System plików mógłby zwrócić jedną odpowiedź, a router aplikacji inną. Skrypt wejściowy nie otrzymałby żądań dla `/`.
 :::
 
 ::: question Jak middleware odróżnia brak pliku od nieudanego odczytu?
-Sześć wyników oznacza brak dostępnego pliku. Ścieżka może nie istnieć, być niedostępna lub wskazywać katalog.
-Element ścieżki może mieć zły typ. Nazwa może być za długa lub zawierać bajt NUL.
-W tych przypadkach żądanie trafia do PHP. Dla innych błędów odczytu middleware zwraca `500`.
+Sześć wyników oznacza brak dostępnego pliku. Ścieżka może nie istnieć, być niedostępna lub wskazywać katalog. Element ścieżki może mieć zły typ. Nazwa może być za długa lub zawierać bajt NUL. W tych przypadkach żądanie trafia do PHP.
+
+Inne błędy wskazują istniejący plik, którego Rapira nie może odczytać. Dla tych błędów middleware zwraca `500`.
 :::
 
 ## Pola odpowiedzi
@@ -90,9 +79,7 @@ Pola opisane niżej należą do odpowiedzi, która serwuje plik. Odpowiedź `500
 
 Middleware ustawia `Content-Type` na podstawie rozszerzenia pliku. Nazwa bez znanego rozszerzenia dostaje `application/octet-stream`.
 
-Odpowiedź zawiera `ETag` i `Last-Modified`. Middleware tworzy `Last-Modified` z czasu modyfikacji.
-Tworzy `ETag` z czasu i długości. Plik bez czasu modyfikacji nie otrzymuje tych pól.
-Czas sprzed epoki wyłącza tylko `ETag`.
+Odpowiedź zawiera `ETag` i `Last-Modified`. Middleware tworzy `Last-Modified` z czasu modyfikacji. Tworzy `ETag` z czasu i długości. Plik bez czasu modyfikacji nie otrzymuje tych pól. Czas sprzed epoki wyłącza tylko `ETag`.
 
 Middleware odpowiada `304 Not Modified`, gdy pole `If-None-Match` pasuje do `ETag`. Żądanie bez pola `If-None-Match` dostaje `304 Not Modified`, gdy czas modyfikacji pliku nie jest późniejszy niż czas z pola `If-Modified-Since`. Taka odpowiedź niesie wyłącznie `ETag` i `Last-Modified`, a treści nie ma w ogóle.
 
@@ -102,27 +89,18 @@ Odpowiedź niesie też `Accept-Ranges: bytes`. Żądanie z polem `Range` dostaje
 
 Każdy worker przechowuje zaserwowane pliki w pamięci. Cache nie jest konfigurowalny.
 
-Wpis cache'u jest ważny przez sekundę. Potem następne żądanie używa `stat` do porównania pliku.
-Worker zachowuje wpis z tym samym czasem i długością. Zmieniony plik odczytuje ponownie.
+Wpis cache'u jest ważny przez sekundę. Potem następne żądanie używa `stat` do porównania pliku. Worker zachowuje wpis z tym samym czasem i długością. Zmieniony plik odczytuje ponownie.
 
 Plik większy niż 256 KiB nigdy nie trafia do cache'u. Taki plik przy każdym żądaniu leci strumieniem prosto z dysku.
 
-Jeden worker przechowuje do 16 MiB. Pełny cache nadal serwuje bieżące wpisy.
-Cache usuwa wygasłe wpisy, zanim pominie nowy wpis. Każdy worker używa do 16 MiB dla cache'u.
-Restart opróżnia cache.
+Jeden worker przechowuje do 16 MiB. Pełny cache nadal serwuje bieżące wpisy. Cache najpierw usuwa wygasłe wpisy. Jeśli nadal jest pełny, nie zapisuje nowego pliku. Każdy worker używa do 16 MiB dla cache'u. Restart opróżnia cache.
 
-Każdy worker sprawdza własne wpisy. Usunięty plik wpływa na odpowiedzi najpóźniej po sekundzie.
-Zmieniony lub zastąpiony plik wpływa na odpowiedzi najpóźniej po jednej sekundzie, jeśli zmieni się jego czas modyfikacji lub długość.
-Zmiana uprawnień nie usuwa wpisu, jeśli czas i długość nie zmieniają się.
-Usuń plik, aby usunąć wpis. Zastąpienie usuwa wpis tylko przy nowym czasie modyfikacji lub nowej długości.
-Możesz też ponownie uruchomić serwer.
+Każdy worker sprawdza własne wpisy. Usunięty plik wpływa na odpowiedzi najpóźniej po sekundzie. Zmieniony lub zastąpiony plik wpływa na odpowiedzi najpóźniej po jednej sekundzie, jeśli zmieni się jego czas modyfikacji lub długość. Zmiana uprawnień nie usuwa wpisu, jeśli czas i długość nie zmieniają się. Usuń plik, aby usunąć wpis. Zastąpienie usuwa wpis tylko przy nowym czasie modyfikacji lub nowej długości. Możesz też ponownie uruchomić serwer.
 
-Katalog główny musi używać lokalnego nośnika. Middleware wykonuje `stat` i `open` w wątku obsługi żądań.
-Wolny system plików opóźnia inne połączenia workera.
+Katalog główny musi używać lokalnego nośnika. Middleware wykonuje `stat` i `open` w wątku obsługi żądań. Wolny system plików opóźnia inne połączenia workera.
 
 ::: question Jak cache wykrywa zmieniony plik?
-Cache porównuje czas i długość z zapisanymi wartościami. ETag zawiera te same wartości.
-Cache nie wykrywa wymiany zachowującej obie wartości. Zmień czas lub długość każdego zastąpionego pliku.
+Cache porównuje czas i długość z zapisanymi wartościami. ETag zawiera te same wartości. Cache nie wykrywa wymiany zachowującej obie wartości. Zmień czas lub długość każdego zastąpionego pliku.
 :::
 
 Więcej informacji znajdziesz w [Konfiguracji](/pl/docs/configuration).

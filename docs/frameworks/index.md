@@ -28,9 +28,7 @@ Only the static files, TLS, and OPcache sections below apply to Classic mode.
 **Worker mode keeps the process active.** The script initializes the application and requests work in a loop.
 The application state remains between requests. See [execution modes](/docs/execution-modes) and [Worker mode](/docs/worker) for more information.
 
-One codebase can use both modes. Retain `public/index.php`. Add `worker.php` to the project root.
-Use `--mode` to select the execution mode. Select the script with the `SCRIPT` argument or `pool.entrypoint`.
-Classic mode remains available if a Worker mode migration fails.
+One codebase can use both modes. Keep `public/index.php`. Add `worker.php` to the project root. Use `--mode` to select the execution mode. Select the script with the `SCRIPT` argument or `pool.entrypoint`. Classic mode remains available if a Worker mode migration fails.
 
 ## Worker loop
 
@@ -56,7 +54,7 @@ while (\Rapira\handle_request($handler)) {
 
 The script contains these operations:
 
-- **`require .../vendor/autoload.php`** registers the autoloader for the worker lifetime. Loaded classes remain available.
+- **`require .../vendor/autoload.php`** registers the autoloader until the worker script restarts. Loaded classes remain available.
 - **`$app = new App();`** initializes the application before the loop. Symfony keeps a persistent kernel here.
 - Yii3 can keep a persistent runner or create a runner inside the handler. Each guide shows the required initialization and request cleanup.
 - **`$handler = static function () use ($app): void`** defines a handler without arguments. The handler reads request data from the superglobals.
@@ -69,25 +67,21 @@ The script contains these operations:
 - **`gc_collect_cycles();`** runs between requests and collects reference cycles. It does not correct memory leaks.
 - See [Memory and recycling](#memory-and-recycling).
 
-Rapira sets `SCRIPT_NAME` to `/worker.php` because `worker.php` is the entry script.
-`DOCUMENT_ROOT` contains the script directory. `REQUEST_URI` contains the client path.
-Symfony and Yii3 routed requests and generated URLs correctly with these values. The generated URLs did not contain `worker.php`.
-Before you integrate another framework, check whether it builds URLs from `SCRIPT_NAME` instead of `REQUEST_URI`.
+Rapira sets `SCRIPT_NAME` to `/worker.php` because `worker.php` is the entry script. `DOCUMENT_ROOT` contains the script directory. `REQUEST_URI` contains the client path. Symfony and Yii3 routed requests and generated URLs correctly with these values. The generated URLs did not contain `worker.php`. Before you integrate another framework, check whether it builds URLs from `SCRIPT_NAME` instead of `REQUEST_URI`.
 
 ## Per-request and resident state
 
-Rapira rebuilds everything in the left column for every request. Ordinary PHP code can continue to read these values.
-Everything in the right column persists for the worker lifetime. The worker script must manage this state.
+Rapira rebuilds everything in the left column for every request. Ordinary PHP code can continue to read these values. Everything in the right column remains between requests. The worker script must manage this state.
 
 | New for every request | Remains between requests |
 | ----------------------- | ---------------------- |
 | `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE`: Rapira refills them with request data | The Composer autoloader and each class that it loaded |
-| `php://input`: the raw request body, `CONTENT_TYPE`, and `CONTENT_LENGTH` | `static` properties and variables, which retain values across requests |
+| `php://input`: the raw request body, `CONTENT_TYPE`, and `CONTENT_LENGTH` | `static` properties and variables, which keep values across requests |
 | `$_FILES` and the uploaded temporary files | Objects created before the loop, such as the container, kernel, and application |
 | Session data: `session_start()`, the request cookie, and the response `Set-Cookie` field | Open resources: database handles, cache clients, streams |
 | Response state: status code, headers, `setcookie()`, and output buffers | The process: the same pid and one resident PHP interpreter for each worker |
-| Shutdown functions registered **inside** the handler | The worker's own counters: `handled` and `errors` keep incrementing |
-| The `max_execution_time` clock, re-armed for each request | `$_ENV`, including values loaded before the loop |
+| Shutdown functions registered **inside** the handler | The worker's own counters: `handled` and `errors` increase |
+| The `max_execution_time` clock, re-armed for each request | `$_ENV` values loaded before the loop |
 
 On Linux and FreeBSD, Zend starts a new `max_execution_time` timer for each request. Worker wait time does not count toward this limit.
 On other systems, including macOS, PHP does not start a request timer.
@@ -102,22 +96,18 @@ It calls the destructor once when the worker cycle ends, or when code removes th
 Do not use a destructor for per-request cleanup. Reset per-request state inside the handler.
 :::
 
-::: warning An initialization shutdown function runs once at worker exit
+::: warning An initialization shutdown function runs once at the end of the worker cycle
 
-PHP runs each shutdown function that code registers outside the handler once at the end of the worker cycle.
-PHP runs each function that the handler registers at the end of that request.
+PHP runs each shutdown function that code registers outside the handler once at the end of the worker cycle. PHP runs each function that the handler registers at the end of that request.
 
 Register request shutdown functions inside the handler. Examples include metric output, fatal error processing, and request resource cleanup.
 :::
 
 ::: warning `$_ENV` remains between requests
 
-Rapira does not rebuild `$_ENV` for each request. Values that code writes before the loop remain available until the worker script restarts.
-Treat `$_ENV` as resident application state. Load environment configuration before the loop. Do not store request data in `$_ENV`.
+Rapira does not rebuild `$_ENV` for each request. Values that code writes before the loop remain available until the worker script restarts. Treat `$_ENV` as resident application state. Load environment configuration before the loop. Do not store request data in `$_ENV`.
 
-Rapira preserves values in `$_ENV` without `putenv()`.
-Use `putenv()` when code needs process-environment behavior, such as `getenv()` or child-process inheritance.
-In production, set environment variables in the service unit, container, or orchestrator.
+Rapira keeps values in `$_ENV` when code does not call `putenv()`. Use `putenv()` when code needs process-environment behavior, such as `getenv()` or child-process inheritance. In production, set environment variables in the service unit, container, or orchestrator.
 :::
 
 ## Error handling
@@ -125,13 +115,14 @@ In production, set environment variables in the service unit, container, or orch
 Tests confirmed three failure types with one worker:
 
 - **`exit` or `die` inside the handler** sends the current status and output. The worker continues to accept requests.
-- For example, a framework can use `exit` for a maintenance response without terminating the process.
+- For example, a framework can use `exit` for a maintenance response. The process does not terminate.
 - **An uncaught exception** returns `500`. A framework error handler can return its own error page.
 - Without such a handler, Rapira returns an empty body. The worker continues to accept requests.
 - **An uncaught `Error`** also returns `500`, and the worker continues. PHP writes an `Uncaught Error` log record.
 
 The worker `errors` counter increases for the two error cases. An `exit` request returns `200` and changes only `handled`.
 In all three cases, `recycles` and `restarts` remain zero. An uncaught throwable does not stop the worker or affect the next request.
+
 A bailout-class fatal ends the persistent script. The worker then starts the script again and initializes the application.
 This action increases `recycles`. The [process model](/docs/process-model) status output shows these counters.
 
@@ -163,18 +154,13 @@ Both characters can map to the same `$_SERVER` key. See [HTTP](/docs/http) and [
 
 ## Memory and recycling
 
-A worker can create the application inside the handler. This design retains the application for one request.
-It retains less application state than a persistent Symfony kernel, but more than Classic mode.
-The worker script still contains the loop. Move initialization outside the handler only after you identify persistent state.
-This design creates the container after the request arrives.
+A worker can create the application inside the handler. This design keeps the application for one request. It keeps less application state than a persistent Symfony kernel, but more than Classic mode. The worker script still contains the loop. Move initialization outside the handler only after you identify persistent state. This design creates the container after the request arrives.
 
 Each request in this design creates an object graph. Reference cycles can keep old graphs until the cycle collector runs.
 Memory use then increases for several requests and decreases when PHP releases many graphs. This cyclic use is not necessarily a memory leak.
 However, peak memory can be much larger than memory for one request.
 
-Tests found that `gc_collect_cycles()` in the loop or handler did not prevent this pattern.
-Later initialization can retain references to old graphs. The collector cannot release a graph while another object references it.
-Set `memory_limit` above the measured peak. Also set a worker replacement limit:
+Tests found that `gc_collect_cycles()` in the loop or handler did not prevent this pattern. Later initialization can keep references to old graphs. The collector cannot release a graph while another object references it. Set `memory_limit` above the measured peak. Also set a worker replacement limit:
 
 ```toml
 [pool]
@@ -193,13 +179,9 @@ See [configuration](/docs/configuration) and [process model](/docs/process-model
 Rapira starts PHP once in the master before it creates workers. OPcache creates one shared memory segment.
 Each worker inherits the same mapping. Compiled scripts remain cached across requests and workers in both modes.
 
-In production, `opcache.validate_timestamps = 0` removes the file check from each request. This setting prevents automatic cache invalidation.
-The OPcache segment belongs to the master and remains during worker replacement. Therefore, a deployment requires a complete restart.
-See [running in production](/docs/deployment) for the sequence.
+In production, `opcache.validate_timestamps = 0` removes the file check from each request. This setting prevents automatic cache invalidation. The OPcache segment belongs to the master and remains during worker replacement. Thus, a deployment requires a complete restart. See [running in production](/docs/deployment) for the sequence.
 
-During development, a persistent application does not read its initialization code again. This behavior does not depend on OPcache.
-After changes to the worker script or initialized services, press Ctrl-C.
-Then run `rapira serve` again.
+During development, a persistent application does not read its initialization code again. This behavior does not depend on OPcache. After changes to the worker script or initialized services, press Ctrl-C. Then run `rapira serve` again.
 
 ## Framework guides
 
@@ -212,5 +194,5 @@ Then run `rapira serve` again.
 
 Other frameworks can use the same basic worker script. Use Worker mode only if the application can process several requests in one process.
 First, create the application inside the handler. This design does not require framework support for persistent processes.
-Validate the application in this design. Then retain the application. Reset its request state after each request.
-Use [Classic mode](/docs/classic) if neither Worker design operates correctly.
+
+Validate the application in this design. Then keep the application. Reset its request state after each request. Use [Classic mode](/docs/classic) if neither Worker design operates correctly.

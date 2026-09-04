@@ -50,7 +50,7 @@ master 还在整个生命周期里持有 PHP 模块，也只有它会去关闭�
 - 发生故障后，替换延迟从 100 ms 开始。每次连续故障后延迟翻倍，最大约为 25 秒。
 - worker 运行至少十秒会重置延迟。
 - **初始化故障。**如果所有初始 worker 都在进程池处理请求之前失败，master 会退出。
-- 进程池处理请求后，master 使用正常替换延迟。失败的重载不会停止现有 worker。
+- 进程池处理请求后，master 使用正常替换延迟。重载期间，worker 初始化失败不会导致 master 退出。
 - **请求限制。**使用 `pool.max_requests` 时，worker 在达到请求限制后退出。然后 master 会替换它。
 - Rapira 会添加最多为限制一半的随机值。这样可以避免同时替换 worker。
 - **请求超时。**使用 `pool.request_terminate_timeout_secs` 时，请求超过限制后，master 会发送 `SIGTERM`。
@@ -63,9 +63,7 @@ master 还在整个生命周期里持有 PHP 模块，也只有它会去关闭�
 
 ## 进程池伸缩
 
-`pool.scaling` 选择进程池如何更改大小。它与 `pool.mode` 不同。
-`pool.mode` 设置 worker 内的执行模式。使用 `static` 时，`pool.processes` 是准确数量。
-使用 `dynamic` 和 `ondemand` 时，它是最大数量。默认值为每个逻辑 CPU 一个 worker。
+`pool.scaling` 选择进程池如何更改大小。它与 `pool.mode` 不同。 `pool.mode` 设置 worker 内的执行模式。使用 `static` 时，`pool.processes` 是准确数量。 使用 `dynamic` 和 `ondemand` 时，它是最大数量。默认值为每个逻辑 CPU 一个 worker。
 
 | 伸缩策略 | 有多少个 worker | 生效的键 |
 | --- | --- | --- |
@@ -73,13 +71,9 @@ master 还在整个生命周期里持有 PHP 模块，也只有它会去关闭�
 | `dynamic` | 需求要多少就多少，上限是 `pool.processes`；master 把*空闲*数量控制在备用区间之内。 | `min_spare`, `max_spare` |
 | `ondemand` | 启动时一个都不 fork；随流量到来而 fork，上限是 `pool.processes`。 | `process_idle_timeout_secs` |
 
-**`static`** 适合大多数部署。它使用固定数量的 worker，并替换已退出的 worker。
-PHP 是同步的，因此每个 worker 一次处理一个请求。I/O 密集型应用可能需要比 CPU 更多的 worker。
-CPU 密集型应用通常不需要。
+**`static`** 适合大多数部署。它使用固定数量的 worker，并替换已退出的 worker。 PHP 是同步的，因此每个 worker 一次处理一个请求。I/O 密集型应用可能需要比 CPU 更多的 worker。 CPU 密集型应用通常不需要。
 
-**`dynamic`** 将空闲 worker 数量保持在两个限制之间。数量低于 `min_spare` 时，它会创建 worker。
-连续维护周期的容量不足时，新 worker 数量会翻倍。数量超过 `max_spare` 时，它会删除最早的空闲 worker。
-初始数量是两个限制的中间值。需求超过 `pool.processes` 时，Rapira 会记录一次警告。
+**`dynamic`** 将空闲 worker 数量保持在两个限制之间。数量低于 `min_spare` 时，它会创建 worker。 连续维护周期的容量不足时，新 worker 数量会翻倍。数量超过 `max_spare` 时，它会删除最早的空闲 worker。 初始数量是两个限制的中间值。需求超过 `pool.processes` 时，Rapira 会记录一次警告。
 
 ```toml
 [pool]
@@ -91,10 +85,7 @@ max_spare = 3
 
 这几个边界必须满足 `1 <= min_spare <= max_spare <= processes`；它们在 `dynamic` 下是必填的，在另外两种策略下则会被拒绝。写错地方是配置错误，而不是一个被悄悄忽略的键。
 
-**`ondemand`** 在启动时不创建 worker。master 监视监听套接字。
-连接到达且没有空闲 worker 时，master 会创建一个。worker 空闲超过 `pool.process_idle_timeout_secs` 后会退出。
-空进程池的第一个请求会等待创建 worker。将 `ondemand` 用于测试环境和低流量站点。
-将其他策略用于稳定流量。
+**`ondemand`** 在启动时不创建 worker。master 监视监听套接字。 连接到达且没有空闲 worker 时，master 会创建一个。worker 空闲超过 `pool.process_idle_timeout_secs` 后会退出。 空进程池的第一个请求会等待创建 worker。将 `ondemand` 用于测试环境和低流量站点。 将其他策略用于稳定流量。
 
 完整的键参考在[配置](/zh/docs/configuration)那一页。
 
@@ -119,16 +110,12 @@ kill -TERM $(cat /run/rapira.pid)   # Stop after current requests finish.
 ```
 
 ::: warning
-仅向 master 发送信号。worker 会忽略 `SIGUSR1` 和 `SIGUSR2`。
-worker 将 `SIGTERM` 作为立即终止。请求超时使用此信号。
-直接向 worker 发送信号会绕过 master 监管。
+仅向 master 发送信号。worker 会忽略 `SIGUSR1` 和 `SIGUSR2`。 worker 将 `SIGTERM` 作为立即终止。请求超时使用此信号。 直接向 worker 发送信号会绕过 master 监管。
 :::
 
 ### 停止
 
-对于每个停止信号，master 立即向所有 worker 发送 `SIGQUIT`。worker 停止接受工作并完成当前请求。
-经过 `supervisor.process_control_timeout_secs` 后，master 向剩余 worker 发送 `SIGTERM`。默认值为 30 秒。
-如果仍有 worker，master 会在 `SIGTERM` 一秒后发送 `SIGKILL`。
+对于每个停止信号，master 立即向所有 worker 发送 `SIGQUIT`。worker 停止接受工作并完成当前请求。 经过 `supervisor.process_control_timeout_secs` 后，master 向剩余 worker 发送 `SIGTERM`。默认值为 30 秒。 如果仍有 worker，master 会在 `SIGTERM` 一秒后发送 `SIGKILL`。
 
 第二个 `SIGTERM` 或 `SIGINT` 会跳过等待，立刻强制退出。
 
@@ -136,25 +123,16 @@ worker 将 `SIGTERM` 作为立即终止。请求超时使用此信号。
 
 `SIGUSR2` 或 `SIGHUP` 会替换整个进程池。每个新 worker 使用部署的代码初始化应用。
 
-在 Classic 模式下，入口脚本在新的 PHP 请求中执行。新代码无需重载即可生效。
-但是，`opcache.validate_timestamps = 0` 需要完整重启。
-Worker 和 Dispatcher 保留已初始化的应用。在这些模式下，每次部署后都要重载进程池。
-请参阅[部署](/zh/docs/deployment)。
+在 Classic 模式下，入口脚本在新的 PHP 请求中执行。新代码无需重载即可生效。 但是，`opcache.validate_timestamps = 0` 需要完整重启。 Worker 和 Dispatcher 保留已初始化的应用。在这些模式下，每次部署后都要重载进程池。 请参阅[部署](/zh/docs/deployment)。
 
-master 启动一个新 worker，并等待它报告 `idle` 或 `active` 状态。
-然后主进程停止一个旧 worker。该 worker 结束后，主进程在下一个位置启动新 worker。
-每次停止都使用 `SIGQUIT` → `SIGTERM` → `SIGKILL`。相同的控制超时适用于每个 worker。
-旧 worker 开始停止时会关闭空闲 keep-alive 连接。当前请求可以在控制超时前完成。
+master 启动一个新 worker，并等待它报告 `idle` 或 `active` 状态。 然后主进程停止一个旧 worker。该 worker 结束后，主进程在下一个位置启动新 worker。 每次停止都使用 `SIGQUIT` → `SIGTERM` → `SIGKILL`。相同的控制超时适用于每个 worker。 旧 worker 收到 `SIGQUIT` 后会关闭空闲 keep-alive 连接。当前请求可以在控制超时前完成。
 
-如果新 worker 在控制超时前未报告这两种状态，master 会记录警告。
-然后，即使新 worker 尚未处理请求，master 也会停止下一个旧 worker。
-在 `ondemand` 模式下，主进程逐个删除旧 worker。新连接会创建替代 worker。
+如果新 worker 在控制超时前未报告这两种状态，master 会记录警告。 然后，即使新 worker 尚未处理请求，master 也会停止下一个旧 worker。 在 `ondemand` 模式下，主进程逐个删除旧 worker。新连接会创建替代 worker。
 
 停止已经在进行时收到的重载会被忽略：停止永远优先。
 
 ::: info
-重载会替换 worker，但不会替换主进程。新 worker 使用相同的引擎映像。
-更改 `rapira.toml`、`php.ini` 和二进制文件需要完整重启。
+重载会替换 worker，但不会替换主进程。新 worker 使用相同的引擎映像。 更改 `rapira.toml`、`php.ini` 和二进制文件需要完整重启。
 :::
 
 ### 状态快照

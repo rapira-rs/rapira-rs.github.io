@@ -24,12 +24,10 @@ Rapira собирается из исходников на Linux и macOS. Са�
 
 ## PHP с embed SAPI
 
-Rapira линкует интерпретатор в свой процесс и не использует сокет. PHP должен быть разделяемой библиотекой NTS версии 8.4 или 8.5.
-Настройте PHP с `--enable-embed=shared`. Эта опция создаёт `libphp.so` или `libphp.dylib` в macOS.
+Rapira линкует интерпретатор в свой процесс и не использует сокет. PHP должен быть разделяемой библиотекой NTS версии 8.4 или 8.5. Настройте PHP с `--enable-embed=shared`. Эта опция создаёт `libphp.so` или `libphp.dylib` в macOS.
 
 ::: warning Сборки ZTS отвергаются
-Потокобезопасный PHP вызывает ошибку сборки. Rapira требует NTS, потому что каждый процесс воркера запускает один интерпретатор.
-Если `PATH` выбирает сборку ZTS, установите PHP NTS. Задайте путь к `php-config` через `PHP_CONFIG`.
+Потокобезопасный PHP вызывает ошибку сборки. Rapira требует NTS, потому что каждый процесс воркера запускает один интерпретатор. Если `PATH` выбирает сборку ZTS, установите PHP NTS. Задайте путь к `php-config` через `PHP_CONFIG`.
 :::
 
 В нескольких дистрибутивах embed SAPI уже лежит в пакетах:
@@ -49,8 +47,7 @@ sudo apk add php84-dev php84-embed            # Alpine
 
 Соберите PHP, если пакет embed недоступен. Также соберите PHP, если пакет не содержит нужные расширения.
 
-Файл `.github/php-configure-flags.txt` содержит параметры выпусков. Передайте его в `configure` в распакованном каталоге исходного кода PHP.
-Добавьте параметры нужных расширений в конец строки `./configure`:
+Файл `.github/php-configure-flags.txt` содержит параметры выпусков. Передайте его в `configure` в распакованном каталоге исходного кода PHP. Добавьте параметры нужных расширений в конец строки `./configure`:
 
 ```bash
 ./configure --prefix="$HOME/.local/php-nts" $(tr '\n' ' ' < /path/to/rapira/.github/php-configure-flags.txt)
@@ -58,11 +55,11 @@ make -j"$(getconf _NPROCESSORS_ONLN)"
 make install
 ```
 
-На macOS сначала поставьте зависимости (`brew install pkg-config openssl@3 curl oniguruma libxml2 sqlite`), добавьте их каталоги `lib/pkgconfig` в `PKG_CONFIG_PATH`, а после файла с флагами допишите `--with-iconv="$(xcrun --show-sdk-path)/usr"`: голый `--with-iconv` там libiconv не находит, а в autoconf побеждает последнее вхождение.
+В macOS установите зависимости командой `brew install pkg-config openssl@3 curl oniguruma libxml2 sqlite`. Добавьте их каталоги `lib/pkgconfig` в `PKG_CONFIG_PATH`. После параметров из файла добавьте `--with-iconv="$(xcrun --show-sdk-path)/usr"`. Этот путь позволяет `configure` найти libiconv в macOS. Autoconf использует последнее значение повторяющегося параметра.
 
 ### Простое имя `libphp.so`
 
-Сборка линкуется с `-lphp` и ищет библиотеку только в `lib` и `lib64` внутри префикса PHP, поэтому файл ровно с именем `libphp.so` (или `libphp.dylib`) должен лежать в одном из них. Debian и Ubuntu кладут только версионный `libphp8.4.so`, у Alpine имя простое, но сам файл лежит в `lib/phpXX`, который сборка не просматривает. И там, и там линковка падает, пока вы не положите в `lib` или `lib64` префикса симлинк с простым именем:
+Сборка компонует `-lphp`. Она ищет библиотеку только в каталогах `lib` и `lib64` префикса PHP. Один из этих каталогов должен содержать `libphp.so` или `libphp.dylib` в macOS. Debian и Ubuntu предоставляют только версионный файл `libphp8.4.so`. Alpine помещает `libphp.so` в каталог `lib/phpXX`, который сборка не проверяет. Создайте ссылку с требуемым именем в каталоге `lib` или `lib64` префикса:
 
 ```bash
 sudo ln -sf /usr/lib/libphp8.4.so /usr/lib/libphp.so        # Debian/Ubuntu
@@ -80,7 +77,7 @@ export LD_LIBRARY_PATH="$HOME/.local/phplib:/usr/lib"
 
 ## Сборка Rapira
 
-Когда PHP на месте, дальше всё как в любом проекте на Rust - обычная сборка через cargo:
+После установки PHP соберите Rapira с помощью Cargo:
 
 ```bash
 git clone https://github.com/rapira-rs/rapira.git
@@ -88,7 +85,7 @@ cd rapira
 cargo build --release
 ```
 
-Готовый бинарник окажется в `target/release/rapira`.
+Сборка записывает бинарный файл в `target/release/rapira`.
 
 PHP находится через `php-config`. Если тот, что лежит в `PATH`, - не та сборка, которую вы хотите встроить, укажите нужную явно:
 
@@ -109,7 +106,7 @@ LD_LIBRARY_PATH="$HOME/.local/php-nts/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" 
 DYLD_LIBRARY_PATH="$HOME/.local/php-nts/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" ./target/release/rapira serve --mode worker worker.php   # macOS
 ```
 
-В результате получается тот же сервер, что ставится из пакетов: [Быстрый старт](/ru/docs/intro/quickstart) проведёт через первый скрипт, [Командная строка](/ru/docs/cli) перечисляет всё, что принимает `serve`, а [Конфигурация](/ru/docs/configuration) разбирает `rapira.toml`.
+Результат предоставляет те же функции, что и сервер из пакета. См. разделы [Быстрый старт](/ru/docs/intro/quickstart), [Командная строка](/ru/docs/cli) и [Конфигурация](/ru/docs/configuration).
 
 ## Разработка самой Rapira
 

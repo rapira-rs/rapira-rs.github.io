@@ -5,31 +5,23 @@ description: "La referencia completa de rapira.toml: todas las claves de [http],
 
 # Configuración
 
-Rapira puede iniciarse sin un archivo de configuración. `rapira serve --mode worker app/worker.php` usa los ajustes predeterminados.
-Crea `rapira.toml` para cambiar la dirección, los workers, la sustitución, el pidfile o el nivel de registro. Indica el archivo con este comando:
+Rapira puede iniciarse sin un archivo de configuración. `rapira serve --mode worker app/worker.php` usa los ajustes predeterminados. Crea `rapira.toml` para cambiar la dirección, los workers, la sustitución, el pidfile o el nivel de registro. Indica el archivo con este comando:
 
 ```bash
 rapira serve --config /etc/rapira/rapira.toml
 ```
 
-El archivo tiene cuatro secciones opcionales. `[http]` configura la escucha y `[pool]` configura los workers.
-`[supervisor]` configura el proceso maestro. `[log]` configura la salida a stderr.
-El script de entrada de PHP no tiene valor predeterminado. Define `pool.entrypoint` o pasa el script como argumento.
+El archivo tiene cuatro secciones opcionales. `[http]` configura la escucha y `[pool]` configura los workers. `[supervisor]` configura el proceso maestro. `[log]` configura la salida a stderr. El script de entrada de PHP no tiene valor predeterminado. Define `pool.entrypoint` o pasa el script como argumento.
 
 ::: info
-Las opciones de línea de comandos sustituyen los valores del archivo. Los valores del archivo sustituyen los valores predeterminados.
-Por ejemplo, `--processes 8` sustituye `processes = 4` durante una ejecución.
-Solo dos variables de entorno de registro afectan a los ajustes. Consulta las opciones en la [página de la línea de comandos](/es/docs/cli).
+Las opciones de línea de comandos sustituyen los valores del archivo. Los valores del archivo sustituyen los valores predeterminados. Por ejemplo, `--processes 8` sustituye `processes = 4` durante una ejecución. Solo dos variables de entorno de registro afectan a los ajustes. Consulta las opciones en la [página de la línea de comandos](/es/docs/cli).
 :::
 
 ## Un rapira.toml completo
 
-El siguiente archivo contiene todas las claves admitidas. La mayoría de las claves ausentes usan su valor predeterminado.
-`pool.entrypoint` no tiene valor predeterminado. El escalado dinámico requiere `min_spare` y `max_spare`.
-La tabla `[http.static]` requiere `http.static.root`.
+El siguiente archivo contiene todas las claves admitidas. La mayoría de las claves ausentes usan su valor predeterminado. `pool.entrypoint` no tiene valor predeterminado. El escalado dinámico requiere `min_spare` y `max_spare`. La tabla `[http.static]` requiere `http.static.root`.
 
-Algunas claves deben aparecer juntas. La tabla `[http.static]` requiere la entrada `"static"` de `middleware`, y la entrada requiere la tabla.
-Elimina `min_spare` y `max_spare` cuando el escalado no sea `dynamic`. Rapira rechaza estas claves con `static` y `ondemand`.
+Algunas claves deben aparecer juntas. La tabla `[http.static]` requiere la entrada `"static"` de `middleware`, y la entrada requiere la tabla. Elimina `min_spare` y `max_spare` cuando el escalado no sea `dynamic`. Rapira rechaza estas claves con `static` y `ondemand`.
 
 ```toml
 [http]
@@ -177,28 +169,20 @@ Rapira escribe todos los registros en stderr. Esta sección decide cuánto detal
 | `format` | `"plain"` \| `"json"` | `"plain"` | La forma de cada entrada: líneas legibles para una persona (con color cuando stderr es un terminal), o un objeto JSON por línea para un recolector de registros. |
 | `[log.targets]` | tabla de target → nivel | vacía | Ajustes por target que se aplican encima de `level`. Cada clave nombra uno de los targets bajo los que Rapira emite: `php` lleva la salida del propio PHP, y `http`, el frontal HTTP. La coincidencia es por prefijo, así que `php` cubre también `php_sys::callbacks` y todo lo que cuelgue de ahí. En [Registros](/es/docs/logging) están todos los targets. |
 
-Una clave de `[log.targets]` puede usar letras, dígitos, `_`, `:`, `.` y `-`. Debe empezar con una letra, un dígito o `_`.
-Rapira rechaza otros caracteres porque el filtro puede interpretarlos como sintaxis.
-Una clave de target que contiene `:` o `.` debe ir entre comillas porque TOML no permite estos caracteres en una clave simple sin comillas. Por ejemplo:
+Una clave de `[log.targets]` puede usar letras, dígitos, `_`, `:`, `.` y `-`. Debe empezar con una letra, un dígito o `_`. Rapira rechaza otros caracteres porque el filtro puede interpretarlos como sintaxis. Una clave de target que contiene `:` o `.` debe ir entre comillas porque TOML no permite estos caracteres en una clave simple sin comillas. Por ejemplo:
 
 ```toml
 [log.targets]
 "php_sys::callbacks" = "debug"
 ```
 
-Rapira solo lee las variables de entorno `RUST_LOG` y `NO_COLOR`. Ambas afectan solo a los registros.
-`RUST_LOG` sustituye el filtro completo durante una ejecución. Un valor no vacío de `NO_COLOR` desactiva los colores del formato `plain`.
+Rapira solo lee las variables de entorno `RUST_LOG` y `NO_COLOR`. Ambas afectan solo a los registros. `RUST_LOG` sustituye el filtro completo durante una ejecución. Un valor no vacío de `NO_COLOR` desactiva los colores del formato `plain`.
 
 ## Las claves desconocidas se rechazan
 
-Rapira solo acepta las tablas y claves documentadas. Por ejemplo, `[htttp]` o `lissten = ":8000"` impiden la inicialización.
-El error identifica el nombre desconocido. Rapira no lo ignora.
-Cada clave pertenece a una tabla. Por ejemplo, `max_requests` pertenece a `[pool]` y `pidfile` pertenece a `[supervisor]`.
+Rapira solo acepta las tablas y claves documentadas. Por ejemplo, `[htttp]` o `lissten = ":8000"` impiden la inicialización. El error identifica el nombre desconocido. Rapira no lo ignora. Cada clave pertenece a una tabla. Por ejemplo, `max_requests` pertenece a `[pool]` y `pidfile` pertenece a `[supervisor]`.
 
-Rapira también valida los valores. Rechaza los valores no admitidos en lugar de usar los predeterminados.
-Por ejemplo, rechaza `level = "verbose"`, `format = "pretty"` y `unsafe_field_names = "allow"`.
-Los valores numéricos tienen límites. Los workers, cuerpos, tiempos HTTP y límites de carga deben ser como mínimo 1.
-Cada clave `*_secs` tiene un máximo de `86400`, que equivale a un día.
+Rapira también valida los valores. Rechaza los valores no admitidos en lugar de usar los predeterminados. Por ejemplo, rechaza `level = "verbose"`, `format = "pretty"` y `unsafe_field_names = "allow"`. Los valores numéricos tienen límites. Los workers, cuerpos, tiempos HTTP y límites de carga deben ser como mínimo 1. Cada clave `*_secs` tiene un máximo de `86400`, que equivale a un día.
 
 ::: warning
 La validación ocurre antes de que arranque nada, así que una clave que no se reconoce corta el arranque en vez de degradar la ejecución en silencio. Editar `rapira.toml` en una máquina que está sirviendo ahora mismo no le hace nada al proceso en marcha, pero el siguiente arranque es el que tiene que salir bien.
@@ -206,13 +190,10 @@ La validación ocurre antes de que arranque nada, así que una clave que no se r
 
 ## Rutas relativas
 
-Cinco claves contienen rutas: `pool.entrypoint`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root` y `http.uploads.dir`.
-Cada ruta relativa usa como base el directorio del archivo de configuración.
-Por ejemplo, `entrypoint = "app/worker.php"` en `/etc/rapira/rapira.toml` produce `/etc/rapira/app/worker.php`.
+Cinco claves contienen rutas: `pool.entrypoint`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root` y `http.uploads.dir`. Cada ruta relativa usa como base el directorio del archivo de configuración. Por ejemplo, `entrypoint = "app/worker.php"` en `/etc/rapira/rapira.toml` produce `/etc/rapira/app/worker.php`.
 
 El argumento posicional `SCRIPT` usa el directorio actual como base de una ruta relativa.
 
 ::: tip
-Guarda `rapira.toml` dentro de la aplicación. Escribe sus rutas respecto al archivo.
-Este diseño permite mover el directorio de la aplicación sin cambiar las rutas.
+Guarda `rapira.toml` dentro de la aplicación. Escribe sus rutas respecto al archivo. Este diseño permite mover el directorio de la aplicación sin cambiar las rutas.
 :::

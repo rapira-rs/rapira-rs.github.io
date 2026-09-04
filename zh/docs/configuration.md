@@ -5,31 +5,23 @@ description: "rapira.toml 完整参考：[http]、[pool]、[supervisor] 和 [log
 
 # 配置
 
-Rapira 可以在没有配置文件的情况下启动。`rapira serve --mode worker app/worker.php` 使用默认设置。
-创建 `rapira.toml` 以更改地址、worker 数量、替换策略、pidfile 或日志级别。使用此命令指定文件：
+Rapira 可以在没有配置文件的情况下启动。`rapira serve --mode worker app/worker.php` 使用默认设置。 创建 `rapira.toml` 以更改地址、worker 数量、替换策略、pidfile 或日志级别。使用此命令指定文件：
 
 ```bash
 rapira serve --config /etc/rapira/rapira.toml
 ```
 
-文件包含四个可选部分。`[http]` 配置监听器，`[pool]` 配置 worker。
-`[supervisor]` 配置 master 进程。`[log]` 配置 stderr 输出。
-PHP 入口脚本没有默认值。请设置 `pool.entrypoint`，或将脚本作为命令行参数传递。
+文件包含四个可选部分。`[http]` 配置监听器，`[pool]` 配置 worker。 `[supervisor]` 配置 master 进程。`[log]` 配置 stderr 输出。 PHP 入口脚本没有默认值。请设置 `pool.entrypoint`，或将脚本作为命令行参数传递。
 
 ::: info
-命令行参数覆盖配置文件值。配置文件值覆盖内置默认值。
-例如，`--processes 8` 会为一次运行覆盖 `processes = 4`。
-只有两个日志环境变量会影响设置。有关可用参数，请参阅[命令行](/zh/docs/cli)。
+命令行参数覆盖配置文件值。配置文件值覆盖内置默认值。 例如，`--processes 8` 会为一次运行覆盖 `processes = 4`。 只有两个日志环境变量会影响设置。有关可用参数，请参阅[命令行](/zh/docs/cli)。
 :::
 
 ## 一份完整的 rapira.toml
 
-以下文件包含所有支持的键。大多数缺少的键使用默认值。
-`pool.entrypoint` 没有默认值。动态伸缩需要 `min_spare` 和 `max_spare`。
-`[http.static]` 表需要 `http.static.root`。
+以下文件包含所有支持的键。大多数缺少的键使用默认值。 `pool.entrypoint` 没有默认值。动态伸缩需要 `min_spare` 和 `max_spare`。 `[http.static]` 表需要 `http.static.root`。
 
-部分键必须一起出现。`[http.static]` 表需要 `middleware` 中的 `"static"`，该条目也需要此表。
-当伸缩方式不是 `dynamic` 时，请删除 `min_spare` 和 `max_spare`。Rapira 会拒绝 `static` 和 `ondemand` 中的这些键。
+部分键必须一起出现。`[http.static]` 表需要 `middleware` 中的 `"static"`，该条目也需要此表。 当伸缩方式不是 `dynamic` 时，请删除 `min_spare` 和 `max_spare`。Rapira 会拒绝 `static` 和 `ondemand` 中的这些键。
 
 ```toml
 [http]
@@ -177,28 +169,20 @@ Rapira 将所有日志记录写入 stderr。这一节决定日志的详细程度
 | `format` | `"plain"` \| `"json"` | `"plain"` | 记录的形态：便于人读的文本行（stderr 是终端时带颜色），或者每行一个 JSON 对象，喂给日志收集器。 |
 | `[log.targets]` | target → 级别 的表 | 空 | 在 `level` 之上按 target 单独覆盖。每个键都对应 Rapira 实际会用到的一个 target：`php` 是 PHP 自己的输出，`http` 是 HTTP 接入层。键按前缀匹配，所以 `php` 也覆盖 `php_sys::callbacks` 和它下面的一切。全部 target 列在[日志](/zh/docs/logging)那一页。 |
 
-`[log.targets]` 键可以使用字母、数字、`_`、`:`、`.` 和 `-`。第一个字符必须是字母、数字或 `_`。
-Rapira 会拒绝其他字符，因为过滤器可能将其解释为语法。
-包含 `:` 或 `.` 的目标键必须加引号，因为 TOML 的裸键不允许这些字符。例如：
+`[log.targets]` 键可以使用字母、数字、`_`、`:`、`.` 和 `-`。第一个字符必须是字母、数字或 `_`。 Rapira 会拒绝其他字符，因为过滤器可能将其解释为语法。 包含 `:` 或 `.` 的目标键必须加引号，因为 TOML 的裸键不允许这些字符。例如：
 
 ```toml
 [log.targets]
 "php_sys::callbacks" = "debug"
 ```
 
-Rapira 只读取 `RUST_LOG` 和 `NO_COLOR` 环境变量。这两个变量仅影响日志。
-`RUST_LOG` 在一次运行中替换完整过滤器。非空的 `NO_COLOR` 值会禁用 `plain` 格式的颜色。
+Rapira 只读取 `RUST_LOG` 和 `NO_COLOR` 环境变量。这两个变量仅影响日志。 `RUST_LOG` 在一次运行中替换完整过滤器。非空的 `NO_COLOR` 值会禁用 `plain` 格式的颜色。
 
 ## 不认识的键会被拒绝
 
-Rapira 只接受文档中的表和键。例如，`[htttp]` 或 `lissten = ":8000"` 会导致初始化失败。
-错误会标识未知名称。Rapira 不会忽略它。
-每个键属于一个表。例如，`max_requests` 属于 `[pool]`，`pidfile` 属于 `[supervisor]`。
+Rapira 只接受文档中的表和键。例如，`[htttp]` 或 `lissten = ":8000"` 会导致初始化失败。 错误会标识未知名称。Rapira 不会忽略它。 每个键属于一个表。例如，`max_requests` 属于 `[pool]`，`pidfile` 属于 `[supervisor]`。
 
-Rapira 还会验证值。它拒绝不支持的值，不会使用默认值替换。
-例如，它拒绝 `level = "verbose"`、`format = "pretty"` 和 `unsafe_field_names = "allow"`。
-数值有范围限制。worker 数量、正文大小、HTTP 超时和上传限制必须至少为 1。
-每个 `*_secs` 键的最大值为 `86400`，即一天。
+Rapira 还会验证值。它拒绝不支持的值，不会使用默认值替换。 例如，它拒绝 `level = "verbose"`、`format = "pretty"` 和 `unsafe_field_names = "allow"`。 数值有范围限制。worker 数量、正文大小、HTTP 超时和上传限制必须至少为 1。 每个 `*_secs` 键的最大值为 `86400`，即一天。
 
 ::: warning
 校验发生在一切启动之前，所以不认识的键会挡下启动，而不是让这次运行悄悄降级。在正对外服务的机器上改 `rapira.toml`，正在跑的进程不受影响，但下一次启动必须成功。
@@ -206,13 +190,10 @@ Rapira 还会验证值。它拒绝不支持的值，不会使用默认值替换�
 
 ## 相对路径
 
-五个键包含路径：`pool.entrypoint`、`supervisor.pidfile`、`http.static.root`、`http.sendfile.root` 和 `http.uploads.dir`。
-每个相对路径都以配置文件目录为基准。
-例如，`/etc/rapira/rapira.toml` 中的 `entrypoint = "app/worker.php"` 产生 `/etc/rapira/app/worker.php`。
+五个键包含路径：`pool.entrypoint`、`supervisor.pidfile`、`http.static.root`、`http.sendfile.root` 和 `http.uploads.dir`。 每个相对路径都以配置文件目录为基准。 例如，`/etc/rapira/rapira.toml` 中的 `entrypoint = "app/worker.php"` 产生 `/etc/rapira/app/worker.php`。
 
 位置参数 `SCRIPT` 使用当前目录作为相对路径的基准。
 
 ::: tip
-将 `rapira.toml` 保存在应用内。相对于此文件指定路径。
-此结构允许移动应用目录而不更改路径。
+将 `rapira.toml` 保存在应用内。相对于此文件指定路径。 此结构允许移动应用目录而不更改路径。
 :::

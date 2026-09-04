@@ -24,12 +24,10 @@ La compilación requiere estas herramientas:
 
 ## PHP con el SAPI embed
 
-Rapira enlaza el intérprete en su proceso y no usa un socket. PHP debe ser una biblioteca compartida NTS, versión 8.4 u 8.5.
-Configura PHP con `--enable-embed=shared`. Esta opción crea `libphp.so`, o `libphp.dylib` en macOS.
+Rapira enlaza el intérprete en su proceso y no usa un socket. PHP debe ser una biblioteca compartida NTS, versión 8.4 u 8.5. Configura PHP con `--enable-embed=shared`. Esta opción crea `libphp.so`, o `libphp.dylib` en macOS.
 
 ::: warning Las compilaciones ZTS se rechazan
-Un PHP con seguridad de hilos causa un error de compilación. Rapira requiere NTS porque ejecuta un intérprete en cada proceso worker.
-Si `PATH` selecciona una compilación ZTS, instala PHP NTS. Define `PHP_CONFIG` con la ruta de su `php-config`.
+Un PHP con seguridad de hilos causa un error de compilación. Rapira requiere NTS porque ejecuta un intérprete en cada proceso worker. Si `PATH` selecciona una compilación ZTS, instala PHP NTS. Define `PHP_CONFIG` con la ruta de su `php-config`.
 :::
 
 Varias distribuciones ya empaquetan el SAPI embed:
@@ -49,8 +47,7 @@ La fórmula `php` de Homebrew no incluye el SAPI embed. Compila PHP desde el có
 
 Compila PHP cuando no haya un paquete embed. Compílalo también cuando el paquete no incluya las extensiones necesarias.
 
-El archivo `.github/php-configure-flags.txt` contiene las opciones de las compilaciones publicadas. Pásalo a `configure` dentro del código fuente de PHP extraído.
-Añade las opciones de las extensiones necesarias al final de la línea de `./configure`:
+El archivo `.github/php-configure-flags.txt` contiene las opciones de las compilaciones publicadas. Pásalo a `configure` dentro del código fuente de PHP extraído. Añade las opciones de las extensiones necesarias al final de la línea de `./configure`:
 
 ```bash
 ./configure --prefix="$HOME/.local/php-nts" $(tr '\n' ' ' < /path/to/rapira/.github/php-configure-flags.txt)

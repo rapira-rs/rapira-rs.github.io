@@ -5,31 +5,23 @@ description: "Pełny opis rapira.toml: każdy klucz sekcji [http], [pool], [supe
 
 # Konfiguracja
 
-Rapira może uruchomić się bez pliku konfiguracyjnego. `rapira serve --mode worker app/worker.php` używa ustawień domyślnych.
-Utwórz `rapira.toml`, aby zmienić adres, liczbę workerów, wymianę, pidfile lub poziom logowania. Wskaż plik tym poleceniem:
+Rapira może uruchomić się bez pliku konfiguracyjnego. `rapira serve --mode worker app/worker.php` używa ustawień domyślnych. Utwórz `rapira.toml`, aby zmienić adres, liczbę workerów, wymianę, pidfile lub poziom logowania. Wskaż plik tym poleceniem:
 
 ```bash
 rapira serve --config /etc/rapira/rapira.toml
 ```
 
-Plik ma cztery opcjonalne sekcje. `[http]` konfiguruje nasłuch, a `[pool]` konfiguruje workery.
-`[supervisor]` konfiguruje proces nadrzędny. `[log]` konfiguruje wyjście stderr.
-Skrypt wejściowy PHP nie ma wartości domyślnej. Ustaw `pool.entrypoint` albo podaj skrypt jako argument.
+Plik ma cztery opcjonalne sekcje. `[http]` konfiguruje nasłuch, a `[pool]` konfiguruje workery. `[supervisor]` konfiguruje proces nadrzędny. `[log]` konfiguruje wyjście stderr. Skrypt wejściowy PHP nie ma wartości domyślnej. Ustaw `pool.entrypoint` albo podaj skrypt jako argument.
 
 ::: info
-Flagi wiersza poleceń zastępują wartości pliku. Wartości pliku zastępują wartości domyślne.
-Na przykład `--processes 8` zastępuje `processes = 4` podczas jednego uruchomienia.
-Tylko dwie zmienne środowiskowe logowania wpływają na ustawienia. Dostępne flagi opisuje [Wiersz poleceń](/pl/docs/cli).
+Flagi wiersza poleceń zastępują wartości pliku. Wartości pliku zastępują wartości domyślne. Na przykład `--processes 8` zastępuje `processes = 4` podczas jednego uruchomienia. Tylko dwie zmienne środowiskowe logowania wpływają na ustawienia. Dostępne flagi opisuje [Wiersz poleceń](/pl/docs/cli).
 :::
 
 ## Kompletny rapira.toml
 
-Poniższy plik zawiera wszystkie obsługiwane klucze. Większość brakujących kluczy używa wartości domyślnej.
-`pool.entrypoint` nie ma wartości domyślnej. Skalowanie dynamiczne wymaga `min_spare` i `max_spare`.
-Tabela `[http.static]` wymaga `http.static.root`.
+Poniższy plik zawiera wszystkie obsługiwane klucze. Większość brakujących kluczy używa wartości domyślnej. `pool.entrypoint` nie ma wartości domyślnej. Skalowanie dynamiczne wymaga `min_spare` i `max_spare`. Tabela `[http.static]` wymaga `http.static.root`.
 
-Niektóre klucze muszą występować razem. Tabela `[http.static]` wymaga wpisu `"static"` w `middleware`, a wpis wymaga tabeli.
-Usuń `min_spare` i `max_spare`, gdy skalowanie nie jest `dynamic`. Rapira odrzuca te klucze ze skalowaniem `static` i `ondemand`.
+Niektóre klucze muszą występować razem. Tabela `[http.static]` wymaga wpisu `"static"` w `middleware`, a wpis wymaga tabeli. Usuń `min_spare` i `max_spare`, gdy skalowanie nie jest `dynamic`. Rapira odrzuca te klucze ze skalowaniem `static` i `ondemand`.
 
 ```toml
 [http]
@@ -177,28 +169,20 @@ Rapira zapisuje wszystkie wpisy do stderr. Ta sekcja decyduje, jak szczegółowy
 | `format` | `"plain"` \| `"json"` | `"plain"` | Kształt rekordu: czytelne dla człowieka linie (kolorowane, gdy stderr jest terminalem) albo jeden obiekt JSON na linię dla kolektora logów. |
 | `[log.targets]` | tabela cel → poziom | pusta | Nadpisania dla poszczególnych celów, nakładane na `level`. Każdy klucz nazywa jeden z celów, pod którymi Rapira pisze: `php` niesie wyjście samego PHP, a `http` front HTTP. Klucz dopasowuje się po prefiksie, więc `php` obejmuje też `php_sys::callbacks` i wszystko poniżej. Pełną listę celów mają [Logi](/pl/docs/logging). |
 
-Klucz `[log.targets]` może zawierać litery, cyfry, `_`, `:`, `.` i `-`. Musi zaczynać się literą, cyfrą lub `_`.
-Rapira odrzuca inne znaki, ponieważ filtr może odczytać je jako składnię.
-Klucz celu zawierający `:` lub `.` musi być ujęty w cudzysłów, ponieważ TOML nie zezwala na te znaki w prostym kluczu bez cudzysłowu. Na przykład:
+Klucz `[log.targets]` może zawierać litery, cyfry, `_`, `:`, `.` i `-`. Musi zaczynać się literą, cyfrą lub `_`. Rapira odrzuca inne znaki, ponieważ filtr może odczytać je jako składnię. Klucz celu zawierający `:` lub `.` musi być ujęty w cudzysłów, ponieważ TOML nie zezwala na te znaki w prostym kluczu bez cudzysłowu. Na przykład:
 
 ```toml
 [log.targets]
 "php_sys::callbacks" = "debug"
 ```
 
-Rapira odczytuje tylko zmienne środowiskowe `RUST_LOG` i `NO_COLOR`. Obie wpływają wyłącznie na logi.
-`RUST_LOG` zastępuje cały filtr podczas jednego uruchomienia. Niepusta wartość `NO_COLOR` wyłącza kolory formatu `plain`.
+Rapira odczytuje tylko zmienne środowiskowe `RUST_LOG` i `NO_COLOR`. Obie wpływają wyłącznie na logi. `RUST_LOG` zastępuje cały filtr podczas jednego uruchomienia. Niepusta wartość `NO_COLOR` wyłącza kolory formatu `plain`.
 
 ## Nieznane klucze są odrzucane
 
-Rapira akceptuje tylko udokumentowane tabele i klucze. Na przykład `[htttp]` albo `lissten = ":8000"` zatrzymuje inicjalizację.
-Błąd wskazuje nieznaną nazwę. Rapira jej nie ignoruje.
-Każdy klucz należy do jednej tabeli. Na przykład `max_requests` należy do `[pool]`, a `pidfile` do `[supervisor]`.
+Rapira akceptuje tylko udokumentowane tabele i klucze. Na przykład `[htttp]` albo `lissten = ":8000"` zatrzymuje inicjalizację. Błąd wskazuje nieznaną nazwę. Rapira jej nie ignoruje. Każdy klucz należy do jednej tabeli. Na przykład `max_requests` należy do `[pool]`, a `pidfile` do `[supervisor]`.
 
-Rapira sprawdza również wartości. Odrzuca nieobsługiwane wartości zamiast używać wartości domyślnych.
-Na przykład odrzuca `level = "verbose"`, `format = "pretty"` i `unsafe_field_names = "allow"`.
-Wartości liczbowe mają granice. Liczby workerów, rozmiary treści, limity HTTP i wysyłania muszą wynosić co najmniej 1.
-Każdy klucz `*_secs` ma maksimum `86400`, czyli jeden dzień.
+Rapira sprawdza również wartości. Odrzuca nieobsługiwane wartości zamiast używać wartości domyślnych. Na przykład odrzuca `level = "verbose"`, `format = "pretty"` i `unsafe_field_names = "allow"`. Wartości liczbowe mają granice. Liczby workerów, rozmiary treści, limity czasu HTTP i limity przesyłanych plików muszą wynosić co najmniej 1. Każdy klucz `*_secs` ma maksimum `86400`, czyli jeden dzień.
 
 ::: warning
 Walidacja odbywa się, zanim cokolwiek wystartuje, więc nierozpoznany klucz przerywa uruchamianie, zamiast po cichu pogarszać pracę serwera. Edycja `rapira.toml` na maszynie, która akurat obsługuje ruch, nie rusza działającego procesu, ale następne uruchomienie musi się udać.
@@ -206,13 +190,10 @@ Walidacja odbywa się, zanim cokolwiek wystartuje, więc nierozpoznany klucz prz
 
 ## Ścieżki względne
 
-Pięć kluczy zawiera ścieżki: `pool.entrypoint`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root` i `http.uploads.dir`.
-Każda ścieżka względna używa katalogu pliku konfiguracyjnego jako podstawy.
-Na przykład `entrypoint = "app/worker.php"` w `/etc/rapira/rapira.toml` daje `/etc/rapira/app/worker.php`.
+Pięć kluczy zawiera ścieżki: `pool.entrypoint`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root` i `http.uploads.dir`. Każda ścieżka względna używa katalogu pliku konfiguracyjnego jako podstawy. Na przykład `entrypoint = "app/worker.php"` w `/etc/rapira/rapira.toml` daje `/etc/rapira/app/worker.php`.
 
 Argument pozycyjny `SCRIPT` używa bieżącego katalogu jako podstawy ścieżki względnej.
 
 ::: tip
-Przechowuj `rapira.toml` w aplikacji. Zapisuj ścieżki względem tego pliku.
-Ten układ umożliwia przenoszenie katalogu aplikacji bez zmiany ścieżek.
+Przechowuj `rapira.toml` w aplikacji. Zapisuj ścieżki względem tego pliku. Ten układ umożliwia przenoszenie katalogu aplikacji bez zmiany ścieżek.
 :::

@@ -5,9 +5,7 @@ description: Run a PHP application in Classic and Worker modes. Store the settin
 
 # Quickstart
 
-Start an application in Classic mode. Then convert it to Worker mode.
-Store the settings in a configuration file.
-The steps require a working `rapira` binary with its bundled PHP. See [Installation](/docs/intro/installation) for more information.
+Start an application in Classic mode. Then convert it to Worker mode. Store the settings in a configuration file. The steps require a `rapira` binary with its bundled PHP. See [Installation](/docs/intro/installation) for more information.
 
 ## Classic mode
 
@@ -68,16 +66,13 @@ while (\Rapira\handle_request($handler)) {
 }
 ```
 
-`\Rapira\handle_request()` waits for the next request. It calls the handler and returns `true`.
-During worker shutdown, `\Rapira\handle_request()` returns `false`. This value ends the loop.
-The handler reads superglobals and creates output with `echo` and `header()`.
-Call `\Rapira\handle_request()` only from the top-level script loop. It throws `Rapira\Exception\NotInWorkerModeError` in other modes.
+`\Rapira\handle_request()` waits for the next request. It calls the handler and returns `true`. During worker shutdown, `\Rapira\handle_request()` returns `false`. This value ends the loop.
 
-The PHP module that Rapira registers provides `\Rapira\handle_request()`. The example therefore needs no autoloader.
-An application with Composer dependencies must load `vendor/autoload.php` before the loop.
+The handler reads superglobals and creates output with `echo` and `header()`. Call `\Rapira\handle_request()` only from the top-level script loop. It throws `Rapira\Exception\NotInWorkerModeError` in other modes.
 
-Stop the Classic server with `Ctrl-C` because both servers bind `127.0.0.1:8000`.
-Dispatcher is the default mode. Use the `--mode worker` flag to select Worker mode:
+The PHP module that Rapira registers provides `\Rapira\handle_request()`. Thus, the example needs no autoloader. An application with Composer dependencies must load `vendor/autoload.php` before the loop.
+
+Stop the Classic server with `Ctrl-C` because both servers bind `127.0.0.1:8000`. Dispatcher is the default mode. Use the `--mode worker` flag to select Worker mode:
 
 ```bash
 rapira serve --mode worker worker.php
@@ -87,14 +82,11 @@ rapira serve --mode worker worker.php
 curl '127.0.0.1:8000/?name=world'
 ```
 
-Run the `curl` command several times. A worker's counter increases when that process handles another request.
-By default, Rapira creates one worker for each logical CPU. The operating system selects a worker for each connection.
-Each worker has a separate count. The output process identifier shows which worker returned the response.
+Run the `curl` command several times. A worker's counter increases when that process handles another request. By default, Rapira creates one worker for each logical CPU. The operating system selects a worker for each connection. Each worker has a separate count. The output process identifier shows which worker returned the response.
+
 Use `rapira serve --mode worker --processes 1 worker.php` to create one worker. See [process model](/docs/process-model) for pool supervision.
 
-Objects created before the `while` loop remain in memory for the worker lifetime.
-Examples include the Composer autoloader, container, connections, routes, and templates. Rapira initializes this state once instead of for each request.
-Only request state is new in each iteration.
+Objects created before the `while` loop remain in memory until the worker script restarts. Examples include the Composer autoloader, container, connections, routes, and templates. Rapira initializes this state once instead of for each request. Only request state is new in each iteration.
 
 ::: warning
 The worker script must reset request state that remains in memory.
@@ -123,18 +115,14 @@ rapira serve --config rapira.toml
 ```
 
 ::: info
-A relative `pool.entrypoint` uses the configuration file directory as its base. The current directory does not affect it.
-CLI flags override configuration file values. For example, `--processes 1` changes only the worker count.
+A relative `pool.entrypoint` uses the configuration file directory as its base. The current directory does not affect it. CLI flags override configuration file values. For example, `--processes 1` changes only the worker count.
 :::
 
-The configuration file also controls pool scaling, worker replacement, request timeouts, logging, and the supervisor pidfile.
-An unknown key prevents server initialization. See [Configuration](/docs/configuration) for all configuration file settings and [CLI](/docs/cli) for flags.
+The configuration file also controls pool scaling, worker replacement, request timeouts, logging, and the supervisor pidfile. An unknown key prevents server initialization. See [Configuration](/docs/configuration) for all configuration file settings and [CLI](/docs/cli) for flags.
 
 ## Stopping the server
 
-Press `Ctrl-C` to start a controlled stop. Rapira stops accepting work, finishes current requests, shuts down extensions, and exits.
-Press `Ctrl-C` again to force the exit without waiting. `SIGTERM` has the same behavior.
-See [Process model](/docs/process-model) for the complete signal table.
+Press `Ctrl-C` to start a controlled stop. Rapira does not accept new work, finishes current requests, shuts down extensions, and exits. Press `Ctrl-C` again to force an immediate exit. `SIGTERM` has the same behavior. See [Process model](/docs/process-model) for the complete signal table.
 
 ## Next steps
 

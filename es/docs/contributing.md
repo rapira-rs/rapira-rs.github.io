@@ -2,8 +2,7 @@
 
 Esta página documenta las funciones de autoría del sitio. Cada ejemplo se genera a partir del Markdown mostrado.
 
-Ejecuta `npm ci` para instalar las dependencias bloqueadas. Después, ejecuta `npm run dev`.
-Abre la URL local que muestra el comando. Los directorios de traducción tienen la misma estructura que los archivos canónicos en inglés.
+Ejecuta `npm ci` para instalar las dependencias bloqueadas. Después, ejecuta `npm run dev`. Abre la URL local que muestra el comando. Los directorios de traducción tienen la misma estructura que los archivos canónicos en inglés.
 
 ## Bloques de aviso
 

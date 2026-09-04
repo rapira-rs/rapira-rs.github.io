@@ -25,9 +25,7 @@ Rapira 带的是 embed 构建，因为掌控请求流程的是服务器而不是
 :::
 
 ::: question 「PHP 跑在 Rapira 进程内」是什么意思？
-初始化期间，`rapira` 进程将 `libphp` 加载到其地址空间。Rapira 在同一进程中调用 PHP 函数。
-它不使用 socket、FastCGI 或请求序列化。此库仍是二进制文件旁的独立文件。
-因此，不要只移动二进制文件。请参阅 [Linux 与 macOS 压缩包](#linux-与-macos-压缩包)。
+初始化期间，`rapira` 进程将 `libphp` 加载到其地址空间。Rapira 在同一进程中调用 PHP 函数。 它不使用 socket、FastCGI 或请求序列化。此库仍是二进制文件旁的独立文件。 因此，不要只移动二进制文件。请参阅 [Linux 与 macOS 压缩包](#linux-与-macos-压缩包)。
 :::
 
 ## 选择 PHP 版本
@@ -48,9 +46,7 @@ Rapira 带的是 embed 构建，因为掌控请求流程的是服务器而不是
 
 所有文件都在 [GitHub 发布页](https://github.com/rapira-rs/rapira/releases)。[下载页](/zh/download)会按你的平台--系统、架构、PHP 版本、包格式--挑好产物，并显示它的 SHA-256；每个 `php8.5` 产物都有一个对应的 `php8.4`。
 
-在 Linux 上，软件包使用标准文件路径并自动安装库依赖项。
-压缩包适用于单目录、容器镜像、部署产物或无 root 权限的安装。
-Linux 压缩包还需要系统库。请参阅 [Linux 与 macOS 压缩包](#linux-与-macos-压缩包)。
+在 Linux 上，软件包使用标准文件路径并自动安装库依赖项。 压缩包适用于单目录、容器镜像、部署产物或无 root 权限的安装。 Linux 压缩包还需要系统库。请参阅 [Linux 与 macOS 压缩包](#linux-与-macos-压缩包)。
 
 两种情况都请在安装前用 `rapira-v0.8.0-SHA256SUMS.txt` 核对一遍，命令见[验证校验和](#验证校验和)。
 
@@ -222,8 +218,7 @@ Rapira 使用 `--disable-all` 构建 `libphp`，并启用以下固定扩展：
 
 *没有*的是：`pdo_mysql`、`pgsql`、redis、apcu、imagick 之类。如果你的应用需要其中某个扩展，就把它编进 `libphp`，再用这份库编译 Rapira--具体做法见[从源码构建](/zh/docs/intro/build-from-source)。
 
-每个版本使用其 PHP 分支中可用的最新补丁版本。压缩包的 `share/php/PHP_VERSION.txt` 包含确切版本。
-在运行的服务器上，`PHP_VERSION` 和 `phpinfo()` 会报告此版本。
+每个版本使用其 PHP 分支中可用的最新补丁版本。压缩包的 `share/php/PHP_VERSION.txt` 包含确切版本。 在运行的服务器上，`PHP_VERSION` 和 `phpinfo()` 会报告此版本。
 
 ::: question 为什么在 PHP 8.4 上 `PHP_SAPI` 返回 `fastcgi`？
 在 PHP 8.4 上，OPcache 只对固定的一批 SAPI 名字启动，名字不在名单里就意味着压根没有共享 opcode 缓存--所以在那里 SAPI 注册成了 `fastcgi`。PHP 8.5 去掉了这份名单，于是 `PHP_SAPI` 和 `php_sapi_name()` 返回 `rapira`。而 `phpinfo()` 里的 *Server API* 一行两种情况下都显示 `Rapira`。按 `PHP_SAPI` 分支的代码要能认得这两个值。

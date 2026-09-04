@@ -2,8 +2,7 @@
 
 This page documents the authoring features of the documentation site. Each example renders from the displayed Markdown.
 
-Run `npm ci` to install the locked dependencies. Then run `npm run dev`.
-Open the local URL that the command prints. Translation directories have the same structure as the canonical English files.
+Run `npm ci` to install the locked dependencies. Then run `npm run dev`. Open the local URL that the command prints. Translation directories have the same structure as the canonical English files.
 
 ## Callout blocks
 

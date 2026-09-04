@@ -24,12 +24,10 @@ Rapira 可以在 Linux 和 macOS 上从源码构建。[安装](/zh/docs/intro/in
 
 ## 带 embed SAPI 的 PHP
 
-Rapira 将解释器链接到其进程中，不使用 socket。PHP 必须是 8.4 或 8.5 版本的 NTS 共享库。
-使用 `--enable-embed=shared` 配置 PHP。此选项创建 `libphp.so`，在 macOS 上创建 `libphp.dylib`。
+Rapira 将解释器链接到其进程中，不使用 socket。PHP 必须是 8.4 或 8.5 版本的 NTS 共享库。 使用 `--enable-embed=shared` 配置 PHP。此选项创建 `libphp.so`，在 macOS 上创建 `libphp.dylib`。
 
 ::: warning ZTS 构建会被拒绝
-线程安全 PHP 会导致构建错误。Rapira 要求使用 NTS，因为每个 worker 进程运行一个解释器。
-如果 `PATH` 选择 ZTS 构建，请安装 NTS PHP。将 `PHP_CONFIG` 设为其 `php-config` 路径。
+线程安全 PHP 会导致构建错误。Rapira 要求使用 NTS，因为每个 worker 进程运行一个解释器。 如果 `PATH` 选择 ZTS 构建，请安装 NTS PHP。将 `PHP_CONFIG` 设为其 `php-config` 路径。
 :::
 
 有几个发行版已经把 embed SAPI 打好包了：
@@ -49,8 +47,7 @@ Homebrew 的 `php` formula 不包含 embed SAPI。请在 macOS 上从源代码�
 
 如果没有 embed 软件包，请构建 PHP。软件包缺少所需扩展时，也请构建 PHP。
 
-`.github/php-configure-flags.txt` 文件包含发布构建的选项。在解压的 PHP 源代码目录中将此文件传给 `configure`。
-在 `./configure` 行末尾添加所需扩展的选项：
+`.github/php-configure-flags.txt` 文件包含发布构建的选项。在解压的 PHP 源代码目录中将此文件传给 `configure`。 在 `./configure` 行末尾添加所需扩展的选项：
 
 ```bash
 ./configure --prefix="$HOME/.local/php-nts" $(tr '\n' ' ' < /path/to/rapira/.github/php-configure-flags.txt)

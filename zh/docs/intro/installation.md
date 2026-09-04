@@ -44,7 +44,7 @@ Rapira 带的是 embed 构建，因为掌控请求流程的是服务器而不是
 
 ## 发布产物
 
-所有文件都在 [GitHub 发布页](https://github.com/rapira-rs/rapira/releases)。[下载页](/zh/download)会按你的平台--系统、架构、PHP 版本、包格式--挑好产物，并显示它的 SHA-256；每个 `php8.5` 产物都有一个对应的 `php8.4`。
+Linux 和 macOS 文件位于 [Rapira 发布页](https://github.com/rapira-rs/rapira/releases)。Windows 文件位于 [Rapira Windows 发布页](https://github.com/rapira-rs/rapira-windows/releases)。[下载页](/zh/download)会按你的平台--系统、架构、PHP 版本、包格式--挑好产物，并显示它的 SHA-256；每个 `php8.5` 产物都有一个对应的 `php8.4`。
 
 在 Linux 上：如果你希望文件落在发行版预期的位置，并让 `apt` 或 `dnf` 顺带装好 PHP 需要的共享库，就选软件包；如果服务器必须塞进一个目录里--容器镜像、部署产物、没有 root 权限的机器--就选压缩包。
 在 Linux 上，压缩包还需要系统库。库的列表见[压缩包：Linux 与 macOS](#压缩包-linux-与-macos)。

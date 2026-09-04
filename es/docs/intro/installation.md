@@ -44,7 +44,7 @@ Instala el paquete de la otra versión y el gestor de paquetes hace el cambio po
 
 ## Artefactos de la versión
 
-Todo está en la [página de releases de GitHub](https://github.com/rapira-rs/rapira/releases). La [página de descargas](/es/download) elige el artefacto para tu plataforma -sistema, arquitectura, versión de PHP, formato de paquete- y muestra su SHA-256; cada artefacto `php8.5` tiene su gemelo `php8.4`.
+Los archivos para Linux y macOS están en la [página de releases de Rapira](https://github.com/rapira-rs/rapira/releases). Los archivos para Windows están en la [página de releases de Rapira para Windows](https://github.com/rapira-rs/rapira-windows/releases). La [página de descargas](/es/download) elige el artefacto para tu plataforma -sistema, arquitectura, versión de PHP, formato de paquete- y muestra su SHA-256; cada artefacto `php8.5` tiene su gemelo `php8.4`.
 
 En Linux, coge un paquete si quieres que los archivos queden donde tu distribución los espera y que `apt` o `dnf` instalen las bibliotecas compartidas que PHP necesita; coge un tarball si el servidor tiene que caber en un único directorio: una imagen de contenedor, un artefacto de despliegue, una máquina donde no tienes root.
 En Linux, el tarball también necesita bibliotecas del sistema. Consulta [Tarballs, en Linux y macOS](#tarballs-en-linux-y-macos) para ver la lista.

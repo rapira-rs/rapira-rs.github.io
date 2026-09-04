@@ -24,7 +24,7 @@ const labels = {
 
 # Download Rapira
 
-The [GitHub releases](https://github.com/rapira-rs/rapira/releases) page contains prebuilt binaries. Select a platform. The button downloads the latest stable version.
+The [Rapira releases page](https://github.com/rapira-rs/rapira/releases) contains Linux and macOS builds. The [Rapira Windows releases page](https://github.com/rapira-rs/rapira-windows/releases) contains Windows builds. Select a platform. The button downloads the latest stable version.
 
 <DownloadBuilds :labels="labels">
 <template #dev-note>

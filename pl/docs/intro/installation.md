@@ -44,7 +44,7 @@ Zainstaluj pakiet z drugą wersją, a podmianę zrobi menedżer pakietów. `rapi
 
 ## Artefakty wydania
 
-Wszystko leży na [stronie wydań w GitHubie](https://github.com/rapira-rs/rapira/releases). [Strona pobierania](/pl/download) sama dobierze artefakt do twojej platformy - systemu, architektury, wersji PHP, formatu pakietu - i pokaże jego SHA-256; każdy artefakt `php8.5` ma bliźniaka `php8.4`.
+Pliki dla Linuksa i macOS znajdują się na [stronie wydań Rapiry](https://github.com/rapira-rs/rapira/releases). Pliki dla Windowsa znajdują się na [stronie wydań Rapiry dla Windowsa](https://github.com/rapira-rs/rapira-windows/releases). [Strona pobierania](/pl/download) sama dobierze artefakt do twojej platformy - systemu, architektury, wersji PHP, formatu pakietu - i pokaże jego SHA-256; każdy artefakt `php8.5` ma bliźniaka `php8.4`.
 
 Na Linuksie weź pakiet, jeśli chcesz, żeby pliki trafiły tam, gdzie spodziewa się ich dystrybucja, a `apt` albo `dnf` dociągnęły biblioteki współdzielone potrzebne PHP; weź archiwum, jeśli cały serwer ma się zmieścić w jednym katalogu - obraz kontenera, artefakt wdrożenia, maszyna bez roota.
 Na Linuksie archiwum wymaga też bibliotek systemowych. Ich listę znajdziesz w sekcji [Archiwa tar, na Linuksie i macOS](#archiwa-tar-na-linuksie-i-macos).

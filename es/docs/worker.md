@@ -56,7 +56,7 @@ El resto de las opciones están en [CLI](/es/docs/cli), y sus equivalentes de `r
 
 - **Espera** hasta que este worker recibe una petición. Un worker en espera no usa CPU.
 - Mantiene el intérprete y la aplicación iniciada en memoria.
-- **Rellena las superglobales** `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE` y otras antes de ejecutar el handler.
+- **Rellena los datos de la petición** en `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE`, `$_FILES` y `$_REQUEST` antes de ejecutar el handler.
 - El código PHP puede leerlas como lo hace con php-fpm.
 - **Llama al handler sin argumentos.** Los datos de la petición están en las superglobales. La firma es `function (): void`.
 - Captura dependencias, como el contenedor o el logger, con `use`.
@@ -167,7 +167,7 @@ El ejemplo llama a `gc_collect_cycles()` entre peticiones. Esta llamada es opcio
 `pool.request_terminate_timeout_secs` limita el tiempo de una petición. Rapira termina un worker que supera este valor.
 Consulta esta clave y `pool.max_requests` en [Configuración](/es/docs/configuration). Consulta el proceso de terminación en [Modelo de procesos](/es/docs/process-model).
 
-**Una excepción sin capturar afecta a una petición, no al worker.** Una excepción del handler suele devolver `500`.
+**Una excepción sin capturar afecta a una petición, no al worker.** Rapira devuelve `500` para una excepción del handler sin capturar si el handler todavía no ha enviado la cabecera de respuesta.
 Rapira no puede cambiar el estado después de que el handler envíe la cabecera de respuesta.
 El bucle continúa, por lo que la excepción no detiene el worker. Un error fatal termina el script residente.
 El worker vuelve a iniciar el script y la aplicación.

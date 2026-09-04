@@ -21,15 +21,15 @@ A configuration file is optional. A command with a script path can start the ser
 
 Rapira reads settings in this order:
 
-**CLI flags > config file > built-in defaults.**
+**CLI flags > configuration file > built-in defaults.**
 
-Only the four flags in the table and the `SCRIPT` argument have CLI forms. Other settings use the file or default value.
+Only the four flags in the table and the `SCRIPT` argument have CLI forms. Other settings use the configuration file or default value.
 
-A flag overrides the corresponding value in `rapira.toml`. A value in `rapira.toml` overrides the default.
-This order permits a temporary value for one run. For example, test another port without editing the file.
+A flag overrides the related value in `rapira.toml`. A value in `rapira.toml` overrides the default.
+Use a flag to change one value for one run. For example, test another port without editing the configuration file.
 
 Unset options use the defaults in the table. The configuration file controls settings without flags, such as pool scaling, logging, and request limits.
-See [Configuration](/docs/configuration) for all file settings.
+See [Configuration](/docs/configuration) for all configuration file settings.
 
 ## Options
 
@@ -38,10 +38,10 @@ See [Configuration](/docs/configuration) for all file settings.
 | `--config <PATH>` | none             | Load settings from a `rapira.toml`.                                                              |
 | `--listen <ADDR>` | `127.0.0.1:8000` | Bind address: `host:port`, `:port` (all interfaces), or `unix:<path>`.                           |
 | `--processes <N>` | CPU count        | Number of worker processes.                                                                       |
-| `--mode <MODE>`   | `dispatcher`     | Run mode: `classic`, `worker` or `dispatcher`. Overrides `pool.mode` from the config file.       |
-| `SCRIPT`          | required*        | The PHP entry script. Overrides `pool.entrypoint` from the config file.                          |
+| `--mode <MODE>`   | `dispatcher`     | Execution mode: `classic`, `worker` or `dispatcher`. Overrides `pool.mode` from the configuration file. |
+| `SCRIPT`          | required*        | The PHP entry script. Overrides `pool.entrypoint` from the configuration file.                    |
 
-\* Required unless the config file sets `pool.entrypoint`. With neither, `serve` reports an error and does not start.
+\* Required unless the configuration file sets `pool.entrypoint`. With neither, `serve` reports an error and does not start.
 
 **`--listen`** accepts three address formats. `127.0.0.1:8000` binds the loopback interface. Remote systems cannot connect to this address.
 `:8080` is equal to `0.0.0.0:8080` and binds all IPv4 interfaces. Use `[::]:8080` for all IPv6 interfaces.
@@ -58,12 +58,12 @@ The flag overrides the mode in the configuration file.
 See [Classic mode](/docs/classic), [Worker mode](/docs/worker), and [Execution modes](/docs/execution-modes) for more information.
 
 ::: info
-`pool.scaling` and `pool.mode` are separate keys. `pool.scaling` sets the policy that sizes the pool. `pool.processes` sets the worker count the policy applies, and `--processes` overrides it. `pool.mode` sets what a worker does with a request. `pool.scaling` has no flag. Set it in the config file.
+`pool.scaling` and `pool.mode` are separate keys. `pool.scaling` sets the policy that sizes the pool. `pool.processes` sets the worker count the policy applies, and `--processes` overrides it. `pool.mode` sets what a worker does with a request. `pool.scaling` has no flag. Set it in the configuration file.
 :::
 
 ## Entry script resolution
 
-Specify the script with the `SCRIPT` argument or `pool.entrypoint`. The argument overrides `pool.entrypoint`, but other file settings still apply.
+Specify the script with the `SCRIPT` argument or `pool.entrypoint`. The argument overrides `pool.entrypoint`, but other configuration file settings still apply.
 Rapira converts the script path to an absolute path before it creates workers. This prevents later changes to the working directory from affecting it.
 
 The two relative forms resolve against different bases:

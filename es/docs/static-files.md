@@ -28,17 +28,16 @@ forbid = [".php"]   # Optional. This list replaces the default.
 `root` define el directorio de archivos. No tiene valor predeterminado.
 Una ruta relativa usa el directorio del archivo de configuración. `pool.entrypoint` usa la misma regla.
 
-`forbid` contiene extensiones que el middleware no sirve. El valor predeterminado es `[".php"]`.
-Una lista explícita sustituye este valor. Por ejemplo, `forbid = [".php", ".env"]` bloquea ambas extensiones.
+`forbid` contiene sufijos de nombres de archivo que el middleware no sirve. El valor predeterminado es `[".php"]`.
+Una lista explícita sustituye este valor. Por ejemplo, `forbid = [".php", ".env"]` bloquea ambos sufijos.
 `forbid = []` permite todos los archivos, incluido el código PHP.
 Cada entrada empieza por un punto, contiene al menos dos caracteres y no contiene `/` ni espacios.
 Una entrada no válida impide iniciar el servidor.
 
 Las demás claves del archivo están en la página de [Configuración](/es/docs/configuration).
 
-::: question ¿Por qué una entrada de `forbid` tiene que parecerse a una extensión?
-El middleware compara cada entrada con el final del nombre. Un separador o espacio no puede terminar un nombre.
-Por tanto, esa entrada no puede proteger un archivo. La validación la rechaza.
+::: question ¿Por qué una entrada de `forbid` debe ser un sufijo?
+El middleware compara cada entrada con el final del nombre de archivo. Rapira solo acepta sufijos con dos o más caracteres que empiezan por `.` y no contienen barras ni espacios en blanco.
 :::
 
 ## Validación en el arranque
@@ -104,13 +103,14 @@ El worker conserva la entrada si la fecha y el tamaño coinciden. Vuelve a leer 
 Un archivo de más de 256 KiB no se guarda nunca: ese archivo se transmite desde el disco en cada petición.
 
 Un worker guarda hasta 16 MiB. Una caché llena sigue sirviendo sus entradas.
-Elimina entradas caducadas antes de rechazar un archivo nuevo. Cada worker usa hasta 16 MiB para esta caché.
+La caché elimina las entradas caducadas antes de decidir no guardar una entrada nueva. Cada worker usa hasta 16 MiB para esta caché.
 Un reinicio vacía la caché.
 
 Cada worker valida sus entradas. Un archivo eliminado afecta a las respuestas después de un segundo como máximo.
-Un archivo modificado afecta a las respuestas si cambia su fecha o tamaño.
+Un archivo modificado o sustituido afecta a las respuestas después de un segundo como máximo cuando cambia su fecha de modificación o tamaño.
 Un cambio de permisos no elimina la entrada si la fecha y el tamaño no cambian.
-Elimina el archivo o reinicia el servidor para retirar la entrada. Al sustituirlo, cambia la fecha o el tamaño.
+Elimina el archivo para retirar la entrada. Una sustitución retira la entrada solo con una fecha de modificación o un tamaño nuevos.
+También puedes reiniciar el servidor.
 
 La raíz debe usar almacenamiento local. El middleware ejecuta `stat` y `open` en el hilo que atiende peticiones.
 Un sistema de archivos lento retrasa las demás conexiones del worker.

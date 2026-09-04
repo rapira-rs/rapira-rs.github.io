@@ -6,11 +6,11 @@ description: The Rapira master, PHP initialization, worker processes, pool scali
 # Process model
 
 Rapira runs one master process and a pool of workers. The master owns the listen socket, initialized PHP engine, and pidfile.
-It then creates worker processes. Each worker inherits PHP and accepts connections from the shared socket.
+The master then creates worker processes. Each worker inherits PHP and accepts connections from the shared socket.
 Rapira does not pass a request between processes.
 
 This process model is the same in [Classic](/docs/classic), [Worker](/docs/worker), and Dispatcher modes.
-`pool.mode` controls request processing inside a worker. It does not change pool creation, supervision, or reloads.
+`pool.mode` controls request processing inside a worker. This setting does not change pool creation, supervision, or reloads.
 See [Execution modes](/docs/execution-modes) for more information.
 
 ## Master and workers
@@ -72,9 +72,9 @@ After pool initialization, the master runs maintenance approximately once each s
 
 ## Pool scaling
 
-`pool.scaling` selects how the pool changes its size. It is separate from `pool.mode`.
+`pool.scaling` selects how the pool changes its size. The scaling policy is separate from `pool.mode`.
 The `pool.mode` key sets the execution mode inside a worker. `pool.processes` is an exact count for `static` scaling.
-It is the maximum count for `dynamic` and `ondemand` scaling. Its default is one worker for each logical CPU.
+`pool.processes` is the maximum count for `dynamic` and `ondemand` scaling. The default value is one worker for each logical CPU.
 
 | Scaling | How many workers | Keys that apply |
 | --- | --- | --- |
@@ -113,7 +113,7 @@ Signals stop a running server, reload it, and make it report its state. All of t
 | --- | --- |
 | `SIGTERM`, `SIGINT` | The master lets current requests finish and then stops the workers. A second signal forces the workers to stop. |
 | `SIGQUIT` | The master performs the same controlled stop. Another `SIGQUIT` has no effect. |
-| `SIGUSR2`, `SIGHUP` | The master replaces one worker at a time. Connections remain open. |
+| `SIGUSR2`, `SIGHUP` | The master replaces one worker at a time. Each old worker stops accepting work and finishes current requests. |
 | `SIGUSR1` | The master writes pool status to the log. |
 | `SIGCHLD` | The master removes an exited worker from the process table. It then decides whether to replace the worker. |
 
@@ -133,13 +133,13 @@ A direct worker signal bypasses master supervision.
 
 ### Stopping
 
-For each stop signal, the master first sends `SIGQUIT` to each worker. The workers stop accepting work and finish current requests.
+For each stop signal, the master immediately sends `SIGQUIT` to each worker. The workers stop accepting work and finish current requests.
 After `supervisor.process_control_timeout_secs`, the master sends `SIGTERM` to remaining workers. The default limit is 30 seconds.
-It sends `SIGKILL` after another limit if necessary.
+If workers remain, the master sends `SIGKILL` one second after `SIGTERM`.
 
 A second `SIGTERM` or `SIGINT` skips the wait and forces the exit immediately.
 
-### Worker replacement without closed connections
+### Worker replacement lets current requests finish
 
 `SIGUSR2` or `SIGHUP` replaces the complete pool. Each replacement worker initializes the application from the deployed code.
 
@@ -148,11 +148,12 @@ However, `opcache.validate_timestamps = 0` requires a complete restart.
 Worker and Dispatcher retain initialized application code. Reload the pool after each deployment in these modes.
 See [deployment](/docs/deployment) for more information.
 
-The reload does not reduce capacity because worker replacement overlaps. The master starts one new worker and waits for it to accept connections.
+The master starts one new worker and waits until it reports an idle or active state.
 The master then stops one old worker. After that worker exits, the master starts a new worker in the next slot.
 Each worker stop uses the `SIGQUIT` → `SIGTERM` → `SIGKILL` sequence. The same control timeout applies to each worker.
+An old worker closes idle keep-alive connections when it starts to stop. Current requests can finish before the control timeout.
 
-A replacement that does not accept connections cannot stop the reload. After the control timeout, the master logs a warning and continues.
+If the new worker reports neither state before the control timeout, the master logs a warning and continues the reload.
 With `ondemand`, the master removes old workers one at a time. Incoming connections create replacements.
 
 The master ignores a reload during a stop.

@@ -51,7 +51,7 @@ Therefore, these three network field names map to one PHP key:
 | `X.Forwarded.For` | `$_SERVER['HTTP_X_FORWARDED_FOR']`  |
 
 ::: warning
-This aliasing causes a security risk. A proxy can set `X-Forwarded-For`, while a client sends `X_Forwarded_For`.
+Without Rapira's mandatory field-name check, this aliasing can create a security risk. A proxy can set `X-Forwarded-For`, while a client sends `X_Forwarded_For`.
 Both names map to the same `$_SERVER` key. A proxy filter for the hyphenated name might not remove the name with underscores.
 The application could then trust a value from the client.
 :::
@@ -119,9 +119,10 @@ max_body_size_mb = 8
 
 The HTTP server does not buffer the response body. It writes the response head when PHP commits it. It then writes each body frame as PHP produces it.
 The mode controls when PHP produces this data. In Classic and Worker modes, PHP normally passes the complete response when the request ends.
-A call to `rapira_finish_request()` passes it earlier. In Dispatcher mode, PHP passes the head and each body chunk as the code writes them.
+In these modes, PHP passes the complete response before the request ends when code calls `rapira_finish_request()`.
+In Dispatcher mode, PHP passes the head and each body chunk as the code writes them.
 
-The server controls response framing. It removes `Transfer-Encoding` and `Content-Length` fields set by PHP.
+The server controls response framing. It removes `Transfer-Encoding` and `Content-Length` fields that PHP sets.
 This prevents an incorrect length from changing message boundaries.
 In Classic and Worker modes, the server sets the length of the complete PHP body.
 In Dispatcher mode, the server uses the `Content-Length` that PHP declares in the head. It sends this value as its own field and compares the body length with it.
@@ -145,9 +146,10 @@ It removes an invalid network field and writes a log record. It still sends the 
 
 Rapira removes interim response heads and trailers from PHP. It creates the `100 Continue` response for an `Expect` request itself.
 
-A truncated reply closes the connection without a complete terminator. A worker can terminate before the body ends.
-The body can also be shorter than the length that PHP declared. A fatal error or uncaught exception can end a script after it writes output.
-Each case produces an incomplete message. The client can detect this incomplete message.
+If a worker terminates before the body ends, the server closes the connection without a complete terminator.
+The server also closes the connection when the body is shorter than the length that PHP declared.
+A fatal error or uncaught exception can also terminate the script after output starts.
+Each case produces an incomplete message that the client can detect.
 
 An error response from the HTTP server has no body. It includes `cache-control: private, no-store` and `connection: close`.
 Examples are `413` for a large body and `501` for `CONNECT`.
@@ -188,10 +190,9 @@ Rapira registers the function for the complete process. The function acts on the
 Therefore, Classic mode also supports it. Resident and per-request scripts get the same behavior.
 See [execution modes](/docs/execution-modes) for more information about the differences between the modes.
 
-The function has two important limits:
+The function has these limits:
 
-- **Output after the call is not sent.** Rapira discards output after it closes the response.
-- Write all required client output before the call.
+- **Rapira discards output after the call.** Write all required client output before the call.
 - **The worker continues to run the handler.** It cannot accept its next request until the handler returns.
 - The call can reduce client wait time but does not add concurrency. Put long operations in a queue.
 - See [Process model](/docs/process-model) for worker concurrency.

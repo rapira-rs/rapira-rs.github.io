@@ -95,7 +95,7 @@ while (\Rapira\handle_request($handler)) {
 大部分都是普通的 Symfony 启动代码，只有四行是这套方案特有的：
 
 **`(new Dotenv())->usePutenv()->bootEnv(...)`。**标准 `public/index.php` 将此操作委托给 `symfony/runtime`。
-worker 在创建内核前读取一次 `.env`。请使用 `usePutenv()`，因为缺少它时应用会在 `prod` 中返回 `500`。
+worker 在创建内核前读取一次 `.env`。如果 PHP 在请求期间重建 `$_ENV`，`usePutenv()` 会保留这些值。
 有关详细信息，请参阅 [`$_ENV` 与 `variables_order`](#env-与-variables-order)。
 
 **内核在循环前初始化。**`new Kernel(...)`、`boot()` 和 `getContainer()` 在 worker 初始化期间运行。
@@ -115,7 +115,9 @@ worker 在创建内核前读取一次 `.env`。请使用 `usePutenv()`，因为�
 ## `$_ENV` 与 `variables_order`
 
 ::: warning
-使用 `bootEnv()` 而不使用 `usePutenv()` 时，`prod` 中的 Symfony 应用对每个请求返回 **500**。
+测试的基础应用使用了 `bootEnv()`，但没有使用 `usePutenv()`。
+当 `variables_order = "GPCS"` 且 `auto_globals_jit = On` 时，`prod` 中的每个请求都返回 **500**。
+当 `RequestContext` 在请求期间读取 `DEFAULT_URI` 时，会发生此故障。
 异常为 `EnvNotFoundException: Environment variable not found: "DEFAULT_URI"`。同一应用在 `dev` 中不会失败。
 :::
 
@@ -138,20 +140,30 @@ Symfony `EnvVarProcessor` 也可以通过 `getenv()` 读取它们。
 Rapira 在每个进程中运行一个 NTS PHP 解释器。因此，不会有并发 PHP 线程调用 `putenv()`。
 
 在生产环境中，请通过 systemd、容器或编排器设置环境变量。
-仅在开发期间使用 `.env`。两种方法都可防止请求删除这些值。
+仅在开发期间使用 `.env`。`usePutenv()` 和部署环境都会将值写入进程环境。
+因此，后续导入会保留这些值。
 
 此行为适用于在请求期间读取 `$_ENV` 的所有常驻 PHP 运行时。
 有关此行为和其他常驻进程行为，请参阅[框架集成](/zh/docs/frameworks/)。
 
 ## 启动 Rapira
 
+启动 Rapira：
+
 ```bash
 rapira serve --mode worker worker.php
-curl -i http://127.0.0.1:8000/
 ```
 
 `--mode worker` 选择 Worker 模式。`127.0.0.1:8000` 是默认监听地址。
-`rapira serve` 在前台运行。按 `Ctrl-C` 可停止服务器。
+`rapira serve` 在前台运行。
+
+打开另一个终端。发送请求：
+
+```bash
+curl -i http://127.0.0.1:8000/
+```
+
+在第一个终端中按 `Ctrl-C` 停止 Rapira。
 
 入口脚本是 `worker.php`，因此 `$_SERVER['SCRIPT_NAME']` 包含 `/worker.php`。Symfony 在 URI 开头找不到此值。
 然后，它将 base URL 设置为 `""`。`getPathInfo()` 返回请求路径，路由可以正常工作。
@@ -186,7 +198,7 @@ request_terminate_timeout_secs = 30
 
 `max_requests` 在指定请求数后替换 worker。它限制内存泄漏的影响，但不会修复泄漏。
 `request_terminate_timeout_secs` 限制一个请求的运行时间。
-使用 `rapira serve --config rapira.toml` 启动服务器。
+使用 `APP_ENV=prod rapira serve --config rapira.toml` 启动服务器。
 相对 `entrypoint` 使用配置文件目录。有关所有设置，请参阅[配置](/zh/docs/configuration)。
 
 ## 请求之间的状态重置
@@ -215,9 +227,9 @@ worker 会继续运行 `terminate()`，直到 handler 返回。这可以减少�
 rapira serve --mode classic public/index.php
 ```
 
-还是同一个应用，只是跑在 Classic 模式下。它每个请求都要启动一遍，所以改动立刻生效。每个请求也会执行一次完整的启动。至于已经在跑的生产服务器，让部署上去的代码接手而不中断连接的办法是滚动重载（给 master 发 `SIGUSR2`）--除非你开了 `opcache.validate_timestamps = 0`，那时 master 的 OPcache 段比整个进程池活得久，部署就得整个重启才行；见[进程模型](/zh/docs/process-model)和[生产环境部署](/zh/docs/deployment)。
+还是同一个应用，只是跑在 Classic 模式下。它每个请求都要启动一遍，所以改动立刻生效。每个请求也会执行一次完整的启动。已经在跑的生产服务器可以通过滚动重载（给 master 发 `SIGUSR2`）使用新部署的代码。当前请求可以完成，但空闲 keep-alive 连接会关闭。如果启用了 `opcache.validate_timestamps = 0`，master 的 OPcache 段比整个进程池活得久，部署就需要完整重启；见[进程模型](/zh/docs/process-model)和[生产环境部署](/zh/docs/deployment)。
 
 Symfony 处理未捕获的应用异常并返回自己的 `500` 响应。`dev` 显示异常页面。
 `prod` 显示通用错误页。同一个 worker 处理下一个请求。
-最终重置会删除更改后的服务状态。配置的 Symfony 日志器控制异常输出。
-Rapira 记录离开框架的 PHP 错误。有关级别设置，请参阅[日志](/zh/docs/logging)。
+最终重置会删除更改后的服务状态。配置的 Symfony 日志器控制异常输出。基础应用不包含日志器。
+Rapira 记录离开框架的 PHP 错误，例如上文的 `EnvNotFoundException`。有关级别设置，请参阅[日志](/zh/docs/logging)。

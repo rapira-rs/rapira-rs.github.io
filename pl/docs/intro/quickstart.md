@@ -85,7 +85,7 @@ rapira serve --mode worker worker.php
 curl '127.0.0.1:8000/?name=world'
 ```
 
-Uruchom polecenie `curl` kilka razy. Licznik rośnie, ponieważ ten sam proces obsługuje kilka żądań.
+Uruchom polecenie `curl` kilka razy. Licznik danego workera rośnie, gdy ten sam proces obsłuży kolejne żądanie.
 Rapira domyślnie tworzy jednego workera na każdy logiczny procesor. System operacyjny wybiera workera dla każdego połączenia.
 Każdy worker ma oddzielny licznik. Identyfikator procesu w odpowiedzi wskazuje wybranego workera.
 Użyj `rapira serve --mode worker --processes 1 worker.php`, aby utworzyć jednego workera. Więcej informacji zawiera [Model procesów](/pl/docs/process-model).

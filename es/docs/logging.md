@@ -6,7 +6,7 @@ description: "Cómo registra Rapira - niveles, ajustes por target, diagnósticos
 # Registros
 
 Rapira escribe todos los registros en stderr. Incluyen eventos del servidor, decisiones del proceso maestro, eventos HTTP, diagnósticos PHP y mensajes de la aplicación.
-Una advertencia PHP usa este registro, no un archivo `error_log` separado. El mismo filtro de nivel se aplica a todos los registros.
+De forma predeterminada, una advertencia PHP usa este registro, no un destino separado configurado mediante `error_log`. El mismo filtro de nivel se aplica a todos los registros.
 
 El nivel predeterminado es `error`, por lo que el servidor solo escribe errores. Cambia la configuración o establece `RUST_LOG` para elegir otro nivel.
 
@@ -63,7 +63,7 @@ El target `master` contiene sustituciones de workers, recargas y escalado. Consu
 
 ## Diagnósticos de PHP
 
-Rapira escribe todos los diagnósticos PHP en el target `php`. El tipo de error determina el nivel:
+Rapira asigna los diagnósticos PHP al target `php`. El tipo de error determina el nivel:
 
 | Diagnóstico                                                                                    | Nivel   |
 | ---------------------------------------------------------------------------------------------- | ------- |
@@ -112,7 +112,8 @@ El nivel es un caso del enum `\Rapira\LogLevel`, y cada caso se corresponde con 
 | `Debug`         | `debug`      |
 | `Trace`         | `trace`      |
 
-El nivel predeterminado es `Info`. `[log.targets]` y `RUST_LOG` filtran igual los registros de la aplicación y del servidor.
+`\Rapira\log()` usa `Info` cuando se omite `level`. El filtro global `error` descarta este registro a menos que se cambie el filtro.
+`[log.targets]` y `RUST_LOG` filtran igual los registros de la aplicación y del servidor.
 Por ejemplo, `app = "debug"` cambia solo el target de la aplicación.
 
 Rapira serializa el array de contexto a JSON y lo añade como campo `context`. En JSON, este campo está dentro de `fields`.
@@ -149,7 +150,7 @@ Pasa identificadores en lugar de objetos grandes.
 
 ## Formatos
 
-Rapira escribe ambos formatos en stderr con una operación por registro. Por tanto, la salida de distintos procesos no se mezcla dentro de un registro.
+Rapira escribe ambos formatos en stderr. Los registros grandes de distintos procesos pueden intercalarse cuando estos procesos escriben en la misma tubería de stderr.
 
 Rapira no escribe registros en otros destinos. Redirige stderr para escribirlos en un archivo.
 Un gestor de servicios puede recoger stderr. Consulta [En producción](/es/docs/deployment).
@@ -184,7 +185,8 @@ RUST_LOG=warn,rapira=trace rapira serve --mode worker worker.php
 ```
 
 El primer comando establece todos los targets en `info`. El segundo establece `rapira` en `debug` y `php` en `info`.
-El tercero establece todos los targets en `warn` y `rapira` en `trace`. Añade otros nombres de target cuando sea necesario.
+El tercero establece todos los targets en `warn` y `rapira` en `trace`. El target `rapira` contiene registros de inicialización, workers y apagado.
+Cuando necesites registros del maestro, usa `RUST_LOG=warn,rapira=trace,master=trace`.
 
 ::: warning
 Un valor no vacío de `RUST_LOG` **sustituye** `level` y `[log.targets]`. Rapira no combina los filtros del entorno y del archivo.

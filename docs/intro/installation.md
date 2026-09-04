@@ -1,6 +1,6 @@
 ---
 title: Installation
-description: Install Rapira from a deb, RPM, or tarball. Verify the checksum and identify the included libphp build.
+description: Install Rapira from a deb, RPM, or tarball. Verify its checksum. Identify the included libphp build.
 faqLevel: 2
 ---
 
@@ -22,7 +22,7 @@ Each uses the Zend engine and extensions, but it has a different program interfa
 Rapira includes the embed SAPI because the server controls requests. The `php` command uses a different SAPI, so artifacts do not contain it.
 :::
 
-::: question Why is `libphp` not taken from the system?
+::: question Why does Rapira include its own `libphp`?
 PHP must use `--enable-embed=shared` to create `libphp.so`. Few distributions provide this build.
 Fedora and RHEL provide `php-embedded`, and Arch provides `php-embed`. Deb.sury.org provides `libphpX.Y-embed` for Debian and Ubuntu.
 These packages have fixed PHP versions and extension sets. Homebrew PHP does not include the embed SAPI.
@@ -91,7 +91,7 @@ The packages require glibc 2.34 or newer. The minimum supported versions are **D
 The leading `./` tells apt to use a local file instead of a repository package name.
 :::
 
-::: question Which files end up on the system?
+::: question Which files does the package install?
 The package installs `/usr/bin/rapira` and `/usr/lib/rapira/libphp.so`. It installs the license and README under `/usr/share/doc/rapira/`.
 :::
 
@@ -105,7 +105,7 @@ sudo dnf install ./rapira-php8.5-0.8.0-1.x86_64.rpm
 rapira --version
 ```
 
-The glibc 2.34 requirement supports **RHEL 9**, Rocky 9, AlmaLinux 9, and current Fedora versions.
+The RPM requires glibc 2.34 or newer. **RHEL 9**, Rocky 9, AlmaLinux 9, and current Fedora versions meet this requirement.
 
 ## Tarballs on Linux and macOS
 
@@ -141,6 +141,19 @@ rapira --version
 ```
 
 :::
+
+### Installation without root access
+
+For an installation without root access, keep the complete directory in your home directory. Create a symbolic link in `~/.local/bin`:
+
+```bash
+mkdir -p "$HOME/.local/opt" "$HOME/.local/bin"
+mv rapira-v0.8.0-php8.5-linux-x86_64 "$HOME/.local/opt/rapira"
+ln -s "$HOME/.local/opt/rapira/bin/rapira" "$HOME/.local/bin/rapira"
+"$HOME/.local/bin/rapira" --version
+```
+
+On macOS, replace the source directory name with the extracted macOS directory name. Add `$HOME/.local/bin` to `PATH` if the shell does not include it.
 
 ::: warning
 The binary uses a relative path to find its interpreter. Move the complete directory together.
@@ -242,7 +255,7 @@ The build does not include `pdo_mysql`, `pgsql`, Redis, APCu, or Imagick.
 If the application requires another extension, build `libphp` with it. Then compile Rapira against that library.
 See [Build from source](/docs/intro/build-from-source).
 
-Each release uses the latest patch version available for its PHP branch. In a tarball, `share/php/PHP_VERSION.txt` contains the exact version.
+Each artifact uses the latest available patch release in its PHP 8.4 or PHP 8.5 series. In a tarball, `share/php/PHP_VERSION.txt` contains the exact version.
 On a running server, `PHP_VERSION` and `phpinfo()` report it.
 
 ::: question Why does `PHP_SAPI` return `fastcgi` on PHP 8.4?

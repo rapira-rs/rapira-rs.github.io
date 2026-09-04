@@ -6,7 +6,7 @@ description: "Rapira 怎么记日志--级别、按目标单独覆盖、PHP 诊�
 # 日志
 
 Rapira 将所有日志记录写入 stderr。这些记录包括服务器事件、主进程决策、HTTP 事件、PHP 诊断和应用消息。
-PHP 警告使用此日志，而不是单独的 `error_log` 文件。所有记录使用相同的级别过滤器。
+默认情况下，PHP 警告使用此日志，而不是单独的 `error_log` 目标。所有记录使用相同的级别过滤器。
 
 默认级别为 `error`，因此服务器只写入错误。更改配置或设置 `RUST_LOG` 以选择其他级别。
 
@@ -63,7 +63,7 @@ Rapira 不为每个请求写入单独的访问日志。`http` 目标记录请参
 
 ## PHP 诊断信息
 
-Rapira 将所有 PHP 诊断写入 `php` 目标。错误类型决定日志级别：
+Rapira 将 PHP 诊断映射到 `php` 目标。错误类型决定日志级别：
 
 | 诊断信息                                                                                        | 级别    |
 | ----------------------------------------------------------------------------------------------- | ------- |
@@ -112,7 +112,8 @@ Rapira 将诊断发送到日志，而不是响应。默认值为 `display_errors
 | `Debug`         | `debug`      |
 | `Trace`         | `trace`      |
 
-默认级别为 `Info`。`[log.targets]` 和 `RUST_LOG` 以相同方式过滤应用和服务器记录。
+省略 `level` 时，`\Rapira\log()` 使用 `Info`。除非更改过滤器，否则全局 `error` 过滤器会丢弃此记录。
+`[log.targets]` 和 `RUST_LOG` 以相同方式过滤应用和服务器记录。
 例如，`app = "debug"` 仅更改应用目标。
 
 Rapira 将上下文数组序列化为 JSON，并将其添加为 `context` 字段。在 JSON 中，此字段位于 `fields` 内。
@@ -149,7 +150,7 @@ Rapira 替换 JSON 无法表示的值。这些值包括资源、闭包、`NAN`�
 
 ## 格式
 
-Rapira 通过一次操作将每条记录写入 stderr。因此，不同进程的输出不会在记录内混合。
+Rapira 将两种格式都写入 stderr。不同进程向同一个 stderr 管道写入时，大型记录可能会交错。
 
 Rapira 不会将日志写入其他位置。重定向 stderr 可以将日志写入文件。
 服务管理器可以收集 stderr。请参阅[生产环境部署](/zh/docs/deployment)。
@@ -184,7 +185,8 @@ RUST_LOG=warn,rapira=trace rapira serve --mode worker worker.php
 ```
 
 第一个命令将所有目标设置为 `info`。第二个命令将 `rapira` 设置为 `debug`，将 `php` 设置为 `info`。
-第三个命令将所有目标设置为 `warn`，将 `rapira` 设置为 `trace`。根据需要添加其他目标名称。
+第三个命令将所有目标设置为 `warn`，将 `rapira` 设置为 `trace`。`rapira` 目标包含初始化、worker 和关闭记录。
+需要 master 记录时，请使用 `RUST_LOG=warn,rapira=trace,master=trace`。
 
 ::: warning
 非空 `RUST_LOG` 会**替换** `level` 和 `[log.targets]`。Rapira 不会合并环境和文件过滤器。

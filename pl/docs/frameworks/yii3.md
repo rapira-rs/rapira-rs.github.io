@@ -145,7 +145,7 @@ To zachowanie opisuje [przegląd frameworków](/pl/docs/frameworks/), a ustawien
 Autoloader i bootstrap szablonu nadal zostają w pamięci, a pętla żądań nadal mieszka w skrypcie workera, więc to wciąż worker - tylko taki, który odrzuca aplikację między żądaniami - a nie [tryb Classic](/pl/docs/classic).
 
 Domyślnie używaj trwałego runnera. Jest zgodny z projektem frameworka, miał stabilną pamięć i wymaga jednego wywołania zerowania.
-Użyj runnera na żądanie, jeśli kolejność inicjalizacji uniemożliwia pełny callback `StateResetter`.
+Użyj runnera na żądanie, jeśli kolejność inicjalizacji lub przygotowanie żądania uniemożliwiają pełny callback `StateResetter`.
 Zmiana między wariantami wymaga zmiany tylko skryptu workera.
 
 ## Uruchamianie Rapiry
@@ -172,6 +172,10 @@ request_terminate_timeout_secs = 30
 [log]
 level = "info"
 format = "json"
+```
+
+```bash
+rapira serve --config rapira.toml
 ```
 
 Każdy klucz, wraz z wartością domyślną i zakresem, opisuje [Konfiguracja](/pl/docs/configuration); [Wdrożenie produkcyjne](/pl/docs/deployment) daje gotową jednostkę systemd i reverse proxy przed serwerem.

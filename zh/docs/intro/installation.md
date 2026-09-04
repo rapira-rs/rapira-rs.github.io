@@ -127,6 +127,19 @@ rapira --version
 
 :::
 
+### 无 root 权限安装
+
+如果没有 root 权限，请将整个目录保存在你的主目录中。在 `~/.local/bin` 中创建符号链接：
+
+```bash
+mkdir -p "$HOME/.local/opt" "$HOME/.local/bin"
+mv rapira-v0.8.0-php8.5-linux-x86_64 "$HOME/.local/opt/rapira"
+ln -s "$HOME/.local/opt/rapira/bin/rapira" "$HOME/.local/bin/rapira"
+"$HOME/.local/bin/rapira" --version
+```
+
+在 macOS 上，请把源目录名换成解压后的 macOS 目录名。如果 shell 尚未包含此目录，请将 `$HOME/.local/bin` 添加到 `PATH`。
+
 ::: warning
 二进制文件是在自己旁边找解释器的，所以目录只能整个搬：`cp bin/rapira /usr/local/bin/` 会让它起不来。要进 `PATH`，请照上面的命令做符号链接。
 :::
@@ -229,7 +242,7 @@ PHPRC=/etc/rapira/php.ini rapira serve --config /etc/rapira/rapira.toml
 :::
 
 ::: question 为什么文件叫 `php.ini`，而不是 `php-rapira.ini`？
-PHP 会先找 `php-<sapi 名>.ini`，找不到才用普通的 `php.ini`，而 SAPI 名字随版本而变--8.4 上是 `fastcgi`，8.5 上是 `rapira`。普通的 `php.ini` 两边都适用。
+PHP 会先找 `php-<sapi-name>.ini`，找不到才用普通的 `php.ini`，而 SAPI 名字随版本而变--8.4 上是 `fastcgi`，8.5 上是 `rapira`。普通的 `php.ini` 两边都适用。
 :::
 
 ## 分发

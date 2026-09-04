@@ -27,21 +27,21 @@ forbid = [".php"]   # Optional. This list replaces the default.
 `root` names the directory that contains the files to serve. It has no default, so the section must set it.
 A relative path uses the configuration file directory as its base. `pool.entrypoint` uses the same rule.
 
-`forbid` contains file extensions that the middleware does not serve. Its default value is `[".php"]`.
-An explicit list replaces the default. For example, `forbid = [".php", ".env"]` blocks both extensions.
+`forbid` contains file-name suffixes that the middleware does not serve. Its default value is `[".php"]`.
+An explicit list replaces the default. For example, `forbid = [".php", ".env"]` blocks both suffixes.
 The value `forbid = []` permits all files under the root, including PHP source files.
 Each entry starts with a dot and contains at least two characters. It cannot contain `/` or whitespace.
 An invalid entry prevents server initialization.
 
-The other keys of the file are on the [Configuration](/docs/configuration) page.
+See [Configuration](/docs/configuration) for the other configuration file keys.
 
-::: question Why must a `forbid` entry look like an extension?
-The middleware matches each entry against the end of the file name. A separator or space cannot end a file name. Therefore, an entry with either character cannot match a file. The validation rejects an entry that cannot protect a file.
+::: question Why must a `forbid` entry look like a suffix?
+The middleware compares each entry with the end of a file name. Rapira accepts only suffixes that have two or more characters, start with `.`, and contain no slash or whitespace.
 :::
 
 ## Initialization validation
 
-The server checks the root before it accepts requests. The root must exist, be a directory, and be searchable by the server account.
+The server checks the root before it accepts requests. The root must exist and be a directory. The server account must have search permission for it.
 A failed check prevents initialization and reports the path.
 
 The two configuration parts must occur together. A `"static"` middleware entry requires the `[http.static]` section, and the section requires the entry.
@@ -58,7 +58,7 @@ See [`stat`](https://pubs.opengroup.org/onlinepubs/9799919799/functions/stat.htm
 
 The middleware considers a request only when the method is `GET` or `HEAD`. Every other method goes to PHP.
 
-The path decides the rest:
+The middleware applies these path rules:
 
 - A path segment that starts with `.` goes to PHP. Thus, `/.env`, `/.git/config`, and `/../outside.txt` do not access files.
 - The `forbid` check runs on the percent-decoded path and ignores case. With `.php` forbidden, `/index.php`, `/index%2Ephp` and `/Upper.PHP` all go to PHP.
@@ -76,7 +76,7 @@ The file system could return one response, while the application router returns 
 ::: question How does the middleware separate a miss from a read failure?
 Six results mean that no file is available. The path can be absent, inaccessible, or a directory.
 A path component can have the wrong type. The file name can be too long or contain a NUL byte.
-For these results, the request continues to PHP. Other errors identify a file that exists but cannot be read.
+For these results, the request continues to PHP. Other errors identify an existing file that Rapira cannot read.
 The middleware returns `500` for these errors.
 :::
 
@@ -103,10 +103,10 @@ The cache always uses the following values.
 A cache entry is valid for one second. After that period, the next request uses `stat` to compare the file.
 The worker retains an entry with the same modification time and length. It reads a changed file again.
 
-A file larger than 256 KiB is not stored. Such a file streams from disk on every request.
+The cache does not store a file larger than 256 KiB. Such a file streams from disk on every request.
 
 A worker stores at most 16 MiB. A full cache continues to serve its current entries.
-It removes expired entries before it rejects a new file. Thus, each worker can use 16 MiB for this cache.
+The cache removes expired entries before it skips a new cache entry. Thus, each worker can use 16 MiB for this cache.
 A restart clears the cache.
 
 Each worker validates its own entries. A deleted file affects responses after at most one second. A changed or replaced file affects responses after at most one second when its modification time or length changes.

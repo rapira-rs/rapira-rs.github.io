@@ -53,7 +53,9 @@ Selecciona el modo con `pool.mode` o `--mode`.
 El script controla el número de unidades de trabajo activas. Un bucle secuencial procesa una unidad cada vez.
 Llama a `receive()`, responde a la petición y vuelve a llamar a `receive()`.
 Un script concurrente inicia una [fibra](https://www.php.net/manual/en/language.fibers.php) por petición. Llama a `tryReceive()` mientras haya fibras activas.
-Cuando no hay fibras activas, el bucle espera en `receive()`. Procesa una unidad cada vez si una biblioteca no admite fibras.
+Cuando no hay fibras activas, el bucle espera en `receive()`. Este diseño mantiene varias peticiones activas en un mismo intérprete.
+La concurrencia es cooperativa. Otra petición solo progresa cuando el código en ejecución suspende su fibra.
+Procesa una unidad cada vez si una biblioteca no admite fibras.
 
 ::: info
 Dispatcher es el valor predeterminado de `pool.mode`. Todavía no tiene una guía propia.

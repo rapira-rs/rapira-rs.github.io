@@ -70,7 +70,7 @@ request_terminate_timeout_secs = 0    # Replaces a worker when one request excee
 
 [supervisor]                          # Optional. Sets master process behavior.
 pidfile = "/run/rapira.pid"           # Optional. Relative paths use this file's directory.
-process_control_timeout_secs = 30     # Sets the stop timeout before QUIT, TERM, and KILL.
+process_control_timeout_secs = 30     # Waits after SIGQUIT before SIGTERM. SIGKILL follows one second later.
 
 [log]                                 # Optional. Sets the level and record format.
 level = "error"                       # Use error, warn, info, debug, or trace. Default: error.
@@ -151,7 +151,7 @@ sendfile 根目录就是 `sendFile()` 能读取的那个目录。Rapira 会把�
 | `min_spare` | 整数 | 无 | 仅用于 `dynamic` 伸缩，并且在那里是必填：至少保留这么多个空闲待命的 worker。 |
 | `max_spare` | 整数 | 无 | 仅用于 `dynamic` 伸缩，并且在那里是必填：空闲 worker 最多留这么多，多的裁掉。两者必须满足 `1 <= min_spare <= max_spare <= processes`；在别的伸缩方式下写任何一个都是错误。 |
 | `max_requests` | 整数 | `0` | 一个 worker 处理够这么多请求就回收掉，另外加一点抖动，免得整个进程池同时被回收。`0` 表示永不回收。 |
-| `process_idle_timeout_secs` | 整数 | `10` | 只有 `ondemand` 伸缩会读它：一个 worker 最多能空闲多久，超过就被 master 收走。 |
+| `process_idle_timeout_secs` | 整数 | `10` | 使用 `ondemand` 伸缩时，master 会在 worker 空闲这么久后将其删除。 |
 | `request_terminate_timeout_secs` | 整数 | `0` | 单个请求的墙钟时间预算。超时还没处理完的 worker 会被杀掉并换新。`0` 表示关掉这项检查。 |
 
 `mode` 和 `scaling` 是两条互不相干的轴：`mode` 决定一个 worker 拿入口脚本怎么办，`scaling` 决定同时存在多少个 worker。
@@ -165,11 +165,11 @@ master 进程的策略--监听 socket 归它掌管，worker 由它照看，你�
 | 键 | 类型 | 默认值 | 含义 |
 | --- | --- | --- | --- |
 | `pidfile` | 字符串 | 无 | master 把自己的 pid 写到哪里。相对路径按配置文件所在的目录解析。信号要发的就是这个 pid--每个信号各做什么，[进程模型](/zh/docs/process-model)那一页有完整的对照表。 |
-| `process_control_timeout_secs` | 整数 | `30` | master 给 worker 多少时间优雅收尾，超时就按 QUIT → TERM → KILL 逐级升级。 |
+| `process_control_timeout_secs` | 整数 | `30` | master 在发送 `SIGQUIT` 后等待多久才发送 `SIGTERM`。master 在 `SIGTERM` 一秒后发送 `SIGKILL`。 |
 
 ## `[log]` 小节
 
-Rapira 把所有日志都写到 stderr，一条记录一次写入，所以 master 和 worker 的输出绝不会在一行中间串到一起。这一节决定这股流有多详细、每条记录长什么样；具体有哪些 target、有哪些格式，以及 PHP 的诊断信息怎么对应到级别，都在[日志](/zh/docs/logging)那一页。
+Rapira 将所有日志记录写入 stderr。这一节决定日志的详细程度和每条记录的格式；具体目标、格式和 PHP 诊断级别见[日志](/zh/docs/logging)。
 
 | 键 | 类型 | 默认值 | 含义 |
 | --- | --- | --- | --- |
@@ -179,6 +179,12 @@ Rapira 把所有日志都写到 stderr，一条记录一次写入，所以 maste
 
 `[log.targets]` 键可以使用字母、数字、`_`、`:`、`.` 和 `-`。第一个字符必须是字母、数字或 `_`。
 Rapira 会拒绝其他字符，因为过滤器可能将其解释为语法。
+包含 `:` 或 `.` 的目标键必须加引号，因为 TOML 的裸键不允许这些字符。例如：
+
+```toml
+[log.targets]
+"php_sys::callbacks" = "debug"
+```
 
 Rapira 只读取 `RUST_LOG` 和 `NO_COLOR` 环境变量。这两个变量仅影响日志。
 `RUST_LOG` 在一次运行中替换完整过滤器。非空的 `NO_COLOR` 值会禁用 `plain` 格式的颜色。

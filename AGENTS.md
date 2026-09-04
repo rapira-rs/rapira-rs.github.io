@@ -19,6 +19,7 @@ public/blog/             # Blog images
 ```
 
 English is canonical. Apply each content change to English and all four translations. A correction that changes only translation quality does not require an English change.
+Translations must preserve the complete technical meaning of the English source. Do not translate identifiers, package names, CLI flags, configuration keys, or functional code. You may translate explanatory comments and user-facing text in examples.
 
 When you add a documentation page:
 
@@ -28,11 +29,19 @@ When you add a documentation page:
 
 The documentation entry URL is `/docs/intro/`. No page exists at `/docs/`.
 
-Use `.vitepress/locales.ts` to resolve locales and build locale URLs. Do not hardcode locale conditions or URLs. Put shared translated UI text in `LocaleConfig`.
+Use `.vitepress/locales.ts` to resolve locales. Use it to build locale URLs. Do not hardcode locale conditions or URLs. Put shared translated UI text in `LocaleConfig`.
+
+## Commits
+
+Follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/) for commit messages. Use `<type>[optional scope]: <description>` for the first line.
+
+## GitHub
+
+Prefer the GitHub CLI (`gh`) for GitHub operations when it is available. This preference does not authorize writes. Keep GitHub operations read-only unless the user explicitly permits a write.
 
 ## Writing rule
 
-English content must follow ASD-STE100 Simplified Technical English. Use active voice, literal language, and one term for each meaning. Limit descriptive sentences to 25 words and procedural sentences to 20 words. Put one instruction in each procedural sentence.
+English content must follow ASD-STE100 Simplified Technical English. Use active voice. Use literal language. Use one term for each meaning. Limit descriptive sentences to 25 words. Limit procedural sentences to 20 words. Put one instruction in each procedural sentence.
 
 ## Page tools
 
@@ -51,14 +60,14 @@ Pages support standard Markdown and these features:
 - Use `::: tip`, `::: info`, `::: warning`, and `::: danger` for callouts.
 - Use `// [!code focus]`, `// [!code --]`, and `// [!code ++]` inside code blocks.
 - Use `::: code-group` for alternative versions of one example.
-- Use `<CodeTabs :tabs="…">` for examples from related files. Declare `{ name, slot, icon? }` items in `<script setup>`, then provide matching `<template #slot>` blocks.
+- Use `<CodeTabs :tabs="tabs">` and `</CodeTabs>` around examples from related files. Declare `const tabs = [{ name: 'worker.php', slot: 'worker' }]` in `<script setup>`. Add a matching `<template #worker>` block.
 - Use fenced `mermaid` blocks for diagrams.
-- Use `<Badge type="tip|warning|danger|info" text="…" />` for badges.
+- Use `<Badge type="tip" text="new" />` for badges. The `type` value can be `tip`, `warning`, `danger`, or `info`.
 - Use GFM syntax for tables.
 
 `docs/contributing.md` and its translations contain rendered examples. Update those pages when you change an authoring feature.
 
-Use VitePress variables, components, classes, and frontmatter before adding custom CSS. Use theme variables for colors and spacing. Prefix project classes with `rapira-` or the feature name, and verify CSS in light and dark themes.
+Use VitePress variables, components, classes, and frontmatter before adding custom CSS. Use theme variables for colors and spacing. Prefix project classes with `rapira-` or the feature name. Verify CSS in light and dark themes.
 
 ## FAQ
 
@@ -66,7 +75,7 @@ Use `::: question` for implementation details that are not required for the main
 
 ```md
 ::: question Can I run the site without installing anything globally?
-Run `npm install` locally. Then run `npm run dev`.
+Run `npm ci` locally. Then run `npm run dev`.
 :::
 ```
 
@@ -99,7 +108,7 @@ image: /blog/<page-name>/preview.jpg
 
 `title`, `date`, and `description` are required. `author` defaults to `Rapira Team`. `image` is optional.
 
-Store images in `public/blog/<page-name>/` and reference them as `/blog/<page-name>/<file>`. Use a PNG or JPG preview, preferably 1200×630. The thumbnail generator creates `preview.thumb.jpg`; generated thumbnails are ignored by Git.
+Store images in `public/blog/<page-name>/`. Reference them as `/blog/<page-name>/<file>`. Use a PNG or JPG preview, preferably 1200×630. The thumbnail generator creates `preview.thumb.jpg`. Git ignores generated thumbnails.
 
 ## Development and validation
 

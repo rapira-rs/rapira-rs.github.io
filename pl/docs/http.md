@@ -24,7 +24,8 @@ Serwer HTTP sprawdza każde żądanie przed uruchomieniem PHP. Odpowiada na niep
 Rapira zwraca `501` dla żądania `CONNECT`. Serwer HTTP nie tworzy tuneli.
 
 Rapira przyjmuje bezwzględny cel, na przykład `GET http://host.example/admin?x=1 HTTP/1.1`. Autorytet celu zastępuje pole `Host`.
-Rapira najpierw usuwa dane użytkownika z autorytetu. PHP otrzymuje ścieżkę i zapytanie w `$_SERVER['REQUEST_URI']`.
+Rapira najpierw usuwa dane użytkownika z autorytetu. Zapobiega to konfliktowi w `$_SERVER['HTTP_HOST']`.
+PHP otrzymuje ścieżkę i zapytanie w `$_SERVER['REQUEST_URI']`.
 
 `http.keepalive_timeout_secs` ogranicza każdy odczyt od klienta. Dotyczy bezczynnego połączenia i nagłówków żądania.
 Rapira zwraca `408`, jeśli odczyt treści nie postępuje przed upływem limitu. Następnie zamyka połączenie.
@@ -50,8 +51,9 @@ Dlatego trzy nazwy sieciowe wskazują ten sam klucz PHP:
 | `X.Forwarded.For` | `$_SERVER['HTTP_X_FORWARDED_FOR']`  |
 
 ::: warning
-Ta kolizja nazw tworzy zagrożenie bezpieczeństwa. Proxy może ustawić `X-Forwarded-For`, a klient może wysłać `X_Forwarded_For`.
-Obie nazwy wskazują ten sam klucz `$_SERVER`. Aplikacja może wtedy zaufać wartości klienta.
+Bez obowiązkowej kontroli nazw pól w Rapirze ta kolizja może stwarzać zagrożenie bezpieczeństwa. Proxy może ustawić `X-Forwarded-For`, a klient może wysłać `X_Forwarded_For`.
+Obie nazwy wskazują ten sam klucz `$_SERVER`. Filtr proxy dla nazwy z łącznikami może nie usunąć nazwy z podkreśleniami.
+Aplikacja może wtedy zaufać wartości klienta.
 :::
 
 ## Nazwy kolidujące ze zmienną CGI
@@ -140,8 +142,10 @@ Usuwa nieprawidłowe pole sieciowe i zapisuje wpis. Wysyła pozostałą część
 
 Rapira usuwa tymczasowe odpowiedzi i trailery z PHP. Serwer HTTP tworzy odpowiedź `100 Continue` dla żądania `Expect`.
 
-Niekompletna odpowiedź zamyka połączenie bez pełnego terminatora. Worker może zakończyć się przed końcem treści.
-Treść może też być krótsza od zadeklarowanej długości. Klient może wykryć niekompletną wiadomość.
+Jeśli worker zakończy się przed końcem treści, serwer zamyka połączenie bez pełnego terminatora.
+Serwer zamyka połączenie także wtedy, gdy treść jest krótsza od długości zadeklarowanej przez PHP.
+Błąd krytyczny lub nieprzechwycony wyjątek może również zakończyć skrypt po rozpoczęciu zapisu danych wyjściowych.
+Każdy z tych przypadków tworzy niekompletną wiadomość, którą klient może wykryć.
 
 Odpowiedź błędu serwera HTTP nie ma treści. Zawiera `cache-control: private, no-store` i `connection: close`.
 Przykłady to `413` dla dużej treści i `501` dla `CONNECT`.
@@ -179,7 +183,7 @@ Dodaj ten plik do IDE, aby uzyskać uzupełnianie i informacje o typach.
 Rapira rejestruje funkcję dla całego procesu. Funkcja działa na bieżącym żądaniu.
 Dlatego tryb Classic również ją obsługuje. Zobacz [Tryby wykonania](/pl/docs/execution-modes).
 
-Funkcja ma dwa ważne ograniczenia:
+Funkcja ma następujące ograniczenia:
 
 - **Wyjście po wywołaniu nie jest wysyłane.** Rapira odrzuca wyjście po zamknięciu odpowiedzi.
 - Zapisz wszystkie wymagane dane wyjściowe przed wywołaniem.

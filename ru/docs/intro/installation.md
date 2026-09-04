@@ -124,6 +124,19 @@ rapira --version
 
 :::
 
+### Установка без прав root
+
+Для установки без прав root сохраните весь каталог в домашнем каталоге. Создайте симлинк в `~/.local/bin`:
+
+```bash
+mkdir -p "$HOME/.local/opt" "$HOME/.local/bin"
+mv rapira-v0.8.0-php8.5-linux-x86_64 "$HOME/.local/opt/rapira"
+ln -s "$HOME/.local/opt/rapira/bin/rapira" "$HOME/.local/bin/rapira"
+"$HOME/.local/bin/rapira" --version
+```
+
+В macOS замените имя исходного каталога на имя распакованного каталога macOS. Добавьте `$HOME/.local/bin` в `PATH`, если оболочка ещё не использует этот каталог.
+
 ::: warning
 Бинарник ищет свой интерпретатор рядом с собой, поэтому переносить каталог можно только целиком: `cp bin/rapira /usr/local/bin/` ломает запуск. В `PATH` добавляйте симлинк, как в командах выше.
 :::

@@ -1,11 +1,12 @@
 ---
 title: Quickstart
-description: Serve a PHP application in Classic and Worker modes, then store the settings in rapira.toml.
+description: Run a PHP application in Classic and Worker modes. Store the settings in rapira.toml.
 ---
 
 # Quickstart
 
-This guide starts an application in Classic mode and converts it to Worker mode. It then stores the settings in a configuration file.
+Start an application in Classic mode. Then convert it to Worker mode.
+Store the settings in a configuration file.
 The steps require a working `rapira` binary with its bundled PHP. See [Installation](/docs/intro/installation) for more information.
 
 ## Classic mode
@@ -68,7 +69,8 @@ while (\Rapira\handle_request($handler)) {
 ```
 
 `\Rapira\handle_request()` waits for the next request. It calls the handler and returns `true`.
-It returns `false` during worker shutdown, which ends the loop. The handler reads superglobals and creates output with `echo` and `header()`.
+During worker shutdown, `\Rapira\handle_request()` returns `false`. This value ends the loop.
+The handler reads superglobals and creates output with `echo` and `header()`.
 Call `\Rapira\handle_request()` only from the top-level script loop. It throws `Rapira\Exception\NotInWorkerModeError` in other modes.
 
 The PHP module that Rapira registers provides `\Rapira\handle_request()`. The example therefore needs no autoloader.
@@ -85,7 +87,7 @@ rapira serve --mode worker worker.php
 curl '127.0.0.1:8000/?name=world'
 ```
 
-Run the `curl` command several times. The counter increases because the same process handles several requests.
+Run the `curl` command several times. A worker's counter increases when that process handles another request.
 By default, Rapira creates one worker for each logical CPU. The operating system selects a worker for each connection.
 Each worker has a separate count. The output process identifier shows which worker returned the response.
 Use `rapira serve --mode worker --processes 1 worker.php` to create one worker. See [process model](/docs/process-model) for pool supervision.
@@ -122,11 +124,11 @@ rapira serve --config rapira.toml
 
 ::: info
 A relative `pool.entrypoint` uses the configuration file directory as its base. The current directory does not affect it.
-CLI flags override file values. For example, `--processes 1` changes only the worker count.
+CLI flags override configuration file values. For example, `--processes 1` changes only the worker count.
 :::
 
-The file also controls pool scaling, worker replacement, request timeouts, logging, and the supervisor pidfile.
-An unknown key prevents server initialization. See [Configuration](/docs/configuration) for the file reference and [CLI](/docs/cli) for flags.
+The configuration file also controls pool scaling, worker replacement, request timeouts, logging, and the supervisor pidfile.
+An unknown key prevents server initialization. See [Configuration](/docs/configuration) for all configuration file settings and [CLI](/docs/cli) for flags.
 
 ## Stopping the server
 

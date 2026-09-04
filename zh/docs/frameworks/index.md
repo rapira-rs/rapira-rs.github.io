@@ -27,8 +27,9 @@ description: "在 Rapira 上运行的每个框架都共通的机制：worker 循
 **Worker 模式使进程保持活动。**脚本初始化应用，并在循环中请求工作。
 应用状态保留在请求之间。有关详细信息，请参阅[执行模式](/zh/docs/execution-modes)和 [Worker 模式](/zh/docs/worker)。
 
-一个代码库可以使用两种模式。保留 `public/index.php`，并在旁边添加 `worker.php`。
-使用 `--mode` 选择脚本和模式。如果 Worker 模式迁移失败，请使用 Classic 模式。
+一个代码库可以使用两种模式。保留 `public/index.php`。在旁边添加 `worker.php`。
+使用 `--mode` 选择执行模式。使用 `SCRIPT` 参数或 `pool.entrypoint` 选择脚本。
+如果 Worker 模式迁移失败，请使用 Classic 模式。
 
 ## Worker 循环
 

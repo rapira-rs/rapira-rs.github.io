@@ -124,6 +124,19 @@ rapira --version
 
 :::
 
+### Instalacja bez uprawnień roota
+
+Przy instalacji bez uprawnień roota zachowaj cały katalog w katalogu domowym. Utwórz dowiązanie symboliczne w `~/.local/bin`:
+
+```bash
+mkdir -p "$HOME/.local/opt" "$HOME/.local/bin"
+mv rapira-v0.8.0-php8.5-linux-x86_64 "$HOME/.local/opt/rapira"
+ln -s "$HOME/.local/opt/rapira/bin/rapira" "$HOME/.local/bin/rapira"
+"$HOME/.local/bin/rapira" --version
+```
+
+W systemie macOS zastąp nazwę katalogu źródłowego nazwą rozpakowanego katalogu macOS. Dodaj `$HOME/.local/bin` do `PATH`, jeśli powłoka nie zawiera jeszcze tego katalogu.
+
 ::: warning
 Binarka szuka swojego interpretera obok siebie, więc katalog można przenosić tylko w całości: `cp bin/rapira /usr/local/bin/` psuje uruchomienie. Do `PATH` dodawaj dowiązanie symboliczne, tak jak w poleceniach wyżej.
 :::
@@ -226,7 +239,7 @@ Tak jak zwykle: najpierw patrzy na `PHPRC`, potem do bieżącego katalogu robocz
 :::
 
 ::: question Dlaczego plik nazywa się `php.ini`, a nie `php-rapira.ini`?
-PHP najpierw szuka `php-<nazwa-sapi>.ini`, a dopiero potem zwykłego `php.ini`, a nazwa SAPI zależy od wersji - `fastcgi` na 8.4 i `rapira` na 8.5. Zwykły `php.ini` pasuje do obu.
+PHP najpierw szuka `php-<sapi-name>.ini`, a dopiero potem zwykłego `php.ini`, a nazwa SAPI zależy od wersji - `fastcgi` na 8.4 i `rapira` na 8.5. Zwykły `php.ini` pasuje do obu.
 :::
 
 ## Dystrybucja

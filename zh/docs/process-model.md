@@ -19,7 +19,7 @@ Rapira 以一个 master 进程加一池 worker 的形式运行。凡是全局只
 
 ```mermaid
 flowchart TB
-  M["master · single thread<br/>binds · boots PHP · supervises"]
+  M["master · single thread<br/>binds · initializes PHP · supervises"]
   S(["listen socket"])
   W1["worker<br/>PHP + async runtime"]
   W2["worker<br/>PHP + async runtime"]
@@ -106,7 +106,7 @@ max_spare = 3
 | --- | --- |
 | `SIGTERM`、`SIGINT` | 优雅停止：手上的请求跑完，然后整个进程池排空。再来一个 `SIGTERM` 或 `SIGINT` 就强制退出。 |
 | `SIGQUIT` | 同样是优雅停止。重复发没有任何变化--既然停止是优雅地请求来的，就不会因为再来一个 `SIGQUIT` 而升级。 |
-| `SIGUSR2`、`SIGHUP` | 滚动重载：进程池一次换一个 worker，全程不丢连接。 |
+| `SIGUSR2`、`SIGHUP` | 滚动重载：进程池一次换一个 worker。旧 worker 停止接受工作并完成当前请求。 |
 | `SIGUSR1` | 把进程池的状态快照写进日志。 |
 | `SIGCHLD` | 内部使用--某个 worker 退出了，回收它，并决定要不要补上新的。 |
 
@@ -126,13 +126,13 @@ worker 将 `SIGTERM` 作为立即终止。请求超时使用此信号。
 
 ### 停止
 
-对于每个停止信号，master 首先向所有 worker 发送 `SIGQUIT`。worker 停止接受工作并完成当前请求。
+对于每个停止信号，master 立即向所有 worker 发送 `SIGQUIT`。worker 停止接受工作并完成当前请求。
 经过 `supervisor.process_control_timeout_secs` 后，master 向剩余 worker 发送 `SIGTERM`。默认值为 30 秒。
-如有必要，master 会在另一个相同时间段后发送 `SIGKILL`。
+如果仍有 worker，master 会在 `SIGTERM` 一秒后发送 `SIGKILL`。
 
 第二个 `SIGTERM` 或 `SIGINT` 会跳过等待，立刻强制退出。
 
-### 滚动重载
+### Worker 替换允许当前请求完成
 
 `SIGUSR2` 或 `SIGHUP` 会替换整个进程池。每个新 worker 使用部署的代码初始化应用。
 
@@ -141,11 +141,12 @@ worker 将 `SIGTERM` 作为立即终止。请求超时使用此信号。
 Worker 和 Dispatcher 保留已初始化的应用。在这些模式下，每次部署后都要重载进程池。
 请参阅[部署](/zh/docs/deployment)。
 
-重载不会降低容量，因为 worker 替换会重叠。主进程启动一个新 worker，并等待它接受连接。
+master 启动一个新 worker，并等待它报告 `idle` 或 `active` 状态。
 然后主进程停止一个旧 worker。该 worker 结束后，主进程在下一个位置启动新 worker。
 每次停止都使用 `SIGQUIT` → `SIGTERM` → `SIGKILL`。相同的控制超时适用于每个 worker。
+旧 worker 开始停止时会关闭空闲 keep-alive 连接。当前请求可以在控制超时前完成。
 
-新 worker 不接受连接时，重载仍会继续。控制超时后，主进程记录警告并继续。
+如果新 worker 在控制超时前未报告这两种状态，master 会记录警告并继续重载。
 在 `ondemand` 模式下，主进程逐个删除旧 worker。新连接会创建替代 worker。
 
 停止已经在进行时收到的重载会被忽略：停止永远优先。

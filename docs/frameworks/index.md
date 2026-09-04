@@ -28,8 +28,9 @@ Only the static files, TLS, and OPcache sections below apply to Classic mode.
 **Worker mode keeps the process active.** The script initializes the application and requests work in a loop.
 The application state remains between requests. See [execution modes](/docs/execution-modes) and [Worker mode](/docs/worker) for more information.
 
-One codebase can use both modes. Retain `public/index.php` and add `worker.php` next to it.
-Use `--mode` to select the script and mode. Classic mode remains available if a Worker mode migration fails.
+One codebase can use both modes. Retain `public/index.php`. Add `worker.php` next to it.
+Use `--mode` to select the execution mode. Select the script with the `SCRIPT` argument or `pool.entrypoint`.
+Classic mode remains available if a Worker mode migration fails.
 
 ## Worker loop
 
@@ -103,8 +104,8 @@ Do not use a destructor for per-request cleanup. Reset per-request state inside 
 
 ::: warning An initialization shutdown function runs once at worker exit
 
-PHP runs a shutdown function registered outside the handler once, at the end of the worker cycle.
-A function registered inside the handler runs at the end of that request.
+PHP runs each shutdown function that code registers outside the handler once at the end of the worker cycle.
+PHP runs each function that the handler registers at the end of that request.
 
 Register request shutdown functions inside the handler. Examples include metric output, fatal error processing, and request resource cleanup.
 :::
@@ -116,8 +117,8 @@ The first newly compiled file that uses `$_ENV` makes PHP create the superglobal
 With no `E` in `variables_order`, PHP imports no values. Therefore, `$_ENV` becomes **empty** without a diagnostic.
 This removes values that a Dotenv process wrote to `$_ENV` during initialization.
 
-The effect depends on when PHP compiles a file. Configuration resolved during initialization can use values before PHP clears `$_ENV`.
-Configuration resolved during the first request can read an empty `$_ENV`. This difference can cause environment-specific request failures.
+The effect depends on when PHP compiles a file. Code that resolves configuration during initialization can read values before PHP clears `$_ENV`.
+Code that resolves configuration during the first request can read an empty `$_ENV`. This difference can cause environment-specific request failures.
 
 Two alternatives are available. First, write the values to the process environment with `putenv()`.
 The reimport preserves these values, and a framework can read them with `getenv()`.
@@ -160,7 +161,7 @@ Its default `forbid` list prevents access to `.php` files. Thus, it does not ser
 Other URLs run the entry script in Classic and Worker modes. `$_SERVER['REQUEST_URI']` contains the client path.
 Directory URLs also run the entry script because the middleware does not serve index files.
 
-A CDN or reverse proxy can serve the assets instead. [Running in production](/docs/deployment) configures a reverse proxy.
+A CDN or reverse proxy can serve the assets instead. See [Running in production](/docs/deployment) for reverse proxy configuration.
 
 ## TLS and proxies
 
@@ -205,7 +206,8 @@ The OPcache segment belongs to the master and remains during worker replacement.
 See [running in production](/docs/deployment) for the sequence.
 
 During development, a persistent application does not read its initialization code again. This behavior does not depend on OPcache.
-Restart the server after changes to the worker script or initialized services. Press Ctrl-C, and then run `rapira serve` again.
+After changes to the worker script or initialized services, press Ctrl-C.
+Then run `rapira serve` again.
 
 ## Framework guides
 
@@ -218,4 +220,5 @@ Restart the server after changes to the worker script or initialized services. P
 
 Other frameworks can use the same basic worker script. Use Worker mode only if the application can process several requests in one process.
 First, create the application inside the handler. This design does not require framework support for persistent processes.
-After validation, retain the application and reset its request state. Use [Classic mode](/docs/classic) if neither Worker design operates correctly.
+Validate the application in this design. Then retain the application. Reset its request state after each request.
+Use [Classic mode](/docs/classic) if neither Worker design operates correctly.

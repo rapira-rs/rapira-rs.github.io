@@ -44,10 +44,15 @@ Environment=PHPRC=/etc/rapira
 WantedBy=multi-user.target
 ```
 
-Load and enable the unit:
+Reload the systemd configuration:
 
 ```bash
 sudo systemctl daemon-reload
+```
+
+Enable Rapira with `--now`:
+
+```bash
 sudo systemctl enable --now rapira
 ```
 
@@ -147,7 +152,7 @@ Also restart it when `opcache.validate_timestamps = 0`. A reload does not replac
 
 ## Logs
 
-Rapira writes each log record to **stderr** with one operation. Therefore, records cannot combine within a line.
+Rapira writes each log record to **stderr**.
 Systemd sends stderr to the journal. Use JSON format in production:
 
 ```toml
@@ -156,7 +161,8 @@ level = "info"
 format = "json"
 ```
 
-Each line contains one object with `timestamp`, `level`, `message`, and `target`. The timestamp uses RFC 3339 UTC.
+Each line contains one object with `timestamp`, `level`, `target`, and `fields`. The `fields` object contains `message` and other event fields.
+The timestamp uses RFC 3339 UTC.
 Rapira escapes newline characters in messages. Journald sends the object to log collectors without changes.
 
 ```bash

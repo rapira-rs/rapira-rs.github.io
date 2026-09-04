@@ -80,10 +80,10 @@ Rapira 接受明文 HTTP，并且无论 `X-Forwarded-Proto` 如何，都将 `$_S
 
 ## Session、CSRF 与表单
 
-测试使用文件 session 驱动。每个客户端获得独立 session，cookie 会在下一个请求中返回。
+测试使用文件 session 驱动。每个客户端获得独立 session，并在下一个请求中发送自己的 session cookie。
 CSRF 不需要 Rapira 配置，因为 token 位于 session 中。Classic 使用与 php-fpm 相同的请求生命周期。
 测试还包括表单、JSON 请求体和文件上传。Laravel 对路由异常返回常规 `500` 响应。
-下一个请求不受影响。
+Laravel 正常处理了下一个请求。
 
 ## Worker 模式
 

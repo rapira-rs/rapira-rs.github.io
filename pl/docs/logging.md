@@ -6,7 +6,7 @@ description: "Jak Rapira loguje - poziomy, nadpisania dla poszczególnych celów
 # Logi
 
 Rapira zapisuje wszystkie wpisy do stderr. Obejmują zdarzenia serwera, decyzje procesu nadrzędnego, zdarzenia HTTP, diagnostykę PHP i komunikaty aplikacji.
-Ostrzeżenie PHP używa tego logu zamiast osobnego pliku `error_log`. Ten sam filtr poziomu dotyczy wszystkich wpisów.
+Domyślnie ostrzeżenie PHP używa tego logu zamiast osobnego miejsca wskazanego przez `error_log`. Ten sam filtr poziomu dotyczy wszystkich wpisów.
 
 Domyślny poziom to `error`, więc serwer zapisuje tylko błędy. Zmień konfigurację lub ustaw `RUST_LOG`, aby wybrać inny poziom.
 
@@ -63,7 +63,7 @@ Cel `master` zawiera wymiany workerów, przeładowania i skalowanie. Te zdarzeni
 
 ## Diagnostyka PHP
 
-Rapira zapisuje całą diagnostykę PHP w celu `php`. Typ błędu określa poziom:
+Rapira przypisuje diagnostykę PHP do celu `php`. Typ błędu określa poziom:
 
 | Diagnostyka                                                                                                       | Poziom  |
 | ------------------------------------------------------------------------------------------------------------------ | ------- |
@@ -112,7 +112,8 @@ Poziom to przypadek wyliczenia `\Rapira\LogLevel`, a każdy przypadek odpowiada 
 | `Debug`         | `debug`      |
 | `Trace`         | `trace`      |
 
-Domyślny poziom to `Info`. `[log.targets]` i `RUST_LOG` tak samo filtrują wpisy aplikacji i serwera.
+`\Rapira\log()` używa poziomu `Info`, gdy pominiesz `level`. Globalny filtr `error` odrzuca ten wpis, jeśli nie zmienisz filtra.
+`[log.targets]` i `RUST_LOG` tak samo filtrują wpisy aplikacji i serwera.
 Na przykład `app = "debug"` zmienia tylko cel aplikacji.
 
 Rapira serializuje tablicę kontekstu do JSON-a i dodaje ją jako pole `context`. W JSON-ie to pole znajduje się w `fields`.
@@ -149,7 +150,7 @@ Przekazuj identyfikatory zamiast dużych obiektów.
 
 ## Formaty
 
-Rapira zapisuje oba formaty do stderr jedną operacją na wpis. Dlatego dane różnych procesów nie mieszają się wewnątrz wpisu.
+Rapira zapisuje oba formaty do stderr. Duże wpisy z różnych procesów mogą się przeplatać, gdy te procesy zapisują do tego samego potoku stderr.
 
 Rapira nie zapisuje logów w innych miejscach. Przekieruj stderr, aby zapisać je do pliku.
 Menedżer usług może zbierać stderr. Zobacz [Wdrożenie produkcyjne](/pl/docs/deployment).
@@ -184,7 +185,8 @@ RUST_LOG=warn,rapira=trace rapira serve --mode worker worker.php
 ```
 
 Pierwsze polecenie ustawia wszystkie cele na `info`. Drugie ustawia `rapira` na `debug` i `php` na `info`.
-Trzecie ustawia wszystkie cele na `warn`, a `rapira` na `trace`. W razie potrzeby dodaj inne nazwy celów.
+Trzecie ustawia wszystkie cele na `warn`, a `rapira` na `trace`. Cel `rapira` zawiera wpisy inicjalizacji, workerów i zamykania.
+Gdy potrzebujesz wpisów procesu nadrzędnego, użyj `RUST_LOG=warn,rapira=trace,master=trace`.
 
 ::: warning
 Niepusta wartość `RUST_LOG` **zastępuje** `level` i `[log.targets]`. Rapira nie łączy filtrów środowiska i pliku.

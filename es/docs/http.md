@@ -24,7 +24,8 @@ El servidor HTTP comprueba cada petición antes de ejecutar PHP. Responde a una 
 Rapira devuelve `501` para una petición `CONNECT`. El servidor HTTP no crea túneles.
 
 Rapira acepta un objetivo absoluto, como `GET http://host.example/admin?x=1 HTTP/1.1`. La autoridad del objetivo sustituye al campo `Host`.
-Rapira elimina primero los datos de usuario de la autoridad. PHP recibe la ruta y la consulta en `$_SERVER['REQUEST_URI']`.
+Rapira elimina primero los datos de usuario de la autoridad. Así evita un conflicto en `$_SERVER['HTTP_HOST']`.
+PHP recibe la ruta y la consulta en `$_SERVER['REQUEST_URI']`.
 
 `http.keepalive_timeout_secs` limita cada lectura del cliente. Se aplica a una conexión inactiva y a las cabeceras.
 Rapira devuelve `408` si la lectura del cuerpo no avanza antes del límite. Después cierra la conexión.
@@ -50,8 +51,9 @@ Por tanto, tres nombres de red se asignan a una clave de PHP:
 | `X.Forwarded.For` | `$_SERVER['HTTP_X_FORWARDED_FOR']`  |
 
 ::: warning
-Esta colisión de nombres crea un riesgo de seguridad. Un proxy puede establecer `X-Forwarded-For` y un cliente puede enviar `X_Forwarded_For`.
-Ambos nombres se asignan a la misma clave de `$_SERVER`. La aplicación podría confiar en el valor del cliente.
+Sin la comprobación obligatoria de nombres de campo de Rapira, esta colisión puede crear un riesgo de seguridad. Un proxy puede establecer `X-Forwarded-For` y un cliente puede enviar `X_Forwarded_For`.
+Ambos nombres se asignan a la misma clave de `$_SERVER`. Un filtro del proxy para el nombre con guiones podría no eliminar el nombre con guiones bajos.
+La aplicación podría confiar en el valor del cliente.
 :::
 
 ## Nombres que colisionan con una variable CGI
@@ -140,8 +142,10 @@ Elimina un campo de red no válido y escribe un registro. Envía el resto de la 
 
 Rapira elimina las respuestas provisionales y los trailers de PHP. El servidor HTTP crea la respuesta `100 Continue` para una petición `Expect`.
 
-Una respuesta incompleta cierra la conexión sin un terminador completo. Un worker puede terminar antes de completar el cuerpo.
-El cuerpo también puede ser menor que la longitud declarada. El cliente puede detectar el mensaje incompleto.
+Si un worker termina antes de completar el cuerpo, el servidor cierra la conexión sin un terminador completo.
+El servidor también cierra la conexión si el cuerpo es menor que la longitud declarada por PHP.
+Un error fatal o una excepción no capturada también pueden terminar el script después de que empiece a escribir la salida.
+Cada caso produce un mensaje incompleto que el cliente puede detectar.
 
 Una respuesta de error del servidor HTTP no tiene cuerpo. Incluye `cache-control: private, no-store` y `connection: close`.
 Algunos ejemplos son `413` para un cuerpo grande y `501` para `CONNECT`.
@@ -179,7 +183,7 @@ Añade este archivo al IDE para obtener autocompletado e información de tipos.
 Rapira registra la función para todo el proceso. La función actúa sobre la petición actual.
 Por tanto, Classic también la admite. Consulta [Modos de ejecución](/es/docs/execution-modes).
 
-La función tiene dos límites importantes:
+La función tiene estos límites:
 
 - **La salida posterior a la llamada no se envía.** Rapira descarta la salida después de cerrar la respuesta.
 - Escribe toda la salida necesaria antes de la llamada.

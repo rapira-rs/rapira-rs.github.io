@@ -85,7 +85,7 @@ rapira serve --mode worker worker.php
 curl '127.0.0.1:8000/?name=world'
 ```
 
-多次运行 `curl` 命令。计数器会增加，因为同一进程处理多个请求。
+多次运行 `curl` 命令。同一进程处理另一个请求时，该 worker 的计数器会增加。
 Rapira 默认为每个逻辑 CPU 创建一个 worker。操作系统为每个连接选择 worker。
 每个 worker 有独立的计数器。响应中的进程标识符显示处理请求的 worker。
 使用 `rapira serve --mode worker --processes 1 worker.php` 创建一个 worker。请参阅[进程模型](/zh/docs/process-model)。

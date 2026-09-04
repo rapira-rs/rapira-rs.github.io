@@ -24,7 +24,8 @@ HTTP 服务器在 PHP 运行前检查每个请求。检查失败时，服务器�
 Rapira 对 `CONNECT` 请求返回 `501`。HTTP 服务器不创建隧道。
 
 Rapira 接受绝对形式的目标，例如 `GET http://host.example/admin?x=1 HTTP/1.1`。目标 authority 会替换 `Host` 字段。
-Rapira 先删除 authority 中的用户信息。PHP 在 `$_SERVER['REQUEST_URI']` 中收到路径和查询字符串。
+Rapira 先删除 authority 中的用户信息。这样可以防止 `$_SERVER['HTTP_HOST']` 发生冲突。
+PHP 在 `$_SERVER['REQUEST_URI']` 中收到路径和查询字符串。
 
 `http.keepalive_timeout_secs` 限制每次客户端读取。此限制适用于空闲连接和请求头。
 如果请求体读取在限制时间内没有进展，Rapira 返回 `408`，然后关闭连接。
@@ -50,8 +51,9 @@ PHP 注册变量时还会将 `.` 替换为 `_`。
 | `X.Forwarded.For` | `$_SERVER['HTTP_X_FORWARDED_FOR']`  |
 
 ::: warning
-这种名称冲突会产生安全风险。代理可以设置 `X-Forwarded-For`，客户端可以发送 `X_Forwarded_For`。
-两个名称都映射到同一个 `$_SERVER` 键。应用可能会信任客户端提供的值。
+如果没有 Rapira 强制执行的字段名检查，这种名称冲突会带来安全风险。代理可以设置 `X-Forwarded-For`，客户端可以发送 `X_Forwarded_For`。
+两个名称都映射到同一个 `$_SERVER` 键。代理针对带连字符名称的过滤器可能不会移除带下划线的名称。
+应用可能会信任客户端提供的值。
 :::
 
 ## 会撞上 CGI 变量的名字
@@ -140,8 +142,10 @@ PHP 发送 `Connection` 时，Rapira 也会删除该字段列出的其他字段�
 
 Rapira 删除 PHP 的临时响应和 trailer。HTTP 服务器为 `Expect` 请求创建 `100 Continue` 响应。
 
-不完整的响应会关闭连接，不发送完整的结束标记。worker 可能在响应体完成前结束。
-响应体也可能短于声明的长度。客户端可以检测此不完整消息。
+如果 worker 在响应体完成前终止，服务器会关闭连接且不发送完整的结束标记。
+如果响应体短于 PHP 声明的长度，服务器也会关闭连接。
+致命错误或未捕获的异常也可能在开始输出后终止脚本。
+每种情况都会产生客户端可以检测到的不完整消息。
 
 HTTP 服务器创建的错误响应没有响应体。它包含 `cache-control: private, no-store` 和 `connection: close`。
 例如，请求体过大时返回 `413`，`CONNECT` 请求返回 `501`。
@@ -179,7 +183,7 @@ $metrics->flush();
 Rapira 为整个进程注册此函数。此函数作用于当前请求。
 因此，Classic 模式也支持此函数。请参阅[执行模式](/zh/docs/execution-modes)。
 
-此函数有两个重要限制：
+此函数有以下限制：
 
 - **调用后的输出不会发送。** Rapira 在响应关闭后丢弃输出。
 - 请在调用前写入所有必要输出。

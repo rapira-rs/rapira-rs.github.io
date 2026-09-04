@@ -5,7 +5,7 @@ description: "El modo Classic ejecuta un script de entrada de PHP normal desde c
 
 # Modo Classic
 
-El modo Classic ejecuta un script de entrada PHP normal. Puede ser el mismo `public/index.php` que ejecuta php-fpm.
+El modo Classic ejecuta un script de entrada PHP normal. Por ejemplo, php-fpm ejecuta `public/index.php` para cada petición.
 Rapira inicia una nueva petición PHP para cada petición HTTP. Rellena las superglobales y ejecuta el script.
 La salida del script se convierte en la respuesta. Rapira puede sustituir a php-fpm sin cambiar la aplicación.
 

@@ -70,7 +70,7 @@ request_terminate_timeout_secs = 0    # Replaces a worker when one request excee
 
 [supervisor]                          # Optional. Sets master process behavior.
 pidfile = "/run/rapira.pid"           # Optional. Relative paths use this file's directory.
-process_control_timeout_secs = 30     # Sets the stop timeout before QUIT, TERM, and KILL.
+process_control_timeout_secs = 30     # Waits after SIGQUIT before SIGTERM. SIGKILL follows one second later.
 
 [log]                                 # Optional. Sets the level and record format.
 level = "error"                       # Use error, warn, info, debug, or trace. Default: error.
@@ -151,7 +151,7 @@ Los workers son los procesos que ejecutan PHP de verdad, y esta sección dice qu
 | `min_spare` | entero | ninguno | Solo con el escalado `dynamic`, y ahí obligatoria: mantén al menos este número de workers ociosos y listos. |
 | `max_spare` | entero | ninguno | Solo con el escalado `dynamic`, y ahí obligatoria: recorta hasta dejar como mucho este número de workers ociosos. El par tiene que cumplir `1 <= min_spare <= max_spare <= processes`; ponerlas con otro valor de escalado es un error. |
 | `max_requests` | entero | `0` | Recicla el worker cuando haya atendido este número de peticiones, más un pequeño margen aleatorio para que el pool entero no se renueve de golpe. `0` significa nunca. |
-| `process_idle_timeout_secs` | entero | `10` | La lee el escalado `ondemand`: cuánto tiempo puede estar un worker ocioso antes de que el maestro lo retire. |
+| `process_idle_timeout_secs` | entero | `10` | Con el escalado `ondemand`, el maestro retira un worker después de este tiempo de inactividad. |
 | `request_terminate_timeout_secs` | entero | `0` | El tiempo real máximo para una sola petición. Al worker que siga con ella pasado ese límite se le mata y se le sustituye. Con `0` no se comprueba nada. |
 
 `mode` y `scaling` son dos ejes distintos: `mode` dice qué hace un worker con el script de entrada, y `scaling`, cuántos workers hay.
@@ -165,11 +165,11 @@ Las reglas del proceso maestro: el que es dueño del socket de escucha, supervis
 | Clave | Tipo | Por defecto | Significado |
 | --- | --- | --- | --- |
 | `pidfile` | cadena | ninguno | Dónde escribe el maestro su propio pid. Una ruta relativa se resuelve respecto al directorio donde está el archivo de configuración. A ese pid es al que van las señales, y la [página del modelo de procesos](/es/docs/process-model) tiene la tabla completa de qué hace cada una. |
-| `process_control_timeout_secs` | entero | `30` | Cuánto le deja el maestro a un worker para terminar por las buenas antes de escalar QUIT → TERM → KILL. |
+| `process_control_timeout_secs` | entero | `30` | Cuánto espera el maestro después de `SIGQUIT` antes de enviar `SIGTERM`. El maestro envía `SIGKILL` un segundo después de `SIGTERM`. |
 
 ## La sección `[log]`
 
-Rapira lo escribe todo en stderr, con una escritura por entrada, para que la salida del maestro y la de los workers nunca se mezclen a mitad de línea. Esta sección decide cuánto detalle tiene ese flujo y qué forma tiene cada entrada; en [Registros](/es/docs/logging) están los targets uno a uno, los formatos y cómo se corresponden los diagnósticos de PHP con los niveles.
+Rapira escribe todos los registros en stderr. Esta sección decide cuánto detalle tiene ese flujo y qué forma tiene cada entrada; en [Registros](/es/docs/logging) están los targets uno a uno, los formatos y cómo se corresponden los diagnósticos de PHP con los niveles.
 
 | Clave | Tipo | Por defecto | Significado |
 | --- | --- | --- | --- |
@@ -179,6 +179,12 @@ Rapira lo escribe todo en stderr, con una escritura por entrada, para que la sal
 
 Una clave de `[log.targets]` puede usar letras, dígitos, `_`, `:`, `.` y `-`. Debe empezar con una letra, un dígito o `_`.
 Rapira rechaza otros caracteres porque el filtro puede interpretarlos como sintaxis.
+Una clave de target que contiene `:` o `.` debe ir entre comillas porque TOML no permite estos caracteres en una clave simple sin comillas. Por ejemplo:
+
+```toml
+[log.targets]
+"php_sys::callbacks" = "debug"
+```
 
 Rapira solo lee las variables de entorno `RUST_LOG` y `NO_COLOR`. Ambas afectan solo a los registros.
 `RUST_LOG` sustituye el filtro completo durante una ejecución. Un valor no vacío de `NO_COLOR` desactiva los colores del formato `plain`.

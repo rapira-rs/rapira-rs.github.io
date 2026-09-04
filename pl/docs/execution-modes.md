@@ -53,7 +53,9 @@ Wybierz tryb przez `pool.mode` albo `--mode`.
 Skrypt kontroluje liczbę aktywnych jednostek pracy. Pętla sekwencyjna przetwarza jedną jednostkę naraz.
 Wywołuje `receive()`, odpowiada na żądanie i ponownie wywołuje `receive()`.
 Skrypt współbieżny uruchamia jeden [fiber](https://www.php.net/manual/en/language.fibers.php) dla każdego żądania. Wywołuje `tryReceive()`, gdy fibery są aktywne.
-Gdy żaden fiber nie jest aktywny, pętla czeka w `receive()`. Przetwarzaj jedną jednostkę, jeśli biblioteka nie obsługuje fiberów.
+Gdy żaden fiber nie jest aktywny, pętla czeka w `receive()`. Ten sposób utrzymuje kilka aktywnych żądań w jednym interpreterze.
+Współbieżność jest kooperacyjna. Inne żądanie wykonuje się dalej tylko wtedy, gdy działający kod zawiesi swój fiber.
+Przetwarzaj jedną jednostkę, jeśli biblioteka nie obsługuje fiberów.
 
 ::: info
 Dispatcher jest domyślną wartością `pool.mode`. Osobny przewodnik nie jest jeszcze dostępny.

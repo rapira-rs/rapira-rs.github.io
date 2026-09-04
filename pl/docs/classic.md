@@ -5,7 +5,7 @@ description: "Tryb Classic wykonuje zwykły skrypt wejściowy PHP od zera przy k
 
 # Tryb Classic
 
-Tryb Classic wykonuje zwykły skrypt wejściowy PHP. Może to być plik `public/index.php`, który uruchamia php-fpm.
+Tryb Classic wykonuje zwykły skrypt wejściowy PHP. Na przykład php-fpm wykonuje plik `public/index.php` przy każdym żądaniu.
 Rapira uruchamia nowe żądanie PHP dla każdego żądania HTTP. Wypełnia zmienne superglobalne i wykonuje skrypt.
 Wyjście skryptu staje się odpowiedzią. Rapira może zastąpić php-fpm bez zmian aplikacji.
 

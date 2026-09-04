@@ -80,10 +80,10 @@ Bez tej konfiguracji `url()` tworzy odnośniki `http://`.
 
 ## Sesje, CSRF i formularze
 
-Testy używały plikowego sterownika sesji. Każdy klient otrzymał osobną sesję, a ciasteczko wróciło w następnym żądaniu.
+Testy używały plikowego sterownika sesji. Każdy klient otrzymał osobną sesję i wysłał jej ciasteczko w następnym żądaniu.
 CSRF nie wymaga konfiguracji Rapiry, ponieważ token jest w sesji. Classic używa cyklu życia php-fpm.
 Testy objęły też formularze, treści JSON i pliki. Laravel zwrócił zwykłą odpowiedź `500` dla wyjątku.
-Kolejne żądanie pozostało bez zmian.
+Laravel przetworzył kolejne żądanie normalnie.
 
 ## Tryb Worker
 

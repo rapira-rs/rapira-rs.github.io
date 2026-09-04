@@ -145,7 +145,7 @@ Consulta este comportamiento en la [guía general](/es/docs/frameworks/) y el aj
 El autoloader y el arranque de la plantilla siguen siendo residentes y el bucle de peticiones sigue viviendo en el script de worker, así que esto sigue siendo un worker, uno que descarta su aplicación entre peticiones, no [modo Classic](/es/docs/classic).
 
 Usa el runner persistente de forma predeterminada. Sigue el diseño del framework, tuvo memoria estable y requiere una llamada de reinicio.
-Usa un runner por petición si el orden de inicio impide un callback completo de `StateResetter`.
+Usa un runner por petición si el orden de inicio o la preparación de la petición impiden un callback completo de `StateResetter`.
 El cambio entre los diseños solo requiere modificar el script del worker.
 
 ## Iniciar Rapira
@@ -172,6 +172,10 @@ request_terminate_timeout_secs = 30
 [log]
 level = "info"
 format = "json"
+```
+
+```bash
+rapira serve --config rapira.toml
 ```
 
 Cada clave, con su valor por defecto y sus límites, está en la página de [Configuración](/es/docs/configuration); la unidad de systemd y el proxy inverso que va delante están en [En producción](/es/docs/deployment).

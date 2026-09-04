@@ -35,8 +35,8 @@ The persistent design has three steps. Create the runner once. Run it for each r
 
 ## Prerequisites
 
-- Rapira installed. See [Installation](/docs/intro/installation).
-- A Yii3 application: either a fresh [`yiisoft/app`](https://github.com/yiisoft/app) project or one you already have.
+- Install Rapira. See [Installation](/docs/intro/installation).
+- Create or select a Yii3 application. You can use a new [`yiisoft/app`](https://github.com/yiisoft/app) project.
 
 The worker script is the only new PHP file. Put it in the project root next to `composer.json`.
 The runner uses the project root as its `rootPath`.
@@ -156,7 +156,8 @@ See the [frameworks overview](/docs/frameworks/) for this memory pattern. See [C
 
 The autoloader and template bootstrap remain resident. The request loop also remains in the worker script. Therefore, this design is still a worker that discards its application between requests. It is not [Classic mode](/docs/classic).
 
-Use the persistent runner by default. It follows the framework design, had stable memory use in tests, and requires one reset call.
+Use the persistent runner by default. It follows the framework design and requires one reset call.
+Tests showed stable memory use.
 Use a per-request runner when initialization order or request setup prevents a complete `StateResetter` callback.
 Changing between these designs requires changes only to the worker script.
 
@@ -184,6 +185,10 @@ request_terminate_timeout_secs = 30
 [log]
 level = "info"
 format = "json"
+```
+
+```bash
+rapira serve --config rapira.toml
 ```
 
 See [Configuration](/docs/configuration) for each key, default, and limit. See [Deployment](/docs/deployment) for systemd and reverse proxy configuration.

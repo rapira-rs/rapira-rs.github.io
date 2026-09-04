@@ -56,7 +56,7 @@ Pozostałe flagi znajdziesz w [Wierszu poleceń](/pl/docs/cli), a ich odpowiedni
 
 - **Czeka** na żądanie dla tego workera. Oczekujący worker nie używa procesora.
 - Zachowuje interpreter i zainicjalizowaną aplikację w pamięci.
-- **Wypełnia zmienne superglobalne** `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE` i inne przed uruchomieniem handlera.
+- **Wypełnia dane żądania** w `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE`, `$_FILES` oraz `$_REQUEST` przed uruchomieniem handlera.
 - Zwykły kod PHP może czytać je tak samo jak pod php-fpm.
 - **Wywołuje handler bez argumentów.** Dane żądania znajdują się w zmiennych superglobalnych. Sygnatura funkcji to `function (): void`.
 - Przechwyć kontener, logger i inne zależności przez `use`.
@@ -167,7 +167,7 @@ Przykład wywołuje `gc_collect_cycles()` między żądaniami. To wywołanie jes
 `pool.request_terminate_timeout_secs` ogranicza czas jednego żądania. Rapira kończy workera, który przekroczy tę wartość.
 Ten klucz i `pool.max_requests` opisuje [Konfiguracja](/pl/docs/configuration). Obsługę zakończenia opisuje [Model procesów](/pl/docs/process-model).
 
-**Nieprzechwycony wyjątek dotyczy jednego żądania, nie workera.** Nieprzechwycony wyjątek handlera zwykle zwraca `500`.
+**Nieprzechwycony wyjątek dotyczy jednego żądania, nie workera.** Rapira zwraca `500` dla nieprzechwyconego wyjątku handlera, jeśli handler nie wysłał jeszcze nagłówka odpowiedzi.
 Rapira nie może zmienić statusu po wysłaniu nagłówka odpowiedzi.
 Pętla działa dalej, więc wyjątek nie zatrzymuje workera. Błąd krytyczny kończy skrypt rezydentny.
 Następnie worker ponownie uruchamia skrypt i inicjalizuje aplikację.

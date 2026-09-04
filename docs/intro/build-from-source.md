@@ -13,7 +13,7 @@ It requires Rust, a C toolchain, and an embeddable PHP library. See [Installatio
 - **No prebuilt binary supports the platform.** Examples include an uncommon CPU architecture and a musl-based distribution such as Alpine.
 - **The distribution is older than the package requirements.** Releases require glibc 2.34 or newer.
 - Debian 12, Ubuntu 22.04, and RHEL 9 are the oldest supported package systems.
-- **The application requires other PHP extensions.** Release builds use [`ci/php-configure-flags.txt`](https://github.com/rapira-rs/rapira/blob/main/ci/php-configure-flags.txt).
+- **The application requires other PHP extensions.** Release builds use [`.github/php-configure-flags.txt`](https://github.com/rapira-rs/rapira/blob/main/.github/php-configure-flags.txt).
 - They include session, mbstring, OPcache, OpenSSL, curl, XML extensions, PDO, and SQLite.
 - Build with another PHP when the application requires extensions such as `pdo_mysql`, `intl`, or `gd`.
 - **You are changing Rapira** or need a change that does not have a release.
@@ -23,7 +23,7 @@ It requires Rust, a C toolchain, and an embeddable PHP library. See [Installatio
 The build requires these tools:
 
 - **Rust, stable channel.** The repository `rust-toolchain.toml` selects the version through [rustup](https://rustup.rs/).
-- **A C compiler and `pkg-config`.** Part of the build is C: small shims compiled against the PHP headers.
+- **A C compiler and `pkg-config`.** The build compiles small C interface files against the PHP headers.
 - **libclang.** Bindgen uses it to create Zend API bindings during the build.
 - The package is `libclang-dev` on Debian or Ubuntu, `clang-devel` on Fedora, and `clang` on Arch.
 
@@ -54,19 +54,19 @@ The Homebrew `php` formula does not include the embed SAPI. Build PHP from sourc
 
 Build PHP when no embed package is available. Also build it when the package does not include required extensions.
 
-`ci/php-configure-flags.txt` contains the configuration options for release builds.
+`.github/php-configure-flags.txt` contains the configuration options for release builds.
 Pass it to `configure` in an extracted PHP source directory. Add options for required extensions:
 
 ```bash
-./configure --prefix="$HOME/.local/php-nts" $(tr '\n' ' ' < /path/to/rapira/ci/php-configure-flags.txt)
+./configure --prefix="$HOME/.local/php-nts" $(tr '\n' ' ' < /path/to/rapira/.github/php-configure-flags.txt)
 make -j"$(getconf _NPROCESSORS_ONLN)"
 make install
 ```
 
 On macOS, install the dependencies with `brew install pkg-config openssl@3 curl oniguruma libxml2 sqlite`.
 Add their `lib/pkgconfig` directories to `PKG_CONFIG_PATH`.
-Append `--with-iconv="$(xcrun --show-sdk-path)/usr"` after the options file. The option without a path cannot find macOS libiconv.
-Autoconf uses the last value when an option occurs more than once.
+Append `--with-iconv="$(xcrun --show-sdk-path)/usr"` after the options file. This path lets `configure` find macOS libiconv.
+Autoconf uses the last value of a repeated option.
 
 ### The plain `libphp.so` name
 

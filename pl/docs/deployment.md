@@ -45,10 +45,15 @@ Environment=PHPRC=/etc/rapira
 WantedBy=multi-user.target
 ```
 
-Załaduj i włącz jednostkę:
+Przeładuj konfigurację systemd:
 
 ```bash
 sudo systemctl daemon-reload
+```
+
+Włącz Rapirę z opcją `--now`:
+
+```bash
 sudo systemctl enable --now rapira
 ```
 
@@ -79,7 +84,8 @@ Utwórz `/etc/rapira/php.ini`, aby skonfigurować OPcache, limit pamięci lub st
 Względny `pool.entrypoint` używa katalogu pliku konfiguracyjnego jako podstawy. Dlatego `entrypoint = "index.php"` w tym układzie oznacza `/etc/rapira/index.php`.
 W środowisku produkcyjnym użyj bezwzględnej ścieżki skryptu wejściowego. `supervisor.pidfile` używa tej samej reguły.
 Argument `SCRIPT` i operacje PHP używają katalogu roboczego. Rapira nie zmienia tego katalogu.
-Systemd domyślnie używa `/`, dlatego jednostka ustawia `WorkingDirectory=/srv/app`. Wszystkie klucze zawiera [Konfiguracja](/pl/docs/configuration).
+Systemd domyślnie używa `/`, dlatego jednostka ustawia `WorkingDirectory=/srv/app`. PHP szuka w tym katalogu również pliku ini.
+Wszystkie klucze zawiera [Konfiguracja](/pl/docs/configuration).
 
 ## Reverse proxy
 
@@ -136,7 +142,8 @@ Proces nadrzędny zostaje przy ustawieniach, z którymi wystartował, a współd
 
 ## Logi
 
-Każdy wpis do logu Rapira pisze na **stderr**, jednym zapisem na wpis, dzięki czemu wyjście procesu nadrzędnego i workerów nigdy nie przeplata się w połowie linii. Stderr jednostki systemd trafia do journala bez żadnej konfiguracji, więc do wyboru zostaje tylko format. Na produkcji używaj JSON-a:
+Rapira zapisuje każdy wpis do logu na **stderr**. Stderr jednostki systemd trafia do journala bez dodatkowej konfiguracji.
+Na produkcji używaj JSON-a:
 
 ```toml
 [log]
@@ -144,7 +151,8 @@ level = "info"
 format = "json"
 ```
 
-Jeden obiekt na linię, `timestamp` w RFC 3339 i w UTC, do tego `level`, `message` i `target`; znaki nowej linii wewnątrz komunikatu są ekranowane, więc wpis zawsze zajmuje dokładnie jedną linię. Dokładnie takiego kształtu oczekują kolektory logów, a journald przepuszcza go bez zmian.
+Każda linia zawiera jeden obiekt z polami `timestamp`, `level`, `target` i `fields`. Obiekt `fields` zawiera `message` oraz pozostałe pola zdarzenia.
+Znacznik czasu używa UTC zgodnie z RFC 3339.
 
 ```bash
 journalctl -u rapira -f

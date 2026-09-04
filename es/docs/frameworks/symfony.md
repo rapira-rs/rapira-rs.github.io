@@ -21,7 +21,7 @@ Las dos aplicaciones se crearon con el paquete `symfony/skeleton` y usaron un ú
 
 ## Comportamiento en modo Worker
 
-El kernel se inicia fuera del bucle y permanece durante la vida del worker. El autoloader, el contenedor, el router y las conexiones se inician una vez.
+El kernel se inicia fuera del bucle y permanece durante la vida del worker. El autoloader, el contenedor, el router, el dispatcher de eventos y las conexiones se inician una vez.
 Consulta [modo Worker](/es/docs/worker) y [Modos de ejecución](/es/docs/execution-modes) para obtener más información.
 
 En cada petición, el handler hace cuatro cosas y después limpia:
@@ -95,7 +95,7 @@ while (\Rapira\handle_request($handler)) {
 Casi todo es arranque normal y corriente de Symfony. Cuatro líneas son propias de este montaje:
 
 **`(new Dotenv())->usePutenv()->bootEnv(...)`.** El `public/index.php` estándar delega esta operación a `symfony/runtime`.
-El worker lee `.env` una vez antes de crear el kernel. Usa `usePutenv()` porque la aplicación devuelve `500` en `prod` sin él.
+El worker lee `.env` una vez antes de crear el kernel. `usePutenv()` conserva estos valores si PHP reconstruye `$_ENV` durante una petición.
 Consulta [`$_ENV` y `variables_order`](#env-y-variables-order).
 
 **El kernel se inicia antes del bucle.** `new Kernel(...)`, `boot()` y `getContainer()` se ejecutan al iniciar el worker.
@@ -115,15 +115,17 @@ Ambas opciones eliminan el estado en caché. Úsalas para encontrar una fuga, no
 ## `$_ENV` y `variables_order`
 
 ::: warning
-Con `bootEnv()` sin `usePutenv()`, una aplicación Symfony en `prod` devuelve **500** para cada petición.
-La excepción es `EnvNotFoundException: Environment variable not found: "DEFAULT_URI"`. La misma aplicación en `dev` no falla.
+La aplicación base probada usaba `bootEnv()` sin `usePutenv()`.
+Con `variables_order = "GPCS"` y `auto_globals_jit = On`, cada petición en `prod` devolvía **500**.
+El fallo ocurría cuando `RequestContext` leía `DEFAULT_URI` durante la petición.
+La excepción era `EnvNotFoundException: Environment variable not found: "DEFAULT_URI"`. La misma aplicación en `dev` no fallaba.
 :::
 
 PHP causa este resultado. Con `variables_order = "GPCS"` y `auto_globals_jit = On`, PHP reinicia el indicador JIT de `$_ENV` para cada petición.
 El primer archivo compilado que usa `$_ENV` llama a `php_auto_globals_create_env`. Esta función vuelve a importar `$_ENV` desde el entorno.
 La operación elimina los valores añadidos por `Dotenv->bootEnv()` durante la inicialización. Las pruebas observaron que `$_ENV` quedó vacío durante una petición.
 
-En `prod`, la primera petición compila el contenedor y los archivos de servicios. PHP vacía `$_ENV` antes de resolver `%env(DEFAULT_URI)%`.
+En `prod`, la primera petición compila el contenedor y los archivos de servicios. PHP vacía `$_ENV` antes de que `RequestContext` resuelva `%env(DEFAULT_URI)%`.
 En `dev`, el contenedor resuelve y guarda las variables durante `$kernel->boot()`. PHP vacía `$_ENV` después de esta operación.
 El reinicio ocurre en ambos entornos, pero solo `prod` usa el valor vacío.
 
@@ -138,20 +140,30 @@ Usa esta llamada:
 Rapira ejecuta un intérprete PHP NTS en cada proceso. Por tanto, no hay hilos PHP simultáneos que llamen a `putenv()`.
 
 En producción, define variables de entorno mediante systemd, el contenedor o el orquestador.
-Usa `.env` solo durante el desarrollo. Ambos métodos evitan que una petición elimine los valores.
+Usa `.env` solo durante el desarrollo. Tanto `usePutenv()` como el entorno de despliegue escriben los valores en el entorno del proceso.
+Por tanto, una importación posterior conserva los valores.
 
 Este comportamiento se aplica a cualquier runtime persistente de PHP que lea `$_ENV` durante una petición.
 Consulta este y otros comportamientos en [Frameworks](/es/docs/frameworks/).
 
 ## Iniciar Rapira
 
+Inicia Rapira:
+
 ```bash
 rapira serve --mode worker worker.php
-curl -i http://127.0.0.1:8000/
 ```
 
 `--mode worker` selecciona el modo Worker. `127.0.0.1:8000` es la dirección predeterminada.
-`rapira serve` permanece en primer plano. Pulsa `Ctrl-C` para detenerlo.
+`rapira serve` permanece en primer plano.
+
+Abre otro terminal. Envía una petición:
+
+```bash
+curl -i http://127.0.0.1:8000/
+```
+
+Pulsa `Ctrl-C` en el primer terminal para detener Rapira.
 
 El script de entrada es `worker.php`, por lo que `$_SERVER['SCRIPT_NAME']` contiene `/worker.php`. Symfony no encuentra este valor al principio de la URI.
 Después, establece la URL base en `""`. `getPathInfo()` devuelve la ruta y el enrutado funciona correctamente.
@@ -186,7 +198,7 @@ request_terminate_timeout_secs = 30
 
 `max_requests` sustituye un worker después del número especificado de peticiones. Limita una fuga de memoria, pero no la corrige.
 `request_terminate_timeout_secs` limita el tiempo de una petición.
-Inicia el servidor con `rapira serve --config rapira.toml`.
+Inicia el servidor con `APP_ENV=prod rapira serve --config rapira.toml`.
 Un `entrypoint` relativo usa el directorio del archivo. Consulta todos los ajustes en [Configuración](/es/docs/configuration).
 
 ## Reinicio del estado entre peticiones
@@ -215,9 +227,9 @@ Reinicia el servidor después de cada cambio durante el desarrollo. Como alterna
 rapira serve --mode classic public/index.php
 ```
 
-Es la misma aplicación en modo Classic: arranca en cada petición, así que los cambios surten efecto al momento, a costa de un arranque completo por petición. En un servidor de producción ya en marcha, la forma de que el código recién desplegado tome el relevo sin tirar conexiones es una recarga sin cortes (`SIGUSR2` al maestro), salvo que uses `opcache.validate_timestamps = 0`: ahí el segmento de OPcache del maestro sobrevive al pool y el despliegue necesita un reinicio completo. Mira [Modelo de procesos](/es/docs/process-model) y [cómo ejecutarlo en producción](/es/docs/deployment).
+Es la misma aplicación en modo Classic: arranca en cada petición, así que los cambios surten efecto al momento, a costa de un arranque completo por petición. En un servidor de producción ya en marcha, el código recién desplegado toma el relevo con una recarga progresiva (`SIGUSR2` al maestro). Las peticiones actuales pueden terminar, pero las conexiones keep-alive inactivas se cierran. Si usas `opcache.validate_timestamps = 0`, el segmento de OPcache del maestro sobrevive al pool y el despliegue necesita un reinicio completo. Mira [Modelo de procesos](/es/docs/process-model) y [cómo ejecutarlo en producción](/es/docs/deployment).
 
 Symfony gestiona una excepción de la aplicación y devuelve su respuesta `500`. `dev` muestra la página de excepción.
 `prod` muestra una página de error general. El mismo worker procesa la siguiente petición.
-El reinicio final elimina el estado modificado de los servicios. El logger configurado controla la salida de la excepción.
-Rapira registra los errores PHP que salen del framework. Consulta los niveles en [Registros](/es/docs/logging).
+El reinicio final elimina el estado modificado de los servicios. El logger de Symfony configurado controla la salida de la excepción. La aplicación base no incluye un logger.
+Rapira registra los errores PHP que salen del framework, como el `EnvNotFoundException` anterior. Consulta los niveles en [Registros](/es/docs/logging).

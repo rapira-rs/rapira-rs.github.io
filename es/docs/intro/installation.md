@@ -124,6 +124,19 @@ rapira --version
 
 :::
 
+### Instalación sin acceso root
+
+Para instalar sin acceso root, conserva el directorio completo dentro de tu directorio personal. Crea un enlace simbólico en `~/.local/bin`:
+
+```bash
+mkdir -p "$HOME/.local/opt" "$HOME/.local/bin"
+mv rapira-v0.8.0-php8.5-linux-x86_64 "$HOME/.local/opt/rapira"
+ln -s "$HOME/.local/opt/rapira/bin/rapira" "$HOME/.local/bin/rapira"
+"$HOME/.local/bin/rapira" --version
+```
+
+En macOS, sustituye el nombre del directorio de origen por el directorio extraído para macOS. Añade `$HOME/.local/bin` a `PATH` si el shell todavía no incluye ese directorio.
+
 ::: warning
 El binario busca su intérprete junto a sí mismo, así que el directorio solo se puede mover entero: `cp bin/rapira /usr/local/bin/` rompe el arranque. Para el `PATH`, usa un enlace simbólico como en los comandos de arriba.
 :::
@@ -225,7 +238,7 @@ Como siempre: primero mira `PHPRC`, luego el directorio de trabajo actual y por 
 :::
 
 ::: question ¿Por qué el archivo se llama `php.ini` y no `php-rapira.ini`?
-PHP busca primero `php-<nombre-de-sapi>.ini` y solo después el `php.ini` normal, y el nombre de la SAPI depende de la versión: `fastcgi` en 8.4 y `rapira` en 8.5. Un `php.ini` normal sirve para las dos.
+PHP busca primero `php-<sapi-name>.ini` y solo después el `php.ini` normal, y el nombre de la SAPI depende de la versión: `fastcgi` en 8.4 y `rapira` en 8.5. Un `php.ini` normal sirve para las dos.
 :::
 
 ## Distribución

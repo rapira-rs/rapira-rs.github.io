@@ -53,7 +53,9 @@ worker 脚本和它的循环见 [Worker 模式](/zh/docs/worker)，回收阈值�
 脚本控制活动工作单元的数量。顺序循环每次处理一个单元。
 它调用 `receive()`，响应请求，然后再次调用 `receive()`。
 并发脚本为每个请求启动一个 [Fiber](https://www.php.net/manual/en/language.fibers.php)。存在活动 fiber 时，它调用 `tryReceive()`。
-没有活动 fiber 时，循环在 `receive()` 中等待。如果库不支持 fiber，请一次处理一个单元。
+没有活动 fiber 时，循环在 `receive()` 中等待。此设计让多个请求在一个解释器中保持活动状态。
+并发采用协作式调度。只有当前运行的代码挂起其 fiber 后，另一个请求才会继续执行。
+如果库不支持 fiber，请一次处理一个单元。
 
 ::: info
 Dispatcher 是 `pool.mode` 的默认值。专用指南尚不可用。

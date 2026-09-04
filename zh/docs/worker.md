@@ -57,7 +57,7 @@ rapira serve --mode worker app/worker.php
 
 - **等待**请求分配到此 worker。等待期间，worker 不使用 CPU。
 - worker 在内存中保留解释器和已初始化的应用。
-- **填充超全局变量** `$_GET`、`$_POST`、`$_SERVER`、`$_COOKIE` 等，然后运行 handler。
+- **填充请求数据**到 `$_GET`、`$_POST`、`$_SERVER`、`$_COOKIE`、`$_FILES` 和 `$_REQUEST`，然后运行 handler。
 - 普通 PHP 代码可以像在 php-fpm 中一样读取这些变量。
 - **调用 handler 时不传参数。**请求数据位于超全局变量中。函数签名是 `function (): void`。
 - 使用 `use` 捕获容器、日志器和其他依赖项。
@@ -168,7 +168,7 @@ if (\Rapira\get_mode() === \Rapira\Mode::Worker) {
 `pool.request_terminate_timeout_secs` 限制一个请求的运行时间。Rapira 会终止超过此值的 worker。
 有关此设置和 `pool.max_requests`，请参阅[配置](/zh/docs/configuration)。有关终止处理，请参阅[进程模型](/zh/docs/process-model)。
 
-**未捕获的异常影响一个请求，不影响 worker。**未捕获的 handler 异常通常返回 `500`。
+**未捕获的异常影响一个请求，不影响 worker。**如果 handler 尚未发送响应头，Rapira 会为未捕获的 handler 异常返回 `500`。
 handler 发送响应头后，Rapira 无法更改状态。
 循环继续，因此异常不会停止 worker。致命错误会结束常驻脚本。
 然后，worker 重新运行脚本并初始化应用。

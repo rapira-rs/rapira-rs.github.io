@@ -6,13 +6,13 @@ description: "All rapira.toml keys, types, defaults, and validation rules."
 # Configuration
 
 Rapira can start without a configuration file. `rapira serve --mode worker app/worker.php` uses the default settings.
-Create a `rapira.toml` to change the address, worker count, recycling policy, pidfile, or log level. Specify the file with this command:
+Create a configuration file named `rapira.toml` to change the address, worker count, recycling policy, pidfile, or log level. Specify the configuration file with this command:
 
 ```bash
 rapira serve --config /etc/rapira/rapira.toml
 ```
 
-The file has four optional sections. `[http]` configures the listener, and `[pool]` configures worker processes.
+The configuration file has four optional sections. `[http]` configures the listener, and `[pool]` configures worker processes.
 `[supervisor]` configures the master process. `[log]` configures output to stderr.
 The PHP entry script has no default. Set `pool.entrypoint` or pass the script as a CLI argument.
 
@@ -24,7 +24,7 @@ Only two logging environment variables affect the settings. See the [CLI page](/
 
 ## A complete rapira.toml
 
-The following file contains each supported key. Most keys use their default when they are absent.
+The following configuration file contains each supported key. Most keys use their default when they are absent.
 `pool.entrypoint` has no default. Dynamic scaling requires `min_spare` and `max_spare`.
 The `[http.static]` table requires `http.static.root`.
 
@@ -70,7 +70,7 @@ request_terminate_timeout_secs = 0    # Replaces a worker when one request excee
 
 [supervisor]                          # Optional. Sets master process behavior.
 pidfile = "/run/rapira.pid"           # Optional. Relative paths use this file's directory.
-process_control_timeout_secs = 30     # Sets the stop timeout before QUIT, TERM, and KILL.
+process_control_timeout_secs = 30     # Waits after SIGQUIT before SIGTERM. SIGKILL follows one second later.
 
 [log]                                 # Optional. Sets the level and record format.
 level = "error"                       # Use error, warn, info, debug, or trace. Default: error.
@@ -125,7 +125,7 @@ Therefore, this table affects only Dispatcher mode. Classic and Worker modes acc
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `root` | string | the directory holding the entry script | The only directory `sendFile()` may read. A relative path resolves against the directory holding the config file. |
+| `root` | string | the directory holding the entry script | The only directory `sendFile()` may read. A relative path resolves against the directory holding the configuration file. |
 
 Rapira cannot resolve a root that does not exist during initialization. In this condition, `sendFile()` rejects every path.
 Create the directory before you start the server.
@@ -159,7 +159,7 @@ Workers run PHP. This section defines what they run, how many run, and when the 
 | `min_spare` | integer | none | Required with `dynamic` scaling. The master keeps at least this many idle workers. |
 | `max_spare` | integer | none | Required with `dynamic` scaling. The master keeps no more than this many idle workers. The values must satisfy `1 <= min_spare <= max_spare <= processes`. |
 | `max_requests` | integer | `0` | The request limit before worker replacement. Rapira varies the limit slightly to prevent simultaneous replacements. `0` disables the limit. |
-| `process_idle_timeout_secs` | integer | `10` | Read by `ondemand` scaling: how long a worker may remain idle before the master removes it. |
+| `process_idle_timeout_secs` | integer | `10` | With `ondemand` scaling, the master removes a worker after this idle time. |
 | `request_terminate_timeout_secs` | integer | `0` | Wall-clock limit for one request. Rapira terminates and replaces a worker that exceeds this limit. `0` disables the check. |
 
 `mode` controls entry script execution. `scaling` controls the worker count.
@@ -174,11 +174,11 @@ The init system controls the master. See [deployment](/docs/deployment) for a un
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `pidfile` | string | none | The file for the master process identifier. A relative path uses the configuration file directory as its base. Send process signals to this identifier. See [process model](/docs/process-model). |
-| `process_control_timeout_secs` | integer | `30` | How long the master lets a worker finish before it sends QUIT, TERM, and KILL. |
+| `process_control_timeout_secs` | integer | `30` | How long the master waits after `SIGQUIT` before it sends `SIGTERM`. The master sends `SIGKILL` one second after `SIGTERM`. |
 
 ## The `[log]` section
 
-Rapira writes each log record to stderr with one operation. Therefore, master and worker output cannot combine within a line.
+Rapira writes each log record to stderr.
 This section controls the log level and format. See [logging](/docs/logging) for targets, formats, and PHP diagnostic levels.
 
 | Key | Type | Default | Meaning |
@@ -189,6 +189,12 @@ This section controls the log level and format. See [logging](/docs/logging) for
 
 A `[log.targets]` key uses letters, digits, `_`, `:`, `.`, or `-`. It must start with a letter, digit, or `_`.
 Rapira rejects other characters because the log filter can interpret them as syntax.
+A target key that contains `:` or `.` must use quotes because TOML does not permit these characters in a bare key. For example:
+
+```toml
+[log.targets]
+"php_sys::callbacks" = "debug"
+```
 
 Rapira reads only the `RUST_LOG` and `NO_COLOR` environment variables. Both variables affect only logs.
 `RUST_LOG` replaces the complete filter for one run. `NO_COLOR` disables plain output colors when its value is not empty.
@@ -205,8 +211,8 @@ Numeric values have limits. Worker counts, body sizes, HTTP timeouts, and upload
 Each `*_secs` key has a maximum of `86400`, which is one day.
 
 ::: warning
-Rapira validates the file before initialization. An unknown key prevents the server from starting.
-Changes to `rapira.toml` do not affect a running process. Rapira validates the changed file during the next start.
+Rapira validates the configuration file before initialization. An unknown key prevents the server from starting.
+Configuration file changes do not affect a running process. Rapira validates the changed configuration file during the next start.
 :::
 
 ## Relative paths
@@ -218,6 +224,6 @@ For example, set `entrypoint = "app/worker.php"` in `/etc/rapira/rapira.toml`. T
 The positional `SCRIPT` argument uses the current directory as the base for a relative path.
 
 ::: tip
-Keep `rapira.toml` inside the application. Write its paths relative to the file.
-This layout permits application directory changes without path changes.
+Keep the `rapira.toml` configuration file inside the application. Write its paths relative to the configuration file.
+You can move the application directory without changing these paths.
 :::

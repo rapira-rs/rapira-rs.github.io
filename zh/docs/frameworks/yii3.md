@@ -174,6 +174,10 @@ level = "info"
 format = "json"
 ```
 
+```bash
+rapira serve --config rapira.toml
+```
+
 每个键的默认值和取值范围都在[配置](/zh/docs/configuration)那一页；systemd unit 和挡在它前面的反向代理，见[部署](/zh/docs/deployment)。
 
 ## 测试结果

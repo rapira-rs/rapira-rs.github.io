@@ -45,10 +45,15 @@ Environment=PHPRC=/etc/rapira
 WantedBy=multi-user.target
 ```
 
-加载并启用 unit：
+重新加载 systemd 配置：
 
 ```bash
 sudo systemctl daemon-reload
+```
+
+使用 `--now` 启用 Rapira：
+
+```bash
 sudo systemctl enable --now rapira
 ```
 
@@ -79,7 +84,8 @@ Rapira 可以在没有 `php.ini` 的情况下运行。默认值将 PHP 诊断信
 相对 `pool.entrypoint` 以配置文件目录为基准。因此，此结构中的 `entrypoint = "index.php"` 表示 `/etc/rapira/index.php`。
 在生产环境中使用入口脚本的绝对路径。`supervisor.pidfile` 使用相同规则。
 位置参数 `SCRIPT` 和 PHP 文件操作使用工作目录。Rapira 不更改此目录。
-Systemd 默认使用 `/`，所以 unit 设置 `WorkingDirectory=/srv/app`。所有键见[配置](/zh/docs/configuration)。
+Systemd 默认使用 `/`，所以 unit 设置 `WorkingDirectory=/srv/app`。PHP 也会在此目录中查找 ini 文件。
+所有键见[配置](/zh/docs/configuration)。
 
 ## 反向代理
 
@@ -136,7 +142,8 @@ master 一直用着启动时读到的那份设置，OPcache 的共享内存也�
 
 ## 日志
 
-Rapira 把每一条日志都写到 **stderr**，一条记录一次写入，所以 master 和 worker 的输出绝不会在一行中间串到一起。systemd unit 的 stderr 不用任何配置就会进 journal，于是只剩格式这一件事要选。生产环境请用 JSON：
+Rapira 将每条日志记录写入 **stderr**。systemd unit 的 stderr 无需其他配置即可进入 journal。
+生产环境请使用 JSON：
 
 ```toml
 [log]
@@ -144,7 +151,8 @@ level = "info"
 format = "json"
 ```
 
-每行一个对象，`timestamp` 是 RFC 3339 的 UTC 时间，另外还有 `level`、`message` 和 `target`；消息里的换行会被转义，所以一条记录永远正好占一行。日志收集器要的就是这个格式，而且经过 journald 之后内容不会有任何改动。
+每行包含一个对象，其中有 `timestamp`、`level`、`target` 和 `fields`。`fields` 对象包含 `message` 和其他事件字段。
+时间戳使用 RFC 3339 UTC。
 
 ```bash
 journalctl -u rapira -f

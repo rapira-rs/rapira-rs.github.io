@@ -27,8 +27,9 @@ Las secciones de archivos estáticos, TLS y OPcache también se aplican al modo 
 **El modo Worker mantiene activo el proceso.** El script inicia la aplicación y solicita trabajo en un bucle.
 El estado de la aplicación permanece entre peticiones. Consulta [modos de ejecución](/es/docs/execution-modes) y [modo Worker](/es/docs/worker).
 
-Un código base puede usar ambos modos. Conserva `public/index.php` y añade `worker.php` junto a él.
-Usa `--mode` para seleccionar el script y el modo. Usa el modo Classic si falla la migración al modo Worker.
+Un código base puede usar ambos modos. Conserva `public/index.php`. Añade `worker.php` junto a él.
+Usa `--mode` para seleccionar el modo de ejecución. Selecciona el script con el argumento `SCRIPT` o con `pool.entrypoint`.
+Usa el modo Classic si falla la migración al modo Worker.
 
 ## Bucle de Worker
 

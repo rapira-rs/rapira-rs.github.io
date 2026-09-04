@@ -27,8 +27,9 @@ Sekcje o plikach statycznych, TLS i OPcache również dotyczą trybu Classic.
 **Tryb Worker utrzymuje aktywny proces.** Skrypt inicjalizuje aplikację i pobiera pracę w pętli.
 Stan aplikacji pozostaje między żądaniami. Więcej informacji zawierają strony [tryby wykonania](/pl/docs/execution-modes) i [tryb Worker](/pl/docs/worker).
 
-Jedna baza kodu może używać obu trybów. Zachowaj `public/index.php` i dodaj obok niego `worker.php`.
-Użyj `--mode`, aby wybrać skrypt i tryb. Użyj trybu Classic, jeśli migracja do trybu Worker nie działa.
+Jedna baza kodu może używać obu trybów. Zachowaj `public/index.php`. Dodaj obok niego `worker.php`.
+Użyj `--mode`, aby wybrać tryb wykonania. Wybierz skrypt argumentem `SCRIPT` albo ustawieniem `pool.entrypoint`.
+Użyj trybu Classic, jeśli migracja do trybu Worker nie działa.
 
 ## Pętla Worker
 

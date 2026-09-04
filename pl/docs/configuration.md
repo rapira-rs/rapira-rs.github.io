@@ -70,7 +70,7 @@ request_terminate_timeout_secs = 0    # Replaces a worker when one request excee
 
 [supervisor]                          # Optional. Sets master process behavior.
 pidfile = "/run/rapira.pid"           # Optional. Relative paths use this file's directory.
-process_control_timeout_secs = 30     # Sets the stop timeout before QUIT, TERM, and KILL.
+process_control_timeout_secs = 30     # Waits after SIGQUIT before SIGTERM. SIGKILL follows one second later.
 
 [log]                                 # Optional. Sets the level and record format.
 level = "error"                       # Use error, warn, info, debug, or trace. Default: error.
@@ -151,7 +151,7 @@ Workery to procesy, które faktycznie wykonują PHP, a ta sekcja mówi, co wykon
 | `min_spare` | liczba całkowita | brak | Tylko przy skalowaniu `dynamic` i tam wymagane: utrzymuj co najmniej tylu workerów bezczynnych i gotowych do pracy. |
 | `max_spare` | liczba całkowita | brak | Tylko przy skalowaniu `dynamic` i tam wymagane: przycinaj pulę do najwyżej tylu bezczynnych workerów. Para musi spełniać `1 <= min_spare <= max_spare <= processes`; ustawienie któregokolwiek z nich przy innym skalowaniu to błąd. |
 | `max_requests` | liczba całkowita | `0` | Wymień workera po obsłużeniu tylu żądań, z niewielkim rozrzutem, żeby cała pula nigdy nie wymieniała się naraz. `0` znaczy nigdy. |
-| `process_idle_timeout_secs` | liczba całkowita | `10` | Czytane przy skalowaniu `ondemand`: jak długo worker może stać bezczynnie, zanim proces nadrzędny go zwolni. |
+| `process_idle_timeout_secs` | liczba całkowita | `10` | Przy skalowaniu `ondemand` proces nadrzędny zwalnia workera po tym czasie bezczynności. |
 | `request_terminate_timeout_secs` | liczba całkowita | `0` | Budżet czasu rzeczywistego na pojedyncze żądanie. Worker, który po jego przekroczeniu wciąż nad nim pracuje, zostaje ubity i zastąpiony nowym. `0` wyłącza tę kontrolę. |
 
 `mode` i `scaling` to dwie osobne osie: `mode` mówi, co worker robi ze skryptem wejściowym, a `scaling` ilu jest workerów.
@@ -165,11 +165,11 @@ Zasady dla procesu nadrzędnego - tego, który trzyma gniazdo nasłuchu, pilnuje
 | Klucz | Typ | Domyślnie | Znaczenie |
 | --- | --- | --- | --- |
 | `pidfile` | tekst | brak | Gdzie proces nadrzędny zapisuje własny pid. Ścieżkę względną liczy od katalogu z plikiem konfiguracyjnym. To właśnie na ten pid wysyłasz sygnały - pełną tabelę tego, co robi każdy z nich, ma [model procesów](/pl/docs/process-model). |
-| `process_control_timeout_secs` | liczba całkowita | `30` | Ile czasu proces nadrzędny daje workerowi na łagodne dokończenie pracy, zanim przejdzie do QUIT → TERM → KILL. |
+| `process_control_timeout_secs` | liczba całkowita | `30` | Jak długo proces nadrzędny czeka po `SIGQUIT` przed wysłaniem `SIGTERM`. Proces nadrzędny wysyła `SIGKILL` sekundę po `SIGTERM`. |
 
 ## Sekcja `[log]`
 
-Rapira pisze wszystko na stderr, jednym zapisem na rekord, dzięki czemu wyjście procesu nadrzędnego i workerów nigdy nie miesza się w połowie linii. Ta sekcja decyduje, jak szczegółowy jest ten strumień i jaki kształt ma pojedynczy rekord; poszczególne cele, formaty i to, jak diagnostyka PHP mapuje się na poziomy, opisują [Logi](/pl/docs/logging).
+Rapira zapisuje wszystkie wpisy do stderr. Ta sekcja decyduje, jak szczegółowy jest ten strumień i jaki kształt ma pojedynczy rekord; poszczególne cele, formaty i to, jak diagnostyka PHP mapuje się na poziomy, opisują [Logi](/pl/docs/logging).
 
 | Klucz | Typ | Domyślnie | Znaczenie |
 | --- | --- | --- | --- |
@@ -179,6 +179,12 @@ Rapira pisze wszystko na stderr, jednym zapisem na rekord, dzięki czemu wyjści
 
 Klucz `[log.targets]` może zawierać litery, cyfry, `_`, `:`, `.` i `-`. Musi zaczynać się literą, cyfrą lub `_`.
 Rapira odrzuca inne znaki, ponieważ filtr może odczytać je jako składnię.
+Klucz celu zawierający `:` lub `.` musi być ujęty w cudzysłów, ponieważ TOML nie zezwala na te znaki w prostym kluczu bez cudzysłowu. Na przykład:
+
+```toml
+[log.targets]
+"php_sys::callbacks" = "debug"
+```
 
 Rapira odczytuje tylko zmienne środowiskowe `RUST_LOG` i `NO_COLOR`. Obie wpływają wyłącznie na logi.
 `RUST_LOG` zastępuje cały filtr podczas jednego uruchomienia. Niepusta wartość `NO_COLOR` wyłącza kolory formatu `plain`.

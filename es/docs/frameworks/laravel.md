@@ -80,10 +80,10 @@ Sin esta configuración, `url()` genera enlaces `http://`.
 
 ## Sesiones, CSRF y formularios
 
-Las pruebas usaron el driver de sesiones de archivos. Cada cliente recibió una sesión independiente y la cookie volvió en la siguiente petición.
+Las pruebas usaron el driver de sesiones de archivos. Cada cliente recibió una sesión independiente y envió la cookie de sesión con la siguiente petición.
 CSRF no requiere ajustes de Rapira porque el token está en la sesión. Classic usa el ciclo de vida de php-fpm.
 Las pruebas también incluyeron formularios, cuerpos JSON y archivos. Laravel devolvió su respuesta `500` normal para una excepción.
-La siguiente petición no cambió.
+Laravel procesó la siguiente petición con normalidad.
 
 ## Modo Worker
 

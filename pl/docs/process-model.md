@@ -19,7 +19,7 @@ Rozruch przebiega w ustalonej kolejności:
 
 ```mermaid
 flowchart TB
-  M["master · single thread<br/>binds · boots PHP · supervises"]
+  M["master · single thread<br/>binds · initializes PHP · supervises"]
   S(["listen socket"])
   W1["worker<br/>PHP + async runtime"]
   W2["worker<br/>PHP + async runtime"]
@@ -106,7 +106,7 @@ Sygnały zatrzymują działający serwer, przeładowują go i każą mu zgłosi�
 | --- | --- |
 | `SIGTERM`, `SIGINT` | Łagodne zatrzymanie: żądania w toku zostają dokończone, potem pula się wygasza. Drugi `SIGTERM` albo `SIGINT` wymusza wyjście. |
 | `SIGQUIT` | To samo łagodne zatrzymanie. Powtórzenie nic nie zmienia - kolejny `SIGQUIT` nigdy nie eskaluje zatrzymania, o które poproszono łagodnie. |
-| `SIGUSR2`, `SIGHUP` | Przeładowanie kroczące: pula wymienia się po jednym workerze, bez zrywania połączeń. |
+| `SIGUSR2`, `SIGHUP` | Przeładowanie kroczące: pula wymienia się po jednym workerze. Stary worker przestaje przyjmować pracę i kończy bieżące żądania. |
 | `SIGUSR1` | Zrzuca stan puli do logu. |
 | `SIGCHLD` | Wewnętrzny - worker się zakończył; sprząta po nim i decyduje, czy podstawić następcę. |
 
@@ -126,13 +126,13 @@ Bezpośredni sygnał do workera omija nadzór procesu nadrzędnego.
 
 ### Zatrzymywanie
 
-Dla każdego sygnału zatrzymania proces nadrzędny najpierw wysyła `SIGQUIT` do wszystkich workerów. Workery przestają przyjmować pracę i kończą bieżące żądania.
+Dla każdego sygnału zatrzymania proces nadrzędny natychmiast wysyła `SIGQUIT` do wszystkich workerów. Workery przestają przyjmować pracę i kończą bieżące żądania.
 Po `supervisor.process_control_timeout_secs` proces nadrzędny wysyła `SIGTERM` do pozostałych workerów. Wartość domyślna wynosi 30 sekund.
-W razie potrzeby wysyła `SIGKILL` po kolejnym takim okresie.
+Jeśli pozostały workery, proces nadrzędny wysyła `SIGKILL` sekundę po `SIGTERM`.
 
 Drugi `SIGTERM` albo `SIGINT` pomija czekanie i wymusza natychmiastowe wyjście.
 
-### Przeładowanie kroczące
+### Wymiana workera pozwala dokończyć bieżące żądania
 
 `SIGUSR2` lub `SIGHUP` wymienia całą pulę. Każdy nowy worker inicjalizuje aplikację z wdrożonego kodu.
 
@@ -141,11 +141,12 @@ Jednak `opcache.validate_timestamps = 0` wymaga pełnego restartu.
 Worker i Dispatcher zachowują zainicjalizowaną aplikację. Przeładuj pulę po każdym wdrożeniu w tych trybach.
 Zobacz [Wdrożenie](/pl/docs/deployment).
 
-Przeładowanie nie zmniejsza pojemności, ponieważ wymiana workerów nakłada się. Proces nadrzędny uruchamia nowego workera i czeka na połączenia.
+Proces nadrzędny uruchamia nowego workera i czeka, aż zgłosi on stan `idle` lub `active`.
 Następnie zatrzymuje jednego starego workera. Po jego zakończeniu uruchamia nowego workera w następnym miejscu.
 Każde zatrzymanie używa sekwencji `SIGQUIT` → `SIGTERM` → `SIGKILL`. Ten sam limit sterowania dotyczy każdego workera.
+Stary worker zamyka bezczynne połączenia keep-alive, gdy zaczyna się zatrzymywać. Bieżące żądania mogą zakończyć się przed upływem limitu sterowania.
 
-Nowy worker bez połączeń nie zatrzymuje przeładowania. Po limicie proces nadrzędny zapisuje ostrzeżenie i kontynuuje.
+Jeśli nowy worker nie zgłosi żadnego z tych stanów przed upływem limitu sterowania, proces nadrzędny zapisuje ostrzeżenie i kontynuuje przeładowanie.
 W trybie `ondemand` usuwa stare workery pojedynczo. Nowe połączenia tworzą zastępstwa.
 
 Przeładowanie zgłoszone w trakcie zatrzymywania jest ignorowane: zatrzymanie ma zawsze pierwszeństwo.

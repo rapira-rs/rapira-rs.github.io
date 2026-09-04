@@ -19,7 +19,7 @@ El arranque sigue un orden fijo:
 
 ```mermaid
 flowchart TB
-  M["master · single thread<br/>binds · boots PHP · supervises"]
+  M["master · single thread<br/>binds · initializes PHP · supervises"]
   S(["listen socket"])
   W1["worker<br/>PHP + async runtime"]
   W2["worker<br/>PHP + async runtime"]
@@ -106,7 +106,7 @@ Las señales paran un servidor en marcha, lo recargan y le hacen informar de su 
 | --- | --- |
 | `SIGTERM`, `SIGINT` | Parada ordenada: las peticiones en curso terminan y luego el pool se drena. Un segundo `SIGTERM` o `SIGINT` fuerza la salida. |
 | `SIGQUIT` | La misma parada ordenada. Repetirla no cambia nada: una parada pedida por las buenas nunca se escala con otro `SIGQUIT`. |
-| `SIGUSR2`, `SIGHUP` | Recarga progresiva: el pool se sustituye worker a worker, sin tirar ninguna conexión. |
+| `SIGUSR2`, `SIGHUP` | Recarga progresiva: el pool se sustituye worker a worker. Cada worker antiguo deja de aceptar trabajo y termina las peticiones actuales. |
 | `SIGUSR1` | Vuelca en el registro el estado del pool. |
 | `SIGCHLD` | Interna: ha salido un worker; recogerlo y decidir si se sustituye. |
 
@@ -126,13 +126,13 @@ Una señal directa al worker evita la supervisión del maestro.
 
 ### Parar el servidor
 
-Para cada señal de parada, el maestro envía primero `SIGQUIT` a todos los workers. Los workers dejan de aceptar trabajo y terminan las peticiones actuales.
+Para cada señal de parada, el maestro envía inmediatamente `SIGQUIT` a todos los workers. Los workers dejan de aceptar trabajo y terminan las peticiones actuales.
 Después de `supervisor.process_control_timeout_secs`, el maestro envía `SIGTERM` a los workers restantes. El valor predeterminado es 30 segundos.
-Si es necesario, envía `SIGKILL` después de otro periodo.
+Si quedan workers, el maestro envía `SIGKILL` un segundo después de `SIGTERM`.
 
 Un segundo `SIGTERM` o `SIGINT` se salta la espera y fuerza la salida al instante.
 
-### Recarga progresiva
+### La sustitución deja terminar las peticiones actuales
 
 `SIGUSR2` o `SIGHUP` sustituye el pool completo. Cada nuevo worker inicializa la aplicación con el código desplegado.
 
@@ -141,11 +141,12 @@ Sin embargo, `opcache.validate_timestamps = 0` requiere un reinicio completo.
 Worker y Dispatcher conservan la aplicación inicializada. Recarga el pool después de cada despliegue en estos modos.
 Consulta [En producción](/es/docs/deployment).
 
-La recarga no reduce la capacidad porque la sustitución se solapa. El maestro inicia un worker nuevo y espera a que acepte conexiones.
+El maestro inicia un worker nuevo y espera hasta que informa del estado `idle` o `active`.
 Después detiene un worker antiguo. Cuando termina, el maestro inicia un worker nuevo en la siguiente posición.
 Cada parada usa la secuencia `SIGQUIT` → `SIGTERM` → `SIGKILL`. El mismo límite de control se aplica a cada worker.
+Un worker antiguo cierra las conexiones keep-alive inactivas cuando empieza a detenerse. Las peticiones actuales pueden terminar antes del límite de control.
 
-Un worker nuevo que no acepta conexiones no detiene la recarga. Tras el límite, el maestro registra una advertencia y continúa.
+Si el worker nuevo no informa de ninguno de estos estados antes del límite de control, el maestro registra una advertencia y continúa la recarga.
 Con `ondemand`, el maestro elimina workers antiguos uno a uno. Las conexiones nuevas crean sustitutos.
 
 Una recarga que llega con una parada ya en marcha se ignora: la parada tiene prioridad.

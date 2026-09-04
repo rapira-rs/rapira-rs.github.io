@@ -78,14 +78,14 @@ When a [proxy terminates TLS](/docs/deployment), configure Laravel [trusted prox
 
 ## Sessions, CSRF and forms
 
-Tests used the file session driver. Each client received an independent session, and the cookie returned on the next request.
+Tests used the file session driver. Each client received an independent session and sent its session cookie with the next request.
 CSRF requires no Rapira configuration because the token is in the session. Classic mode uses the same request lifecycle as php-fpm.
 Tests also covered form data, JSON bodies, and file uploads. Laravel returned its normal `500` response for a route exception.
-The next request was not affected.
+Laravel processed the next request without repeating the route exception.
 
 ## Worker mode
 
-Worker mode for Laravel is under development and is not supported yet. Run Laravel in Classic mode.
+Rapira does not support Laravel in Worker mode yet. Development is in progress. Run Laravel in Classic mode.
 No release date is available for Worker mode support.
 
 The framework lifecycle requires integration support. Laravel resolves bindings, stores requests in singletons, and changes static state during request processing.
@@ -94,6 +94,6 @@ Rapira does not have an Octane driver yet.
 
 Worker mode can retain [Symfony](/docs/frameworks/symfony) and [Yii3](/docs/frameworks/yii3) applications. Laravel support requires its own state reset process.
 
-A custom Laravel worker must implement the Octane state reset process.
+Application code must implement the Octane state reset process in a custom Laravel worker.
 Request state exists in the container, resolved singletons, request services, session services, authentication services, and static properties.
 An incomplete reset can expose old request or session data to a later request. Do not use a custom worker without complete state isolation tests.

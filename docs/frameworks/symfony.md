@@ -32,7 +32,7 @@ Per request the handler does four things and then cleans up:
 3. `$response->send()` writes the HTTP response. See [HTTP](/docs/http) for transmission details.
 4. `$kernel->terminate($request, $response)` runs post-response listeners.
 
-The handler then uses `services_resetter` to reset stateful services. Symfony uses the same service between Messenger messages.
+The handler then uses `services_resetter` to reset stateful services. Symfony also uses `services_resetter` between Messenger messages.
 
 Sessions use the native PHP session functions. Each request calls `session_start()`, and the response contains the session cookie.
 The next request reads the stored session. Tests confirmed that separate clients receive separate sessions.
@@ -42,7 +42,8 @@ See [Process model](/docs/process-model) for worker counts and supervision.
 
 ## Prerequisites
 
-Install [Rapira](/docs/intro/installation) and create or select a Symfony application. Put the worker script next to `composer.json`.
+Install [Rapira](/docs/intro/installation). Create or select a Symfony application.
+Put the worker script next to `composer.json`.
 Install a PHP CLI for Composer and `bin/console`. Rapira supplies PHP as a library, not as a `php` command.
 Composer and `bin/console` use the system PHP CLI. Rapira does not use or change this CLI.
 
@@ -52,7 +53,7 @@ See [Installation](/docs/intro/installation) for the complete extension list.
 Enable both extensions when you compile PHP. See [Build from source](/docs/intro/build-from-source).
 
 The worker also uses the `symfony/dotenv` component from the base application.
-Remove the Dotenv call and component when the deployment provides all environment variables.
+Remove the Dotenv call if the deployment environment provides all environment variables. Then remove the component if no other entry point uses it.
 The worker reads `.env` and creates the kernel without `symfony/runtime`. Keep `symfony/runtime` because `bin/console` and `public/index.php` use it.
 
 ## The worker script
@@ -103,7 +104,7 @@ while (\Rapira\handle_request($handler)) {
 Most operations use standard Symfony initialization. Four parts are specific to this worker:
 
 **`(new Dotenv())->usePutenv()->bootEnv(...)`.** The standard `public/index.php` delegates this operation to `symfony/runtime`.
-The worker reads `.env` once before it creates the kernel. Use `usePutenv()` because the application otherwise returns `500` in `prod`.
+The worker reads `.env` once before it creates the kernel. `usePutenv()` preserves these values if PHP rebuilds `$_ENV` during a request.
 See [`$_ENV` and `variables_order`](#env-and-variables-order) for more information.
 
 **The kernel initializes before the loop.** `new Kernel(...)`, `boot()`, and `getContainer()` run during worker initialization.
@@ -125,8 +126,10 @@ Both options remove cached application state. Use them to find a memory leak, no
 ## `$_ENV` and `variables_order`
 
 ::: warning
-With `bootEnv()` but no `usePutenv()`, a Symfony application in `prod` returns **500** for each request.
-The exception is `EnvNotFoundException: Environment variable not found: "DEFAULT_URI"`. The same application in `dev` does not fail.
+The tested base application used `bootEnv()` without `usePutenv()`.
+With `variables_order = "GPCS"` and `auto_globals_jit = On`, each `prod` request returned **500**.
+The failure occurred when `RequestContext` read `DEFAULT_URI` during the request.
+The exception was `EnvNotFoundException: Environment variable not found: "DEFAULT_URI"`. The same application in `dev` did not fail.
 :::
 
 PHP causes this result. With `variables_order = "GPCS"` and `auto_globals_jit = On`, PHP resets the `$_ENV` JIT flag for each request.
@@ -148,20 +151,30 @@ Symfony `EnvVarProcessor` can also read them with `getenv()`.
 Rapira runs one NTS PHP interpreter in each process. Therefore, concurrent PHP threads do not call `putenv()`.
 
 In production, set environment variables through systemd, the container runtime, or the orchestrator.
-Use `.env` only for development. Both methods prevent a request from removing the values.
+Use `.env` only for development. `usePutenv()` and the deployment environment both write values to the process environment.
+Therefore, a later import preserves the values.
 
 This behavior applies to each persistent PHP runtime that reads `$_ENV` during a request.
 See [Frameworks](/docs/frameworks/) for this and other persistent process behaviors.
 
 ## Starting Rapira
 
+Start Rapira:
+
 ```bash
 rapira serve --mode worker worker.php
-curl -i http://127.0.0.1:8000/
 ```
 
 `--mode worker` selects Worker mode. `127.0.0.1:8000` is the default listen address.
-`rapira serve` remains in the foreground. Press `Ctrl-C` to stop it.
+`rapira serve` remains in the foreground.
+
+Open another terminal. Send a request:
+
+```bash
+curl -i http://127.0.0.1:8000/
+```
+
+Press `Ctrl-C` in the first terminal to stop Rapira.
 
 The entry script is `worker.php`, so `$_SERVER['SCRIPT_NAME']` is `/worker.php`. Symfony does not find this value at the start of the URI.
 It then sets the base URL to `""`. `getPathInfo()` returns the request path, and routing operates correctly.
@@ -198,13 +211,13 @@ request_terminate_timeout_secs = 30
 
 `max_requests` replaces a worker after the specified request count. It limits the effect of a memory leak but does not correct it.
 `request_terminate_timeout_secs` limits the elapsed time of one request.
-Start the server with `rapira serve --config rapira.toml`.
+Start the server with `APP_ENV=prod rapira serve --config rapira.toml`.
 A relative `entrypoint` uses the configuration file directory as its base. See [Configuration](/docs/configuration) for all settings.
 
 ## What resets between requests
 
 `services_resetter` calls `reset()` on each service with the `kernel.reset` tag. Installed bundles determine which services have the tag.
-Examples include buffered log handlers and debug data collectors. These services register the tag themselves.
+Examples include buffered log handlers and debug data collectors. Those services register the tag themselves.
 
 It does not reset application static properties, global values, library registries, or persistent `ini_set()` changes.
 This state remains in each persistent worker. Reset it in application code.
@@ -229,7 +242,7 @@ rapira serve --mode classic public/index.php
 ```
 
 The same application initializes for each request in Classic mode. Therefore, saved changes take effect immediately.
-In production, `SIGUSR2` replaces workers without dropping connections.
+In production, `SIGUSR2` replaces workers and lets current requests finish. It closes idle keep-alive connections.
 With `opcache.validate_timestamps = 0`, the master retains old opcodes during worker replacement. Use a complete restart in this configuration.
 See [process model](/docs/process-model) and [running in production](/docs/deployment) for more information.
 

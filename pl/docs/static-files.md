@@ -28,17 +28,16 @@ forbid = [".php"]   # Optional. This list replaces the default.
 `root` określa katalog plików. Nie ma wartości domyślnej.
 Ścieżka względna używa katalogu pliku konfiguracyjnego. `pool.entrypoint` używa tej samej reguły.
 
-`forbid` zawiera rozszerzenia, których middleware nie serwuje. Domyślna wartość to `[".php"]`.
-Jawna lista zastępuje tę wartość. Na przykład `forbid = [".php", ".env"]` blokuje oba rozszerzenia.
+`forbid` zawiera przyrostki nazw plików, których middleware nie serwuje. Domyślna wartość to `[".php"]`.
+Jawna lista zastępuje tę wartość. Na przykład `forbid = [".php", ".env"]` blokuje oba przyrostki.
 `forbid = []` zezwala na wszystkie pliki, w tym kod źródłowy PHP.
 Każdy wpis zaczyna się kropką, ma co najmniej dwa znaki i nie zawiera `/` ani spacji.
 Nieprawidłowy wpis zatrzymuje uruchamianie serwera.
 
 Pozostałe klucze tego pliku opisuje [Konfiguracja](/pl/docs/configuration).
 
-::: question Dlaczego wpis w `forbid` musi wyglądać jak rozszerzenie?
-Middleware porównuje wpis z końcem nazwy pliku. Separator ani spacja nie mogą kończyć nazwy.
-Dlatego taki wpis nie może chronić pliku. Walidacja go odrzuca.
+::: question Dlaczego wpis w `forbid` musi być przyrostkiem?
+Middleware porównuje każdy wpis z końcem nazwy pliku. Rapira akceptuje tylko przyrostki z co najmniej dwoma znakami, które zaczynają się od `.` i nie zawierają ukośników ani białych znaków.
 :::
 
 ## Walidacja przy starcie
@@ -104,13 +103,14 @@ Worker zachowuje wpis z tym samym czasem i długością. Zmieniony plik odczytuj
 Plik większy niż 256 KiB nigdy nie trafia do cache'u. Taki plik przy każdym żądaniu leci strumieniem prosto z dysku.
 
 Jeden worker przechowuje do 16 MiB. Pełny cache nadal serwuje bieżące wpisy.
-Usuwa wygasłe wpisy przed odrzuceniem nowego pliku. Każdy worker używa do 16 MiB dla cache'u.
+Cache usuwa wygasłe wpisy, zanim pominie nowy wpis. Każdy worker używa do 16 MiB dla cache'u.
 Restart opróżnia cache.
 
 Każdy worker sprawdza własne wpisy. Usunięty plik wpływa na odpowiedzi najpóźniej po sekundzie.
-Zmieniony plik wpływa na odpowiedzi, jeśli zmieni się jego czas lub długość.
+Zmieniony lub zastąpiony plik wpływa na odpowiedzi najpóźniej po jednej sekundzie, jeśli zmieni się jego czas modyfikacji lub długość.
 Zmiana uprawnień nie usuwa wpisu, jeśli czas i długość nie zmieniają się.
-Usuń plik lub uruchom serwer ponownie, aby usunąć wpis. Przy wymianie zmień czas lub długość.
+Usuń plik, aby usunąć wpis. Zastąpienie usuwa wpis tylko przy nowym czasie modyfikacji lub nowej długości.
+Możesz też ponownie uruchomić serwer.
 
 Katalog główny musi używać lokalnego nośnika. Middleware wykonuje `stat` i `open` w wątku obsługi żądań.
 Wolny system plików opóźnia inne połączenia workera.

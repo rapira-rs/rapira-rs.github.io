@@ -95,7 +95,7 @@ while (\Rapira\handle_request($handler)) {
 Większość to zwykły rozruch Symfony. Cztery linie są specyficzne dla tego układu:
 
 **`(new Dotenv())->usePutenv()->bootEnv(...)`.** Standardowy `public/index.php` przekazuje tę operację do `symfony/runtime`.
-Worker czyta `.env` raz przed utworzeniem kernela. Użyj `usePutenv()`, ponieważ bez niego aplikacja zwraca `500` w `prod`.
+Worker czyta `.env` raz przed utworzeniem kernela. `usePutenv()` zachowuje te wartości, jeśli PHP odtworzy `$_ENV` podczas żądania.
 Więcej informacji zawiera sekcja [`$_ENV` i `variables_order`](#env-i-variables-order).
 
 **Kernel jest inicjalizowany przed pętlą.** `new Kernel(...)`, `boot()` i `getContainer()` działają podczas inicjalizacji workera.
@@ -115,8 +115,10 @@ Obie opcje usuwają zapisany stan aplikacji. Używaj ich do szukania wycieku, a 
 ## `$_ENV` i `variables_order`
 
 ::: warning
-Przy `bootEnv()` bez `usePutenv()` aplikacja Symfony w `prod` zwraca **500** dla każdego żądania.
-Wyjątek to `EnvNotFoundException: Environment variable not found: "DEFAULT_URI"`. Ta sama aplikacja w `dev` nie kończy się błędem.
+Testowana aplikacja bazowa używała `bootEnv()` bez `usePutenv()`.
+Przy `variables_order = "GPCS"` i `auto_globals_jit = On` każde żądanie w `prod` zwracało **500**.
+Błąd występował, gdy `RequestContext` odczytywał `DEFAULT_URI` podczas żądania.
+Wyjątek to `EnvNotFoundException: Environment variable not found: "DEFAULT_URI"`. Ta sama aplikacja w `dev` nie kończyła się błędem.
 :::
 
 Ten wynik powoduje PHP. Przy `variables_order = "GPCS"` i `auto_globals_jit = On` PHP zeruje flagę JIT `$_ENV` dla każdego żądania.
@@ -138,20 +140,30 @@ Symfony `EnvVarProcessor` może również odczytać je przez `getenv()`.
 Rapira uruchamia jeden interpreter NTS PHP w każdym procesie. Dlatego współbieżne wątki PHP nie wywołują `putenv()`.
 
 W środowisku produkcyjnym ustaw zmienne przez systemd, kontener albo orkiestrator.
-Używaj `.env` tylko podczas programowania. Obie metody zapobiegają usunięciu wartości przez żądanie.
+Używaj `.env` tylko podczas programowania. Zarówno `usePutenv()`, jak i środowisko wdrożenia zapisują wartości w środowisku procesu.
+Dlatego późniejszy import zachowuje te wartości.
 
 To zachowanie dotyczy każdego trwałego środowiska PHP, które czyta `$_ENV` podczas żądania.
 To i inne zachowania opisuje strona [Frameworki](/pl/docs/frameworks/).
 
 ## Uruchamianie Rapiry
 
+Uruchom Rapirę:
+
 ```bash
 rapira serve --mode worker worker.php
-curl -i http://127.0.0.1:8000/
 ```
 
 `--mode worker` wybiera tryb Worker. `127.0.0.1:8000` to domyślny adres nasłuchu.
-`rapira serve` działa na pierwszym planie. Naciśnij `Ctrl-C`, aby go zatrzymać.
+`rapira serve` działa na pierwszym planie.
+
+Otwórz drugi terminal. Wyślij żądanie:
+
+```bash
+curl -i http://127.0.0.1:8000/
+```
+
+Naciśnij `Ctrl-C` w pierwszym terminalu, aby zatrzymać Rapirę.
 
 Skryptem wejściowym jest `worker.php`, więc `$_SERVER['SCRIPT_NAME']` zawiera `/worker.php`. Symfony nie znajduje tej wartości na początku URI.
 Następnie ustawia bazowy URL na `""`. `getPathInfo()` zwraca ścieżkę żądania i routing działa poprawnie.
@@ -186,7 +198,7 @@ request_terminate_timeout_secs = 30
 
 `max_requests` zastępuje workera po określonej liczbie żądań. Ogranicza wpływ wycieku pamięci, ale go nie naprawia.
 `request_terminate_timeout_secs` ogranicza czas jednego żądania.
-Uruchom serwer poleceniem `rapira serve --config rapira.toml`.
+Uruchom serwer poleceniem `APP_ENV=prod rapira serve --config rapira.toml`.
 Względny `entrypoint` używa katalogu pliku. Wszystkie ustawienia opisuje [Konfiguracja](/pl/docs/configuration).
 
 ## Zerowanie stanu między żądaniami
@@ -215,9 +227,9 @@ Podczas programowania uruchamiaj serwer ponownie po każdej zmianie. Możesz te�
 rapira serve --mode classic public/index.php
 ```
 
-Ta sama aplikacja działa w trybie Classic i uruchamia się przy każdym żądaniu. Dlatego zmiany działają od razu, a każde żądanie obejmuje pełny rozruch. Na serwerze produkcyjnym wdrożony kod przejmuje pracę bez zrywania połączeń dzięki przeładowaniu kroczącemu (`SIGUSR2` do procesu nadrzędnego). Przy `opcache.validate_timestamps = 0` segment OPcache procesu nadrzędnego przeżywa całą pulę. W tej konfiguracji wdrożenie wymaga pełnego restartu. Więcej informacji zawierają [model procesów](/pl/docs/process-model) i [wdrożenie produkcyjne](/pl/docs/deployment).
+Ta sama aplikacja działa w trybie Classic i uruchamia się przy każdym żądaniu. Dlatego zmiany działają od razu, a każde żądanie obejmuje pełny rozruch. Na serwerze produkcyjnym wdrożony kod przejmuje pracę dzięki przeładowaniu kroczącemu (`SIGUSR2` do procesu nadrzędnego). Bieżące żądania mogą się zakończyć, ale bezczynne połączenia keep-alive są zamykane. Przy `opcache.validate_timestamps = 0` segment OPcache procesu nadrzędnego przeżywa całą pulę. W tej konfiguracji wdrożenie wymaga pełnego restartu. Więcej informacji zawierają [model procesów](/pl/docs/process-model) i [wdrożenie produkcyjne](/pl/docs/deployment).
 
 Symfony obsługuje nieprzechwycony wyjątek aplikacji i zwraca własną odpowiedź `500`. `dev` pokazuje stronę wyjątku.
 `prod` pokazuje ogólną stronę błędu. Ten sam worker obsługuje następne żądanie.
-Końcowe zerowanie usuwa zmieniony stan serwisów. Skonfigurowany logger Symfony kontroluje wyjście wyjątku.
-Rapira zapisuje błędy PHP, które opuszczają framework. Poziomy opisuje strona [Logi](/pl/docs/logging).
+Końcowe zerowanie usuwa zmieniony stan serwisów. Skonfigurowany logger Symfony kontroluje wyjście wyjątku. Aplikacja bazowa nie zawiera loggera.
+Rapira zapisuje błędy PHP, które opuszczają framework, na przykład opisany wyżej `EnvNotFoundException`. Poziomy opisuje strona [Logi](/pl/docs/logging).

@@ -57,7 +57,7 @@ See [CLI](/docs/cli) for the rest of the flags, and [Configuration](/docs/config
 
 - **It waits** until a request arrives for this worker. A waiting worker uses no CPU.
 - It retains its interpreter and initialized application in memory.
-- **It fills the superglobals** (`$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE` and others) before the handler runs. Ordinary PHP code can read them as it does under php-fpm.
+- **It fills request data** in `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE`, `$_FILES`, and `$_REQUEST` before the handler runs. Ordinary PHP code can read these superglobals as it does under php-fpm.
 - **It calls the handler without arguments.** Request data is in the superglobals. The callable signature is `function (): void`.
 - Capture dependencies, such as the container or logger, with `use`.
 - **Handler output is the response.** The handler can use `echo`, `print`, `header()`, `http_response_code()`, and `setcookie()`.
@@ -104,8 +104,8 @@ Select Worker mode after you correct the shared state.
 
 ## Shutdown functions
 
-A shutdown function registered during initialization runs once when the worker cycle ends. It does not run at the end of each request.
-A shutdown function registered by the handler runs once at the end of that request.
+PHP runs each shutdown function that code registers during initialization once when the worker cycle ends. PHP does not run these functions after each request.
+PHP runs each shutdown function that the handler registers once at the end of that request.
 
 Register process resource cleanup during initialization. Register request resource cleanup inside the handler.
 
@@ -139,7 +139,7 @@ Final shutdown runs the initialization entries first in registration order. It t
 
 ## Worker mode only
 
-`handle_request()` needs the resident loop that only Worker mode has. In Classic mode and in Dispatcher mode it throws a `Rapira\Exception\NotInWorkerModeError`. Every class Rapira throws implements the marker interface `Rapira\Exception\RapiraThrowable`, so one `catch` covers all of them.
+`handle_request()` needs the resident loop that only Worker mode has. In Classic mode and in Dispatcher mode it throws a `Rapira\Exception\NotInWorkerModeError`. Every exception that Rapira throws implements the marker interface `Rapira\Exception\RapiraThrowable`, so one `catch` covers all of them.
 
 `Rapira\get_mode()` returns the [mode](/docs/execution-modes) of the current process as a `Rapira\Mode` case. A script that runs in more than one mode reads it before it enters the loop:
 
@@ -164,7 +164,7 @@ The example calls `gc_collect_cycles()` between requests. This call is optional,
 `pool.request_terminate_timeout_secs` limits the elapsed time of one request. Rapira terminates a worker that exceeds it.
 See [Configuration](/docs/configuration) for this key and `pool.max_requests`. See [Process model](/docs/process-model) for worker termination processing.
 
-**An uncaught exception affects one request, not the worker.** An uncaught handler exception usually returns `500`.
+**An uncaught exception affects one request, not the worker.** Rapira returns `500` for an uncaught handler exception unless the handler already sent the response head.
 Rapira cannot change the status after the handler sends the response head.
 The loop continues, so the exception does not stop the worker. A fatal error ends the persistent script.
 The worker then starts the script again and initializes the application.

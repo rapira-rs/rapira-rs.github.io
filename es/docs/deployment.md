@@ -45,10 +45,15 @@ Environment=PHPRC=/etc/rapira
 WantedBy=multi-user.target
 ```
 
-Carga y activa la unidad:
+Recarga la configuración de systemd:
 
 ```bash
 sudo systemctl daemon-reload
+```
+
+Activa Rapira con `--now`:
+
+```bash
 sudo systemctl enable --now rapira
 ```
 
@@ -79,7 +84,8 @@ Crea `/etc/rapira/php.ini` para configurar OPcache, un límite de memoria o una 
 Un `pool.entrypoint` relativo usa como base el directorio del archivo de configuración. Por tanto, `entrypoint = "index.php"` significa `/etc/rapira/index.php` en esta estructura.
 Usa una ruta absoluta para el script de entrada en producción. `supervisor.pidfile` usa la misma regla.
 El argumento `SCRIPT` y las operaciones de PHP usan el directorio de trabajo. Rapira no cambia este directorio.
-Systemd usa `/` de forma predeterminada, por lo que la unidad define `WorkingDirectory=/srv/app`. Consulta [Configuración](/es/docs/configuration).
+Systemd usa `/` de forma predeterminada, por lo que la unidad define `WorkingDirectory=/srv/app`. PHP también busca un archivo ini en este directorio.
+Consulta [Configuración](/es/docs/configuration).
 
 ## Proxy inverso
 
@@ -136,7 +142,8 @@ El maestro se queda con los ajustes con los que arrancó, y la memoria compartid
 
 ## Registros
 
-Rapira escribe cada registro en **stderr**, una escritura por registro, así que la salida del maestro y la de los workers nunca se mezclan a mitad de línea. La stderr de una unidad de systemd va al journal sin configurar absolutamente nada, con lo que lo único que queda por elegir es el formato. En producción, usa JSON:
+Rapira escribe cada registro en **stderr**. La salida stderr de una unidad de systemd se envía al journal sin configuración adicional.
+En producción, usa JSON:
 
 ```toml
 [log]
@@ -144,7 +151,8 @@ level = "info"
 format = "json"
 ```
 
-Un objeto por línea, con `timestamp` en RFC 3339 UTC más `level`, `message` y `target`; los saltos de línea dentro de un mensaje se escapan, así que un registro siempre ocupa exactamente una línea. Es la forma que esperan los colectores de registros, y journald la deja pasar sin cambios.
+Cada línea contiene un objeto con `timestamp`, `level`, `target` y `fields`. El objeto `fields` contiene `message` y otros campos del evento.
+La marca de tiempo usa UTC según RFC 3339.
 
 ```bash
 journalctl -u rapira -f

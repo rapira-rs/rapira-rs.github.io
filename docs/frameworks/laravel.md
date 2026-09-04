@@ -67,7 +67,7 @@ php artisan route:cache
 
 ## Routing and URLs
 
-Rapira does not map URLs onto PHP scripts. Every request runs the entry script, and `$_SERVER['REQUEST_URI']` contains the path for Laravel to route. The [static file middleware](/docs/static-files) answers requests that match files. Every other request runs the entry script. Tests covered routing, Laravel's 404 page for unmatched paths, and `url()` generation. Generated URLs are clean absolute URLs without `index.php`. They require no `$_SERVER` overrides or route and URL configuration changes.
+Rapira does not map URLs onto PHP scripts. Every request runs the entry script, and `$_SERVER['REQUEST_URI']` contains the path for Laravel to route. The [static file middleware](/docs/static-files) answers requests that match files. Every other request runs the entry script. Tests covered routing, Laravel's 404 page for unmatched paths, and `url()` generation. Generated URLs are absolute and do not contain `index.php`. They require no `$_SERVER` overrides or route and URL configuration changes.
 
 The built-in `/up` health route returns `200`. A load balancer or container can use this route for health checks.
 Rapira can serve assets with the [static file middleware](/docs/static-files). Add `"static"` to `http.middleware`.

@@ -5,24 +5,31 @@ description: "Tryb Classic wykonuje zwykły skrypt wejściowy PHP od zera przy k
 
 # Tryb Classic
 
-Tryb Classic wykonuje zwykły skrypt wejściowy PHP. Jest to ten sam plik `public/index.php`, który uruchamia php-fpm. Rapira wykonuje go od zera przy każdym żądaniu. Rapira zastępuje php-fpm, a aplikacja nie wymaga żadnych zmian. Zmienne superglobalne są wypełniane, skrypt wykonuje się od góry do dołu, a jego wyjście staje się odpowiedzią.
+Tryb Classic wykonuje zwykły skrypt wejściowy PHP. Może to być plik `public/index.php`, który uruchamia php-fpm.
+Rapira uruchamia nowe żądanie PHP dla każdego żądania HTTP. Wypełnia zmienne superglobalne i wykonuje skrypt.
+Wyjście skryptu staje się odpowiedzią. Rapira może zastąpić php-fpm bez zmian aplikacji.
 
 ## Świeży stan przy każdym żądaniu
 
-Każde żądanie dostaje pełny cykl żądania PHP: inicjalizacja żądania, twój skrypt wejściowy, zamknięcie żądania. Wszystko, co skrypt zbudował po drodze - zmienne globalne, statyczne właściwości, kontener DI, identity map ORM-a - zostaje sprzątnięte, zanim zacznie się następne żądanie, dokładnie tak jak pod php-fpm.
+Każde żądanie ma pełny cykl PHP. Obejmuje inicjalizację, wykonanie skryptu wejściowego i zamknięcie żądania.
+PHP usuwa stan przed kolejnym żądaniem. Obejmuje on zmienne globalne, właściwości statyczne, kontener DI i mapę ORM.
 
-Wyciekły uchwyt, singleton zainicjalizowany do połowy, biblioteka chowająca dane żądania w statycznym polu - nic z tego nie wpłynie na następne żądanie, bo nic, co utworzył twój skrypt, nie przeżywa żądania, w którym zostało utworzone. Wyjątki są te same co w php-fpm: trwałe połączenia i stan trzymany przez rozszerzenia żyją w procesie workera, a nie w żądaniu. Kod, którego nikt nie pisał z myślą o długo żyjącym procesie, działa tu bez zmian. Funkcja `fastcgi_finish_request()` pochodzi z binarki php-fpm i pod Rapirą nie jest dostępna; Rapira udostępnia w zamian `rapira_finish_request()` z tą samą umową - odesłać odpowiedź do klienta wcześniej i pracować dalej - opisaną na stronie [HTTP](/pl/docs/http).
+Obiekty i dane żądania nie wpływają na kolejne żądanie. Wyjątkiem są trwałe połączenia i stan rozszerzeń w procesie workera.
+Aplikacje bez obsługi trwałych procesów mogą działać w trybie Classic.
+Rapira nie udostępnia funkcji php-fpm `fastcgi_finish_request()`. Użyj `rapira_finish_request()`, aby wysłać odpowiedź przed końcem skryptu.
+Zobacz [HTTP](/pl/docs/http).
 
-Aplikacja startuje od nowa przy każdym żądaniu: autoloader, konfiguracja, kontener, trasy. Więcej informacji znajdziesz w [Trybach wykonania](/pl/docs/execution-modes).
+Aplikacja inicjalizuje autoloader, konfigurację, kontener i trasy dla każdego żądania. Zobacz [Tryby wykonania](/pl/docs/execution-modes).
 
-## Jak go włączyć
+## Konfiguracja trybu Classic
 
-Tryb wybierasz na dwa sposoby, oba dają ten sam efekt:
+Wybierz tryb na jeden z tych sposobów:
 
 - `--mode classic` w wierszu poleceń, obok skryptu wejściowego.
 - `mode = "classic"` w sekcji `[pool]` pliku `rapira.toml`.
 
-`--mode` nadpisuje `pool.mode`, więc to wiersz poleceń wybiera tryb, nawet jeśli plik konfiguracyjny nazywa inny. Poza tym obowiązuje zwykłe pierwszeństwo: flagi wygrywają z plikiem konfiguracyjnym. Pełną listę kluczy znajdziesz w [Konfiguracji](/pl/docs/configuration).
+`--mode` zastępuje `pool.mode` z pliku. Inne argumenty CLI także zastępują odpowiednie wartości.
+Pełną listę kluczy zawiera [Konfiguracja](/pl/docs/configuration).
 
 Klasyczny skrypt wejściowy to zwykły PHP:
 
@@ -34,7 +41,7 @@ echo "Hello, " . ($_GET['name'] ?? 'anonymous') . "!\n";
 echo "Method: {$_SERVER['REQUEST_METHOD']}\n";
 ```
 
-Skieruj na niego Rapirę jednym albo drugim sposobem:
+Wybierz tryb przez CLI lub plik:
 
 ::: code-group
 
@@ -50,24 +57,38 @@ mode = "classic"
 
 :::
 
-Z plikiem konfiguracyjnym serwer uruchamiasz poleceniem `rapira serve --config rapira.toml`. Względną ścieżkę w `pool.entrypoint` Rapira liczy od katalogu samego pliku konfiguracyjnego, dzięki czemu plik możesz swobodnie przenosić; względną ścieżkę skryptu podaną w wierszu poleceń liczy od katalogu bieżącego. Resztę opcji opisuje [Wiersz poleceń](/pl/docs/cli).
+Uruchom `rapira serve --config rapira.toml`, aby użyć pliku konfiguracyjnego.
+Względny `pool.entrypoint` używa katalogu pliku. Względna ścieżka CLI używa bieżącego katalogu.
+Pozostałe opcje opisuje [Wiersz poleceń](/pl/docs/cli).
 
 ## Skrypt wejściowy
 
-Rapira nie mapuje adresów URL na skrypty PHP. Każde żądanie uruchamia wskazany przez ciebie skrypt wejściowy, niezależnie od ścieżki. Sam adres trafia do `$_SERVER['REQUEST_URI']`, a trasowaniem zajmuje się aplikacja. Jedyny wyjątek to [middleware plików statycznych](/pl/docs/static-files). Włączony, potrafi odpowiedzieć na `GET` albo `HEAD` plikiem spod swojego katalogu głównego. Każde żądanie, którego nie obsłuży, uruchamia skrypt wejściowy.
+Rapira nie mapuje adresów URL na skrypty PHP. Każde żądanie uruchamia skonfigurowany skrypt wejściowy.
+`$_SERVER['REQUEST_URI']` zawiera adres dla trasowania aplikacji.
+[Middleware plików statycznych](/pl/docs/static-files) może zwracać pliki dla żądań `GET` i `HEAD`.
+Skrypt wejściowy przetwarza pozostałe żądania.
 
-Wynikają z tego wartości zmiennych CGI: `SCRIPT_FILENAME` to zawsze skrypt wejściowy, `SCRIPT_NAME` - jego nazwa pliku z ukośnikiem na początku (`/index.php`), a `DOCUMENT_ROOT` - katalog, w którym leży. Zasoby statyczne może zamiast tego serwować CDN albo reverse proxy stojące przed Rapirą. Takie proxy stawia strona [Wdrożenie produkcyjne](/pl/docs/deployment).
+`SCRIPT_FILENAME` zawsze zawiera ścieżkę skryptu. `SCRIPT_NAME` zawiera nazwę z początkowym ukośnikiem, na przykład `/index.php`.
+`DOCUMENT_ROOT` zawiera katalog skryptu. CDN lub reverse proxy może też serwować pliki statyczne.
+Zobacz [Wdrożenie produkcyjne](/pl/docs/deployment).
 
 ## OPcache
 
-Wykonanie od zera resetuje stan aplikacji, a nie skompilowany bytecode. Proces nadrzędny uruchamia PHP raz, zanim sforkuje workera. Dlatego OPcache tworzy jeden segment pamięci współdzielonej, a każdy worker dziedziczy to samo mapowanie. Przy włączonym OPcache skompilowane skrypty pozostają w cache'u między żądaniami i w obrębie całej puli. Ponowne wykonanie skryptu wejściowego nie oznacza ponownego parsowania.
+Każde żądanie resetuje stan aplikacji, ale nie skompilowany bytecode. Proces nadrzędny uruchamia PHP przed utworzeniem workerów.
+OPcache tworzy jeden segment pamięci współdzielonej. Każdy worker używa tego samego mapowania.
+Po włączeniu OPcache pula używa skryptów z cache'u między żądaniami. PHP nie analizuje ponownie skryptu wejściowego.
 
-Sama pula procesów wygląda tak samo w obu trybach: proces nadrzędny forkuje workery, a każdy worker obsługuje jedno żądanie naraz, więc współbieżność bierze się z ich liczby. Więcej o procesie nadrzędnym i jego workerach znajdziesz na stronie [model procesów](/pl/docs/process-model).
+Tryby Classic i Worker używają tego samego typu puli. Proces nadrzędny tworzy workery, a każdy obsługuje jedno żądanie naraz.
+Liczba workerów określa maksymalną liczbę równoczesnych żądań. Zobacz [model procesów](/pl/docs/process-model).
 
 ::: info
-W trybie Classic `Rapira\handle_request()` rzuca `Rapira\Exception\NotInWorkerModeError`. Skrypt kończy się razem z żądaniem, więc nie ma tu pętli, która mogłaby przyjąć handler. Skrypty workera należą do trybu [Worker](/pl/docs/worker).
+W trybie Classic `Rapira\handle_request()` rzuca `Rapira\Exception\NotInWorkerModeError`. Skrypt kończy się z żądaniem i nie może uruchomić pętli.
+Użyj trybu [Worker](/pl/docs/worker) dla skryptów workera.
 :::
 
 ## Wybór między Classic a Worker
 
-Wybierz tryb Classic, gdy stan aplikacji nie przetrwa drugiego żądania: stary kod, framework wyciekający do statycznych pól albo biblioteka z `vendor/`, na którą nie masz wpływu. Wybierz go również wtedy, gdy przesiadasz się z php-fpm i wolisz zmieniać po jednej rzeczy naraz. Wybierz tryb [Worker](/pl/docs/worker), gdy kod zniesie proces, który nie umiera. Tryb Worker zdejmuje pracę rozruchową wykonywaną przy każdym żądaniu. Strona [Tryby wykonania](/pl/docs/execution-modes) opisuje wszystkie trzy tryby.
+Użyj Classic, gdy aplikacja nie może bezpiecznie zachować stanu między żądaniami. Dotyczy to bibliotek zapisujących dane w polach statycznych.
+Classic zmniejsza też liczbę zmian podczas migracji z php-fpm.
+Użyj trybu [Worker](/pl/docs/worker), gdy aplikacja obsługuje trwały proces. Worker usuwa inicjalizację z każdego żądania.
+Zobacz [Tryby wykonania](/pl/docs/execution-modes).

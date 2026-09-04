@@ -160,7 +160,7 @@ The server removes a PHP `Content-Length` because that field could bypass the by
 
 ## Finishing the response early
 
-A handler can have work after the response is ready. Examples include sending a webhook, writing a queue entry, or updating cached data.
+A handler can continue working after the response is ready. Examples include sending a webhook, writing a queue entry, or updating cached data.
 The client does not have to wait for this work.
 
 `rapira_finish_request()` ends the response at that point. PHP flushes its output buffers and gives the response to the HTTP server.

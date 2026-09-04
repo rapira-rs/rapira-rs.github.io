@@ -1,8 +1,9 @@
 # Contribuir a la documentación
 
-Esta página documenta todas las funciones de escritura que admite el motor de documentación: cada bloque de abajo se genera con el mismo Markdown que escribirás tú, así que tenla a mano como chuleta mientras editas páginas.
+Esta página documenta las funciones de autoría del sitio. Cada ejemplo se genera a partir del Markdown mostrado.
 
-Para previsualizar tus cambios, ejecuta `npm install` una vez y luego `npm run dev`; abre la URL local que aparece en pantalla. Cada idioma tiene su propia carpeta de traducciones -`ru/`, `es/`, `zh/`, `pl/`- con la misma estructura que la versión en inglés, y el inglés es la fuente de referencia.
+Ejecuta `npm ci` para instalar las dependencias bloqueadas. Después, ejecuta `npm run dev`.
+Abre la URL local que muestra el comando. Los directorios de traducción tienen la misma estructura que los archivos canónicos en inglés.
 
 ## Bloques de aviso
 
@@ -39,7 +40,7 @@ Algo con lo que hay que tener cuidado.
 Un riesgo real: procede con cuidado.
 :::
 
-Justo después del tipo puedes poner tu propio título:
+Añade un título específico después del tipo:
 
 ::: tip Consejo
 Ponle un título propio al bloque cuando la etiqueta por defecto se quede corta.
@@ -223,7 +224,7 @@ flowchart LR
 
 ## Tablas y etiquetas
 
-Las tablas normales de Markdown funcionan sin más:
+Markdown estándar crea tablas:
 
 | Función         | Incluida |
 | --------------- | :------: |
@@ -231,7 +232,8 @@ Las tablas normales de Markdown funcionan sin más:
 | Grupos de código|    ✅    |
 | Mermaid         |    ✅    |
 
-Las etiquetas en línea van muy bien para marcar estados: <Badge type="tip" text="nuevo" /> <Badge type="warning" text="beta" /> <Badge type="danger" text="obsoleto" />.
+Las etiquetas en línea pueden mostrar estados:
+<Badge type="tip" text="nuevo" /> <Badge type="warning" text="beta" /> <Badge type="danger" text="obsoleto" />
 
 ## Frontmatter de la página
 

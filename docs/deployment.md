@@ -23,7 +23,7 @@ The `.deb` and `.rpm` packages install the binary and the embedded PHP runtime. 
 These files contain site-specific settings. Package updates must not replace them.
 See [Installation](/docs/intro/installation) for the installed files.
 
-Write your own into `/etc/systemd/system/rapira.service`:
+Create `/etc/systemd/system/rapira.service`:
 
 ```ini
 [Unit]
@@ -51,7 +51,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now rapira
 ```
 
-These six settings require explanation:
+The unit uses these settings:
 
 - `Type=exec`: Rapira runs in the **foreground**. The process that systemd starts is the master, so `$MAINPID` identifies it.
 - `ExecReload`: `systemctl reload rapira` sends `SIGUSR2` to the master. This signal starts the reload process described below.
@@ -83,7 +83,7 @@ The positional `SCRIPT` argument and PHP file operations use the working directo
 Systemd uses `/` by default, so the unit sets `WorkingDirectory=/srv/app`. PHP also searches this directory for an ini file.
 See [Configuration](/docs/configuration) for all keys and defaults.
 
-## Behind a reverse proxy
+## Reverse proxy
 
 Rapira accepts plain HTTP and does not provide TLS settings.
 A [TLS termination proxy](https://en.wikipedia.org/wiki/TLS_termination_proxy) accepts HTTPS from a client, decrypts the connection, and sends plain HTTP to Rapira.
@@ -109,7 +109,7 @@ A proxy or CDN can serve the assets instead.
 
 ## Zero-downtime deploys
 
-Deploy the new code, then:
+Deploy the new code. Then reload Rapira:
 
 ```bash
 sudo systemctl reload rapira

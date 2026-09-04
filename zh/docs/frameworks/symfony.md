@@ -5,7 +5,10 @@ description: "如何在 Rapira 的 Worker 模式下运行 Symfony 应用：worke
 
 # Symfony
 
-Symfony 的结构适合常驻 worker：一个由你启动的内核，一个你递给它的 `Request`，一个它还给你的 `Response`。在 Rapira 下，内核在 worker 起步时启动一次，之后每个请求不过是在一个已经热好的容器上调一次 `handle()`。应用本身几乎什么都不用改--要改的是那二十来行、用来顶替 `public/index.php` 的代码。本页讲的就是这个文件、两次请求之间的重置，以及 `.env` 里的值是怎么进到容器里的。
+Symfony 支持常驻 worker。应用初始化内核，向其传递 `Request`，并接收 `Response`。
+Rapira 为每个 worker 初始化一次内核。之后，每个请求在已初始化的容器上调用 `handle()`。
+应用代码不变。worker 脚本替换 `public/index.php`。
+本页介绍此文件、请求状态重置和 `.env` 值。
 
 ::: info 验证环境
 - **PHP 8.5.8**--NTS、embed SAPI
@@ -18,7 +21,8 @@ Symfony 的结构适合常驻 worker：一个由你启动的内核，一个你�
 
 ## Worker 模式下的行为
 
-内核在脚本最上面、循环之外启动，随后伴随 worker 进程一直常驻：自动加载器、编译好的容器、路由器、事件分发器，以及你那些 bundle 打开的每一条连接，都只搭建一次，而不是每个请求搭一次。这正是 [Worker 模式](/zh/docs/worker)提供的；更多内容见[执行模式](/zh/docs/execution-modes)。
+内核在循环外初始化，并保留到 worker 结束。自动加载器、容器、路由器、事件分发器和连接只初始化一次。
+有关详细信息，请参阅 [Worker 模式](/zh/docs/worker)和[执行模式](/zh/docs/execution-modes)。
 
 每个请求里，handler 做四件事，然后收尾：
 
@@ -35,7 +39,9 @@ session 就是原生的 PHP session，和在 php-fpm 下完全一样：每个请
 
 ## 前置条件
 
-你需要[装好 Rapira](/zh/docs/intro/installation)，再加一个 Symfony 应用--`composer create-project symfony/skeleton my-app` 新建一个，或者直接用手上那个。应用不必做任何特别准备：worker 脚本放在 `composer.json` 旁边，其他一切原地不动。另外机器上还得有一个普通的 PHP CLI，Composer 和 `bin/console` 都要用它：Rapira 是把 PHP 以库（`libphp`）的形式带进来的，并不提供 `php` 命令，所以这些步骤跑的是你系统里的 PHP，Rapira 既不使用也不干涉它。
+安装 [Rapira](/zh/docs/intro/installation)，并创建或选择 Symfony 应用。将 worker 脚本放在 `composer.json` 旁边。
+为 Composer 和 `bin/console` 安装 PHP CLI。Rapira 以库的形式提供 PHP，不提供 `php` 命令。
+Composer 和 `bin/console` 使用系统 PHP CLI。Rapira 不使用或更改此 CLI。
 
 有两个扩展要留意，因为基础应用在 `composer.json` 里把它们写成了硬依赖（`ext-ctype`、`ext-iconv`），*同时*还 `replace` 掉了对应的 polyfill--所以它们必须是真正的扩展，不能是 PHP 写的替身。两个 PHP 构建都需要它们，系统里那个 CLI 也一样，否则 `composer create-project` 和 `composer install` 在平台检查那一步就会失败，那时 Rapira 根本还没上场。每个 Rapira 发布版内嵌的 PHP 两个都带：`ctype` 和 `iconv` 就在构建的 configure 参数里，完整的扩展清单在[安装](/zh/docs/intro/installation)页上。如果你改用自己的 PHP 来编译 Rapira，记得把这两个都打开--那份清单在哪里设置，见[从源码构建](/zh/docs/intro/build-from-source)。
 
@@ -88,52 +94,74 @@ while (\Rapira\handle_request($handler)) {
 
 大部分都是普通的 Symfony 启动代码，只有四行是这套方案特有的：
 
-**`(new Dotenv())->usePutenv()->bootEnv(...)`。**普通应用里你从来不用写这句，因为 `public/index.php` 把它交给了 `symfony/runtime`。这里启动流程归 worker 自己管，所以 `.env` 也得它自己加载--只加载一次，在内核出现之前。`usePutenv()` 是必需的：少了它，应用在 `prod` 下返回 500，而 `dev` 照常工作。更多内容见 [`$_ENV` 与 `variables_order`](#env-与-variables-order)。
+**`(new Dotenv())->usePutenv()->bootEnv(...)`。**标准 `public/index.php` 将此操作委托给 `symfony/runtime`。
+worker 在创建内核前读取一次 `.env`。请使用 `usePutenv()`，因为缺少它时应用会在 `prod` 中返回 `500`。
+有关详细信息，请参阅 [`$_ENV` 与 `variables_order`](#env-与-variables-order)。
 
-**内核在循环之前就构造并启动好了。**`new Kernel(...)`、`boot()` 和 `getContainer()` 都在 worker 启动时跑完，所以读 `$_SERVER['APP_ENV']` 时 Dotenv 塞进去的值还在，而第一个请求还没上门，容器就已经热好了。之后 `while` 循环里的一切，都是冲着这同一个容器干活。
+**内核在循环前初始化。**`new Kernel(...)`、`boot()` 和 `getContainer()` 在 worker 初始化期间运行。
+因此，内核会在请求可能清除 Dotenv 值之前读取 `$_SERVER['APP_ENV']`。每个请求使用相同的容器。
 
-**先 `$container->has('services_resetter')` 再 `get()`。**服务 id `services_resetter` 在 7.4 和 8.1 里都是 public 的，同一个文件能在两边都跑起来靠的就是这一点--它背后的那个*类*在两个大版本之间换了命名空间（7.4 里是 `Symfony\Component\DependencyInjection\ServicesResetter`，8.1 里是 `Symfony\Component\HttpKernel\DependencyInjection\ServicesResetter`），而按 id 取服务，这个差别就消失了。`has()` 这道保险能让脚本碰上一个没定义该服务的容器时不至于致命错误。
+**在 `get()` 前调用 `$container->has('services_resetter')`。**`services_resetter` 标识符在两个支持的版本中都是公开的。
+其实现类在 7.4 和 8.1 中使用不同的命名空间。服务标识符不需要版本条件。
+如果容器未定义服务，`has()` 检查可以防止错误。
 
 **循环和 `gc_collect_cycles()`。**`\Rapira\handle_request()` 会一直阻塞到有请求上门，跑你的 handler，然后返回 `true`；worker 开始排空时它返回 `false`，循环也就到此为止。每转一圈回收一次循环引用，这份开销就固定落在两次请求之间，而不是某个请求处理到一半的时候。完整契约见 [Worker 模式](/zh/docs/worker)。
 
-如果 resetter 还不够用，那还有两个更重的手段：`$container->reset()` 会把所有已经实例化的服务统统清掉，`$kernel->reboot(null)` 则直接扔掉容器重建一个--之后 handler 捕获的那个 `$container` 就失效了，真走这条路的话记得用 `$kernel->getContainer()` 重新取一次。两者都会丢掉 Worker 模式带来的那份热状态，所以它们是排查泄漏时的手段，别当默认做法。
+如果 resetter 不足，请使用 `$container->reset()` 或 `$kernel->reboot(null)`。第一个选项删除所有已创建的服务。
+第二个选项删除容器并创建新容器。
+运行 `$kernel->reboot(null)` 后，使用 `$kernel->getContainer()` 获取新容器。handler 不得使用旧容器。
+两个选项都会删除缓存的应用状态。请将它们用于查找泄漏，不要作为默认配置。
 
 ## `$_ENV` 与 `variables_order`
 
 ::: warning
-只写一个光秃秃的 `bootEnv()`、不带 `usePutenv()`，那么 `APP_ENV=prod` 下的 Symfony 应用**从第一个请求起**就返回 500，之后每个请求也照样是 500，报的是 `EnvNotFoundException: Environment variable not found: "DEFAULT_URI"`。同一个应用在 `dev` 下不会出错。
+使用 `bootEnv()` 而不使用 `usePutenv()` 时，`prod` 中的 Symfony 应用对每个请求返回 **500**。
+异常为 `EnvNotFoundException: Environment variable not found: "DEFAULT_URI"`。同一应用在 `dev` 中不会失败。
 :::
 
-根源在 PHP 里。在这次验证所用的 ini 默认值下（`variables_order = "GPCS"`、`auto_globals_jit = On`），PHP 会在**每个**请求上把 `$_ENV` 的 JIT 标志重新置上。这个请求期间第一个被编译、又提到了 `$_ENV` 的文件会触发 `php_auto_globals_create_env`，于是这个超全局变量就从真实的进程环境里重新导入一遍--把 `Dotenv->bootEnv()` 在 worker 启动时放进去的东西全抹掉。探针里看到的就是这个过程：请求跑到一半，`$_ENV` 从一个装满值的数组变成了空数组。
+此结果由 PHP 导致。使用 `variables_order = "GPCS"` 和 `auto_globals_jit = On` 时，PHP 会为每个请求重置 `$_ENV` JIT 标志。
+第一个使用 `$_ENV` 的已编译文件会调用 `php_auto_globals_create_env`。此函数从进程环境重新导入 `$_ENV`。
+此操作会删除 `Dotenv->bootEnv()` 在初始化期间添加的值。测试发现 `$_ENV` 在请求期间变为空。
 
-为什么只有 `prod` 会中招：`prod` 下容器和服务文件是被第一个请求懒编译出来的，于是这次抹除正好落在 `RequestContext` 解析 `%env(DEFAULT_URI)%` *之前*--轮到解析时，已经没东西可解析了。`dev` 下的调试容器则在 `$kernel->boot()`、也就是启动阶段就急切地把环境变量查完并缓存下来，所以抹除发生时答案早已记录在案。`dev` 下的行为完全相同，只是在那里不会造成任何影响。
+在 `prod` 中，第一个请求会编译容器和服务文件。PHP 会在 `RequestContext` 解析 `%env(DEFAULT_URI)%` 前清除 `$_ENV`。
+在 `dev` 中，容器在 `$kernel->boot()` 期间解析并缓存环境值。PHP 在此操作后清除 `$_ENV`。
+两个环境都会发生重置，但只有 `prod` 使用清除后的值。
 
-修法就是上面脚本里的那一行：
+使用此调用：
 
 ```php
 (new Dotenv())->usePutenv()->bootEnv(__DIR__ . '/.env');
 ```
 
-`usePutenv()` 会让 Dotenv 把这些值同时写进*真正的*进程环境，而重新导入读回来的恰恰就是那里--值也就挺过了这一劫；何况 Symfony 的 `EnvVarProcessor` 本来也会回退到 `getenv()`。Rapira 用的是预 fork 的进程模型加 NTS 版 PHP，一个进程一个解释器，所以平时那些关于 `putenv()` 线程安全的告诫在这里并不适用。
+`usePutenv()` 将 Dotenv 值写入进程环境。后续导入会读取这些值。
+Symfony `EnvVarProcessor` 也可以通过 `getenv()` 读取它们。
+Rapira 在每个进程中运行一个 NTS PHP 解释器。因此，不会有并发 PHP 线程调用 `putenv()`。
 
-生产环境里的另一个选择是直接设真正的环境变量（systemd 的 `Environment=`、你的容器运行时、你的编排系统），把 `.env` 留作开发时的便利。无论走哪条路，值都待在请求中途的重新导入抹不掉的地方。
+在生产环境中，请通过 systemd、容器或编排器设置环境变量。
+仅在开发期间使用 `.env`。两种方法都可防止请求删除这些值。
 
-这一点适用于任何常驻 worker 的 PHP 运行时：只要框架是懒加载地读 `$_ENV`，就会中招。关于这个行为以及其他常驻进程的行为，参见[框架集成](/zh/docs/frameworks/)。
+此行为适用于在请求期间读取 `$_ENV` 的所有常驻 PHP 运行时。
+有关此行为和其他常驻进程行为，请参阅[框架集成](/zh/docs/frameworks/)。
 
-## 跑起来
+## 启动 Rapira
 
 ```bash
 rapira serve --mode worker worker.php
 curl -i http://127.0.0.1:8000/
 ```
 
-`--mode worker` 选定 Worker 模式，`127.0.0.1:8000` 是默认监听地址。`rapira serve` 停在前台运行，`Ctrl-C` 会让它把手上的请求跑完再退出。
+`--mode worker` 选择 Worker 模式。`127.0.0.1:8000` 是默认监听地址。
+`rapira serve` 在前台运行。按 `Ctrl-C` 可停止服务器。
 
-入口脚本叫 `worker.php` 而不是 `index.php`，于是 `$_SERVER['SCRIPT_NAME']` 是 `/worker.php`。Symfony 的 `Request` 会到 URI 开头去找这个名字，找不到，就把 base URL 降级成 `""`。`getPathInfo()` 返回真实路径，路由匹配得上，`generateUrl()` 生成的路径干干净净，哪儿也不会冒出 `/worker.php` 前缀。不需要覆盖 `$_SERVER`，也不需要为此调整 `Request::setTrustedProxies()`。
+入口脚本是 `worker.php`，因此 `$_SERVER['SCRIPT_NAME']` 包含 `/worker.php`。Symfony 在 URI 开头找不到此值。
+然后，它将 base URL 设置为 `""`。`getPathInfo()` 返回请求路径，路由可以正常工作。
+`generateUrl()` 创建不带 `/worker.php` 前缀的路径。不需要覆盖 `$_SERVER` 或使用 `Request::setTrustedProxies()`。
 
 ## 上生产环境
 
-设好 `APP_ENV=prod`，安装时跳过开发依赖，再在服务器起来之前把缓存预热好。`php bin/console cache:warmup` 经验证能让应用干干净净地启动，也把容器编译从第一个请求里挪了出去：
+设置 `APP_ENV=prod`。安装时不包含开发依赖。
+在服务器启动前创建缓存。测试确认 `php bin/console cache:warmup` 可正确初始化应用。
+此命令还会在第一个请求前编译容器：
 
 ```bash
 composer install --no-dev --optimize-autoloader
@@ -156,23 +184,32 @@ max_requests = 500
 request_terminate_timeout_secs = 30
 ```
 
-`max_requests` 会在处理够这么多请求之后把 worker 回收掉，好让依赖树里某处的慢速泄漏永远长不到没边；它给泄漏划了个上限，而不是修好它。`request_terminate_timeout_secs` 给单个请求设了一个墙钟时间上限，否则常驻 worker 会一直阻塞在一个挂死的请求里。用 `rapira serve --config rapira.toml` 启动。这些键连同其余的键，都在[配置](/zh/docs/configuration)页上；相对路径的 `entrypoint` 是相对配置文件自己所在的目录解析的。
+`max_requests` 在指定请求数后替换 worker。它限制内存泄漏的影响，但不会修复泄漏。
+`request_terminate_timeout_secs` 限制一个请求的运行时间。
+使用 `rapira serve --config rapira.toml` 启动服务器。
+相对 `entrypoint` 使用配置文件目录。有关所有设置，请参阅[配置](/zh/docs/configuration)。
 
-## 两次请求之间会重置什么
+## 请求之间的状态重置
 
-`services_resetter` 会对每个打了 `kernel.reset` 标签的服务调用 `reset()`。具体是哪些服务，取决于你装了哪些 bundle--带缓冲的日志 handler、调试数据收集器，以及类似的单次请求累加器，都会自己打上这个标签，所以这一次调用就能覆盖到它们全部。
+`services_resetter` 对每个带 `kernel.reset` 标签的服务调用 `reset()`。安装的 bundle 决定哪些服务带此标签。
+例如带缓冲的日志 handler 和调试数据收集器。这些服务会自行注册标签。
 
-它管不到的是你自己攥着的状态：静态属性、记忆化的全局变量、某个库懒加载填进去的注册表、一个你从没撤销过的 `ini_set()`。在任何常驻 worker 下，这些东西都会比请求活得久，得由你自己的代码来重置。哪些会留下、哪些不会，[框架集成](/zh/docs/frameworks/)页上有一张对照表。
+它不会重置应用静态属性、全局值、库注册表或持续的 `ini_set()` 更改。
+此状态保留在每个常驻 worker 中。请在应用代码中重置。
+有关状态生命周期，请参阅[框架集成](/zh/docs/frameworks/)。
 
-接上 resetter 之后，验证中看到常驻内存在连续 200 个请求里始终是平的，`dev` 和 `prod` 都一样--内核维持着一个恒定的工作集，而不是每个请求涨一点。如果你的应用里内存一直增长，那就是你自己的代码或者某个 bundle 攥着请求不放。
+使用 resetter 的测试在 `dev` 和 `prod` 的 200 个连续请求中显示稳定内存。
+如果内存增加，应用代码或 bundle 可能会保留请求状态。
 
-## 响应之后的活儿
+## 响应后的工作
 
-如果你想在那些响应后监听器跑起来之前就把客户端放走，就在 `$response->send()` 和 `$kernel->terminate($request, $response)` 之间插一句 [`rapira_finish_request()`](/zh/docs/http)--响应先发出去，`terminate()` 继续在一个客户端已经不再等待的 worker 上跑。在你的 handler 返回之前，worker 本身还是忙着的，所以这是压延迟的手段，不是拿来换并发的。
+在 `$response->send()` 和 `$kernel->terminate()` 之间调用 [`rapira_finish_request()`](/zh/docs/http)，可在响应后监听器前发送响应。
+worker 会继续运行 `terminate()`，直到 handler 返回。这可以减少客户端等待时间，但不会增加并发性。
 
 ## 开发时的循环
 
-`rapira serve` 跑在前台，而你的应用只启动一次，所以**改过的 PHP 代码要等 worker 被换掉之后才会生效**。正在改代码的时候，最省事的办法是把服务器停掉再起，或者让入口脚本跑在 [Classic 模式](/zh/docs/classic)下--那里脚本每次都从头执行，存一次盘就生效一次：
+`rapira serve` 在前台运行，并初始化应用一次。因此，**请替换 worker 以加载更改后的 PHP 代码**。
+开发期间，每次更改后都重启服务器。或者使用 [Classic 模式](/zh/docs/classic)：
 
 ```bash
 rapira serve --mode classic public/index.php
@@ -180,4 +217,7 @@ rapira serve --mode classic public/index.php
 
 还是同一个应用，只是跑在 Classic 模式下。它每个请求都要启动一遍，所以改动立刻生效。每个请求也会执行一次完整的启动。至于已经在跑的生产服务器，让部署上去的代码接手而不中断连接的办法是滚动重载（给 master 发 `SIGUSR2`）--除非你开了 `opcache.validate_timestamps = 0`，那时 master 的 OPcache 段比整个进程池活得久，部署就得整个重启才行；见[进程模型](/zh/docs/process-model)和[生产环境部署](/zh/docs/deployment)。
 
-未捕获的异常由 Symfony 自己处理：框架用自己的 `500` 应答它--`dev` 下是完整的异常页面，`prod` 下是一个通用错误页--接着处理下一个请求的还是同一个 worker 进程，故障前后它的 pid 没变。异常之后留下来的是泄漏或者被弄坏的服务状态，handler 末尾那次重置正是用来清掉它的。堆栈最后落到哪儿，取决于你的日志器；基础应用默认不带日志器。真正会出现在 Rapira 那条 stderr 日志里的，是从 PHP 自己手里逃出去的东西，比如上面那个 `EnvNotFoundException`--怎么把级别调高，见[日志](/zh/docs/logging)。
+Symfony 处理未捕获的应用异常并返回自己的 `500` 响应。`dev` 显示异常页面。
+`prod` 显示通用错误页。同一个 worker 处理下一个请求。
+最终重置会删除更改后的服务状态。配置的 Symfony 日志器控制异常输出。
+Rapira 记录离开框架的 PHP 错误。有关级别设置，请参阅[日志](/zh/docs/logging)。

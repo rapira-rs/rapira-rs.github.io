@@ -41,7 +41,7 @@ http = "warn"
 Each key names one target. Other targets use `level`.
 A key matches **by prefix**, so `php` also matches `php_sys` and `php_sys::callbacks`. You do not need to list submodules.
 
-The targets Rapira itself emits under:
+Rapira uses these targets:
 
 | Target   | What it covers                                                  |
 | -------- | --------------------------------------------------------------- |
@@ -103,7 +103,7 @@ The function is available in each execution mode:
 \Rapira\log('cache miss', \Rapira\LogLevel::Debug, ['key' => 'user:42', 'ttl' => 300]);
 ```
 
-The level is a case of the `\Rapira\LogLevel` enum, and each case maps onto the level the rest of the log already uses:
+The level is a case of the `\Rapira\LogLevel` enum. Each case maps to a Rapira log level:
 
 | `LogLevel` case | Record level |
 | --------------- | ------------ |

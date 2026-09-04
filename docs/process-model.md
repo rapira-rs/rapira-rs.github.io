@@ -72,7 +72,9 @@ After pool initialization, the master runs maintenance approximately once each s
 
 ## Pool scaling
 
-`pool.scaling` selects how the pool changes its size. It is separate from `pool.mode`, which sets the execution mode inside a worker. `pool.processes` is an exact count for `static` scaling. It is the maximum count for `dynamic` and `ondemand` scaling. Its default is one worker for each logical CPU.
+`pool.scaling` selects how the pool changes its size. It is separate from `pool.mode`.
+The `pool.mode` key sets the execution mode inside a worker. `pool.processes` is an exact count for `static` scaling.
+It is the maximum count for `dynamic` and `ondemand` scaling. Its default is one worker for each logical CPU.
 
 | Scaling | How many workers | Keys that apply |
 | --- | --- | --- |
@@ -137,7 +139,7 @@ It sends `SIGKILL` after another limit if necessary.
 
 A second `SIGTERM` or `SIGINT` skips the wait and forces the exit immediately.
 
-### Replacing workers without closing connections
+### Worker replacement without closed connections
 
 `SIGUSR2` or `SIGHUP` replaces the complete pool. Each replacement worker initializes the application from the deployed code.
 

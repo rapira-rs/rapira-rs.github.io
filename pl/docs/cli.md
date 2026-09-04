@@ -11,21 +11,25 @@ Rapira to jeden plik binarny z jednym podpoleceniem:
 rapira serve [OPTIONS] [SCRIPT]
 ```
 
-To `serve` podnosi serwer: uruchamia PHP, rejestruje wbudowane rozszerzenia i zaczyna odpowiadać na żądania. Samo `rapira` bez argumentów wypisze pomoc i zakończy działanie, a `rapira serve --help` wylistuje poniższe opcje prosto z binarki. `rapira --version` powie ci, jaką wersję masz u siebie.
+Polecenie `serve` uruchamia PHP, rejestruje wbudowane rozszerzenia i przyjmuje żądania.
+Uruchom `rapira` bez argumentów, aby wyświetlić pomoc. Uruchom `rapira serve --help`, aby wyświetlić dostępne opcje.
+Uruchom `rapira --version`, aby wyświetlić zainstalowaną wersję.
 
-Plik konfiguracyjny jest opcjonalny: jedno polecenie ze ścieżką do skryptu to już kompletny, działający serwer, a plik przydaje się dopiero wtedy, gdy flagi przestają wystarczać.
+Plik konfiguracyjny jest opcjonalny. Polecenie ze ścieżką skryptu może uruchomić serwer z ustawieniami domyślnymi.
 
-## Jak nakładają się ustawienia
+## Priorytet ustawień
 
-Każde ustawienie Rapira ustala z maksymalnie trzech warstw, sprawdzanych w tej kolejności:
+Rapira odczytuje ustawienia w następującej kolejności:
 
 **Flagi wiersza poleceń > plik konfiguracyjny > wbudowane wartości domyślne.**
 
-Z wiersza poleceń da się ustawić tylko cztery flagi z poniższej tabeli i argument `SCRIPT`; cała reszta pochodzi z pliku albo z wartości domyślnej.
+Tylko cztery flagi z tabeli i argument `SCRIPT` mają formę wiersza poleceń. Pozostałe ustawienia używają pliku lub wartości domyślnej.
 
-Flaga zawsze wygrywa z tą samą wartością w `rapira.toml`, a `rapira.toml` zawsze wygrywa z wartością domyślną. Taka kolejność pozwala trzymać stabilną konfigurację w pliku i nadpisać pojedynczą wartość w wierszu poleceń na jeden przebieg - inny port na czas testów, więcej workerów na większej maszynie - bez edytowania czegokolwiek.
+Flaga zastępuje odpowiednią wartość w `rapira.toml`. Wartość w `rapira.toml` zastępuje wartość domyślną.
+Ta kolejność umożliwia użycie wartości tymczasowej podczas jednego uruchomienia. Na przykład przetestuj inny port bez edycji pliku.
 
-Czego nie ustawisz nigdzie, to spadnie do wartości domyślnych z poniższej tabeli. Ustawienia, których flagi nie wystawiają - skalowanie puli, logowanie, limity żądań - pochodzą z pliku, a pełną listę tego, co może znaleźć się w pliku konfiguracyjnym, znajdziesz w [Konfiguracji](/pl/docs/configuration).
+Niezdefiniowane opcje używają wartości domyślnych z tabeli. Plik kontroluje skalowanie puli, logowanie i limity żądań.
+Wszystkie ustawienia pliku zawiera [Konfiguracja](/pl/docs/configuration).
 
 ## Opcje
 
@@ -39,9 +43,15 @@ Czego nie ustawisz nigdzie, to spadnie do wartości domyślnych z poniższej tab
 
 \* Wymagany, o ile plik konfiguracyjny nie ustawia `pool.entrypoint`. Gdy nie ma ani jednego, ani drugiego, `serve` zgłasza błąd i nie startuje.
 
-**`--listen`** przyjmuje trzy postacie. `127.0.0.1:8000` (domyślna) wiąże jeden interfejs - wyłącznie pętlę zwrotną, więc nic spoza maszyny się nie połączy. `:8080` to skrót od `0.0.0.0:8080`, czyli wszystkie interfejsy IPv4 - tak zwykle wiąże się serwer w kontenerze; dla IPv6 napisz `[::]:8080`. `unix:/run/rapira.sock` wiąże zamiast tego gniazdo uniksowe, pod reverse proxy na tej samej maszynie. Literały IPv6 zapisujesz w nawiasach kwadratowych: `[::1]:8000`. Sam numer portu *nie jest* adresem i zostanie odrzucony, bo nie mówi, czy wiązać tylko pętlę zwrotną, czy wszystkie interfejsy - `--listen 8080` to błąd, napisz `--listen :8080` albo `--listen 127.0.0.1:8080`. W części hostowej musi stać literał IP, bo nazwy hostów nigdy nie są rozwiązywane: `--listen localhost:8000` to błąd, napisz `--listen 127.0.0.1:8000`.
+**`--listen`** przyjmuje trzy formaty adresu. `127.0.0.1:8000` wiąże interfejs pętli zwrotnej.
+Systemy zdalne nie mogą połączyć się z tym adresem. `:8080` odpowiada `0.0.0.0:8080` i wiąże wszystkie interfejsy IPv4.
+Użyj `[::]:8080` dla wszystkich interfejsów IPv6. `unix:/run/rapira.sock` tworzy gniazdo uniksowe dla lokalnego reverse proxy.
+Literały IPv6 umieszczaj w nawiasach kwadratowych, na przykład `[::1]:8000`.
+Rapira odrzuca port bez adresu. Użyj `--listen :8080` albo `--listen 127.0.0.1:8080`.
+Rapira nie rozwiązuje nazw hostów w tej opcji. Użyj `127.0.0.1:8000` zamiast `localhost:8000`.
 
-**`--processes`** domyślnie przyjmuje liczbę logicznych CPU. Przy domyślnym `pool.scaling = "static"` dokładnie tyle procesów workerów zostanie sforkowanych; jeśli plik konfiguracyjny ustawi `pool.scaling` na `dynamic` albo `ondemand`, ta sama liczba staje się sufitem, do którego te polityki się skalują. Co właściwie robią workery, a co proces master, opisuje [Model procesów](/pl/docs/process-model).
+**`--processes`** domyślnie przyjmuje liczbę logicznych CPU. Skalowanie statyczne używa jej jako dokładnej liczby workerów.
+Skalowanie dynamiczne i `ondemand` używają jej jako liczby maksymalnej. Więcej informacji zawiera [Model procesów](/pl/docs/process-model).
 
 **`--mode`** wybiera tryb pracy. Domyślny jest `dispatcher`: rezydentny skrypt sam pobiera kolejne żądania od Rapiry. `worker` trzyma skrypt wejściowy rezydentnie i przy każdym żądaniu uruchamia handler. `classic` wykonuje skrypt wejściowy od zera przy każdym żądaniu, tak jak pod php-fpm. Flaga przyjmuje wartość, więc wskaże dowolny tryb bez względu na to, co ustawia plik konfiguracyjny. Więcej informacji znajdziesz w [trybie Classic](/pl/docs/classic), [trybie Worker](/pl/docs/worker) i [Trybach wykonania](/pl/docs/execution-modes).
 
@@ -79,7 +89,8 @@ rapira serve --config /etc/rapira/rapira.toml
 rapira serve --config /etc/rapira/rapira.toml --listen 127.0.0.1:9000
 ```
 
-Pierwsze polecenie nie ma `--listen`, więc serwer wstaje pod domyślnym adresem. Do wysłania żądania wystarczy jeszcze jedna linijka.
+Pierwsze polecenie nie ustawia `--listen`. Dlatego serwer używa adresu domyślnego.
+Wyślij żądanie tym poleceniem:
 
 ```bash
 curl http://127.0.0.1:8000/
@@ -89,4 +100,6 @@ Skrypty wejściowe do poleceń `--mode classic` i `--mode worker` znajdziesz w [
 
 ## Zatrzymywanie serwera
 
-Pierwszy `SIGINT` albo `SIGTERM` - czyli `Ctrl-C` w terminalu lub sygnał od menedżera usług - pozwala dokończyć żądania będące w toku i porządnie zamyka rozszerzenia; drugi przerywa czekanie i wymusza wyjście. Sygnały trafiają do procesu master, a ich pełną tabelę, razem z przeładowaniem, znajdziesz w [Modelu procesów](/pl/docs/process-model).
+Pierwszy `SIGINT` albo `SIGTERM` pozwala dokończyć bieżące żądania. Następnie serwer zamyka rozszerzenia i kończy pracę.
+Drugi sygnał kończy oczekiwanie i wymusza wyjście. Wysyłaj sygnały do procesu nadrzędnego.
+Pełną tabelę sygnałów zawiera [Model procesów](/pl/docs/process-model).

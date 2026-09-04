@@ -20,7 +20,7 @@ It requires Rust, a C toolchain, and an embeddable PHP library. See [Installatio
 
 ## The toolchain
 
-Three things beyond the usual build essentials:
+The build requires these tools:
 
 - **Rust, stable channel.** The repository `rust-toolchain.toml` selects the version through [rustup](https://rustup.rs/).
 - **A C compiler and `pkg-config`.** Part of the build is C: small shims compiled against the PHP headers.
@@ -50,7 +50,7 @@ sudo apk add php84-dev php84-embed            # Alpine
 The Homebrew `php` formula does not include the embed SAPI. Build PHP from source on macOS.
 :::
 
-### Building PHP yourself
+### Building PHP from source
 
 Build PHP when no embed package is available. Also build it when the package does not include required extensions.
 

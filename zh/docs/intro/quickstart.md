@@ -1,15 +1,16 @@
 ---
 title: 快速开始
-description: "用 Rapira 以 Classic 模式和 Worker 模式提供 PHP 应用，并把设置搬进 rapira.toml 文件。"
+description: "使用 Rapira 以 Classic 和 Worker 模式运行 PHP 应用，并将设置存入 rapira.toml。"
 ---
 
 # 快速开始
 
-本页介绍如何用 Classic 模式返回一个页面、把同一个应用改造成常驻 worker，以及把设置搬进配置文件。前提是你手上已经有一个能用的 `rapira` 可执行文件，以及它自带的 PHP；详见[安装](/zh/docs/intro/installation)。
+本指南先以 Classic 模式启动应用，再将应用转换为 Worker 模式。然后，本指南将设置存入配置文件。
+这些步骤需要可用的 `rapira` 二进制文件及其附带的 PHP。请参阅[安装](/zh/docs/intro/installation)。
 
 ## Classic 模式
 
-Classic 模式适用于任何应用。每个请求都会让 Rapira 重新 include 入口脚本，和 php-fpm 一样。代码不需要更改。
+任何应用都可以使用 Classic 模式。Rapira 与 php-fpm 一样，为每个请求加载入口脚本。代码不需要更改。
 
 新建 `public/index.php`：
 
@@ -20,13 +21,13 @@ echo "Hello, " . ($_GET['name'] ?? 'anonymous') . "!\n";
 echo "Method: {$_SERVER['REQUEST_METHOD']}\n";
 ```
 
-启动服务器。模式由 `--mode classic` 参数选定，后面的位置参数就是入口脚本：
+启动服务器。`--mode classic` 参数选择模式。位置参数指定入口脚本：
 
 ```bash
 rapira serve --mode classic public/index.php
 ```
 
-不另行指定的话，Rapira 监听 `127.0.0.1:8000`。换一个终端：
+Rapira 默认监听 `127.0.0.1:8000`。从另一个终端发送请求：
 
 ```bash
 curl '127.0.0.1:8000/?name=world'
@@ -37,11 +38,14 @@ Hello, world!
 Method: GET
 ```
 
-请求之间进程并没有被丢掉--Rapira 只 fork 一次 worker，每个 worker 里都常驻着一个启动好的 PHP 解释器。被丢掉的是脚本自己的状态：变量、自动加载器、框架搭起来的那一整套。
+worker 进程在请求之间保持运行。Rapira 创建一次 worker，并在每个 worker 中保留已初始化的 PHP 解释器。
+Classic 模式在每个请求后删除脚本状态。此状态包括变量、自动加载器和框架对象。
 
 ## Worker 模式
 
-Worker 模式会让脚本一直活着：它只启动一次，随后在循环里不断向 Rapira 要下一个请求；Rapira 重新填好超全局变量，再调用你的处理函数。PHP 代码的模样还是熟悉的那套--照样读 `$_GET`，照样 `echo` 出响应--区别在于启动工作每个进程只做一次，而不是每个请求都做一次。详见[执行模式](/zh/docs/execution-modes)。
+Worker 模式使脚本保持运行。脚本初始化一次，然后在循环中等待请求。
+Rapira 填充超全局变量并调用处理函数。PHP 可以读取 `$_GET` 并使用 `echo` 创建响应。
+应用在每个进程中初始化一次。请参阅[执行模式](/zh/docs/execution-modes)。
 
 在项目根目录新建 `worker.php`：
 
@@ -63,11 +67,15 @@ while (\Rapira\handle_request($handler)) {
 }
 ```
 
-`\Rapira\handle_request()` 会一直阻塞到下一个任务到来，把它交给你的回调，然后返回 `true`；worker 开始排空时它返回 `false`，循环也就到此为止。回调读超全局变量，再用 `echo` 和 `header()` 作答。`\Rapira\handle_request()` 只能在启动脚本的顶层调用，在别的模式下它会抛出 `Rapira\Exception\NotInWorkerModeError`。
+`\Rapira\handle_request()` 等待下一个请求。此函数调用处理函数并返回 `true`。
+worker 停止时，此函数返回 `false` 并结束循环。处理函数读取超全局变量，并使用 `echo` 和 `header()` 创建响应。
+只能从顶层循环调用 `\Rapira\handle_request()`。此函数在其他模式下抛出 `Rapira\Exception\NotInWorkerModeError`。
 
-`\Rapira\handle_request()` 来自 Rapira 启动解释器时注册的那个 PHP 模块，所以上面这段脚本不用自动加载器也能跑。带有 Composer 依赖的应用会在进入循环之前加载自己的 `vendor/autoload.php`。
+Rapira 的 PHP 模块提供 `\Rapira\handle_request()`。因此，此示例不需要自动加载器。
+使用 Composer 依赖的应用必须在循环前加载 `vendor/autoload.php`。
 
-先在 Classic 那个服务器的终端里按 `Ctrl-C` 把它停掉，因为两者都要监听 `127.0.0.1:8000`。默认模式是 Dispatcher，所以 Worker 模式需要加上 `--mode worker` 参数：
+使用 `Ctrl-C` 停止 Classic 服务器。两个服务器都使用 `127.0.0.1:8000`。
+Dispatcher 是默认模式。使用 `--mode worker` 参数选择 Worker 模式：
 
 ```bash
 rapira serve --mode worker worker.php
@@ -77,19 +85,26 @@ rapira serve --mode worker worker.php
 curl '127.0.0.1:8000/?name=world'
 ```
 
-多跑几次这条 `curl`，计数会不断增加，因为请求始终由同一个进程处理。默认情况下 Rapira 会为每个逻辑 CPU fork 一个 worker，请求落到哪个 worker 上由内核决定。每个 worker 各记各的数，输出里的 pid 会告诉你这次是谁应答的。想让计数保持为一条连续的序列，就用 `rapira serve --mode worker --processes 1 worker.php` 启动服务器。进程池是怎么被管起来的，见[进程模型](/zh/docs/process-model)。
+多次运行 `curl` 命令。计数器会增加，因为同一进程处理多个请求。
+Rapira 默认为每个逻辑 CPU 创建一个 worker。操作系统为每个连接选择 worker。
+每个 worker 有独立的计数器。响应中的进程标识符显示处理请求的 worker。
+使用 `rapira serve --mode worker --processes 1 worker.php` 创建一个 worker。请参阅[进程模型](/zh/docs/process-model)。
 
-在 `while` 循环之前搭好的一切，都会在 worker 的整个生命周期里留在内存中：Composer 自动加载器、DI 容器、数据库和缓存连接、编译好的路由和模板--这些都只在启动时构建一次，而不是每个请求都重建一遍。每轮循环真正重新产生的，只有属于单个请求的那部分状态。
+在 `while` 循环前创建的对象会在 worker 生命周期内保留。
+这些对象包括 Composer 自动加载器、容器、连接、路由和模板。Rapira 只初始化一次此状态。
+每次迭代只创建新的请求状态。
 
 ::: warning
-在请求之间存活下来的状态，必须由 worker 脚本自己重置。上一个请求留下的静态属性、全局变量、没结束的事务，下一个请求照样看得见。该盯住哪些地方、怎么让 worker 保持干净，都在 [Worker 模式](/zh/docs/worker)里。
+worker 脚本必须重置保留在内存中的请求状态。
+此状态包括静态属性、全局值和未结束的事务。请参阅 [Worker 模式](/zh/docs/worker)。
 :::
 
-处理函数里照常可以用这些函数：`header()`、`http_response_code()`、`echo`，再加上 `rapira_finish_request()`--它能提前把响应刷出去，然后接着干剩下的活。详见 [HTTP](/zh/docs/http)。
+处理函数可以使用 `header()`、`http_response_code()` 和 `echo`。
+`rapira_finish_request()` 在处理函数结束前发送响应。请参阅 [HTTP](/zh/docs/http)。
 
 ## 配置文件
 
-设置可以写进 `rapira.toml` 文件，而不必放在命令行上。在代码旁边放一个文件，起步已经够用：
+将设置存入 `rapira.toml`，而不是命令行。在应用旁创建此文件：
 
 ```toml
 [http]
@@ -106,14 +121,18 @@ rapira serve --config rapira.toml
 ```
 
 ::: info
-`pool.entrypoint` 写成相对路径时，是相对配置文件所在的目录解析的，所以不管你在哪个目录下执行，同一份文件都能用。命令行参数的优先级仍然高于文件--`rapira serve --config rapira.toml --processes 1` 会保留其余设置，只 fork 一个 worker。
+相对 `pool.entrypoint` 以配置文件目录为基准。当前目录不会影响此路径。
+命令行参数覆盖文件值。例如，`--processes 1` 只更改 worker 数量。
 :::
 
-文件还接受进程池的伸缩模式、worker 回收、请求超时、日志以及 supervisor 的 pidfile。不认识的键会被直接拒绝而不是忽略，所以拼错一个字母会让启动失败，而不是悄无声息地不起作用。完整的参考见[配置](/zh/docs/configuration)，命令行参数见[命令行](/zh/docs/cli)。
+此文件还控制进程池伸缩、worker 替换、请求超时、日志和 pidfile。
+未知键会阻止服务器启动。请参阅[配置](/zh/docs/configuration)和[命令行](/zh/docs/cli)。
 
 ## 停止服务器
 
-按下 `Ctrl-C`，Rapira 会开始收尾：不再接新的活，让已经在处理的请求跑完，关掉扩展，然后退出。再按一次 `Ctrl-C` 会跳过等待，直接强制退出，卡住的请求因此不会一直占着服务器。`SIGTERM` 的行为完全一样，服务管理器发起的重启因此天然就是优雅的。完整的信号对照表，包括如何在不断开连接的前提下重载，都在[进程模型](/zh/docs/process-model)里。
+按 `Ctrl-C` 开始受控停止。Rapira 停止接受新工作，完成当前请求，关闭扩展，然后退出。
+再次按 `Ctrl-C` 强制退出。`SIGTERM` 的行为相同。
+完整的信号表见[进程模型](/zh/docs/process-model)。
 
 ## 下一步
 

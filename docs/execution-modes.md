@@ -6,7 +6,7 @@ faqLevel: 2
 
 # Execution modes
 
-Rapira runs PHP in one of three execution modes. All three ship today.
+Rapira runs PHP in one of three execution modes. All three modes are available.
 
 | Mode | Status | Description |
 | --- | --- | --- |
@@ -52,7 +52,7 @@ The application can pass the request object to functions or middleware. Rapira d
 An application that reads superglobals needs Worker mode. Alternatively, an adapter can copy request data to the required variables.
 The `pool.mode` key or `--mode` flag selects the mode.
 
-The script controls the number of active work units. A simple loop handles one unit at a time.
+The script controls the number of active work units. A sequential loop handles one unit at a time.
 It calls `receive()`, answers the request, and calls `receive()` again.
 A concurrent script starts a [Fiber](https://www.php.net/manual/en/language.fibers.php) for each request. It calls `tryReceive()` while fibers are active.
 When no fiber is active, the loop waits in `receive()`. This design keeps several requests active in one interpreter.

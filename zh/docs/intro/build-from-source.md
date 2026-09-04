@@ -16,18 +16,20 @@ Rapira 可以在 Linux 和 macOS 上从源码构建。[安装](/zh/docs/intro/in
 
 ## 工具链
 
-除了常规的编译工具，还需要三样东西：
+构建需要以下工具：
 
-- **Rust，stable 通道。**仓库里的 `rust-toolchain.toml` 已经把版本钉死，[rustup](https://rustup.rs/) 会自己选中正确的工具链。
-- **一个 C 编译器和 `pkg-config`。**构建里有一部分是 C：几个对着 PHP 头文件编译的小垫片。
-- **libclang**，因为到 Zend API 的绑定是构建时由 bindgen 生成的。这个包在 Debian/Ubuntu 上叫 `libclang-dev`，Fedora 上叫 `clang-devel`，Arch 上叫 `clang`。
+- **Rust 稳定通道。**`rust-toolchain.toml` 文件通过 [rustup](https://rustup.rs/) 选择版本。
+- **C 编译器和 `pkg-config`。**构建会使用 PHP 头文件编译小型 C 适配器。
+- **libclang。**Bindgen 使用它创建 Zend API 绑定。Debian 和 Ubuntu 的软件包名为 `libclang-dev`，Fedora 为 `clang-devel`，Arch 为 `clang`。
 
 ## 带 embed SAPI 的 PHP
 
-Rapira 把解释器直接链接进自己的进程，而不是通过 socket 与它通信，因此 PHP 必须以共享库的形式存在：**8.4 或 8.5 版本，NTS（非线程安全），并且用 `--enable-embed=shared` 配置**--正是这个开关产出了 `libphp.so`（macOS 上是 `libphp.dylib`）。
+Rapira 将解释器链接到其进程中，不使用 socket。PHP 必须是 8.4 或 8.5 版本的 NTS 共享库。
+使用 `--enable-embed=shared` 配置 PHP。此选项创建 `libphp.so`，在 macOS 上创建 `libphp.dylib`。
 
 ::: warning ZTS 构建会被拒绝
-线程安全（ZTS）的 PHP 会让构建带着明确的错误停下来--Rapira 只支持 NTS，因为它给每个 worker 进程配一个解释器。如果 `PATH` 上的 PHP 是 ZTS 构建，就装一个 NTS 的，再把 `PHP_CONFIG` 指向它（见下文）。
+线程安全 PHP 会导致构建错误。Rapira 要求使用 NTS，因为每个 worker 进程运行一个解释器。
+如果 `PATH` 选择 ZTS 构建，请安装 NTS PHP。将 `PHP_CONFIG` 设为其 `php-config` 路径。
 :::
 
 有几个发行版已经把 embed SAPI 打好包了：
@@ -40,14 +42,15 @@ sudo apk add php84-dev php84-embed            # Alpine
 ```
 
 ::: warning macOS 没有现成的 embed SAPI 包
-Homebrew 的 `php` formula 在编译时没带上它，也就没有东西可供链接。在 macOS 上请自己从源码编译 PHP。
+Homebrew 的 `php` formula 不包含 embed SAPI。请在 macOS 上从源代码构建 PHP。
 :::
 
-### 自己编译 PHP
+### 从源代码构建 PHP
 
-如果你的发行版没有 embed 包、你在 macOS 上，或者现成的包里缺少应用需要的扩展，就自己编译 PHP。
+如果没有 embed 软件包，请构建 PHP。软件包缺少所需扩展时，也请构建 PHP。
 
-仓库里的 `ci/php-configure-flags.txt` 就是参考用的 configure 参数，官方发布的构建用的也是这一份。解开 PHP 源码后把它喂给 `configure`，再补上你的应用需要的扩展：
+`ci/php-configure-flags.txt` 文件包含发布构建的选项。在解压的 PHP 源代码目录中将此文件传给 `configure`。
+添加所需扩展的选项：
 
 ```bash
 ./configure --prefix="$HOME/.local/php-nts" $(tr '\n' ' ' < /path/to/rapira/ci/php-configure-flags.txt)

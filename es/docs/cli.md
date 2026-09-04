@@ -11,21 +11,25 @@ Rapira es un único binario con un solo subcomando:
 rapira serve [OPTIONS] [SCRIPT]
 ```
 
-`serve` es lo que arranca el servidor: pone en marcha PHP, registra las extensiones incorporadas y empieza a atender peticiones. Si ejecutas `rapira` a secas, sin argumentos, verás la ayuda y nada más; `rapira serve --help` te lista desde el propio binario las opciones que vienen a continuación, y `rapira --version` te dice qué versión tienes instalada.
+El comando `serve` inicia PHP, registra las extensiones incorporadas y acepta peticiones.
+Ejecuta `rapira` sin argumentos para mostrar la ayuda. Ejecuta `rapira serve --help` para mostrar las opciones disponibles.
+Ejecuta `rapira --version` para mostrar la versión instalada.
 
-El archivo de configuración es opcional: un solo comando con la ruta de un script ya es un servidor completo y en marcha, y el archivo está ahí para cuando las opciones de línea de comandos no bastan.
+El archivo de configuración es opcional. Un comando con la ruta del script inicia el servidor con los ajustes predeterminados.
 
-## Cómo se superponen los ajustes
+## Prioridad de los ajustes
 
-Cada ajuste se resuelve consultando hasta tres capas, siempre en este orden:
+Rapira lee los ajustes en este orden:
 
 **Opciones de línea de comandos > archivo de configuración > valores por defecto.**
 
-Solo las cuatro opciones de la tabla de abajo y el argumento `SCRIPT` tienen forma de línea de comandos; todo lo demás sale del archivo o del valor por defecto.
+Solo las cuatro opciones de la tabla y el argumento `SCRIPT` tienen formas de línea de comandos. Los demás ajustes usan el archivo o su valor predeterminado.
 
-Así que una opción siempre gana al mismo valor puesto en `rapira.toml`, y `rapira.toml` siempre gana al valor por defecto. Ese orden te permite dejar la configuración estable en el archivo y cambiar un único valor desde la línea de comandos para una ejecución suelta -otro puerto mientras pruebas, más workers en una máquina más grande- sin editar nada.
+Una opción sustituye el valor correspondiente de `rapira.toml`. Un valor de `rapira.toml` sustituye el valor predeterminado.
+Este orden permite usar un valor temporal durante una ejecución. Por ejemplo, prueba otro puerto sin editar el archivo.
 
-Todo lo que no toques por ninguna de las dos vías cae en los valores por defecto de la tabla de abajo. Los ajustes que las opciones no exponen -escalado del pool, registros, límites de las peticiones- salen del archivo, y la lista completa de lo que cabe en un archivo de configuración está en [Configuración](/es/docs/configuration).
+Las opciones sin definir usan los valores predeterminados de la tabla. El archivo controla el escalado del pool, los registros y los límites de petición.
+Consulta [Configuración](/es/docs/configuration) para ver todos los ajustes del archivo.
 
 ## Opciones
 
@@ -39,9 +43,15 @@ Todo lo que no toques por ninguna de las dos vías cae en los valores por defect
 
 \* Obligatorio salvo que el archivo de configuración defina `pool.entrypoint`. Si no hay ninguno de los dos, `serve` informa del error y no arranca.
 
-**`--listen`** admite tres formas. `127.0.0.1:8000`, la de por defecto, escucha en una sola interfaz -solo loopback-, así que nada de fuera de la máquina puede alcanzarla. `:8080` es la forma corta de `0.0.0.0:8080`: todas las interfaces IPv4, que es lo habitual dentro de un contenedor; para IPv6 escribe `[::]:8080`. `unix:/run/rapira.sock` abre un socket Unix en lugar de un puerto, pensado para un proxy inverso en la misma máquina. Los literales IPv6 van entre corchetes: `[::1]:8000`. Un puerto a secas *no* es una dirección y se rechaza, porque no dice si hay que escuchar solo en loopback o en todas las interfaces: `--listen 8080` da error, escribe `--listen :8080` o `--listen 127.0.0.1:8080`. Y el host tiene que ser un literal IP, porque los nombres no se resuelven nunca: `--listen localhost:8000` también da error; escribe `--listen 127.0.0.1:8000`.
+**`--listen`** acepta tres formatos. `127.0.0.1:8000` enlaza la interfaz de loopback.
+Los sistemas remotos no pueden conectarse a esta dirección. `:8080` equivale a `0.0.0.0:8080` y enlaza todas las interfaces IPv4.
+Usa `[::]:8080` para todas las interfaces IPv6. `unix:/run/rapira.sock` crea un socket Unix para un proxy inverso local.
+Escribe los literales IPv6 entre corchetes, como `[::1]:8000`.
+Rapira rechaza un puerto sin dirección. Usa `--listen :8080` o `--listen 127.0.0.1:8080`.
+Rapira no resuelve nombres de host en esta opción. Usa `127.0.0.1:8000` en lugar de `localhost:8000`.
 
-**`--processes`** vale por defecto el número de CPU lógicas. Con el `pool.scaling = "static"` de fábrica, ese es exactamente el número de procesos worker que se crean con fork; si el archivo de configuración pone `pool.scaling` en `dynamic` o en `ondemand`, ese mismo número se convierte en el techo hasta el que escalan esas políticas. Qué hacen en realidad los workers y el proceso maestro lo tienes en [Modelo de procesos](/es/docs/process-model).
+**`--processes`** usa de forma predeterminada el número de CPU lógicas. El escalado estático lo usa como número exacto de workers.
+El escalado dinámico y `ondemand` lo usan como número máximo. Consulta [Modelo de procesos](/es/docs/process-model).
 
 **`--mode`** elige el modo en el que corre la aplicación. `dispatcher` es el valor por defecto: un script residente le va pidiendo cada petición al host. `worker` mantiene residente el script de entrada y ejecuta un handler por cada petición. `classic` ejecuta el script de entrada desde cero en cada petición, igual que haría php-fpm. La opción lleva valor, así que puede elegir cualquiera de los tres modos diga lo que diga el archivo de configuración. Tienes más información en [Modo Classic](/es/docs/classic), [Modo Worker](/es/docs/worker) y [Modos de ejecución](/es/docs/execution-modes).
 
@@ -79,7 +89,8 @@ rapira serve --config /etc/rapira/rapira.toml
 rapira serve --config /etc/rapira/rapira.toml --listen 127.0.0.1:9000
 ```
 
-El primer comando no lleva `--listen`, así que el servidor levanta en la dirección por defecto. Con una línea más ya le mandas una petición.
+El primer comando no establece `--listen`. Por tanto, el servidor usa la dirección predeterminada.
+Envía una petición con este comando:
 
 ```bash
 curl http://127.0.0.1:8000/
@@ -89,4 +100,6 @@ En [Inicio rápido](/es/docs/intro/quickstart) tienes los scripts de entrada de 
 
 ## Parar el servidor
 
-El primer `SIGINT` o `SIGTERM` -un `Ctrl-C` en la terminal, o lo que mande tu sistema de init- deja terminar las peticiones en curso y apaga las extensiones de forma limpia; el segundo renuncia a esperar y fuerza la salida. Las señales van al proceso maestro, y la tabla completa, recargas incluidas, está en [Modelo de procesos](/es/docs/process-model).
+El primer `SIGINT` o `SIGTERM` permite terminar las peticiones actuales. Después, el servidor cierra las extensiones y termina.
+Una segunda señal detiene la espera y fuerza la salida. Envía las señales al proceso maestro.
+Consulta la tabla completa en [Modelo de procesos](/es/docs/process-model).

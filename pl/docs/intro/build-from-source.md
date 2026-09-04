@@ -16,18 +16,20 @@ Rapira kompiluje się ze źródeł na Linuksie i macOS. Samodzielne budowanie po
 
 ## Zestaw narzędzi
 
-Poza zwykłym wyposażeniem do kompilacji potrzebujesz trzech rzeczy:
+Budowanie wymaga następujących narzędzi:
 
-- **Rusta z kanału stable.** Wersję przypina `rust-toolchain.toml` w repozytorium, więc [rustup](https://rustup.rs/) sam wybiera właściwy zestaw narzędzi.
-- **Kompilatora C i `pkg-config`.** Część tego, co się buduje, to kod C: drobne warstwy pośrednie kompilowane na nagłówkach PHP.
-- **libclang**, ponieważ powiązania z Zend API generuje w trakcie budowania bindgen. Pakiet nazywa się `libclang-dev` na Debianie i Ubuntu, `clang-devel` na Fedorze, `clang` na Archu.
+- **Rusta z kanału stable.** Plik `rust-toolchain.toml` wybiera wersję przez [rustup](https://rustup.rs/).
+- **Kompilatora C i `pkg-config`.** Proces budowania kompiluje małe adaptery C z nagłówkami PHP.
+- **libclang.** Bindgen używa go do tworzenia powiązań Zend API. Pakiet nazywa się `libclang-dev` na Debianie i Ubuntu, `clang-devel` na Fedorze oraz `clang` na Archu.
 
 ## PHP z SAPI embed
 
-Rapira linkuje interpreter do własnego procesu, zamiast sięgać po niego przez gniazdo, więc PHP musi istnieć jako biblioteka współdzielona: **w wersji 8.4 lub 8.5, NTS (non-thread-safe), skonfigurowanej z `--enable-embed=shared`** - to właśnie ta flaga daje `libphp.so` (na macOS `libphp.dylib`).
+Rapira linkuje interpreter ze swoim procesem i nie używa gniazda. PHP musi być biblioteką współdzieloną NTS w wersji 8.4 lub 8.5.
+Skonfiguruj PHP z `--enable-embed=shared`. Ta opcja tworzy `libphp.so`, a na macOS `libphp.dylib`.
 
 ::: warning Wersje ZTS są odrzucane
-PHP zbudowane jako thread-safe (ZTS) przerywa budowanie jawnym błędem - Rapira działa wyłącznie z NTS, bo uruchamia jeden interpreter na proces workera. Jeśli PHP z twojego `PATH` jest wersją ZTS, zainstaluj NTS i wskaż ją przez `PHP_CONFIG` (patrz niżej).
+PHP zbudowane jako thread-safe powoduje błąd budowania. Rapira wymaga NTS, ponieważ każdy proces workera uruchamia jeden interpreter.
+Jeśli `PATH` wybiera wersję ZTS, zainstaluj PHP NTS. Ustaw `PHP_CONFIG` na ścieżkę do jego `php-config`.
 :::
 
 Kilka dystrybucji ma SAPI embed gotowe w pakietach:
@@ -40,14 +42,15 @@ sudo apk add php84-dev php84-embed            # Alpine
 ```
 
 ::: warning Na macOS nie ma gotowego pakietu z SAPI embed
-Formuła `php` z Homebrew powstaje bez niego, więc nie ma z czym linkować. Na macOS zbuduj PHP ze źródeł.
+Formuła `php` z Homebrew nie zawiera SAPI embed. Na macOS zbuduj PHP ze źródeł.
 :::
 
-### Samodzielna kompilacja PHP
+### Budowanie PHP ze źródeł
 
-Skompiluj PHP samodzielnie, gdy twoja dystrybucja nie ma pakietu embed, gdy pracujesz na macOS albo gdy w gotowym pakiecie brakuje rozszerzeń, których potrzebuje twoja aplikacja.
+Zbuduj PHP, gdy pakiet embed jest niedostępny. Zbuduj je także wtedy, gdy pakiet nie zawiera wymaganych rozszerzeń.
 
-Plik `ci/php-configure-flags.txt` w repozytorium to wzorcowa linia `configure` - dokładnie ta sama lista, z której powstają wydania. Podaj ją `configure` w rozpakowanym drzewie źródeł PHP i dopisz rozszerzenia, których potrzebuje twoja aplikacja:
+Plik `ci/php-configure-flags.txt` zawiera opcje używane w wydaniach. Przekaż go do `configure` w rozpakowanym katalogu źródeł PHP.
+Dodaj opcje wymaganych rozszerzeń:
 
 ```bash
 ./configure --prefix="$HOME/.local/php-nts" $(tr '\n' ' ' < /path/to/rapira/ci/php-configure-flags.txt)

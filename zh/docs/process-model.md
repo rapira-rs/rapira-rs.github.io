@@ -43,18 +43,29 @@ master 还在整个生命周期里持有 PHP 模块，也只有它会去关闭�
 
 ## 监管
 
-进程池起来之后，master 大约每秒跑一次维护 tick，同时随时对子进程的退出做出反应。
+进程池初始化后，master 大约每秒执行一次维护。worker 退出时，master 也会立即处理。
 
-- **清理并补位。** 干净退出的 worker（排空了请求，或者用满配额被回收）会立刻被换上新的（`ondemand` 下则干脆把槽位空着，等下一条连接来填）。而*崩溃*退出的 worker 要等一段退避时间才补：起步 100 ms，每连着快速崩溃一次就翻倍，上限约 25 秒--于是段错误循环会自己降下速来，而不是把 CPU 空转满。活够十秒就把这个连崩计数清零。
-- **启动失败。** 如果进程池连一个成功的请求都还没服务过，第一代里就有 worker 报告自己不健康，master 会认定这是不可恢复的启动失败并退出，而不是没完没了地重启一个坏掉的入口脚本。等进程池服务过东西以后，同样的退出就只是一次带退避的补位--一次糟糕的重载绝不会把健康的进程池拖垮。
-- **worker 回收。** 设了 `pool.max_requests`，worker 处理够这么多请求就退役，并马上被换掉。每个 worker 还会在配额之上拿到一个各自随机的增量（最多为配额的一半），这样一批同时起来的 worker 就不会齐刷刷一起回收，否则会有那么一瞬间连一个热 worker 都没有。
-- **盯住单个请求的看门狗。** 设了 `pool.request_terminate_timeout_secs`，某个 worker 在同一个请求上耗过这个墙钟上限，就会收到 `SIGTERM`；如果下一个 tick 它还在，再补一发 `SIGKILL`。这次强制终止会以 `warn` 级别记进日志，它排队的连接随之关闭，槽位立刻补上新的 worker。停止或重载进行期间，这个看门狗是挂起的。
-- **伸缩。** `dynamic` 下，同一个 tick 还负责决定是多 fork 几个 worker 还是退掉几个空闲的；`ondemand` 下它只退掉空闲超时的 worker--那里 fork 是由到来的连接触发的。详见下文。
-- **反方向的一根管道。** 每个 worker 都握着一根管道的读端，而 master 永远不往里写。master 一死，管道就 EOF，每个 worker 随即自行排空退出--所以对 master 来一发 `kill -9`，也不会留下孤儿 worker 占着端口。
+- **替换 worker。** worker 正常退出后，master 会立即替换它。
+- 使用 `ondemand` 时，master 会等待下一个连接，然后创建替换 worker。
+- 发生故障后，替换延迟从 100 ms 开始。每次连续故障后延迟翻倍，最大约为 25 秒。
+- worker 运行至少十秒会重置延迟。
+- **初始化故障。**如果所有初始 worker 都在进程池处理请求之前失败，master 会退出。
+- 进程池处理请求后，master 使用正常替换延迟。失败的重载不会停止现有 worker。
+- **请求限制。**使用 `pool.max_requests` 时，worker 在达到请求限制后退出。然后 master 会替换它。
+- Rapira 会添加最多为限制一半的随机值。这样可以避免同时替换 worker。
+- **请求超时。**使用 `pool.request_terminate_timeout_secs` 时，请求超过限制后，master 会发送 `SIGTERM`。
+- 如果 worker 在下一个维护周期后仍活动，master 会发送 `SIGKILL`。它会关闭排队连接并创建替换 worker。
+- master 不会在停止或重载期间应用此超时。
+- **伸缩。**使用 `dynamic` 时，维护过程可以创建 worker 或删除空闲 worker。
+- 使用 `ondemand` 时，维护过程会在空闲超时后删除 worker。新连接会触发创建 worker。
+- **master 监控。**每个 worker 从 master 保持打开的管道中读取。
+- 如果 master 退出，管道返回 EOF，每个 worker 都会停止接受工作。master 故障不会留下不受管理的 worker。
 
 ## 进程池伸缩
 
-`pool.scaling` 决定进程池怎么给自己定规模。它和设定 worker 内部执行模式的 `pool.mode` 是两个不同的键。三种伸缩策略下真正说了算的都是 `pool.processes`：在 `static` 下它是准确的进程数，在另外两种下是上限，默认值为每个逻辑 CPU 一个 worker。
+`pool.scaling` 选择进程池如何更改大小。它与 `pool.mode` 不同。
+`pool.mode` 设置 worker 内的执行模式。使用 `static` 时，`pool.processes` 是准确数量。
+使用 `dynamic` 和 `ondemand` 时，它是最大数量。默认值为每个逻辑 CPU 一个 worker。
 
 | 伸缩策略 | 有多少个 worker | 生效的键 |
 | --- | --- | --- |
@@ -62,9 +73,13 @@ master 还在整个生命周期里持有 PHP 模块，也只有它会去关闭�
 | `dynamic` | 需求要多少就多少，上限是 `pool.processes`；master 把*空闲*数量控制在备用区间之内。 | `min_spare`, `max_spare` |
 | `ondemand` | 启动时一个都不 fork；随流量到来而 fork，上限是 `pool.processes`。 | `process_idle_timeout_secs` |
 
-**`static`** 适合大多数部署：内存占用是平的，worker 死了直接换一个。PHP 是同步的，一个 worker 同时只处理一个请求：如果请求的大部分时间都花在等数据库或上游 API 上，通常需要比核数更多的 worker；CPU 密集型的则很少需要。
+**`static`** 适合大多数部署。它使用固定数量的 worker，并替换已退出的 worker。
+PHP 是同步的，因此每个 worker 一次处理一个请求。I/O 密集型应用可能需要比 CPU 更多的 worker。
+CPU 密集型应用通常不需要。
 
-**`dynamic`** 把*空闲* worker 的数量控制在一个区间里。每个 tick 上，空闲数少于 `min_spare` 就多 fork 几个（压力持续时每批 fork 的数量还会翻倍，于是流量突增能被很快接住，而不是一秒才补一个）；空闲数多于 `max_spare` 就退掉最老的那个空闲 worker。起步时它取区间的中点；撞到 `pool.processes` 上限却还想要更多时，会告警一次。
+**`dynamic`** 将空闲 worker 数量保持在两个限制之间。数量低于 `min_spare` 时，它会创建 worker。
+连续维护周期的容量不足时，新 worker 数量会翻倍。数量超过 `max_spare` 时，它会删除最早的空闲 worker。
+初始数量是两个限制的中间值。需求超过 `pool.processes` 时，Rapira 会记录一次警告。
 
 ```toml
 [pool]
@@ -76,7 +91,10 @@ max_spare = 3
 
 这几个边界必须满足 `1 <= min_spare <= max_spare <= processes`；它们在 `dynamic` 下是必填的，在另外两种策略下则会被拒绝。写错地方是配置错误，而不是一个被悄悄忽略的键。
 
-**`ondemand`** 启动时什么都不 fork。这时改由 master 自己盯着监听套接字：连接来了却没有空闲 worker 接手，它就 fork 一个，让子进程去 accept。空闲时间超过 `pool.process_idle_timeout_secs` 的 worker 会被再次退掉。这样一来空闲的进程池不占用任何资源，但安静一阵之后的第一个请求要等一次 fork。预发布环境和访问稀少的站点用 `ondemand`，稳定流量下用另外两种策略之一。
+**`ondemand`** 在启动时不创建 worker。master 监视监听套接字。
+连接到达且没有空闲 worker 时，master 会创建一个。worker 空闲超过 `pool.process_idle_timeout_secs` 后会退出。
+空进程池的第一个请求会等待创建 worker。将 `ondemand` 用于测试环境和低流量站点。
+将其他策略用于稳定流量。
 
 完整的键参考在[配置](/zh/docs/configuration)那一页。
 
@@ -101,29 +119,40 @@ kill -TERM $(cat /run/rapira.pid)   # Stop after current requests finish.
 ```
 
 ::: warning
-信号只发给 master，永远别发给某一个 worker。worker 会直接无视 `SIGUSR1` 和 `SIGUSR2`，而且把 `SIGTERM` 当成立即终止--请求看门狗要让一个请求*马上*结束时，用的就是它。直接给 worker 发信号，会绕过本页所描述的监管。
+仅向 master 发送信号。worker 会忽略 `SIGUSR1` 和 `SIGUSR2`。
+worker 将 `SIGTERM` 作为立即终止。请求超时使用此信号。
+直接向 worker 发送信号会绕过 master 监管。
 :::
 
 ### 停止
 
-不管由三个信号里的哪一个发起，停止都从优雅开始：master 给每个 worker 发 `SIGQUIT`，worker 随即不再接新活，把手上的做完。之后的升级按计时进行--`supervisor.process_control_timeout_secs`（默认 30 秒）就是这段宽限期，过了之后还剩下的 worker 会收到 `SIGTERM`，要是连这个都不管用，再补 `SIGKILL`。对优雅的 `SIGQUIT` 没有反应的 worker，会先收到 TERM 再收到 KILL，而不是被无休止地等下去。
+对于每个停止信号，master 首先向所有 worker 发送 `SIGQUIT`。worker 停止接受工作并完成当前请求。
+经过 `supervisor.process_control_timeout_secs` 后，master 向剩余 worker 发送 `SIGTERM`。默认值为 30 秒。
+如有必要，master 会在另一个相同时间段后发送 `SIGKILL`。
 
 第二个 `SIGTERM` 或 `SIGINT` 会跳过等待，立刻强制退出。
 
 ### 滚动重载
 
-`SIGUSR2`（或者 `SIGHUP`）会把整个进程池换成一批全新的 worker--常驻 worker 里那个已经启动好的应用，就是这样被丢掉、再照着部署上去的代码重新搭起来的。
+`SIGUSR2` 或 `SIGHUP` 会替换整个进程池。每个新 worker 使用部署的代码初始化应用。
 
-Classic 模式下，入口脚本每个请求都从头执行一遍，没有常驻的东西需要替换，所以新代码不重载也能生效。要是你设了 `opcache.validate_timestamps = 0`，master 里的那份 OPcache 段会一直返回旧的 opcode，直到完整重启。Worker 模式和 Dispatcher 模式下，应用只启动一次并一直待在内存里，所以部署上去的代码要等一次滚动重载才生效，把它写进部署流程的一步。更多内容见[部署](/zh/docs/deployment)。
+在 Classic 模式下，入口脚本在新的 PHP 请求中执行。新代码无需重载即可生效。
+但是，`opcache.validate_timestamps = 0` 需要完整重启。
+Worker 和 Dispatcher 保留已初始化的应用。在这些模式下，每次部署后都要重载进程池。
+请参阅[部署](/zh/docs/deployment)。
 
-重载期间服务能力一刻也不会掉下去，因为它是叠着来的，而不是先停后起：master 先起一个新 worker，等它真的开始 accept 了，才去排空一个旧 worker。旧的走掉之后，它的槽位交给下一个新 worker，就这样一路把这一代换完。每次排空走的都是和停止时一样的 `SIGQUIT` → `SIGTERM` → `SIGKILL` 升级流程，受同一个控制超时约束，只不过作用在那一个 worker 身上。
+重载不会降低容量，因为 worker 替换会重叠。主进程启动一个新 worker，并等待它接受连接。
+然后主进程停止一个旧 worker。该 worker 结束后，主进程在下一个位置启动新 worker。
+每次停止都使用 `SIGQUIT` → `SIGTERM` → `SIGKILL`。相同的控制超时适用于每个 worker。
 
-就算某个顶上来的 worker 迟迟不开始服务，重载也不会卡住：控制超时一到，master 记一条告警，照样接着换下一个。`ondemand` 下则根本不会预先 fork 顶替者--旧 worker 一个个排空，新的交给需求去 fork。
+新 worker 不接受连接时，重载仍会继续。控制超时后，主进程记录警告并继续。
+在 `ondemand` 模式下，主进程逐个删除旧 worker。新连接会创建替代 worker。
 
 停止已经在进行时收到的重载会被忽略：停止永远优先。
 
 ::: info
-重载换的是 worker，不是 master。新 worker 仍然由同一个 master 进程 fork 出来，带的也还是它启动时装好的那份引擎映像--所以 `rapira.toml`、`php.ini` 和二进制本身，只有完整重启才会换。
+重载会替换 worker，但不会替换主进程。新 worker 使用相同的引擎映像。
+更改 `rapira.toml`、`php.ini` 和二进制文件需要完整重启。
 :::
 
 ### 状态快照

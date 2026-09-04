@@ -219,5 +219,5 @@ The positional `SCRIPT` argument uses the current directory as the base for a re
 
 ::: tip
 Keep `rapira.toml` inside the application. Write its paths relative to the file.
-You can then move the application directory without changing the paths.
+This layout permits application directory changes without path changes.
 :::

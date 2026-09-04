@@ -137,7 +137,7 @@ In `prod`, the first request compiles container and service files. PHP clears `$
 In `dev`, the container resolves and caches environment values during `$kernel->boot()`. PHP clears `$_ENV` after this resolution.
 The reset occurs in both environments, but only `prod` uses the cleared value.
 
-The fix is the one line in the script above:
+Use this call:
 
 ```php
 (new Dotenv())->usePutenv()->bootEnv(__DIR__ . '/.env');
@@ -147,13 +147,13 @@ The fix is the one line in the script above:
 Symfony `EnvVarProcessor` can also read them with `getenv()`.
 Rapira runs one NTS PHP interpreter in each process. Therefore, concurrent PHP threads do not call `putenv()`.
 
-In production, you can set environment variables through systemd, the container runtime, or the orchestrator.
+In production, set environment variables through systemd, the container runtime, or the orchestrator.
 Use `.env` only for development. Both methods prevent a request from removing the values.
 
 This behavior applies to each persistent PHP runtime that reads `$_ENV` during a request.
 See [Frameworks](/docs/frameworks/) for this and other persistent process behaviors.
 
-## Running it
+## Starting Rapira
 
 ```bash
 rapira serve --mode worker worker.php
@@ -161,7 +161,7 @@ curl -i http://127.0.0.1:8000/
 ```
 
 `--mode worker` selects Worker mode. `127.0.0.1:8000` is the default listen address.
-`rapira serve` remains in the foreground. Press Ctrl-C to stop it.
+`rapira serve` remains in the foreground. Press `Ctrl-C` to stop it.
 
 The entry script is `worker.php`, so `$_SERVER['SCRIPT_NAME']` is `/worker.php`. Symfony does not find this value at the start of the URI.
 It then sets the base URL to `""`. `getPathInfo()` returns the request path, and routing operates correctly.

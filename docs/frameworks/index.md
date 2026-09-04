@@ -68,7 +68,10 @@ The script contains these operations:
 - **`gc_collect_cycles();`** runs between requests and collects reference cycles. It does not correct memory leaks.
 - See [Memory and recycling](#memory-and-recycling).
 
-Your entry script is `worker.php`, so `SCRIPT_NAME` is `/worker.php`. `DOCUMENT_ROOT` is the directory that contains the script. `REQUEST_URI` contains the path that the client requested. Symfony and Yii3 routed and generated URLs correctly with these values. Generated URLs did not contain `worker.php`, and the applications did not modify `$_SERVER`. First, check a framework that builds URLs from `SCRIPT_NAME` instead of `REQUEST_URI`.
+Rapira sets `SCRIPT_NAME` to `/worker.php` because `worker.php` is the entry script.
+`DOCUMENT_ROOT` contains the script directory. `REQUEST_URI` contains the client path.
+Symfony and Yii3 routed requests and generated URLs correctly with these values. The generated URLs did not contain `worker.php`.
+Before you integrate another framework, check whether it builds URLs from `SCRIPT_NAME` instead of `REQUEST_URI`.
 
 ## Per-request and resident state
 
@@ -106,7 +109,7 @@ A function registered inside the handler runs at the end of that request.
 Register request shutdown functions inside the handler. Examples include metric output, fatal error processing, and request resource cleanup.
 :::
 
-::: warning `$_ENV` is silently re-imported mid-request
+::: warning PHP can re-import `$_ENV` during a request
 
 With default ini settings, PHP resets the JIT flag for `$_ENV` on each request.
 The first newly compiled file that uses `$_ENV` makes PHP create the superglobal again.
@@ -167,7 +170,7 @@ Both characters can map to the same `$_SERVER` key. See [HTTP](/docs/http) and [
 
 ## Memory and recycling
 
-A worker can create the application inside the handler. This is the simpler of the two Yii3 designs.
+A worker can create the application inside the handler. This design retains the application for one request.
 It retains less application state than a persistent Symfony kernel, but more than Classic mode.
 The worker script still contains the loop. Move initialization outside the handler only after you identify persistent state.
 This design creates the container after the request arrives.
@@ -215,4 +218,4 @@ Restart the server after changes to the worker script or initialized services. P
 
 Other frameworks can use the same basic worker script. Use Worker mode only if the application can process several requests in one process.
 First, create the application inside the handler. This design does not require framework support for persistent processes.
-You can later retain the application and reset its request state. Use [Classic mode](/docs/classic) if neither Worker design operates correctly.
+After validation, retain the application and reset its request state. Use [Classic mode](/docs/classic) if neither Worker design operates correctly.

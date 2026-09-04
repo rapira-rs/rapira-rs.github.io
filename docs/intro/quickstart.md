@@ -1,15 +1,16 @@
 ---
 title: Quickstart
-description: Serving a PHP application with Rapira in Classic and Worker modes, and moving the settings into a rapira.toml file.
+description: Serve a PHP application in Classic and Worker modes, then store the settings in rapira.toml.
 ---
 
 # Quickstart
 
-This page covers serving a page in Classic mode and converting the application to Worker mode. It also moves the settings into a configuration file. The steps require a working `rapira` binary with its bundled PHP. See [Installation](/docs/intro/installation) for more information.
+This guide starts an application in Classic mode and converts it to Worker mode. It then stores the settings in a configuration file.
+The steps require a working `rapira` binary with its bundled PHP. See [Installation](/docs/intro/installation) for more information.
 
 ## Classic mode
 
-Classic mode is available to every application. Rapira includes the entry script again for every request, exactly as php-fpm does. The code does not need to change.
+Classic mode is available to every application. Rapira includes the entry script again for every request, as php-fpm does. The code does not need to change.
 
 Create `public/index.php`:
 
@@ -26,7 +27,7 @@ Start the server. The `--mode classic` flag selects the mode, and the positional
 rapira serve --mode classic public/index.php
 ```
 
-Rapira binds `127.0.0.1:8000` unless you tell it otherwise. From another terminal:
+Rapira binds `127.0.0.1:8000` by default. Send a request from another terminal:
 
 ```bash
 curl '127.0.0.1:8000/?name=world'
@@ -73,7 +74,8 @@ Call `\Rapira\handle_request()` only from the top-level script loop. It throws `
 The PHP module that Rapira registers provides `\Rapira\handle_request()`. The example therefore needs no autoloader.
 An application with Composer dependencies must load `vendor/autoload.php` before the loop.
 
-Stop the Classic server first with `Ctrl-C` in its terminal, because both servers bind `127.0.0.1:8000`. The default mode is Dispatcher, so Worker mode needs the `--mode worker` flag:
+Stop the Classic server with `Ctrl-C` because both servers bind `127.0.0.1:8000`.
+Dispatcher is the default mode. Use the `--mode worker` flag to select Worker mode:
 
 ```bash
 rapira serve --mode worker worker.php
@@ -102,7 +104,7 @@ It can use `rapira_finish_request()` to send the response before the handler end
 
 ## Configuration file
 
-You can put settings in `rapira.toml` instead of the command line. Create this file next to the application:
+Store the settings in `rapira.toml` instead of the command line. Create this file next to the application:
 
 ```toml
 [http]

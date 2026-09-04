@@ -43,18 +43,29 @@ El maestro también mantiene cargado el módulo de PHP mientras vive y es el ún
 
 ## Supervisión
 
-Con el pool ya en marcha, el maestro ejecuta un tick de mantenimiento más o menos una vez por segundo y reacciona a la muerte de cada hijo en cuanto ocurre.
+Después de iniciar el pool, el maestro ejecuta el mantenimiento aproximadamente una vez por segundo. También procesa las salidas de los workers cuando ocurren.
 
-- **Recoger y reponer.** Un worker que sale limpiamente (drenado, o reciclado al agotar su cuota) se sustituye al momento; con `ondemand` la plaza simplemente se queda libre para que la vuelva a llenar la siguiente conexión. A un worker que *se cae* se le sustituye tras una espera que empieza en 100 ms y se duplica con cada caída rápida seguida, con un tope de unos 25 segundos: así un bucle de segfaults se frena solo en lugar de quemar la CPU. Aguantar vivo diez segundos reinicia esa racha.
-- **Fallos de arranque.** Si un worker de la primera generación se declara enfermo antes de que el pool haya atendido una sola petición con éxito, el maestro lo toma por un fallo de arranque sin remedio y sale, en vez de reponer eternamente un punto de entrada roto. Cuando el pool ya ha servido algo, esa misma salida no es más que una reposición con espera: una recarga mala nunca puede tumbar un pool sano.
-- **Reciclaje.** Con `pool.max_requests` definido, un worker se jubila al llegar a ese número de peticiones y se sustituye enseguida. Cada worker suma a la cuota un extra aleatorio propio (de hasta la mitad de la cuota), así que un pool arrancado a la vez no se recicla en bloque, cosa que dejaría un momento sin ningún worker caliente.
-- **Un vigilante para cada petición.** Con `pool.request_terminate_timeout_secs` definido, el worker que siga con la misma petición pasado ese límite de tiempo real recibe un `SIGTERM`, y un `SIGKILL` si sigue ahí un tick después. El cierre forzado se registra en `warn`, sus conexiones en cola se cierran y la plaza se vuelve a llenar de inmediato. El vigilante queda suspendido mientras hay una parada o una recarga en curso.
-- **Escalado.** Con `dynamic`, ese mismo tick decide si hace fork de más workers o si jubila a los que están ociosos; con `ondemand` solo jubila a los que llevan ociosos más tiempo del permitido, porque ahí el fork lo dispara una conexión que llega. Lo tienes más abajo.
-- **Un pipe en el otro sentido.** Cada worker se queda con el extremo de lectura de un pipe en el que el maestro no escribe nunca. Si el maestro muere, el pipe da EOF y cada worker se drena solo, así que un `kill -9` al maestro no puede dejar workers huérfanos ocupando el puerto.
+- **Sustitución de workers.** El maestro sustituye inmediatamente un worker después de una salida normal.
+- Con `ondemand`, espera a la siguiente conexión antes de crear la sustitución.
+- Después de un fallo, la espera empieza en 100 ms. Se duplica tras cada fallo consecutivo y deja de aumentar cerca de 25 segundos.
+- Una vida del worker de diez segundos reinicia la espera.
+- **Fallos de inicialización.** El maestro termina si todos los workers iniciales fallan antes de que el pool procese una petición.
+- Después de la primera petición, el maestro usa la espera normal. Una recarga fallida no detiene los workers existentes.
+- **Límites de peticiones.** Con `pool.max_requests`, un worker termina después de su límite. El maestro lo sustituye.
+- Rapira añade un valor aleatorio de hasta la mitad del límite. Esto evita la sustitución simultánea de workers.
+- **Tiempo límite de petición.** Con `pool.request_terminate_timeout_secs`, el maestro envía `SIGTERM` cuando una petición supera el límite.
+- Envía `SIGKILL` un ciclo después si el worker sigue activo. Cierra las conexiones en cola y crea una sustitución.
+- El maestro no aplica este límite durante una parada o recarga.
+- **Escalado.** Con `dynamic`, el mantenimiento puede crear workers o eliminar workers inactivos.
+- Con `ondemand`, elimina workers después del límite de inactividad. Una conexión nueva causa la creación de un worker.
+- **Control del maestro.** Cada worker lee de un pipe que el maestro mantiene abierto.
+- Si termina el maestro, el pipe devuelve EOF y cada worker deja de aceptar trabajo. Un fallo del maestro no deja workers sin control.
 
 ## Escalado del pool
 
-`pool.scaling` elige cómo se dimensiona el pool. Es una clave distinta de `pool.mode`, que fija el modo de ejecución dentro de un worker. Con las tres políticas el número que manda es `pool.processes`, una cifra exacta con `static` y un techo con las otras dos, y por defecto vale un worker por CPU lógica.
+`pool.scaling` selecciona cómo cambia el tamaño del pool. Es independiente de `pool.mode`.
+La clave `pool.mode` establece el modo de ejecución de un worker. `pool.processes` es el número exacto con `static`.
+Es el número máximo con `dynamic` y `ondemand`. El valor predeterminado es un worker por CPU lógica.
 
 | Escalado | Cuántos workers | Claves que aplican |
 | --- | --- | --- |
@@ -62,9 +73,13 @@ Con el pool ya en marcha, el maestro ejecuta un tick de mantenimiento más o men
 | `dynamic` | Los que pida la demanda, hasta `pool.processes`; el maestro mantiene la cifra de *ociosos* dentro de la banda de reserva. | `min_spare`, `max_spare` |
 | `ondemand` | Cero al arrancar; se forkean según llega el tráfico, hasta `pool.processes`. | `process_idle_timeout_secs` |
 
-**`static`** le conviene a la mayoría de los despliegues: el consumo de memoria es plano y un worker que muere se sustituye sin más. PHP es síncrono, así que un worker atiende una petición cada vez: los pools cuyas peticiones se pasan casi todo el tiempo esperando a una base de datos o a una API externa suelen querer más workers que núcleos, y los que están limitados por CPU casi nunca.
+**`static`** es adecuado para la mayoría de los despliegues. Usa un número fijo de workers y sustituye los que terminan.
+PHP es síncrono, por lo que cada worker procesa una petición cada vez. Las aplicaciones con mucha E/S pueden requerir más workers que CPU.
+Las aplicaciones limitadas por CPU normalmente no los requieren.
 
-**`dynamic`** mantiene el número de workers *ociosos* dentro de una banda. En cada tick, si hay menos ociosos que `min_spare` forkea más (a ráfagas que se van duplicando mientras la presión aguanta, para responder rápido a un pico de tráfico en vez de ir a worker por segundo); si hay más ociosos que `max_spare`, jubila al ocioso más veterano. Empieza por el punto medio de la banda y avisa una vez cuando toca el techo de `pool.processes` y aun así querría más.
+**`dynamic`** mantiene los workers inactivos entre dos límites. Crea workers cuando la cantidad es menor que `min_spare`.
+El número de workers nuevos se duplica durante ciclos consecutivos sin capacidad suficiente. Elimina el worker inactivo más antiguo por encima de `max_spare`.
+El número inicial es el punto medio de los límites. Rapira registra un aviso cuando la demanda supera `pool.processes`.
 
 ```toml
 [pool]
@@ -76,7 +91,10 @@ max_spare = 3
 
 Los límites tienen que cumplir `1 <= min_spare <= max_spare <= processes`; son obligatorios con `dynamic` y se rechazan con las demás políticas. Ponerlos donde no van es un error de configuración y no una clave que se ignora en silencio.
 
-**`ondemand`** no forkea nada al arrancar. Aquí es el propio maestro quien vigila el socket de escucha y, cuando llega una conexión y no hay ningún worker ocioso que la coja, forkea uno y deja que el hijo la acepte. Un worker que lleve ocioso más de `pool.process_idle_timeout_secs` vuelve a jubilarse. Un pool ocioso no consume nada, pero la primera petición tras un rato sin tráfico espera a un fork. Usa `ondemand` en entornos de pruebas y sitios con muy pocas visitas, y cualquiera de las otras políticas con tráfico constante.
+**`ondemand`** no crea workers al iniciar. El maestro observa el socket de escucha.
+Cuando llega una conexión sin un worker inactivo, el maestro crea uno. Un worker termina después de `pool.process_idle_timeout_secs` de inactividad.
+La primera petición a un pool vacío espera la creación de un worker. Usa `ondemand` para pruebas y sitios con poco tráfico.
+Usa otra política para el tráfico constante.
 
 La referencia completa de claves está en la página de [configuración](/es/docs/configuration).
 
@@ -101,29 +119,40 @@ kill -TERM $(cat /run/rapira.pid)   # Stop after current requests finish.
 ```
 
 ::: warning
-Manda las señales al maestro, nunca a un worker suelto. Los workers ignoran `SIGUSR1` y `SIGUSR2` sin más, y para ellos un `SIGTERM` es una muerte inmediata: es justo lo que usa el vigilante de peticiones cuando una petición tiene que morir *ya*. Señalar un worker directamente se salta la supervisión que describe esta página.
+Envía las señales solo al maestro. Los workers ignoran `SIGUSR1` y `SIGUSR2`.
+Los workers tratan `SIGTERM` como una terminación inmediata. El tiempo límite de petición usa esta señal.
+Una señal directa al worker evita la supervisión del maestro.
 :::
 
 ### Parar el servidor
 
-Toda parada empieza por las buenas, la haya pedido cualquiera de las tres señales: el maestro le manda `SIGQUIT` a cada worker, que deja de coger trabajo nuevo y termina lo que tiene entre manos. A partir de ahí la escalada va por temporizador: `supervisor.process_control_timeout_secs` (30 segundos por defecto) es el periodo de gracia y, cuando se agota, los workers que sigan ahí reciben `SIGTERM` y, si ni por esas, `SIGKILL`. Al worker que no responde al `SIGQUIT` amable se le manda TERM y luego KILL, en lugar de esperarlo eternamente.
+Para cada señal de parada, el maestro envía primero `SIGQUIT` a todos los workers. Los workers dejan de aceptar trabajo y terminan las peticiones actuales.
+Después de `supervisor.process_control_timeout_secs`, el maestro envía `SIGTERM` a los workers restantes. El valor predeterminado es 30 segundos.
+Si es necesario, envía `SIGKILL` después de otro periodo.
 
 Un segundo `SIGTERM` o `SIGINT` se salta la espera y fuerza la salida al instante.
 
 ### Recarga progresiva
 
-`SIGUSR2` (o `SIGHUP`) sustituye el pool entero por workers nuevos, que es la forma de tirar la aplicación ya arrancada de un worker residente y volver a construirla con el código que has desplegado.
+`SIGUSR2` o `SIGHUP` sustituye el pool completo. Cada nuevo worker inicializa la aplicación con el código desplegado.
 
-En modo Classic el script de entrada se ejecuta desde cero en cada petición. No hay nada residente que sustituir, así que el código nuevo entra en juego sin recarga. Si has puesto `opcache.validate_timestamps = 0`, el segmento de OPcache del maestro sigue sirviendo los opcodes viejos hasta un reinicio completo. En los modos Worker y Dispatcher la aplicación arranca una vez y se queda en memoria, con lo que el código desplegado no entra en juego hasta que hay una recarga progresiva. Conviértela en un paso más de tu despliegue. Consulta [En producción](/es/docs/deployment) para más información.
+En Classic, el script de entrada se ejecuta en una petición PHP nueva. El código nuevo funciona sin recarga.
+Sin embargo, `opcache.validate_timestamps = 0` requiere un reinicio completo.
+Worker y Dispatcher conservan la aplicación inicializada. Recarga el pool después de cada despliegue en estos modos.
+Consulta [En producción](/es/docs/deployment).
 
-La recarga nunca te baja de la capacidad con la que estabas sirviendo, porque solapa en vez de reiniciar: el maestro levanta un worker nuevo, espera a que ese worker esté aceptando de verdad y solo entonces drena uno viejo. Cuando el viejo se ha ido, su plaza pasa al siguiente worker nuevo, y así hasta el final de la generación. Cada drenaje es la misma escalada ordenada de `SIGQUIT` → `SIGTERM` → `SIGKILL` que una parada, acotada por el mismo tiempo de control, aplicada a ese único worker.
+La recarga no reduce la capacidad porque la sustitución se solapa. El maestro inicia un worker nuevo y espera a que acepte conexiones.
+Después detiene un worker antiguo. Cuando termina, el maestro inicia un worker nuevo en la siguiente posición.
+Cada parada usa la secuencia `SIGQUIT` → `SIGTERM` → `SIGKILL`. El mismo límite de control se aplica a cada worker.
 
-Un sustituto que nunca llega a servir tampoco atasca la recarga: en cuanto vence el tiempo de control, el maestro escribe un aviso y pasa al siguiente worker de todas formas. Con `ondemand` no se forkea ningún sustituto por adelantado: los workers viejos se drenan de uno en uno y a los nuevos los crea la demanda.
+Un worker nuevo que no acepta conexiones no detiene la recarga. Tras el límite, el maestro registra una advertencia y continúa.
+Con `ondemand`, el maestro elimina workers antiguos uno a uno. Las conexiones nuevas crean sustitutos.
 
 Una recarga que llega con una parada ya en marcha se ignora: la parada tiene prioridad.
 
 ::: info
-Una recarga sustituye los workers, no el maestro. Los nuevos salen por fork del mismo proceso maestro y con la misma imagen del motor que este arrancó al principio, así que `rapira.toml`, `php.ini` y el propio binario solo cambian con un reinicio completo.
+Una recarga sustituye los workers, no el maestro. Los workers nuevos usan la misma imagen del motor.
+Los cambios de `rapira.toml`, `php.ini` y del binario requieren un reinicio completo.
 :::
 
 ### Volcado de estado

@@ -5,7 +5,10 @@ description: "Jak uruchomić aplikację Symfony na Rapirze w trybie Worker: skry
 
 # Symfony
 
-Struktura Symfony pasuje do rezydentnego workera: kernel, który podnosisz, `Request`, który mu podajesz, i `Response`, który dostajesz z powrotem. Pod Rapirą kernel podnosi się raz, przy starcie workera, a każde kolejne żądanie to już tylko wywołanie `handle()` na rozgrzanym kontenerze. W samej aplikacji nie zmienia się prawie nic - zmienia się dwadzieścia linii, które zastępują `public/index.php`. Ta strona opisuje ten plik, reset między żądaniami i to, jak wartości z `.env` docierają do kontenera.
+Symfony obsługuje trwały worker. Aplikacja inicjalizuje kernel, przekazuje mu `Request` i otrzymuje `Response`.
+Rapira inicjalizuje kernel raz dla każdego workera. Następnie każde żądanie wywołuje `handle()` na zainicjalizowanym kontenerze.
+Kod aplikacji się nie zmienia. Skrypt workera zastępuje `public/index.php`.
+Ta strona opisuje ten plik, zerowanie stanu żądania i wartości `.env`.
 
 ::: info Zweryfikowano na
 - **PHP 8.5.8** - NTS, SAPI embed
@@ -18,7 +21,8 @@ Testy używały dwóch aplikacji utworzonych z pakietu `symfony/skeleton` i jedn
 
 ## Zachowanie w trybie Worker
 
-Kernel podnosi się na górze skryptu, poza pętlą, i zostaje w pamięci na cały czas życia procesu workera: autoloader, skompilowany kontener, router, event dispatcher i każde połączenie otwarte przez twoje bundle powstają raz, a nie raz na żądanie. To właśnie daje [tryb Worker](/pl/docs/worker); więcej informacji znajdziesz w [Trybach wykonania](/pl/docs/execution-modes).
+Kernel jest inicjalizowany poza pętlą i pozostaje do zakończenia workera. Autoloader, kontener, router, event dispatcher i połączenia powstają raz.
+Więcej informacji zawierają strony [tryb Worker](/pl/docs/worker) i [Tryby wykonania](/pl/docs/execution-modes).
 
 Przy każdym żądaniu handler robi cztery rzeczy, a na koniec sprząta:
 
@@ -35,7 +39,9 @@ Jeden kernel żyje w jednym procesie workera, a workery to osobne procesy system
 
 ## Wymagania wstępne
 
-Potrzebujesz [zainstalowanej Rapiry](/pl/docs/intro/installation) i aplikacji Symfony - świeżej z `composer create-project symfony/skeleton my-app` albo tej, którą już masz. Aplikacji nie trzeba do niczego specjalnie przygotowywać: skrypt workera ląduje obok `composer.json`, a cała reszta zostaje na swoim miejscu. Na maszynie potrzebujesz też zwykłego PHP CLI - do Composera i `bin/console`. Rapira dostarcza PHP jako bibliotekę (`libphp`), a nie jako polecenie `php`, więc te kroki wykonuje systemowy PHP, którego Rapira ani nie używa, ani nie rusza.
+Zainstaluj [Rapirę](/pl/docs/intro/installation) i utwórz lub wybierz aplikację Symfony. Umieść skrypt workera obok `composer.json`.
+Zainstaluj PHP CLI dla Composera i `bin/console`. Rapira dostarcza PHP jako bibliotekę, a nie polecenie `php`.
+Composer i `bin/console` używają systemowego PHP CLI. Rapira nie używa ani nie zmienia tego CLI.
 
 Znaczenie mają dwa rozszerzenia, bo plik `composer.json` aplikacji bazowej wymaga ich (`ext-ctype`, `ext-iconv`), *a przy okazji* wypisuje odpowiadające im polyfille w sekcji `replace` - muszą to więc być prawdziwe rozszerzenia, a nie ich namiastki napisane w PHP. Potrzebują ich obie kompilacje PHP, systemowy CLI też: inaczej `composer create-project` i `composer install` polegną na sprawdzeniu wymagań platformy, zanim Rapira w ogóle wejdzie do gry. PHP dołączane do każdego wydania Rapiry ma oba: `ctype` i `iconv` stoją w linii konfiguracyjnej tego builda, a pełną listę rozszerzeń znajdziesz na stronie [Instalacja](/pl/docs/intro/installation). Jeśli zamiast tego kompilujesz Rapirę przeciwko własnemu PHP, zostaw oba włączone - gdzie ustawia się tę listę, pokazuje [Budowanie ze źródeł](/pl/docs/intro/build-from-source).
 
@@ -88,52 +94,74 @@ while (\Rapira\handle_request($handler)) {
 
 Większość to zwykły rozruch Symfony. Cztery linie są specyficzne dla tego układu:
 
-**`(new Dotenv())->usePutenv()->bootEnv(...)`.** W normalnej aplikacji nigdy tego nie piszesz, bo `public/index.php` oddaje tę robotę `symfony/runtime`. Tutaj rozruch należy do workera, więc to on sam wczytuje `.env` - raz, zanim jeszcze powstanie kernel. `usePutenv()` jest wymagane: bez niego aplikacja zwraca 500 w `prod`, a w `dev` działa dalej. Więcej informacji znajdziesz w sekcji [`$_ENV` i `variables_order`](#env-i-variables-order).
+**`(new Dotenv())->usePutenv()->bootEnv(...)`.** Standardowy `public/index.php` przekazuje tę operację do `symfony/runtime`.
+Worker czyta `.env` raz przed utworzeniem kernela. Użyj `usePutenv()`, ponieważ bez niego aplikacja zwraca `500` w `prod`.
+Więcej informacji zawiera sekcja [`$_ENV` i `variables_order`](#env-i-variables-order).
 
-**Kernel powstaje i podnosi się przed pętlą.** `new Kernel(...)`, `boot()` i `getContainer()` wykonują się przy starcie workera, więc `$_SERVER['APP_ENV']` czytane jest jeszcze wtedy, gdy wartości z Dotenv są na miejscu, a kontener jest rozgrzany, zanim w ogóle przyjdzie pierwsze żądanie. Wszystko wewnątrz pętli `while` pracuje potem na tym jednym kontenerze.
+**Kernel jest inicjalizowany przed pętlą.** `new Kernel(...)`, `boot()` i `getContainer()` działają podczas inicjalizacji workera.
+Dlatego kernel czyta `$_SERVER['APP_ENV']`, zanim żądanie może usunąć wartości Dotenv. Każde żądanie używa tego samego kontenera.
 
-**`$container->has('services_resetter')` przed `get()`.** Identyfikator serwisu `services_resetter` jest publiczny i w 7.4, i w 8.1 - dlatego ten sam plik działa na obu. *Klasa*, która za nim stoi, zmieniła między głównymi wersjami przestrzeń nazw (`Symfony\Component\DependencyInjection\ServicesResetter` w 7.4, `Symfony\Component\HttpKernel\DependencyInjection\ServicesResetter` w 8.1), a odwołanie się do serwisu po identyfikatorze sprawia, że ta różnica znika. Zabezpieczenie przez `has()` chroni skrypt przed błędem krytycznym na kontenerze, który tego serwisu nie definiuje.
+**`$container->has('services_resetter')` przed `get()`.** Identyfikator `services_resetter` jest publiczny w obu obsługiwanych wersjach.
+Klasa implementacji używa innych przestrzeni nazw w wersjach 7.4 i 8.1. Identyfikator serwisu usuwa potrzebę warunku wersji.
+Sprawdzenie `has()` zapobiega błędowi, gdy kontener nie definiuje serwisu.
 
 **Pętla i `gc_collect_cycles()`.** `\Rapira\handle_request()` blokuje wykonanie, dopóki nie przyjdzie żądanie, uruchamia twój handler i zwraca `true`. Zwraca `false`, gdy worker zaczyna się wygaszać, i to właśnie kończy pętlę. Zbieranie cykli raz na obrót trzyma tę pracę między żądaniami, a nie w środku któregoś z nich. Pełny kontrakt opisuje [tryb Worker](/pl/docs/worker).
 
-Gdyby resetter nie wystarczył, zostają dwie cięższe opcje: `$container->reset()` czyści każdy serwis, który zdążył powstać, a `$kernel->reboot(null)` wyrzuca kontener i buduje nowy - po czym `$container` przechwycony przez handler jest już nieaktualny, więc jeśli pójdziesz tą drogą, pobierz go ponownie przez `$kernel->getContainer()`. Oba odrzucają rozgrzany stan, który daje tryb Worker, więc używaj ich, kiedy szukasz wycieku, a nie domyślnie.
+Jeśli resetter nie wystarcza, użyj `$container->reset()` albo `$kernel->reboot(null)`. Pierwsza opcja usuwa wszystkie utworzone serwisy.
+Druga opcja usuwa kontener i tworzy nowy.
+Po `$kernel->reboot(null)` pobierz nowy kontener przez `$kernel->getContainer()`. Handler nie może używać poprzedniego kontenera.
+Obie opcje usuwają zapisany stan aplikacji. Używaj ich do szukania wycieku, a nie jako ustawienia domyślnego.
 
 ## `$_ENV` i `variables_order`
 
 ::: warning
-Przy gołym `bootEnv()` - bez `usePutenv()` - aplikacja Symfony z `APP_ENV=prod` zwraca **500 już na pierwszym żądaniu**, i na każdym następnym, z `EnvNotFoundException: Environment variable not found: "DEFAULT_URI"`. Ta sama aplikacja w `dev` się nie psuje.
+Przy `bootEnv()` bez `usePutenv()` aplikacja Symfony w `prod` zwraca **500** dla każdego żądania.
+Wyjątek to `EnvNotFoundException: Environment variable not found: "DEFAULT_URI"`. Ta sama aplikacja w `dev` nie kończy się błędem.
 :::
 
-Przyczyna leży w PHP. Przy domyślnych ustawieniach ini, na których szła weryfikacja (`variables_order = "GPCS"`, `auto_globals_jit = On`), PHP przy **każdym** żądaniu na nowo uzbraja flagę JIT dla `$_ENV`. Pierwszy plik skompilowany w trakcie tego żądania, w którym pada `$_ENV`, uruchamia `php_auto_globals_create_env`, a to importuje superglobal na nowo z prawdziwego środowiska procesu - kasując wszystko, co `Dotenv->bootEnv()` włożył tam przy rozruchu workera. Widać to wprost w teście: w środku żądania `$_ENV` z wypełnionej tablicy robi się pusty.
+Ten wynik powoduje PHP. Przy `variables_order = "GPCS"` i `auto_globals_jit = On` PHP zeruje flagę JIT `$_ENV` dla każdego żądania.
+Pierwszy skompilowany plik używający `$_ENV` wywołuje `php_auto_globals_create_env`. Ta funkcja ponownie importuje `$_ENV` ze środowiska procesu.
+Operacja usuwa wartości dodane przez `Dotenv->bootEnv()` podczas inicjalizacji. Testy wykazały, że `$_ENV` staje się puste podczas żądania.
 
-Dlaczego tylko `prod`? Bo tam to pierwsze żądanie leniwie kompiluje kontener i pliki serwisów, więc wyczyszczenie wypada *zanim* `RequestContext` rozwiąże `%env(DEFAULT_URI)%` - a wtedy nie ma już czego rozwiązywać. W `dev` kontener debugowy rozwiązuje odwołania do zmiennych zachłannie, jeszcze w `$kernel->boot()` przy rozruchu, i zapamiętuje wartości, więc czyszczenie przychodzi po tym, jak odpowiedź została już zanotowana. W `dev` zachowanie jest takie samo, tylko że nie ma tam żadnego skutku.
+W `prod` pierwsze żądanie kompiluje kontener i pliki serwisów. PHP czyści `$_ENV`, zanim `RequestContext` rozwiąże `%env(DEFAULT_URI)%`.
+W `dev` kontener rozwiązuje i zapisuje wartości podczas `$kernel->boot()`. PHP czyści `$_ENV` po tej operacji.
+Zerowanie występuje w obu środowiskach, ale tylko `prod` używa wyczyszczonej wartości.
 
-Naprawia to jedna linia ze skryptu powyżej:
+Użyj tego wywołania:
 
 ```php
 (new Dotenv())->usePutenv()->bootEnv(__DIR__ . '/.env');
 ```
 
-`usePutenv()` każe Dotenv zapisać wartości również do *prawdziwego* środowiska procesu - a to dokładnie stamtąd czyta ponowny import, więc wartości go przeżywają. Do tego `EnvVarProcessor` z Symfony i tak sięga w ostateczności po `getenv()`. Rapira uruchamia PHP w wersji NTS w modelu pre-fork, po jednym interpreterze na proces, więc typowe ostrzeżenia o bezpieczeństwie wątkowym `putenv()` w ogóle tu nie obowiązują.
+`usePutenv()` zapisuje wartości Dotenv w środowisku procesu. Późniejszy import odczytuje te wartości.
+Symfony `EnvVarProcessor` może również odczytać je przez `getenv()`.
+Rapira uruchamia jeden interpreter NTS PHP w każdym procesie. Dlatego współbieżne wątki PHP nie wywołują `putenv()`.
 
-Drugą opcją na produkcji jest ustawienie prawdziwych zmiennych środowiskowych (`Environment=` w systemd, twój runtime kontenerowy, twój orkiestrator) i zostawienie `.env` jako wygody na czas pisania kodu. Tak czy inaczej wartości lądują tam, gdzie ponowny import w środku żądania ich nie skasuje.
+W środowisku produkcyjnym ustaw zmienne przez systemd, kontener albo orkiestrator.
+Używaj `.env` tylko podczas programowania. Obie metody zapobiegają usunięciu wartości przez żądanie.
 
-Dotyczy to każdego środowiska PHP z rezydentnym workerem - narażony jest na to każdy framework, który czyta `$_ENV` leniwie. Zobacz [Frameworki](/pl/docs/frameworks/), aby poznać to zachowanie i pozostałe cechy rezydentnego procesu.
+To zachowanie dotyczy każdego trwałego środowiska PHP, które czyta `$_ENV` podczas żądania.
+To i inne zachowania opisuje strona [Frameworki](/pl/docs/frameworks/).
 
-## Uruchomienie
+## Uruchamianie Rapiry
 
 ```bash
 rapira serve --mode worker worker.php
 curl -i http://127.0.0.1:8000/
 ```
 
-`--mode worker` wybiera tryb Worker, a `127.0.0.1:8000` to domyślny adres nasłuchu. `rapira serve` zostaje na pierwszym planie, a `Ctrl-C` domyka trwające żądania i kończy pracę.
+`--mode worker` wybiera tryb Worker. `127.0.0.1:8000` to domyślny adres nasłuchu.
+`rapira serve` działa na pierwszym planie. Naciśnij `Ctrl-C`, aby go zatrzymać.
 
-Skryptem wejściowym jest `worker.php`, a nie `index.php`, więc `$_SERVER['SCRIPT_NAME']` to `/worker.php`. `Request` z Symfony szuka tej nazwy na początku URI, nie znajduje jej i schodzi z bazowym URL-em do `""`. `getPathInfo()` zwraca prawdziwą ścieżkę, trasy się dopasowują, a `generateUrl()` produkuje czyste ścieżki, bez prefiksu `/worker.php` gdziekolwiek w nich. Nie trzeba nadpisywać `$_SERVER` ani sięgać po `Request::setTrustedProxies()`.
+Skryptem wejściowym jest `worker.php`, więc `$_SERVER['SCRIPT_NAME']` zawiera `/worker.php`. Symfony nie znajduje tej wartości na początku URI.
+Następnie ustawia bazowy URL na `""`. `getPathInfo()` zwraca ścieżkę żądania i routing działa poprawnie.
+`generateUrl()` tworzy ścieżki bez prefiksu `/worker.php`. Nie trzeba zmieniać `$_SERVER` ani używać `Request::setTrustedProxies()`.
 
 ## Wyjście na produkcję
 
-Ustaw `APP_ENV=prod`, zainstaluj zależności bez tych deweloperskich i rozgrzej cache, zanim wystartuje serwer. `php bin/console cache:warmup` w weryfikacji podnosił aplikację czysto i wynosi kompilację kontenera poza pierwsze żądanie:
+Ustaw `APP_ENV=prod`. Zainstaluj zależności bez pakietów deweloperskich.
+Utwórz cache przed uruchomieniem serwera. Testy potwierdziły poprawną inicjalizację przez `php bin/console cache:warmup`.
+To polecenie kompiluje również kontener przed pierwszym żądaniem:
 
 ```bash
 composer install --no-dev --optimize-autoloader
@@ -156,23 +184,32 @@ max_requests = 500
 request_terminate_timeout_secs = 30
 ```
 
-`max_requests` wymienia workera po tylu żądaniach, żeby powolny wyciek gdzieś w drzewie zależności nigdy nie rósł bez końca; ogranicza wyciek, a nie naprawia go. `request_terminate_timeout_secs` nakłada na pojedyncze żądanie limit czasu rzeczywistego, bo rezydentny worker inaczej tkwiłby w zawieszonym żądaniu w nieskończoność. Uruchamiasz to poleceniem `rapira serve --config rapira.toml`. Wszystkie te klucze - i cała reszta - są opisane na stronie [Konfiguracja](/pl/docs/configuration); względny `entrypoint` liczy się od katalogu z plikiem konfiguracyjnym.
+`max_requests` zastępuje workera po określonej liczbie żądań. Ogranicza wpływ wycieku pamięci, ale go nie naprawia.
+`request_terminate_timeout_secs` ogranicza czas jednego żądania.
+Uruchom serwer poleceniem `rapira serve --config rapira.toml`.
+Względny `entrypoint` używa katalogu pliku. Wszystkie ustawienia opisuje [Konfiguracja](/pl/docs/configuration).
 
-## Co zeruje się między żądaniami
+## Zerowanie stanu między żądaniami
 
-`services_resetter` wywołuje `reset()` na każdym serwisie oznaczonym tagiem `kernel.reset`. Które to serwisy, zależy od zainstalowanych bundle'i - buforujące handlery logów, kolektory danych debugowych i podobne zbieracze z pojedynczego żądania rejestrują ten tag same z siebie, więc jedno wywołanie dosięga ich wszystkich.
+`services_resetter` wywołuje `reset()` dla każdego serwisu z tagiem `kernel.reset`. Zainstalowane bundle określają te serwisy.
+Przykłady to buforowane handlery logów i kolektory danych debugowych. Serwisy same rejestrują tag.
 
-Nie obejmuje natomiast stanu, który trzymasz sam: statycznych właściwości, zapamiętanych wartości globalnych, rejestru wypełnianego leniwie przez jakąś bibliotekę, `ini_set()`, którego nigdy nie cofnąłeś. To wszystko przeżywa żądanie pod każdym rezydentnym workerem i musi je zerować twój własny kod. Tabelę tego, co przeżywa, a co nie, znajdziesz na stronie [Frameworki](/pl/docs/frameworks/).
+Nie zeruje statycznych właściwości aplikacji, wartości globalnych, rejestrów bibliotek ani trwałych zmian `ini_set()`.
+Ten stan pozostaje w każdym trwałym workerze. Zeruj go w kodzie aplikacji.
+Czas życia stanu opisuje strona [Frameworki](/pl/docs/frameworks/).
 
-Z resetterem na miejscu weryfikacja pokazała, że pamięć rezydentna trzyma się płasko przez 200 kolejnych żądań, tak samo w `dev`, jak i w `prod` - kernel utrzymuje stały zestaw roboczy, zamiast rosnąć z każdym żądaniem. Jeśli pamięć w twojej aplikacji rośnie, coś w twoim własnym kodzie albo w którymś bundle trzyma się żądań.
+Testy z resetterem wykazały stabilne użycie pamięci podczas 200 kolejnych żądań w `dev` i `prod`.
+Jeśli pamięć rośnie, kod aplikacji lub bundle może zachowywać stan żądania.
 
 ## Praca po odesłaniu odpowiedzi
 
-Jeśli chcesz uwolnić klienta, zanim ruszą listenery po odpowiedzi, wywołaj [`rapira_finish_request()`](/pl/docs/http) między `$response->send()` a `$kernel->terminate($request, $response)` - odpowiedź wychodzi, a `terminate()` pracuje dalej w workerze, na którego klient już nie czeka. Sam worker jest przy tym zajęty aż do powrotu twojego handlera, więc to narzędzie na opóźnienia, a nie sposób na współbieżność.
+Wywołaj [`rapira_finish_request()`](/pl/docs/http) między `$response->send()` a `$kernel->terminate()`, aby wysłać odpowiedź przed późniejszymi listenerami.
+Worker wykonuje `terminate()` do powrotu handlera. Może to skrócić oczekiwanie klienta, ale nie zwiększa współbieżności.
 
 ## Codzienna praca nad kodem
 
-`rapira serve` działa na pierwszym planie, a twoja aplikacja podnosi się raz, więc **zmieniony kod PHP nie wejdzie w życie, dopóki nie wymienisz workerów**. W trakcie aktywnego pisania najprościej zatrzymać serwer i uruchomić go od nowa albo uruchomić skrypt wejściowy w [trybie Classic](/pl/docs/classic), gdzie skrypt wykonuje się od zera za każdym razem, a każdy zapis pliku widać natychmiast:
+`rapira serve` działa na pierwszym planie i inicjalizuje aplikację raz. Dlatego **zastąp workera, aby wczytać zmieniony kod PHP**.
+Podczas programowania uruchamiaj serwer ponownie po każdej zmianie. Możesz też użyć [trybu Classic](/pl/docs/classic):
 
 ```bash
 rapira serve --mode classic public/index.php
@@ -180,4 +217,7 @@ rapira serve --mode classic public/index.php
 
 Ta sama aplikacja działa w trybie Classic i uruchamia się przy każdym żądaniu. Dlatego zmiany działają od razu, a każde żądanie obejmuje pełny rozruch. Na serwerze produkcyjnym wdrożony kod przejmuje pracę bez zrywania połączeń dzięki przeładowaniu kroczącemu (`SIGUSR2` do procesu nadrzędnego). Przy `opcache.validate_timestamps = 0` segment OPcache procesu nadrzędnego przeżywa całą pulę. W tej konfiguracji wdrożenie wymaga pełnego restartu. Więcej informacji zawierają [model procesów](/pl/docs/process-model) i [wdrożenie produkcyjne](/pl/docs/deployment).
 
-Nieprzechwycony wyjątek jest obsługiwany wewnątrz Symfony: framework odpowiada na niego własnym `500` - pełną stroną wyjątku w `dev`, ogólną stroną błędu w `prod` - a kolejne żądanie bierze ten sam proces workera, z niezmienionym pidem mimo awarii. Po wyjątku zostaje wyciekły albo zepsuty stan serwisów i zdejmuje go reset na końcu handlera. Gdzie wyląduje ślad stosu, zależy od twojego loggera; aplikacja bazowa nie ma żadnego. Do logu Rapiry na stderr trafia to, co ucieknie z samego PHP, jak wspomniany wyżej `EnvNotFoundException` - jak podkręcić poziom, pokazują [Logi](/pl/docs/logging).
+Symfony obsługuje nieprzechwycony wyjątek aplikacji i zwraca własną odpowiedź `500`. `dev` pokazuje stronę wyjątku.
+`prod` pokazuje ogólną stronę błędu. Ten sam worker obsługuje następne żądanie.
+Końcowe zerowanie usuwa zmieniony stan serwisów. Skonfigurowany logger Symfony kontroluje wyjście wyjątku.
+Rapira zapisuje błędy PHP, które opuszczają framework. Poziomy opisuje strona [Logi](/pl/docs/logging).

@@ -26,7 +26,7 @@ Rapira reads settings in this order:
 Only the four flags in the table and the `SCRIPT` argument have CLI forms. Other settings use the file or default value.
 
 A flag overrides the corresponding value in `rapira.toml`. A value in `rapira.toml` overrides the default.
-This order lets you change one value for one run. For example, you can test another port without editing the file.
+This order permits a temporary value for one run. For example, test another port without editing the file.
 
 Unset options use the defaults in the table. The configuration file controls settings without flags, such as pool scaling, logging, and request limits.
 See [Configuration](/docs/configuration) for all file settings.

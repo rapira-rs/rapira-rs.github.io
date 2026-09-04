@@ -2,7 +2,7 @@
 
 This page documents the authoring features of the documentation site. Each example renders from the displayed Markdown.
 
-Run `npm install` once. Then run `npm run dev`.
+Run `npm ci` to install the locked dependencies. Then run `npm run dev`.
 Open the local URL that the command prints. Translation directories have the same structure as the canonical English files.
 
 ## Callout blocks
@@ -40,7 +40,7 @@ A condition that requires attention.
 A condition that can cause damage.
 :::
 
-Add your own heading right after the type:
+Add a specific heading after the type:
 
 ::: tip Specific title
 Use a custom title when the default label is not specific.
@@ -234,7 +234,8 @@ Standard Markdown creates tables:
 | Code groups  |    ✅    |
 | Mermaid      |    ✅    |
 
-Inline badges can show status labels: <Badge type="tip" text="new" /> <Badge type="warning" text="beta" /> <Badge type="danger" text="deprecated" />.
+Inline badges can show status labels:
+<Badge type="tip" text="new" /> <Badge type="warning" text="beta" /> <Badge type="danger" text="deprecated" />
 
 ## Page frontmatter
 

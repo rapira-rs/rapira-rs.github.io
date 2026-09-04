@@ -5,19 +5,26 @@ description: "如何在服务器上运行 Rapira：systemd unit、配置布局�
 
 # 生产环境部署
 
-在服务器上运行 Rapira，需要本地那条 `rapira serve --mode worker app/worker.php` 用不到的东西：开机自启、崩溃之后能自己回来、上了新代码能重载而不丢请求，以及事后能读的日志。本页讲的是一份 systemd unit、一个放配置的位置、前面挡一层代理，以及给常驻 worker 划定边界的那几项设置。
+生产部署必须在重启后启动 Rapira，并在故障后恢复服务。
+生产部署还必须在不丢失请求的情况下更新代码，并保存日志。本页介绍 systemd unit、反向代理和 worker 设置。
 
-这里几乎没有一样东西是编译进二进制的。Rapira 不依赖配置放在哪里，也不依赖由什么来监管进程，所以下面这套布局只是本页立的一个约定，文档其余部分都按它来写。先把二进制装到机器上--这一步见[安装](/zh/docs/intro/installation)。
+Rapira 不定义部署结构。它不要求特定配置路径或进程监管器。
+本页为其他文档定义一个约定。请先按照[安装](/zh/docs/intro/installation)安装二进制文件。
 
-Rapira 同时也以容器镜像的形式发布在 `ghcr.io/rapira-rs/rapira`，用 `COPY --from` 就能把它拷进你自己的镜像。改用容器之后，下面这份 systemd unit 由容器运行时的重启策略顶替；本页讲的配置布局、前置代理、日志格式和进程池设置，则一条都不用改。更多内容见 [Docker](/zh/docs/intro/installation#docker)。
+Rapira 也提供 `ghcr.io/rapira-rs/rapira` 容器镜像。使用 `COPY --from` 将其文件复制到应用镜像。
+容器使用运行时的重启策略代替 systemd。其他配置设置不变。
+请参阅 [Docker](/zh/docs/intro/installation#docker)。
 
 ## 一份 systemd unit
 
-Rapira 顶替的就是 php-fpm，而它的 master 本身就在看着进程池：fork、回收、带退避地重启、按策略换掉 worker、伸缩池子的规模。systemd 唯一要做的就是让那个 master 进程一直活着，所以 supervisord 这类单独的进程管理器在这里没有什么可做的。
+Rapira 可以替代 php-fpm。master 进程创建、监控、替换和删除 worker。它还会更改进程池大小。
+Systemd 只需监控 master 进程。不需要单独的进程管理器。
 
-`.deb` 和 `.rpm` 包只装两样东西：二进制，以及它内置的 PHP 运行时--**既没有 service unit，也没有 `php.ini`**（具体落地哪些文件，[安装](/zh/docs/intro/installation)那一页列得很清楚）。这两样都属于各站点自己的策略，包里要是带上它们，每次升级都会覆盖掉你的改动。
+`.deb` 和 `.rpm` 软件包安装二进制文件和嵌入式 PHP。它们不安装 service unit 或 `php.ini`。
+这些文件包含站点特定设置。软件包更新不应替换这些文件。
+已安装的文件见[安装](/zh/docs/intro/installation)。
 
-自己写一份，放进 `/etc/systemd/system/rapira.service`：
+创建 `/etc/systemd/system/rapira.service`：
 
 ```ini
 [Unit]
@@ -38,14 +45,14 @@ Environment=PHPRC=/etc/rapira
 WantedBy=multi-user.target
 ```
 
-然后加载并启用它：
+加载并启用 unit：
 
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable --now rapira
 ```
 
-其中有六行需要解释：
+此 unit 使用以下设置：
 
 - `Type=exec`--Rapira 跑在**前台**，绝不会把自己 fork 到后台。没有守护进程模式，也不需要有：systemd 启起来的那个进程*就是* master，所以 `$MAINPID` 正好是你要发信号的那个 pid。
 - `ExecReload`--把 `systemctl reload rapira` 变成发给 master 的一个 `SIGUSR2`，也就是下文那套不中断服务的重载。
@@ -60,15 +67,21 @@ sudo systemctl enable --now rapira
 
 一台主机上跑两个应用，就要两份配置、两个 unit、两个监听地址；这种情况请用 systemd 的模板 unit（`rapira@.service`）。每个实例都会启动自己的 PHP 和自己的 worker 池，除了这台机器，两个实例之间什么都不共享。
 
-## 配置放在哪里
+## 配置路径
 
-约定是这样：Rapira 自己的设置放 `/etc/rapira/rapira.toml`，`php.ini` 就摆在它旁边，靠 `PHPRC=/etc/rapira` 找到。两条路径都不是编译进去的。`--config` 你给什么路径都行，而 `PHPRC` 根本不是 Rapira 的功能--Rapira 没动 PHP 找 ini 的那套逻辑，所以 PHP 会先看 `$PHPRC`，和在别的 SAPI 下一模一样。如果你的发行版或者 Ansible role 用的是别的路径，把两者都指过去。
+本指南使用 `/etc/rapira/rapira.toml` 保存 Rapira 设置。它将 `php.ini` 保存在同一目录，并设置 `PHPRC=/etc/rapira`。
+Rapira 二进制文件不包含这些路径。`--config` 选项接受任何路径。
+PHP 使用 `PHPRC` 查找配置。系统需要其他路径时，请更改这些路径。
 
-Rapira 完全没有 `php.ini` 也能跑：内置的 ini 默认值会把 PHP 的诊断信息留在日志里，而不是塞进你的响应，[日志](/zh/docs/logging)那一页有解释。想调 OPcache、设内存上限或者时区，就在 `/etc/rapira` 里写自己的那一份；它设了什么就以它为准。
+Rapira 可以在没有 `php.ini` 的情况下运行。默认值将 PHP 诊断信息写入日志，而不是 HTTP 响应。
+创建 `/etc/rapira/php.ini` 以配置 OPcache、内存限制或时区。请参阅[日志](/zh/docs/logging)。
 
-相对的 `pool.entrypoint` 是按**配置文件**所在的目录解析的，不是按工作目录。照上面这套布局，`entrypoint = "index.php"` 指的是 `/etc/rapira/index.php`，而你的应用并不在那儿。生产环境里给入口脚本写绝对路径，这个问题就压根不会冒出来。`supervisor.pidfile` 也是同一条规矩：配置里的这两条路径都挂在配置文件所在的目录下。真正按工作目录解析的，是位置参数 `SCRIPT`，以及你的 PHP 代码在运行时打开的那些相对路径；而 Rapira 从不 chdir--不设 `WorkingDirectory=` 的话，systemd 会在 `/` 里启动服务，上面那份 unit 之所以设了就是这个缘故（PHP 找 ini 时也会看 `.`，所以它同样会往那儿瞧一眼）。每个键连同默认值，都在[配置](/zh/docs/configuration)那一页。
+相对 `pool.entrypoint` 以配置文件目录为基准。因此，此结构中的 `entrypoint = "index.php"` 表示 `/etc/rapira/index.php`。
+在生产环境中使用入口脚本的绝对路径。`supervisor.pidfile` 使用相同规则。
+位置参数 `SCRIPT` 和 PHP 文件操作使用工作目录。Rapira 不更改此目录。
+Systemd 默认使用 `/`，所以 unit 设置 `WorkingDirectory=/srv/app`。所有键见[配置](/zh/docs/configuration)。
 
-## 挡在反向代理后面
+## 反向代理
 
 Rapira 接受明文 HTTP，并且不提供 TLS 设置。
 [TLS 终止代理](https://en.wikipedia.org/wiki/TLS_termination_proxy)接受客户端的 HTTPS，解密连接，然后向 Rapira 发送明文 HTTP。
@@ -89,15 +102,19 @@ Unix socket 建出来是 `0666`，也就是说本机上任何能进到这个目�
 
 ## 不中断服务的部署
 
-把新代码发上去，然后：
+部署新代码。然后重新加载 Rapira：
 
 ```bash
 sudo systemctl reload rapira
 ```
 
-这条命令发给 master 的是一个 `SIGUSR2`，master 用一次**滚动重载**来回应：进程池一次只换一个 worker，手上的请求会跑完；只有当某个 worker 超出 `process_control_timeout_secs`，才会被升级到 `SIGTERM`、随后 `SIGKILL`，它手上那个请求也随之丢失（见下文）。新旧 worker 在这一轮里怎么交叠，见[进程模型](/zh/docs/process-model)。
+此命令向 master 进程发送 `SIGUSR2`。master 每次替换一个 worker，并完成当前请求。
+如果 worker 超过 `process_control_timeout_secs`，master 会发送 `SIGTERM`，然后发送 `SIGKILL`。这会终止当前请求。
+替换顺序见[进程模型](/zh/docs/process-model)。
 
-没有 systemd 的场合--容器的 entrypoint、一个部署脚本--就直接给 master 发信号。设上 `supervisor.pidfile`，pid 就在那儿等着；离开 systemd 就没人会去建 `/run/rapira`，所以要么先把目录建出来，要么换一条已经存在的路径--文件写不进去，master 会拒绝启动。
+当 systemd 不管理进程时，直接向 master 进程发送信号。设置 `supervisor.pidfile` 以保存进程标识符。
+启动 Rapira 前，创建 pidfile 目录。也可以选择现有目录。
+如果 master 无法写入文件，它不会启动。
 
 ```toml
 [supervisor]
@@ -145,6 +162,9 @@ max_requests = 500
 request_terminate_timeout_secs = 30
 ```
 
-`max_requests` 让 worker 处理够这么多请求就退休，再 fork 一个新的顶上，另外加了一点抖动，免得整个进程池同时替换。它治不好泄漏，它管的是别让一个还没找出来的泄漏变成线上故障。`request_terminate_timeout_secs` 是单个请求的墙钟时间上限：超过就把这个 worker 杀掉重开，这样一个卡住的请求就不会长期占着一个 worker。两项默认都关着；上线之前把它们打开。
+`max_requests` 在达到指定请求数后替换 worker。Rapira 会添加一个小的随机值，以防止同时替换整个进程池。
+此设置限制泄漏的影响，但不会修复泄漏。
+`request_terminate_timeout_secs` 限制一个请求的运行时间。Rapira 会替换超过此值的 worker。
+两个设置默认都关闭。用于生产环境前，请启用它们。
 
 进程池的其余部分--static、dynamic 和 ondemand 三种规模策略、重启退避，以及 worker 死掉时 master 会做什么--都在[进程模型](/zh/docs/process-model)。

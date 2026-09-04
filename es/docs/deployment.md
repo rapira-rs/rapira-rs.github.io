@@ -5,19 +5,26 @@ description: "Cómo ejecutar Rapira en un servidor: una unidad de systemd, la di
 
 # En producción
 
-Ejecutar Rapira en un servidor añade lo que un `rapira serve --mode worker app/worker.php` local no necesita: arrancar al encender la máquina, volver después de una caída, recargar el código nuevo sin tirar ninguna petición y unos registros que puedas leer más tarde. Esta página cubre una unidad de systemd, un sitio para la configuración, un proxy delante y los ajustes que ponen límites a unos workers de vida larga.
+Una instalación de producción debe iniciar Rapira después de un reinicio y recuperarse de los fallos.
+También debe actualizar el código sin perder peticiones y conservar los registros. Esta página describe una unidad de systemd, un proxy inverso y los ajustes de los workers.
 
-Casi nada de esto está compilado en el binario. Nada en Rapira depende de dónde tengas la configuración ni de qué supervise el proceso, así que la disposición de más abajo es una convención que establece esta página y que asume el resto de la documentación. Antes de nada, mete el binario en la máquina: de eso se encarga [Instalación](/es/docs/intro/installation).
+Rapira no define una estructura de despliegue. Tampoco requiere una ruta de configuración o un supervisor de procesos específicos.
+Esta página establece la convención que usa el resto de la documentación. Instala primero el binario según [Instalación](/es/docs/intro/installation).
 
-Rapira se publica también como imagen de contenedor en `ghcr.io/rapira-rs/rapira`, que copias dentro de tu propia imagen con `COPY --from`. En un contenedor, la política de reinicio de tu runtime de contenedores sustituye a la unidad de systemd de aquí abajo; la disposición de la configuración, el proxy, el formato de los registros y los ajustes del pool de esta página se quedan igual. Consulta [Docker](/es/docs/intro/installation#docker) para más información.
+Rapira también está disponible como imagen `ghcr.io/rapira-rs/rapira`. Copia sus archivos en la imagen de la aplicación mediante `COPY --from`.
+En un contenedor, usa la política de reinicio del runtime en lugar de systemd. Los demás ajustes no cambian.
+Consulta [Docker](/es/docs/intro/installation#docker).
 
 ## Una unidad de systemd
 
-Rapira ocupa el lugar de php-fpm, y su maestro ya supervisa el pool: crea procesos con fork, recoge los que mueren, los vuelve a crear con backoff, recicla workers y escala el pool. Mantener vivo ese único proceso maestro es el único trabajo de systemd, así que no le queda nada que hacer a un gestor de procesos aparte como supervisord.
+Rapira puede sustituir a php-fpm. Su proceso maestro crea, supervisa, sustituye y elimina workers. También cambia el tamaño del pool.
+Systemd solo debe supervisar el proceso maestro. No es necesario otro gestor de procesos.
 
-Los paquetes `.deb` y `.rpm` instalan el binario y el runtime de PHP que lleva incrustado, y nada más: **ni unidad de servicio ni `php.ini`** (en [Instalación](/es/docs/intro/installation) tienes la lista exacta de archivos). Las dos cosas son política de cada instalación, y un paquete que las trajera te pisaría los cambios en cada actualización.
+Los paquetes `.deb` y `.rpm` instalan el binario y el runtime PHP integrado. No instalan una unidad de servicio ni `php.ini`.
+Estos archivos contienen ajustes específicos del sitio. Las actualizaciones de paquetes no deben sustituirlos.
+Consulta [Instalación](/es/docs/intro/installation) para ver los archivos instalados.
 
-Escribe la tuya en `/etc/systemd/system/rapira.service`:
+Crea `/etc/systemd/system/rapira.service`:
 
 ```ini
 [Unit]
@@ -38,14 +45,14 @@ Environment=PHPRC=/etc/rapira
 WantedBy=multi-user.target
 ```
 
-Después cárgala y actívala:
+Carga y activa la unidad:
 
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable --now rapira
 ```
 
-Seis de esas líneas necesitan explicación:
+La unidad usa estos ajustes:
 
 - `Type=exec` - Rapira se ejecuta en **primer plano** y nunca hace fork para pasar a segundo plano. No hay modo demonio ni hace falta: el proceso que arranca systemd *es* el maestro, así que `$MAINPID` es justo el pid al que quieres mandar señales.
 - `ExecReload` - convierte `systemctl reload rapira` en un `SIGUSR2` al maestro, que es la recarga sin cortes de la que se habla más abajo.
@@ -60,15 +67,21 @@ Añade `User=` y `Group=` al bloque `[Service]`: systemd le cambia el dueño del
 
 Dos aplicaciones en una misma máquina llevan dos configuraciones, dos unidades y dos direcciones de escucha; para eso usa una unidad plantilla de systemd (`rapira@.service`). Cada instancia arranca su propio PHP y su propio pool de workers, y no comparte nada con la otra instancia salvo la máquina.
 
-## Dónde vive la configuración
+## Rutas de configuración
 
-La convención es `/etc/rapira/rapira.toml` para los ajustes propios de Rapira y un `php.ini` al lado, que se encuentra gracias a `PHPRC=/etc/rapira`. Ninguna de las dos rutas está compilada en el binario. A `--config` le vale cualquier ruta que le des, y `PHPRC` ni siquiera es cosa de Rapira: la búsqueda de ini de PHP se queda tal cual, así que PHP mira primero en `$PHPRC` exactamente igual que bajo cualquier otro SAPI. Apunta las dos a otro sitio si tu distribución o tu rol de Ansible usa rutas distintas.
+Esta guía usa `/etc/rapira/rapira.toml` para los ajustes de Rapira. Guarda `php.ini` en el mismo directorio y define `PHPRC=/etc/rapira`.
+Rapira no contiene estas rutas en el binario. La opción `--config` acepta cualquier ruta.
+PHP usa `PHPRC` para buscar su configuración. Usa otras rutas cuando el sistema las requiera.
 
-Rapira funciona sin ningún `php.ini`: sus valores de ini por defecto mandan los diagnósticos de PHP al registro en lugar de a tus respuestas, como cuenta [Registros](/es/docs/logging). Escribe el tuyo en `/etc/rapira` cuando quieras ajustar OPcache, poner un límite de memoria o una zona horaria; lo que defina ahí manda.
+Rapira puede funcionar sin `php.ini`. Sus valores predeterminados envían los diagnósticos de PHP al registro y no a las respuestas HTTP.
+Crea `/etc/rapira/php.ini` para configurar OPcache, un límite de memoria o una zona horaria. Consulta [Registros](/es/docs/logging).
 
-Un `pool.entrypoint` relativo se resuelve contra el directorio **del archivo de configuración**, no contra el directorio de trabajo. Con la disposición de arriba, `entrypoint = "index.php"` querría decir `/etc/rapira/index.php`, que no es donde está tu aplicación. En producción, dale al entrypoint una ruta absoluta y la duda no aparece nunca. `supervisor.pidfile` sigue la misma regla: las dos rutas de la configuración cuelgan del directorio del archivo de configuración. Lo que sí se resuelve contra el directorio de trabajo es el argumento posicional `SCRIPT` y cualquier ruta relativa que tu código PHP abra en tiempo de ejecución, y Rapira nunca hace `chdir`: systemd arranca el servicio en `/` salvo que pongas `WorkingDirectory=`, y por eso la unidad de arriba lo pone (la búsqueda de ini de PHP incluye `.`, así que también mira ahí). Cada clave, con su valor por defecto, está en [Configuración](/es/docs/configuration).
+Un `pool.entrypoint` relativo usa como base el directorio del archivo de configuración. Por tanto, `entrypoint = "index.php"` significa `/etc/rapira/index.php` en esta estructura.
+Usa una ruta absoluta para el script de entrada en producción. `supervisor.pidfile` usa la misma regla.
+El argumento `SCRIPT` y las operaciones de PHP usan el directorio de trabajo. Rapira no cambia este directorio.
+Systemd usa `/` de forma predeterminada, por lo que la unidad define `WorkingDirectory=/srv/app`. Consulta [Configuración](/es/docs/configuration).
 
-## Detrás de un proxy inverso
+## Proxy inverso
 
 Rapira acepta HTTP sin cifrar y no ofrece ajustes de TLS.
 Un [proxy de terminación TLS](https://en.wikipedia.org/wiki/TLS_termination_proxy) recibe HTTPS del cliente, descifra la conexión y envía HTTP sin cifrar a Rapira.
@@ -89,15 +102,19 @@ Cuando activas el [middleware de archivos estáticos](/es/docs/static-files), Ra
 
 ## Despliegues sin cortes
 
-Despliega el código nuevo y luego:
+Despliega el código nuevo. Después, recarga Rapira:
 
 ```bash
 sudo systemctl reload rapira
 ```
 
-Eso es un `SIGUSR2` al maestro, que responde con una **recarga progresiva**: el pool se reemplaza de worker en worker y las peticiones en curso llegan hasta el final; no se pierde nada mientras ningún worker se pase de `process_control_timeout_secs`. Al que se pasa se le escala a `SIGTERM` y luego a `SIGKILL`, y su petición en curso se pierde (lo tienes más abajo). Cómo solapa el relevo al worker nuevo con el viejo lo tienes en [Modelo de procesos](/es/docs/process-model).
+El comando envía `SIGUSR2` al proceso maestro. El maestro sustituye un worker cada vez y termina las peticiones actuales.
+Si un worker supera `process_control_timeout_secs`, el maestro envía `SIGTERM` y después `SIGKILL`. Esto termina la petición actual.
+Consulta [Modelo de procesos](/es/docs/process-model) para ver la secuencia de sustitución.
 
-Sin systemd -un entrypoint de contenedor, un script de despliegue- mándale la señal al maestro tú mismo. Define `supervisor.pidfile` y tendrás el pid a mano; eso sí, fuera de systemd nadie crea `/run/rapira`, así que crea antes el directorio o elige una ruta que exista: el maestro se niega a arrancar si no puede escribir ese archivo.
+Envía la señal al proceso maestro cuando systemd no gestione el proceso. Define `supervisor.pidfile` para guardar el identificador del proceso.
+Crea el directorio del pidfile antes de iniciar Rapira. También puedes seleccionar un directorio existente.
+El proceso maestro no se inicia si no puede escribir el archivo.
 
 ```toml
 [supervisor]
@@ -145,6 +162,9 @@ max_requests = 500
 request_terminate_timeout_secs = 30
 ```
 
-`max_requests` jubila al worker tras ese número de peticiones y crea otro nuevo con fork, con algo de jitter para que el pool entero no se recicle a la vez. No arregla ninguna fuga; lo que hace es evitar que una fuga que nadie ha encontrado acabe en una caída del servicio. `request_terminate_timeout_secs` es un techo de tiempo real para una sola petición: al worker que se lo salte se le mata y se le vuelve a crear, así que una petición atascada no ocupa un worker de forma permanente. Los dos vienen desactivados de fábrica; actívalos antes de salir a producción.
+`max_requests` sustituye un worker después del número definido de peticiones. Rapira añade un valor aleatorio para evitar sustituir todo el pool a la vez.
+Este ajuste limita el efecto de una fuga, pero no la corrige.
+`request_terminate_timeout_secs` limita el tiempo de una petición. Rapira sustituye un worker que supera este valor.
+Los dos ajustes están desactivados de forma predeterminada. Actívalos antes de usar producción.
 
 El resto del pool -el dimensionado static, dynamic y ondemand, el backoff al recrear procesos y qué hace el maestro cuando muere un worker- está en [Modelo de procesos](/es/docs/process-model).

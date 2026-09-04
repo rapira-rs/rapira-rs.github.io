@@ -160,7 +160,7 @@ Use the persistent runner by default. It follows the framework design, had stabl
 Use a per-request runner when initialization order or request setup prevents a complete `StateResetter` callback.
 Changing between these designs requires changes only to the worker script.
 
-## Running it
+## Starting Rapira
 
 ```bash
 rapira serve --mode worker worker.php
@@ -168,7 +168,7 @@ rapira serve --mode worker worker.php
 
 `--mode worker` selects Worker mode. See [CLI](/docs/cli) for the remaining flags.
 
-For production, put it in a `rapira.toml`:
+For production, store the settings in `rapira.toml`:
 
 ```toml
 [http]

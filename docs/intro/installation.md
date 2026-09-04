@@ -97,7 +97,7 @@ The package installs `/usr/bin/rapira` and `/usr/lib/rapira/libphp.so`. It insta
 
 ## RHEL, Rocky and Fedora
 
-The same thing, through `dnf`:
+Install the RPM through `dnf`:
 
 ```bash
 curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.8.0/rapira-php8.5-0.8.0-1.x86_64.rpm
@@ -107,7 +107,7 @@ rapira --version
 
 The glibc 2.34 requirement supports **RHEL 9**, Rocky 9, AlmaLinux 9, and current Fedora versions.
 
-## Tarballs, on Linux and macOS
+## Tarballs on Linux and macOS
 
 A tarball unpacks into a single directory that holds the whole server:
 
@@ -226,7 +226,7 @@ The `nightly-php8.5` tag points to that build. The registry retains the ten newe
 
 ## The libphp build
 
-`libphp` is built with `--disable-all`, with a fixed set of extensions turned back on:
+Rapira builds `libphp` with `--disable-all` and enables this fixed set of extensions:
 
 - **Runtime basics**: session, filter, mbstring, iconv, ctype, tokenizer, fileinfo, phar, posix.
 - **OPcache** and PCRE with JIT enabled.
@@ -236,13 +236,13 @@ The `nightly-php8.5` tag points to that build. The registry retains the ten newe
 - **Shared memory and System V IPC**: shmop, sysvmsg, sysvsem, sysvshm.
 - **Dates, image metadata and translations**: calendar, exif, gettext.
 - **Foreign function interface**: ffi.
-- Everything PHP always builds in: Core, standard, SPL, date, json, hash, random, Reflection.
+- **Required PHP components**: Core, standard, SPL, date, json, hash, random, Reflection.
 
 The build does not include `pdo_mysql`, `pgsql`, Redis, APCu, or Imagick.
 If the application requires another extension, build `libphp` with it. Then compile Rapira against that library.
 See [Build from source](/docs/intro/build-from-source).
 
-Each release takes the newest patch version of the branch it builds. In a tarball, `share/php/PHP_VERSION.txt` contains the exact version.
+Each release uses the latest patch version available for its PHP branch. In a tarball, `share/php/PHP_VERSION.txt` contains the exact version.
 On a running server, `PHP_VERSION` and `phpinfo()` report it.
 
 ::: question Why does `PHP_SAPI` return `fastcgi` on PHP 8.4?

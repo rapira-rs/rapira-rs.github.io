@@ -5,7 +5,10 @@ description: "Una aplicación Yii3 en Rapira en modo Worker: el HttpApplicationR
 
 # Yii3
 
-Yii3 está diseñado para ejecutarse en un proceso que no muere: su contenedor de DI trae un `StateResetter`, el runner expone su contenedor como API pública, y construir la aplicación una vez y reiniciar el estado de la petición después de cada respuesta es la forma que el framework ya tiene. El runner oficial para RoadRunner, [`yiisoft/yii-runner-roadrunner`](https://github.com/yiisoft/yii-runner-roadrunner), está construido igual. Esta página cubre el script de worker residente, la alternativa que reconstruye el runner en cada petición y qué se comprobó sobre enrutado, sesiones, subidas de archivos y gestión de errores.
+Yii3 admite procesos persistentes. Su contenedor proporciona `StateResetter` y el runner permite el acceso público al contenedor.
+Un worker puede iniciar la aplicación una vez y reiniciar el estado después de cada respuesta.
+El runner oficial [`yiisoft/yii-runner-roadrunner`](https://github.com/yiisoft/yii-runner-roadrunner) usa el mismo diseño.
+Esta página describe un worker persistente, una alternativa por petición y los resultados de las pruebas.
 
 ::: info Verificado con
 - **PHP 8.5.8** - NTS, SAPI embed
@@ -19,9 +22,13 @@ Los dos scripts de worker de esta página se ejecutaron contra ese stack y pasar
 
 Un worker residente necesita dos piezas de API pública.
 
-`ApplicationRunner::getContainer()` devuelve el contenedor sobre el que corre la aplicación, así que no hay que heredar de nada ni hurgar en estado privado. `Yiisoft\Di\StateResetter` es un servicio más de ese contenedor: los componentes registran en él sus propios callbacks de reinicio y una sola llamada a `reset()` los deja como estaban al principio, que es la respuesta del propio framework a un servicio que guarda estado de la petición.
+`ApplicationRunner::getContainer()` devuelve el contenedor de la aplicación. El worker no necesita una subclase ni acceso al estado privado.
+`Yiisoft\Di\StateResetter` es un servicio del contenedor. Los componentes registran callbacks que reinician el estado de petición.
+Una llamada a `reset()` ejecuta estos callbacks.
 
-Un servicio tuyo que guarde estado de la petición también tiene que registrar su callback: añade una clave `'reset' => function (): void { … }` a la definición de DI de ese servicio, igual que declaran las suyas `yiisoft/session` y `yiisoft/router`. El closure se enlaza a la instancia, así que puede restaurar estado privado sin reconstruir el objeto. Qué reinicia Rapira entre peticiones y qué deja sin tocar está documentado en la [guía general de frameworks](/es/docs/frameworks/) y en [Modo Worker](/es/docs/worker).
+Un servicio de la aplicación con estado de petición también debe registrar un callback. Añade `'reset' => function (): void { … }` a su definición.
+`yiisoft/session` y `yiisoft/router` usan el mismo método. El closure puede reiniciar el estado privado sin crear otro objeto.
+Consulta la duración del estado en la [guía general](/es/docs/frameworks/) y en [Modo Worker](/es/docs/worker).
 
 El patrón residente son entonces tres pasos: construir el runner una vez, ejecutarlo en cada petición y reiniciar después el estado del contenedor.
 
@@ -75,19 +82,28 @@ Vamos por partes:
 
 **`src/bootstrap.php` es el arranque que trae la propia plantilla.** Carga el autoloader de Composer, lee el `.env` si está y llama a `Environment::prepare()`: exactamente lo que hace `public/index.php` antes de tocar el runner. La línea explícita de `vendor/autoload.php` que va justo encima es redundante -`require_once` convierte la segunda llamada en algo que no hace nada- y deja el worker legible como punto de entrada independiente.
 
-**El runner se construye una sola vez, con los argumentos de `public/index.php`.** `rootPath`, `debug`, `checkEvents` y `environment` salen de `App\Environment` tal cual los pasa el script de entrada, así que el worker arranca la misma aplicación que el punto de entrada web. El `public/index.php` de la plantilla pasa un argumento más -un `temporaryErrorHandler` conectado a un logger con `StreamTarget`- y hace `require` de `c3.php` cuando `APP_C3` está activo. El worker verificado se salta las dos cosas. Ese manejador temporal solo cubre los errores que se producen mientras se construyen la configuración y el contenedor; si no le pasas ninguno, el runner recurre a un `ErrorHandler` con un `NullLogger` (`HttpApplicationRunner::createTemporaryErrorHandler()`), así que pásaselo aquí también si quieres que queden registrados los fallos al construir el contenedor.
+**El worker crea el runner una vez con los argumentos de `public/index.php`.**
+Pasa `rootPath`, `debug`, `checkEvents` y `environment` desde `App\Environment`. Por tanto, inicia la misma aplicación.
+La plantilla también pasa `temporaryErrorHandler` con un logger `StreamTarget`. Carga `c3.php` cuando se activa `APP_C3`.
+El worker probado omite ambas partes.
+El manejador temporal registra errores durante la creación de la configuración y el contenedor.
+Sin él, `HttpApplicationRunner::createTemporaryErrorHandler()` crea un `ErrorHandler` con `NullLogger`.
+Pasa el manejador de la plantilla para registrar fallos de creación del contenedor.
 
 **`getContainer()` es API pública**, así que el contenedor que capturas es el de la aplicación: el mismo que usará el runner en cada petición. El `StateResetter` se resuelve desde ahí dentro del handler.
 
 **En cada petición: `run()` y después `reset()`.** `run()` es la misma llamada que hace el script de entrada; `reset()` recorre los callbacks de reinicio registrados en el contenedor y devuelve los servicios con estado a su punto de partida antes de que llegue la petición siguiente.
 
-**`run()` vuelve a ejecutar toda su secuencia en cada llamada.** Cada llamada registra el manejador de errores, ejecuta `runBootstrap()`, ejecuta `checkEvents()` y después atiende la petición; el runner es reentrante por diseño y se comprobó que esa repetición es inofensiva durante 200 llamadas seguidas. La comprobación de eventos solo hace algo cuando su flag está activo, y la plantilla ata ese flag a `Environment::appDebug()`, así que con el modo debug apagado no hace nada en ninguna llamada.
+**`run()` repite su secuencia completa en cada llamada.** Registra el manejador, ejecuta `runBootstrap()` y `checkEvents()`, y procesa la petición.
+Las pruebas confirmaron esta secuencia durante 200 llamadas.
+La comprobación de eventos solo se ejecuta cuando su opción es verdadera. La plantilla obtiene la opción de `Environment::appDebug()`.
 
 **Un runner residente lee cada petición desde cero.** `run()` no captura la petición al construirse. En cada llamada resuelve `RequestFactory` desde el contenedor y construye un `ServerRequest` PSR-7 nuevo a partir de `$_SERVER`, `$_GET`, `$_POST`, `$_COOKIE`, `$_FILES` y `php://input`, y Rapira vuelve a rellenar esas superglobales antes de cada iteración del bucle (ese contrato lo cubre [Modo Worker](/es/docs/worker)).
 
-**La memoria se mantiene plana.** A lo largo de 200 peticiones seguidas, el conjunto residente del worker no creció de forma apreciable, porque la aplicación se construye una vez y el reinicio es barato, así que no hay ningún arranque por petición que después haya que recoger.
+**El uso de memoria permaneció estable.** Las pruebas no observaron un aumento significativo durante 200 peticiones.
+La aplicación se inicia una vez y cada petición ejecuta un reinicio.
 
-## La alternativa sencilla: un runner nuevo en cada petición
+## Un runner nuevo para cada petición
 
 Para evitar por completo el estado residente, construye el runner *dentro* del handler. Así, todo lo que cree la aplicación pertenece a una sola petición:
 
@@ -121,13 +137,18 @@ while (\Rapira\handle_request($handler)) {
 
 El contenedor se reconstruye cada vez, así que hay menos piezas móviles, ningún reinicio que puedas hacer mal y ningún estado del contenedor que pase de una petición a la siguiente; las propiedades `static`, las variables globales y todo lo que dejara montado el arranque siguen residentes bajo cualquier worker y tiene que reiniciarlos tu propio código. Esta variante también pasó la batería completa.
 
-El contenedor arranca en cada petición, de modo que ese arranque se paga cada vez y se genera la basura de un contenedor entero. La memoria del worker va creciendo según se acumulan esos contenedores hasta que PHP los libera de golpe, el perfil normal de un arranque por petición y no una fuga. Combina este patrón con `pool.max_requests` para que cada worker termine y sea reemplazado cada cierto tiempo; los perfiles de memoria están en la [guía general de frameworks](/es/docs/frameworks/) y la clave está documentada en [Configuración](/es/docs/configuration).
+El contenedor se inicia para cada petición. Esto añade tiempo de inicio y crea objetos que PHP debe liberar.
+La memoria puede aumentar hasta que PHP libere varios contenedores antiguos. Este comportamiento cíclico no siempre es una fuga.
+Define `pool.max_requests` para sustituir los workers periódicamente.
+Consulta este comportamiento en la [guía general](/es/docs/frameworks/) y el ajuste en [Configuración](/es/docs/configuration).
 
 El autoloader y el arranque de la plantilla siguen siendo residentes y el bucle de peticiones sigue viviendo en el script de worker, así que esto sigue siendo un worker, uno que descarta su aplicación entre peticiones, no [modo Classic](/es/docs/classic).
 
-Usa el runner residente salvo que tengas un motivo para no hacerlo: es el diseño de larga vida que propone el propio framework, la memoria se mantiene plana y el reinicio es una sola llamada. Usa el runner por petición si tu arranque tiene restricciones de orden sobre las que prefieres no pensar: código que debe ejecutarse antes de que se construya el contenedor, o trabajo de arranque por petición que un callback de `StateResetter` no puede deshacer. Cambiar de uno a otro más adelante solo afecta al script de worker.
+Usa el runner persistente de forma predeterminada. Sigue el diseño del framework, tuvo memoria estable y requiere una llamada de reinicio.
+Usa un runner por petición si el orden de inicio impide un callback completo de `StateResetter`.
+El cambio entre los diseños solo requiere modificar el script del worker.
 
-## Cómo ejecutarlo
+## Iniciar Rapira
 
 ```bash
 rapira serve --mode worker worker.php
@@ -155,7 +176,7 @@ format = "json"
 
 Cada clave, con su valor por defecto y sus límites, está en la página de [Configuración](/es/docs/configuration); la unidad de systemd y el proxy inverso que va delante están en [En producción](/es/docs/deployment).
 
-## Qué se verificó
+## Resultados de las pruebas
 
 Los dos patrones pasaron la misma batería de pruebas contra la plantilla `yiisoft/app`. Los resultados:
 

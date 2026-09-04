@@ -79,7 +79,7 @@ Cztery: binarka `/usr/bin/rapira`, interpreter `/usr/lib/rapira/libphp.so` oraz 
 
 ## RHEL, Rocky i Fedora
 
-To samo, tylko przez `dnf`:
+Zainstaluj pakiet RPM przez `dnf`:
 
 ```bash
 curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.8.0/rapira-php8.5-0.8.0-1.x86_64.rpm
@@ -89,7 +89,7 @@ rapira --version
 
 Ten sam próg glibc 2.34 wyznacza minimum: **RHEL 9** i jego przebudowy - Rocky 9, AlmaLinux 9 - plus dowolna aktualna Fedora.
 
-## Archiwa tar, na Linuksie i macOS
+## Archiwa tar na Linuksie i macOS
 
 Archiwum rozpakowuje się do jednego katalogu, w którym leży cały serwer:
 
@@ -192,7 +192,7 @@ Każdy przebieg CI, który przejdzie na `main`, buduje obrazy na nowo z tego com
 
 ## Kompilacja libphp
 
-`libphp` jest kompilowana z `--disable-all`, po czym z powrotem włączany jest stały zestaw rozszerzeń:
+Rapira buduje `libphp` z `--disable-all` i włącza stały zestaw rozszerzeń:
 
 - **Podstawa runtime'u**: session, filter, mbstring, iconv, ctype, tokenizer, fileinfo, phar, posix.
 - **OPcache** oraz PCRE z włączonym JIT-em.
@@ -202,11 +202,12 @@ Każdy przebieg CI, który przejdzie na `main`, buduje obrazy na nowo z tego com
 - **Pamięć współdzielona i System V IPC**: shmop, sysvmsg, sysvsem, sysvshm.
 - **Daty, metadane obrazów i tłumaczenia**: calendar, exif, gettext.
 - **Interfejs do funkcji zewnętrznych**: ffi.
-- Wszystko, co PHP wkompilowuje zawsze: Core, standard, SPL, date, json, hash, random, Reflection.
+- **Wymagane komponenty PHP**: Core, standard, SPL, date, json, hash, random, Reflection.
 
 Czego w niej *nie ma*: `pdo_mysql`, `pgsql`, redis, apcu, imagick i reszty z tej półki. Jeśli twoja aplikacja potrzebuje takiego rozszerzenia, skompiluj `libphp` razem z nim i zbuduj Rapirę pod tę bibliotekę - jak, opisuje strona [Budowanie ze źródeł](/pl/docs/intro/build-from-source).
 
-Każde wydanie bierze najświeższą wersję łatki z budowanej gałęzi. W archiwum dokładna wersja zapisana jest w `share/php/PHP_VERSION.txt`, a na działającym serwerze podają ją `PHP_VERSION` i `phpinfo()`.
+Każde wydanie używa najnowszej dostępnej wersji poprawkowej swojej gałęzi PHP. Plik `share/php/PHP_VERSION.txt` w archiwum zawiera dokładną wersję.
+Na działającym serwerze wersję podają `PHP_VERSION` i `phpinfo()`.
 
 ::: question Dlaczego na PHP 8.4 `PHP_SAPI` zwraca `fastcgi`?
 Na PHP 8.4 OPcache startuje tylko dla zamkniętej listy nazw SAPI, a nazwa spoza listy oznacza brak wspólnego cache'u opcode'ów w ogóle - dlatego tam SAPI rejestruje się jako `fastcgi`. PHP 8.5 zniosło tę listę, więc `PHP_SAPI` i `php_sapi_name()` zwracają `rapira`. Wiersz *Server API* w `phpinfo()` w obu przypadkach pokazuje `Rapira`. Kod, który rozgałęzia się po `PHP_SAPI`, musi rozumieć obie wartości.

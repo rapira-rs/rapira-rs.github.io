@@ -99,7 +99,7 @@ Put request state in the handler or reset it before the next request.
 Global state also remains between requests. Examples include static properties, singletons, registries, and persistent `ini_set()` changes.
 php-fpm resets these values during request shutdown. A Rapira worker does not reset them.
 Use [Classic mode](/docs/classic) if the application cannot reset global state. Classic mode is a compatible php-fpm replacement.
-You can select Worker mode after you correct the shared state.
+Select Worker mode after you correct the shared state.
 :::
 
 ## Shutdown functions
@@ -150,7 +150,7 @@ if (\Rapira\get_mode() === \Rapira\Mode::Worker) {
 }
 ```
 
-## Pitfalls
+## Common problems
 
 **State retained between requests.** Check for retained request state when an application fails only in Worker mode.
 Examples include a growing static array, a request object in a singleton, or old user data in a logger.
@@ -164,7 +164,8 @@ The example calls `gc_collect_cycles()` between requests. This call is optional,
 `pool.request_terminate_timeout_secs` limits the elapsed time of one request. Rapira terminates a worker that exceeds it.
 See [Configuration](/docs/configuration) for this key and `pool.max_requests`. See [Process model](/docs/process-model) for worker termination processing.
 
-**An uncaught exception affects one request, not the worker.** An uncaught handler exception returns `500` unless the handler already sent the response head.
+**An uncaught exception affects one request, not the worker.** An uncaught handler exception usually returns `500`.
+Rapira cannot change the status after the handler sends the response head.
 The loop continues, so the exception does not stop the worker. A fatal error ends the persistent script.
 The worker then starts the script again and initializes the application.
 

@@ -79,7 +79,7 @@ Cuatro: el binario `/usr/bin/rapira`, el intérprete `/usr/lib/rapira/libphp.so`
 
 ## RHEL, Rocky y Fedora
 
-Lo mismo, con `dnf`:
+Instala el RPM mediante `dnf`:
 
 ```bash
 curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.8.0/rapira-php8.5-0.8.0-1.x86_64.rpm
@@ -89,7 +89,7 @@ rapira --version
 
 El mismo suelo de glibc 2.34 marca el mínimo: **RHEL 9** y sus recompilaciones -Rocky 9, AlmaLinux 9- más cualquier Fedora actual.
 
-## Tarballs, en Linux y macOS
+## Tarballs en Linux y macOS
 
 El tarball se descomprime en un único directorio con el servidor entero:
 
@@ -192,7 +192,7 @@ Cada ejecución de CI que pasa en `main` vuelve a construir las imágenes a part
 
 ## La compilación de libphp
 
-`libphp` se compila con `--disable-all` y luego se vuelve a activar un conjunto fijo de extensiones:
+Rapira compila `libphp` con `--disable-all` y activa un conjunto fijo de extensiones:
 
 - **Base del runtime**: session, filter, mbstring, iconv, ctype, tokenizer, fileinfo, phar, posix.
 - **OPcache** y PCRE con JIT activado.
@@ -202,7 +202,7 @@ Cada ejecución de CI que pasa en `main` vuelve a construir las imágenes a part
 - **Memoria compartida e IPC de System V**: shmop, sysvmsg, sysvsem, sysvshm.
 - **Fechas, metadatos de imagen y traducciones**: calendar, exif, gettext.
 - **Interfaz de funciones externas**: ffi.
-- Todo lo que PHP compila siempre: Core, standard, SPL, date, json, hash, random, Reflection.
+- **Componentes necesarios de PHP**: Core, standard, SPL, date, json, hash, random, Reflection.
 
 Lo que *no* lleva: `pdo_mysql`, `pgsql`, redis, apcu, imagick y demás. Si tu aplicación necesita una de esas extensiones, compila `libphp` con ella y compila Rapira contra esa biblioteca; [Compilar desde el código](/es/docs/intro/build-from-source) explica cómo.
 

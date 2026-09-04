@@ -5,7 +5,10 @@ description: "Aplikacja Yii3 na Rapirze w trybie Worker: rezydentny HttpApplicat
 
 # Yii3
 
-Yii3 jest zaprojektowany do pracy w procesie, który nie kończy się po żądaniu: jego kontener DI ma wbudowany `StateResetter`, runner udostępnia swój kontener w publicznym API, a zbudowanie aplikacji raz i wyzerowanie stanu żądania po każdej odpowiedzi to postać, którą framework ma od początku. Oficjalny runner dla RoadRunnera, [`yiisoft/yii-runner-roadrunner`](https://github.com/yiisoft/yii-runner-roadrunner), jest zbudowany tak samo. Ta strona opisuje skrypt rezydentnego workera, wariant z runnerem tworzonym na każde żądanie oraz to, co sprawdzono w routingu, sesjach, przesyłaniu plików i obsłudze błędów.
+Yii3 obsługuje trwałe procesy. Jego kontener DI udostępnia `StateResetter`, a runner zapewnia publiczny dostęp do kontenera.
+Worker może raz zainicjalizować aplikację i zerować stan po każdej odpowiedzi.
+Oficjalny runner [`yiisoft/yii-runner-roadrunner`](https://github.com/yiisoft/yii-runner-roadrunner) używa tego samego rozwiązania.
+Ta strona opisuje trwały worker, wariant na każde żądanie i wyniki testów.
 
 ::: info Sprawdzone na
 - **PHP 8.5.8** - NTS, embed SAPI
@@ -19,9 +22,13 @@ Oba skrypty workera z tej strony uruchomiliśmy na tym stosie i oba przeszły pe
 
 Rezydentny worker potrzebuje dwóch elementów publicznego API.
 
-`ApplicationRunner::getContainer()` zwraca kontener, na którym działa aplikacja, więc nie trzeba po niczym dziedziczyć ani sięgać do prywatnego stanu. `Yiisoft\Di\StateResetter` to zwykły serwis w tym kontenerze: komponenty rejestrują w nim własne callbacki zerujące, a jedno wywołanie `reset()` przywraca je do stanu początkowego - to odpowiedź samego frameworka na serwis, który trzyma stan żądania.
+`ApplicationRunner::getContainer()` zwraca kontener aplikacji. Worker nie wymaga podklasy ani dostępu do prywatnego stanu.
+`Yiisoft\Di\StateResetter` jest serwisem tego kontenera. Komponenty rejestrują callbacki zerujące stan żądania.
+Jedno wywołanie `reset()` uruchamia te callbacki.
 
-Twój własny serwis trzymający stan żądania też musi zarejestrować callback: dodaj do jego definicji DI klucz `'reset' => function (): void { … }`, dokładnie tak, jak deklarują to `yiisoft/session` i `yiisoft/router`. Domknięcie jest związane z instancją, więc potrafi przywrócić prywatny stan bez odbudowywania obiektu. Co między żądaniami zeruje sama Rapira, a czego nie rusza, opisuje [przegląd frameworków](/pl/docs/frameworks/) oraz [tryb Worker](/pl/docs/worker).
+Serwis aplikacji ze stanem żądania również musi zarejestrować callback. Dodaj `'reset' => function (): void { … }` do jego definicji DI.
+`yiisoft/session` i `yiisoft/router` używają tej samej metody. Domknięcie może wyzerować prywatny stan bez tworzenia nowego obiektu.
+Czas życia stanu opisują [przegląd frameworków](/pl/docs/frameworks/) i [tryb Worker](/pl/docs/worker).
 
 Rezydentny wzorzec sprowadza się więc do trzech kroków: zbuduj runner raz, uruchamiaj go przy każdym żądaniu, a po wszystkim wyzeruj stan kontenera.
 
@@ -75,19 +82,28 @@ Po kolei:
 
 **`src/bootstrap.php` to bootstrap samego szablonu.** Ładuje autoloader Composera, czyta `.env`, jeśli plik istnieje, i wywołuje `Environment::prepare()` - dokładnie to, co robi `public/index.php`, zanim w ogóle dotknie runnera. Linijka z `vendor/autoload.php` nad nim jest nadmiarowa - `require_once` sprawia, że drugie wywołanie nic nie robi - ale dzięki niej workera da się czytać jak samodzielny skrypt wejściowy.
 
-**Runner powstaje raz, z argumentami z `public/index.php`.** `rootPath`, `debug`, `checkEvents` i `environment` biorą się z `App\Environment` dokładnie tak, jak przekazuje je skrypt wejściowy, więc worker podnosi tę samą aplikację co wejście webowe. `public/index.php` z szablonu przekazuje jeszcze jeden argument - `temporaryErrorHandler` podpięty pod logger `StreamTarget` - i dołącza `c3.php`, gdy włączone jest `APP_C3`. Sprawdzony worker pomija jedno i drugie. Tymczasowy handler obejmuje wyłącznie błędy zgłoszone w trakcie budowania konfiguracji i kontenera; bez niego runner sięga po `ErrorHandler` z `NullLogger` (`HttpApplicationRunner::createTemporaryErrorHandler()`), więc jeśli chcesz mieć w logach awarie z budowy kontenera, przekaż go również tutaj.
+**Worker tworzy runner raz z argumentami z `public/index.php`.**
+Przekazuje `rootPath`, `debug`, `checkEvents` i `environment` z `App\Environment`. Dlatego inicjalizuje tę samą aplikację.
+Szablon przekazuje też `temporaryErrorHandler` z loggerem `StreamTarget`. Wczytuje `c3.php`, gdy włączono `APP_C3`.
+Testowany worker pomija obie części.
+Tymczasowy handler zapisuje błędy tworzenia konfiguracji i kontenera.
+Bez niego `HttpApplicationRunner::createTemporaryErrorHandler()` tworzy `ErrorHandler` z `NullLogger`.
+Przekaż handler szablonu, aby zapisywać awarie tworzenia kontenera.
 
 **`getContainer()` należy do publicznego API**, więc kontener, który przechwytujesz, jest kontenerem aplikacji - tym samym, z którego runner skorzysta przy każdym żądaniu. `StateResetter` wyciągasz z niego już wewnątrz handlera.
 
 **Na każde żądanie: `run()`, potem `reset()`.** `run()` to dokładnie to samo wywołanie, którego używa skrypt wejściowy; `reset()` przechodzi po zarejestrowanych w kontenerze callbackach i przywraca serwisom trzymającym stan ich pierwotną postać, zanim nadejdzie kolejne żądanie.
 
-**`run()` przy każdym wywołaniu przechodzi całą swoją sekwencję od nowa.** Każde wywołanie rejestruje handler błędów, uruchamia `runBootstrap()`, uruchamia `checkEvents()`, a dopiero potem obsługuje żądanie; runner jest z założenia reentrantny, a przez 200 kolejnych wywołań sprawdziliśmy, że to powtórzenie jest nieszkodliwe. Kontrola zdarzeń robi cokolwiek tylko wtedy, gdy jej flaga jest prawdziwa, a szablon wiąże tę flagę z `Environment::appDebug()`, więc z wyłączonym debugiem przy każdym wywołaniu nic nie robi.
+**`run()` powtarza pełną sekwencję przy każdym wywołaniu.** Rejestruje handler, wywołuje `runBootstrap()` i `checkEvents()`, a następnie obsługuje żądanie.
+Testy potwierdziły tę sekwencję podczas 200 wywołań.
+Kontrola zdarzeń działa tylko przy prawdziwej fladze. Szablon pobiera flagę z `Environment::appDebug()`.
 
 **Rezydentny runner odczytuje każde żądanie od nowa.** `run()` nie zapamiętuje żądania w chwili budowy obiektu. Przy każdym wywołaniu pobiera z kontenera `RequestFactory` i składa nowy `ServerRequest` w standardzie PSR-7 ze zmiennych `$_SERVER`, `$_GET`, `$_POST`, `$_COOKIE`, `$_FILES` i strumienia `php://input`, a te zmienne superglobalne Rapira wypełnia od nowa przed każdą iteracją pętli (umowę opisuje [tryb Worker](/pl/docs/worker)).
 
-**Zużycie pamięci pozostaje płaskie.** Przez 200 kolejnych żądań pamięć rezydentna workera nie urosła w żaden istotny sposób, bo aplikacja powstaje raz, a zerowanie jest tanie, więc nie ma tu rozruchu na każde żądanie, po którym trzeba by sprzątać.
+**Zużycie pamięci pozostało stabilne.** Testy nie wykazały istotnego wzrostu pamięci podczas 200 kolejnych żądań.
+Aplikacja jest inicjalizowana raz, a każde żądanie wykonuje jedno zerowanie.
 
-## Prostsza alternatywa: nowy runner na każde żądanie
+## Nowy runner dla każdego żądania
 
 Żeby całkowicie uniknąć stanu rezydentnego, buduj runner *wewnątrz* handlera. Wszystko, co aplikacja wtedy utworzy, należy do jednego żądania:
 
@@ -121,13 +137,18 @@ while (\Rapira\handle_request($handler)) {
 
 Kontener powstaje za każdym razem od nowa, więc jest mniej ruchomych części, nie ma zerowania, które można źle napisać, i stan kontenera nie przechodzi z jednego żądania do następnego; właściwości `static`, zmienne globalne i wszystko, co ustawił bootstrap, zostają w pamięci pod każdym workerem i musi je zerować twój własny kod. Ten wariant też przeszedł pełen zestaw testów.
 
-Kontener podnosi się przy każdym żądaniu, więc za każdym razem płacisz czas rozruchu i za każdym razem produkujesz śmieci wielkości całego kontenera. Pamięć workera rośnie, bo te kontenery odkładają się, zanim PHP zwolni je hurtem - to zwykły profil rozruchu na żądanie, a nie wyciek. Połącz ten wzorzec z `pool.max_requests`, żeby worker co jakiś czas kończył pracę i był podmieniany na świeżego; kształty zużycia pamięci opisuje [przegląd frameworków](/pl/docs/frameworks/), a sam klucz - [Konfiguracja](/pl/docs/configuration).
+Kontener jest inicjalizowany dla każdego żądania. Dodaje to czas inicjalizacji i tworzy obiekty, które PHP musi zwolnić.
+Pamięć może rosnąć do czasu zwolnienia kilku starych kontenerów. To cykliczne zachowanie nie zawsze jest wyciekiem.
+Ustaw `pool.max_requests`, aby okresowo zastępować workery.
+To zachowanie opisuje [przegląd frameworków](/pl/docs/frameworks/), a ustawienie opisuje [Konfiguracja](/pl/docs/configuration).
 
 Autoloader i bootstrap szablonu nadal zostają w pamięci, a pętla żądań nadal mieszka w skrypcie workera, więc to wciąż worker - tylko taki, który odrzuca aplikację między żądaniami - a nie [tryb Classic](/pl/docs/classic).
 
-Używaj rezydentnego runnera, chyba że masz powód, żeby tego nie robić: to rozwiązanie samego frameworka na długo żyjący proces, pamięć trzyma się płasko, a zerowanie to jedno wywołanie. Runnera tworzonego na każde żądanie użyj wtedy, gdy twój bootstrap ma zależności kolejnościowe, nad którymi wolisz się nie zastanawiać: kod, który musi wykonać się przed zbudowaniem kontenera, albo rozruchowa robota przy każdym żądaniu, której callback `StateResetter` nie cofnie. Późniejsza zmiana jednego wariantu na drugi dotyczy wyłącznie skryptu workera.
+Domyślnie używaj trwałego runnera. Jest zgodny z projektem frameworka, miał stabilną pamięć i wymaga jednego wywołania zerowania.
+Użyj runnera na żądanie, jeśli kolejność inicjalizacji uniemożliwia pełny callback `StateResetter`.
+Zmiana między wariantami wymaga zmiany tylko skryptu workera.
 
-## Jak to uruchomić
+## Uruchamianie Rapiry
 
 ```bash
 rapira serve --mode worker worker.php
@@ -155,7 +176,7 @@ format = "json"
 
 Każdy klucz, wraz z wartością domyślną i zakresem, opisuje [Konfiguracja](/pl/docs/configuration); [Wdrożenie produkcyjne](/pl/docs/deployment) daje gotową jednostkę systemd i reverse proxy przed serwerem.
 
-## Co zostało sprawdzone
+## Wyniki testów
 
 Oba wzorce przeszły ten sam zestaw testów na szablonie `yiisoft/app`. Wyniki:
 

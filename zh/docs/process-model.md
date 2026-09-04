@@ -146,7 +146,8 @@ master 启动一个新 worker，并等待它报告 `idle` 或 `active` 状态。
 每次停止都使用 `SIGQUIT` → `SIGTERM` → `SIGKILL`。相同的控制超时适用于每个 worker。
 旧 worker 开始停止时会关闭空闲 keep-alive 连接。当前请求可以在控制超时前完成。
 
-如果新 worker 在控制超时前未报告这两种状态，master 会记录警告并继续重载。
+如果新 worker 在控制超时前未报告这两种状态，master 会记录警告。
+然后，即使新 worker 尚未处理请求，master 也会停止下一个旧 worker。
 在 `ondemand` 模式下，主进程逐个删除旧 worker。新连接会创建替代 worker。
 
 停止已经在进行时收到的重载会被忽略：停止永远优先。

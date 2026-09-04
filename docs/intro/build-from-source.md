@@ -55,7 +55,8 @@ The Homebrew `php` formula does not include the embed SAPI. Build PHP from sourc
 Build PHP when no embed package is available. Also build it when the package does not include required extensions.
 
 `.github/php-configure-flags.txt` contains the configuration options for release builds.
-Pass it to `configure` in an extracted PHP source directory. Add options for required extensions:
+Pass it to `configure` in an extracted PHP source directory.
+Append options for required extensions at the end of the `./configure` line:
 
 ```bash
 ./configure --prefix="$HOME/.local/php-nts" $(tr '\n' ' ' < /path/to/rapira/.github/php-configure-flags.txt)

@@ -153,7 +153,8 @@ The master then stops one old worker. After that worker exits, the master starts
 Each worker stop uses the `SIGQUIT` → `SIGTERM` → `SIGKILL` sequence. The same control timeout applies to each worker.
 An old worker closes idle keep-alive connections when it starts to stop. Current requests can finish before the control timeout.
 
-If the new worker reports neither state before the control timeout, the master logs a warning and continues the reload.
+If the new worker reports neither state before the control timeout, the master logs a warning.
+The master then stops the next old worker even if the new worker is not serving.
 With `ondemand`, the master removes old workers one at a time. Incoming connections create replacements.
 
 The master ignores a reload during a stop.

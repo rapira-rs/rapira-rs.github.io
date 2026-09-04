@@ -50,7 +50,7 @@ Homebrew 的 `php` formula 不包含 embed SAPI。请在 macOS 上从源代码�
 如果没有 embed 软件包，请构建 PHP。软件包缺少所需扩展时，也请构建 PHP。
 
 `.github/php-configure-flags.txt` 文件包含发布构建的选项。在解压的 PHP 源代码目录中将此文件传给 `configure`。
-添加所需扩展的选项：
+在 `./configure` 行末尾添加所需扩展的选项：
 
 ```bash
 ./configure --prefix="$HOME/.local/php-nts" $(tr '\n' ' ' < /path/to/rapira/.github/php-configure-flags.txt)

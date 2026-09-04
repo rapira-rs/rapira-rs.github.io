@@ -50,7 +50,7 @@ sudo apk add php84-dev php84-embed            # Alpine
 Соберите PHP, если пакет embed недоступен. Также соберите PHP, если пакет не содержит нужные расширения.
 
 Файл `.github/php-configure-flags.txt` содержит параметры выпусков. Передайте его в `configure` в распакованном каталоге исходного кода PHP.
-Добавьте параметры нужных расширений:
+Добавьте параметры нужных расширений в конец строки `./configure`:
 
 ```bash
 ./configure --prefix="$HOME/.local/php-nts" $(tr '\n' ' ' < /path/to/rapira/.github/php-configure-flags.txt)

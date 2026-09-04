@@ -27,7 +27,7 @@ Las secciones de archivos estáticos, TLS y OPcache también se aplican al modo 
 **El modo Worker mantiene activo el proceso.** El script inicia la aplicación y solicita trabajo en un bucle.
 El estado de la aplicación permanece entre peticiones. Consulta [modos de ejecución](/es/docs/execution-modes) y [modo Worker](/es/docs/worker).
 
-Un código base puede usar ambos modos. Conserva `public/index.php`. Añade `worker.php` junto a él.
+Un código base puede usar ambos modos. Conserva `public/index.php`. Añade `worker.php` a la raíz del proyecto.
 Usa `--mode` para seleccionar el modo de ejecución. Selecciona el script con el argumento `SCRIPT` o con `pool.entrypoint`.
 Usa el modo Classic si falla la migración al modo Worker.
 
@@ -84,7 +84,7 @@ Rapira reconstruye en cada petición todo lo de la columna izquierda, así que e
 | La fontanería de la sesión: `session_start()`, la cookie que entra, el `Set-Cookie` que sale | Los recursos abiertos: conexiones a la base de datos, clientes de caché, streams |
 | El estado de la respuesta: código de estado, cabeceras, `setcookie()`, los búferes de salida | El proceso mismo - el mismo pid, un intérprete de PHP residente por worker |
 | Las funciones de shutdown registradas **dentro** del handler | Los contadores del propio worker: `handled` y `errors` siguen incrementándose |
-| El reloj de `max_execution_time`, rearmado en cada petición | |
+| El reloj de `max_execution_time`, rearmado en cada petición | `$_ENV`, incluidos los valores cargados antes del bucle |
 
 En Linux (y FreeBSD), donde existe el temporizador por petición de Zend, el reloj de `max_execution_time` se rearma en cada petición y el rato que el worker pasa aparcado esperando la siguiente nunca le cuenta: en el reloj solo está la petición en sí. En el resto de sistemas, macOS incluido, no se arma ningún límite por petición.
 
@@ -104,22 +104,14 @@ PHP ejecuta una función de shutdown registrada fuera del handler una sola vez, 
 Registra dentro del handler las funciones de shutdown de cada petición. Algunos ejemplos son el volcado de métricas, el tratamiento de un error fatal y la liberación de los recursos de la petición.
 :::
 
-::: warning PHP puede volver a importar `$_ENV` durante una petición
+::: warning `$_ENV` permanece entre peticiones
 
-Con los ajustes ini predeterminados, PHP reinicia el indicador JIT de `$_ENV` para cada petición.
-El primer archivo nuevo compilado que usa `$_ENV` hace que PHP vuelva a crear la superglobal.
-Sin `E` en `variables_order`, PHP no importa valores. Por tanto, `$_ENV` queda **vacía** sin mostrar un diagnóstico.
-Esto elimina los valores que Dotenv escribió en `$_ENV` durante la inicialización.
+Rapira no reconstruye `$_ENV` para cada petición. Los valores que el código escribe antes del bucle permanecen hasta que el worker vuelve a ejecutar el script.
+Trata `$_ENV` como estado residente de la aplicación. Carga la configuración del entorno antes del bucle. No guardes datos de peticiones en `$_ENV`.
 
-El efecto depende del momento de compilación. La configuración procesada durante la inicialización puede usar los valores antes de que PHP vacíe `$_ENV`.
-La configuración procesada en la primera petición puede leer un `$_ENV` vacío. Esta diferencia puede causar fallos específicos de un entorno.
-
-Hay dos alternativas. Escribe los valores en el entorno del proceso con `putenv()`.
-La nueva importación conserva estos valores y el framework puede leerlos con `getenv()`.
-En producción, define las variables de entorno en la unidad de servicio o el contenedor. No proceses `.env` durante las peticiones.
-Con `variables_order = "GPCS"`, ninguna alternativa rellena `$_ENV`. Consulta un ejemplo en la [guía de Symfony](/es/docs/frameworks/symfony).
-
-Le pasa a cualquier runtime de PHP que mantenga el proceso vivo entre peticiones.
+Rapira conserva los valores de `$_ENV` sin `putenv()`.
+Usa `putenv()` cuando el código necesite funciones del entorno del proceso, como `getenv()` o la herencia en procesos secundarios.
+En producción, define las variables de entorno en la unidad de servicio, el contenedor o el orquestador.
 :::
 
 ## Manejo de errores

@@ -27,7 +27,7 @@ Sekcje o plikach statycznych, TLS i OPcache również dotyczą trybu Classic.
 **Tryb Worker utrzymuje aktywny proces.** Skrypt inicjalizuje aplikację i pobiera pracę w pętli.
 Stan aplikacji pozostaje między żądaniami. Więcej informacji zawierają strony [tryby wykonania](/pl/docs/execution-modes) i [tryb Worker](/pl/docs/worker).
 
-Jedna baza kodu może używać obu trybów. Zachowaj `public/index.php`. Dodaj obok niego `worker.php`.
+Jedna baza kodu może używać obu trybów. Zachowaj `public/index.php`. Dodaj `worker.php` do katalogu głównego projektu.
 Użyj `--mode`, aby wybrać tryb wykonania. Wybierz skrypt argumentem `SCRIPT` albo ustawieniem `pool.entrypoint`.
 Użyj trybu Classic, jeśli migracja do trybu Worker nie działa.
 
@@ -84,7 +84,7 @@ Wszystko z lewej kolumny Rapira odbudowuje przy każdym żądaniu, więc zwykły
 | Obsługa sesji: `session_start()`, ciasteczko na wejściu, `Set-Cookie` na wyjściu | Otwarte zasoby: uchwyty do bazy, klienty cache'a, strumienie |
 | Stan odpowiedzi: kod statusu, nagłówki, `setcookie()`, bufory wyjścia | Sam proces - ten sam pid, jeden rezydentny interpreter PHP na workera |
 | Funkcje shutdown zarejestrowane **wewnątrz** handlera | Własne liczniki workera: `handled` i `errors` zwiększają się dalej |
-| Zegar `max_execution_time`, uzbrajany na nowo przy każdym żądaniu | |
+| Zegar `max_execution_time`, uzbrajany na nowo przy każdym żądaniu | `$_ENV`, w tym wartości wczytane przed pętlą |
 
 Na Linuksie (i na FreeBSD), gdzie zendowy licznik czasu żądania w ogóle istnieje, zegar `max_execution_time` jest uzbrajany na nowo przy każdym żądaniu, a czas, który worker spędza zaparkowany w oczekiwaniu na kolejne, nigdy się do niego nie wlicza - na zegarze tyka wyłącznie samo żądanie. Wszędzie indziej, macOS w to wliczając, żaden limit czasu żądania nie jest uzbrajany w ogóle.
 
@@ -104,22 +104,14 @@ PHP wykonuje funkcję shutdown zarejestrowaną poza handlerem jeden raz na końc
 Funkcje shutdown dla żądania rejestruj wewnątrz handlera. Dotyczy to na przykład zapisu metryk, obsługi błędu krytycznego i zwolnienia zasobów żądania.
 :::
 
-::: warning PHP może ponownie zaimportować `$_ENV` podczas żądania
+::: warning `$_ENV` pozostaje między żądaniami
 
-Przy domyślnych ustawieniach ini PHP zeruje flagę JIT dla `$_ENV` przy każdym żądaniu.
-Pierwszy nowo skompilowany plik używający `$_ENV` powoduje ponowne utworzenie tej zmiennej superglobalnej.
-Bez `E` w `variables_order` PHP nie importuje wartości. Dlatego `$_ENV` staje się **puste** bez komunikatu diagnostycznego.
-Usuwa to wartości zapisane przez Dotenv podczas inicjalizacji.
+Rapira nie odtwarza `$_ENV` przy każdym żądaniu. Wartości zapisane przed pętlą pozostają dostępne do ponownego uruchomienia skryptu workera.
+Traktuj `$_ENV` jako rezydentny stan aplikacji. Wczytaj konfigurację środowiska przed pętlą. Nie zapisuj danych żądania w `$_ENV`.
 
-Wynik zależy od czasu kompilacji pliku. Konfiguracja przetworzona podczas inicjalizacji może użyć wartości przed wyczyszczeniem `$_ENV`.
-Konfiguracja przetworzona podczas pierwszego żądania może odczytać puste `$_ENV`. Ta różnica może powodować błędy zależne od środowiska.
-
-Dostępne są dwa rozwiązania. Zapisz wartości w środowisku procesu za pomocą `putenv()`.
-Ponowny import zachowuje te wartości, a framework może je odczytać przez `getenv()`.
-W środowisku produkcyjnym ustaw zmienne w jednostce usługi lub kontenerze. Nie przetwarzaj `.env` podczas żądań.
-Przy `variables_order = "GPCS"` oba rozwiązania pozostawiają `$_ENV` puste. Przykład zawiera [przewodnik po Symfony](/pl/docs/frameworks/symfony).
-
-Trafia na to każde środowisko uruchomieniowe PHP, które trzyma proces przy życiu między żądaniami.
+Rapira zachowuje wartości w `$_ENV` bez `putenv()`.
+Użyj `putenv()`, gdy kod potrzebuje zachowania środowiska procesu, na przykład `getenv()` lub dziedziczenia przez proces potomny.
+W środowisku produkcyjnym ustaw zmienne w jednostce usługi, kontenerze lub orkiestratorze.
 :::
 
 ## Obsługa błędów

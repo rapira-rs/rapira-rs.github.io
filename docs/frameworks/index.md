@@ -28,7 +28,7 @@ Only the static files, TLS, and OPcache sections below apply to Classic mode.
 **Worker mode keeps the process active.** The script initializes the application and requests work in a loop.
 The application state remains between requests. See [execution modes](/docs/execution-modes) and [Worker mode](/docs/worker) for more information.
 
-One codebase can use both modes. Retain `public/index.php`. Add `worker.php` next to it.
+One codebase can use both modes. Retain `public/index.php`. Add `worker.php` to the project root.
 Use `--mode` to select the execution mode. Select the script with the `SCRIPT` argument or `pool.entrypoint`.
 Classic mode remains available if a Worker mode migration fails.
 
@@ -87,7 +87,7 @@ Everything in the right column persists for the worker lifetime. The worker scri
 | Session data: `session_start()`, the request cookie, and the response `Set-Cookie` field | Open resources: database handles, cache clients, streams |
 | Response state: status code, headers, `setcookie()`, and output buffers | The process: the same pid and one resident PHP interpreter for each worker |
 | Shutdown functions registered **inside** the handler | The worker's own counters: `handled` and `errors` keep incrementing |
-| The `max_execution_time` clock, re-armed for each request | |
+| The `max_execution_time` clock, re-armed for each request | `$_ENV`, including values loaded before the loop |
 
 On Linux and FreeBSD, Zend starts a new `max_execution_time` timer for each request. Worker wait time does not count toward this limit.
 On other systems, including macOS, PHP does not start a request timer.
@@ -110,22 +110,14 @@ PHP runs each function that the handler registers at the end of that request.
 Register request shutdown functions inside the handler. Examples include metric output, fatal error processing, and request resource cleanup.
 :::
 
-::: warning PHP can re-import `$_ENV` during a request
+::: warning `$_ENV` remains between requests
 
-With default ini settings, PHP resets the JIT flag for `$_ENV` on each request.
-The first newly compiled file that uses `$_ENV` makes PHP create the superglobal again.
-With no `E` in `variables_order`, PHP imports no values. Therefore, `$_ENV` becomes **empty** without a diagnostic.
-This removes values that a Dotenv process wrote to `$_ENV` during initialization.
+Rapira does not rebuild `$_ENV` for each request. Values that code writes before the loop remain available until the worker script restarts.
+Treat `$_ENV` as resident application state. Load environment configuration before the loop. Do not store request data in `$_ENV`.
 
-The effect depends on when PHP compiles a file. Code that resolves configuration during initialization can read values before PHP clears `$_ENV`.
-Code that resolves configuration during the first request can read an empty `$_ENV`. This difference can cause environment-specific request failures.
-
-Two alternatives are available. First, write the values to the process environment with `putenv()`.
-The reimport preserves these values, and a framework can read them with `getenv()`.
-For production, set environment variables in the service unit or container. Do not parse a `.env` file during request processing.
-Neither alternative fills `$_ENV` when `variables_order` is `GPCS`. See the [Symfony guide](/docs/frameworks/symfony) for an example.
-
-This behavior occurs in any PHP runtime that keeps the process alive across requests.
+Rapira preserves values in `$_ENV` without `putenv()`.
+Use `putenv()` when code needs process-environment behavior, such as `getenv()` or child-process inheritance.
+In production, set environment variables in the service unit, container, or orchestrator.
 :::
 
 ## Error handling

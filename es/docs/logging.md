@@ -6,7 +6,7 @@ description: "Cómo registra Rapira - niveles, ajustes por target, diagnósticos
 # Registros
 
 Rapira escribe todos los registros en stderr. Incluyen eventos del servidor, decisiones del proceso maestro, eventos HTTP, diagnósticos PHP y mensajes de la aplicación.
-De forma predeterminada, una advertencia PHP usa este registro, no un destino separado configurado mediante `error_log`. El mismo filtro de nivel se aplica a todos los registros.
+De forma predeterminada, Rapira escribe las advertencias PHP en este registro, no en un destino `error_log` separado. El mismo filtro de nivel se aplica a todos los registros.
 
 El nivel predeterminado es `error`, por lo que el servidor solo escribe errores. Cambia la configuración o establece `RUST_LOG` para elegir otro nivel.
 

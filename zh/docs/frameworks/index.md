@@ -27,7 +27,7 @@ description: "在 Rapira 上运行的每个框架都共通的机制：worker 循
 **Worker 模式使进程保持活动。**脚本初始化应用，并在循环中请求工作。
 应用状态保留在请求之间。有关详细信息，请参阅[执行模式](/zh/docs/execution-modes)和 [Worker 模式](/zh/docs/worker)。
 
-一个代码库可以使用两种模式。保留 `public/index.php`。在旁边添加 `worker.php`。
+一个代码库可以使用两种模式。保留 `public/index.php`。将 `worker.php` 添加到项目根目录。
 使用 `--mode` 选择执行模式。使用 `SCRIPT` 参数或 `pool.entrypoint` 选择脚本。
 如果 Worker 模式迁移失败，请使用 Classic 模式。
 
@@ -84,7 +84,7 @@ Symfony 和 Yii3 使用这些值正确路由请求和生成 URL。生成的 URL 
 | session 那一套：`session_start()`、进来的 cookie、出去的 `Set-Cookie` | 已经打开的资源：数据库句柄、缓存客户端、流 |
 | 响应状态：状态码、响应头、`setcookie()`、输出缓冲区 | 进程本身--同一个 pid，每个 worker 一个常驻的 PHP 解释器 |
 | 在 handler **内部**注册的 shutdown 函数 | worker 自己的计数器：`handled` 和 `errors` 会持续累加 |
-| `max_execution_time` 的计时，每个请求重新起算 | |
+| `max_execution_time` 的计时，每个请求重新起算 | `$_ENV`，包括循环前加载的值 |
 
 在 Linux（以及 FreeBSD）上，Zend 的单请求计时器是存在的，`max_execution_time` 的计时会为每个请求重新起算，worker 停下来等下一个请求的那段时间从不计入其中，只有请求本身在计时。其他平台上--包括 macOS--根本不会设置单请求超时。
 
@@ -104,22 +104,14 @@ Symfony 和 Yii3 使用这些值正确路由请求和生成 URL。生成的 URL 
 请在 handler 内部注册每个请求需要的 shutdown 函数，例如输出指标、处理致命错误、释放请求占用的资源。
 :::
 
-::: warning PHP 可以在请求期间重新导入 `$_ENV`
+::: warning `$_ENV` 在请求之间保留
 
-使用默认 ini 设置时，PHP 会为每个请求重置 `$_ENV` 的 JIT 标志。
-第一个使用 `$_ENV` 的新编译文件会使 PHP 再次创建此超全局变量。
-如果 `variables_order` 中没有 `E`，PHP 不会导入值。因此，`$_ENV` 会变为**空**，且不显示诊断。
-这会删除 Dotenv 在初始化期间写入 `$_ENV` 的值。
+Rapira 不会为每个请求重建 `$_ENV`。代码在循环前写入的值会保留到 worker 重新运行脚本为止。
+请将 `$_ENV` 视为常驻应用状态。在循环前加载环境配置。不要在 `$_ENV` 中存储请求数据。
 
-结果取决于文件的编译时间。初始化期间处理的配置可以在 PHP 清除 `$_ENV` 前使用这些值。
-第一个请求期间处理的配置可能读取空的 `$_ENV`。此差异可能导致特定环境中的请求失败。
-
-有两个替代方案。使用 `putenv()` 将值写入进程环境。
-重新导入会保留这些值，框架可以使用 `getenv()` 读取它们。
-在生产环境中，请在服务 unit 或容器中设置环境变量。不要在请求期间解析 `.env`。
-使用 `variables_order = "GPCS"` 时，这两种方式都不会填充 `$_ENV`。有关示例，请参阅 [Symfony 指南](/zh/docs/frameworks/symfony)。
-
-任何让进程跨请求活着的 PHP 运行时都会撞上这一点。
+Rapira 无需 `putenv()` 即可保留 `$_ENV` 中的值。
+当代码需要进程环境行为时，请使用 `putenv()`，例如 `getenv()` 或子进程继承。
+在生产环境中，请在服务 unit、容器或编排器中设置环境变量。
 :::
 
 ## 错误处理

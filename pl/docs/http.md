@@ -144,7 +144,8 @@ Rapira usuwa tymczasowe odpowiedzi i trailery z PHP. Serwer HTTP tworzy odpowied
 
 Jeśli worker zakończy się przed końcem treści, serwer zamyka połączenie bez pełnego terminatora.
 Serwer zamyka połączenie także wtedy, gdy treść jest krótsza od długości zadeklarowanej przez PHP.
-Błąd krytyczny lub nieprzechwycony wyjątek może również zakończyć skrypt po rozpoczęciu zapisu danych wyjściowych.
+Błąd krytyczny po rozpoczęciu wysyłania może zakończyć skrypt i uciąć odpowiedź.
+W trybie Worker nieprzechwycony wyjątek handlera po rozpoczęciu wysyłania ucina odpowiedź, ale pętla działa dalej.
 Każdy z tych przypadków tworzy niekompletną wiadomość, którą klient może wykryć.
 
 Odpowiedź błędu serwera HTTP nie ma treści. Zawiera `cache-control: private, no-store` i `connection: close`.

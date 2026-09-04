@@ -6,7 +6,7 @@ description: "Jak Rapira loguje - poziomy, nadpisania dla poszczególnych celów
 # Logi
 
 Rapira zapisuje wszystkie wpisy do stderr. Obejmują zdarzenia serwera, decyzje procesu nadrzędnego, zdarzenia HTTP, diagnostykę PHP i komunikaty aplikacji.
-Domyślnie ostrzeżenie PHP używa tego logu zamiast osobnego miejsca wskazanego przez `error_log`. Ten sam filtr poziomu dotyczy wszystkich wpisów.
+Domyślnie Rapira zapisuje ostrzeżenia PHP w tym logu zamiast w osobnym miejscu `error_log`. Ten sam filtr poziomu dotyczy wszystkich wpisów.
 
 Domyślny poziom to `error`, więc serwer zapisuje tylko błędy. Zmień konfigurację lub ustaw `RUST_LOG`, aby wybrać inny poziom.
 

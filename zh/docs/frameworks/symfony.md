@@ -64,7 +64,7 @@ require __DIR__ . '/vendor/autoload.php';
 
 // public/index.php uses symfony/runtime for this operation.
 // The worker performs it once before the request loop.
-(new Dotenv())->usePutenv()->bootEnv(__DIR__ . '/.env');
+(new Dotenv())->bootEnv(__DIR__ . '/.env');
 
 $kernel = new Kernel($_SERVER['APP_ENV'], (bool) $_SERVER['APP_DEBUG']);
 $kernel->boot();
@@ -94,12 +94,11 @@ while (\Rapira\handle_request($handler)) {
 
 大部分都是普通的 Symfony 启动代码，只有四行是这套方案特有的：
 
-**`(new Dotenv())->usePutenv()->bootEnv(...)`。**标准 `public/index.php` 将此操作委托给 `symfony/runtime`。
-worker 在创建内核前读取一次 `.env`。如果 PHP 在请求期间重建 `$_ENV`，`usePutenv()` 会保留这些值。
-有关详细信息，请参阅 [`$_ENV` 与 `variables_order`](#env-与-variables-order)。
+**`(new Dotenv())->bootEnv(...)`。**标准 `public/index.php` 将此操作委托给 `symfony/runtime`。
+worker 在创建内核前读取一次 `.env`。Rapira 在请求之间保留这些 `$_ENV` 值。
 
 **内核在循环前初始化。**`new Kernel(...)`、`boot()` 和 `getContainer()` 在 worker 初始化期间运行。
-因此，内核会在请求可能清除 Dotenv 值之前读取 `$_SERVER['APP_ENV']`。每个请求使用相同的容器。
+内核在 worker 初始化期间读取 `$_SERVER['APP_ENV']`。每个请求使用相同的容器。
 
 **在 `get()` 前调用 `$container->has('services_resetter')`。**`services_resetter` 标识符在两个支持的版本中都是公开的。
 其实现类在 7.4 和 8.1 中使用不同的命名空间。服务标识符不需要版本条件。
@@ -112,39 +111,24 @@ worker 在创建内核前读取一次 `.env`。如果 PHP 在请求期间重建 
 运行 `$kernel->reboot(null)` 后，使用 `$kernel->getContainer()` 获取新容器。handler 不得使用旧容器。
 两个选项都会删除缓存的应用状态。请将它们用于查找泄漏，不要作为默认配置。
 
-## `$_ENV` 与 `variables_order`
+## `$_ENV` 与进程环境
 
-::: warning
-测试的基础应用使用了 `bootEnv()`，但没有使用 `usePutenv()`。
-当 `variables_order = "GPCS"` 且 `auto_globals_jit = On` 时，`prod` 中的每个请求都返回 **500**。
-当 `RequestContext` 在请求期间读取 `DEFAULT_URI` 时，会发生此故障。
-异常为 `EnvNotFoundException: Environment variable not found: "DEFAULT_URI"`。同一应用在 `dev` 中不会失败。
-:::
+Rapira 会保留 `$_ENV`，直到 worker 重新运行脚本。它不会为每个请求重建此超全局变量。
+`bootEnv()` 在循环前加载的值仍可用于后续请求。
+此行为也适用于 `variables_order = "GPCS"` 和 `auto_globals_jit = On`。
 
-此结果由 PHP 导致。使用 `variables_order = "GPCS"` 和 `auto_globals_jit = On` 时，PHP 会为每个请求重置 `$_ENV` JIT 标志。
-第一个使用 `$_ENV` 的已编译文件会调用 `php_auto_globals_create_env`。此函数从进程环境重新导入 `$_ENV`。
-此操作会删除 `Dotenv->bootEnv()` 在初始化期间添加的值。测试发现 `$_ENV` 在请求期间变为空。
-
-在 `prod` 中，第一个请求会编译容器和服务文件。PHP 会在 `RequestContext` 解析 `%env(DEFAULT_URI)%` 前清除 `$_ENV`。
-在 `dev` 中，容器在 `$kernel->boot()` 期间解析并缓存环境值。PHP 在此操作后清除 `$_ENV`。
-两个环境都会发生重置，但只有 `prod` 使用清除后的值。
-
-使用此调用：
+例如，如果应用代码必须使用 `getenv()` 读取 Dotenv 值，请添加 `usePutenv()`：
 
 ```php
 (new Dotenv())->usePutenv()->bootEnv(__DIR__ . '/.env');
 ```
 
-`usePutenv()` 将 Dotenv 值写入进程环境。后续导入会读取这些值。
-Symfony `EnvVarProcessor` 也可以通过 `getenv()` 读取它们。
-Rapira 在每个进程中运行一个 NTS PHP 解释器。因此，不会有并发 PHP 线程调用 `putenv()`。
+`usePutenv()` 将 Dotenv 值写入进程环境。
+Symfony `%env(...)%` 无需此调用即可读取保留的 `$_ENV` 值。
+Rapira 在每个进程中运行一个 NTS PHP 解释器。PHP 不会从并发线程调用 `putenv()`。
 
 在生产环境中，请通过 systemd、容器或编排器设置环境变量。
-仅在开发期间使用 `.env`。`usePutenv()` 和部署环境都会将值写入进程环境。
-因此，后续导入会保留这些值。
-
-此行为适用于在请求期间读取 `$_ENV` 的所有常驻 PHP 运行时。
-有关此行为和其他常驻进程行为，请参阅[框架集成](/zh/docs/frameworks/)。
+仅在开发期间使用 `.env`。
 
 ## 启动 Rapira
 
@@ -232,4 +216,4 @@ rapira serve --mode classic public/index.php
 Symfony 处理未捕获的应用异常并返回自己的 `500` 响应。`dev` 显示异常页面。
 `prod` 显示通用错误页。同一个 worker 处理下一个请求。
 最终重置会删除更改后的服务状态。配置的 Symfony 日志器控制异常输出。基础应用不包含日志器。
-Rapira 记录离开框架的 PHP 错误，例如上文的 `EnvNotFoundException`。有关级别设置，请参阅[日志](/zh/docs/logging)。
+Rapira 记录离开框架的 PHP 错误。有关级别设置，请参阅[日志](/zh/docs/logging)。

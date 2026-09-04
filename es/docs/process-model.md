@@ -146,7 +146,8 @@ Después detiene un worker antiguo. Cuando termina, el maestro inicia un worker 
 Cada parada usa la secuencia `SIGQUIT` → `SIGTERM` → `SIGKILL`. El mismo límite de control se aplica a cada worker.
 Un worker antiguo cierra las conexiones keep-alive inactivas cuando empieza a detenerse. Las peticiones actuales pueden terminar antes del límite de control.
 
-Si el worker nuevo no informa de ninguno de estos estados antes del límite de control, el maestro registra una advertencia y continúa la recarga.
+Si el worker nuevo no informa de ninguno de estos estados antes del límite de control, el maestro registra una advertencia.
+Después, el maestro detiene el siguiente worker antiguo aunque el worker nuevo todavía no atienda peticiones.
 Con `ondemand`, el maestro elimina workers antiguos uno a uno. Las conexiones nuevas crean sustitutos.
 
 Una recarga que llega con una parada ya en marcha se ignora: la parada tiene prioridad.

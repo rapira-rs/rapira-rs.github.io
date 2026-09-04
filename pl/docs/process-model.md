@@ -146,7 +146,8 @@ Następnie zatrzymuje jednego starego workera. Po jego zakończeniu uruchamia no
 Każde zatrzymanie używa sekwencji `SIGQUIT` → `SIGTERM` → `SIGKILL`. Ten sam limit sterowania dotyczy każdego workera.
 Stary worker zamyka bezczynne połączenia keep-alive, gdy zaczyna się zatrzymywać. Bieżące żądania mogą zakończyć się przed upływem limitu sterowania.
 
-Jeśli nowy worker nie zgłosi żadnego z tych stanów przed upływem limitu sterowania, proces nadrzędny zapisuje ostrzeżenie i kontynuuje przeładowanie.
+Jeśli nowy worker nie zgłosi żadnego z tych stanów przed upływem limitu sterowania, proces nadrzędny zapisuje ostrzeżenie.
+Następnie proces nadrzędny zatrzymuje kolejnego starego workera, nawet jeśli nowy worker nie obsługuje jeszcze żądań.
 W trybie `ondemand` usuwa stare workery pojedynczo. Nowe połączenia tworzą zastępstwa.
 
 Przeładowanie zgłoszone w trakcie zatrzymywania jest ignorowane: zatrzymanie ma zawsze pierwszeństwo.

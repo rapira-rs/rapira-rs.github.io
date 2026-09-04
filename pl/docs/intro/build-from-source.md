@@ -50,7 +50,7 @@ Formuła `php` z Homebrew nie zawiera SAPI embed. Na macOS zbuduj PHP ze źróde
 Zbuduj PHP, gdy pakiet embed jest niedostępny. Zbuduj je także wtedy, gdy pakiet nie zawiera wymaganych rozszerzeń.
 
 Plik `.github/php-configure-flags.txt` zawiera opcje używane w wydaniach. Przekaż go do `configure` w rozpakowanym katalogu źródeł PHP.
-Dodaj opcje wymaganych rozszerzeń:
+Dodaj opcje wymaganych rozszerzeń na końcu wiersza `./configure`:
 
 ```bash
 ./configure --prefix="$HOME/.local/php-nts" $(tr '\n' ' ' < /path/to/rapira/.github/php-configure-flags.txt)

@@ -148,7 +148,8 @@ Rapira removes interim response heads and trailers from PHP. It creates the `100
 
 If a worker terminates before the body ends, the server closes the connection without a complete terminator.
 The server also closes the connection when the body is shorter than the length that PHP declared.
-A fatal error or uncaught exception can also terminate the script after output starts.
+A fatal error after output starts can terminate the script and truncate the response.
+In Worker mode, an uncaught handler exception after output starts truncates the response, but the loop continues.
 Each case produces an incomplete message that the client can detect.
 
 An error response from the HTTP server has no body. It includes `cache-control: private, no-store` and `connection: close`.

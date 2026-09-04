@@ -30,7 +30,12 @@ Una ruta relativa usa el directorio del archivo de configuración. `pool.entrypo
 
 `forbid` contiene sufijos de nombres de archivo que el middleware no sirve. El valor predeterminado es `[".php"]`.
 Una lista explícita sustituye este valor. Por ejemplo, `forbid = [".php", ".env"]` bloquea ambos sufijos.
+
+::: danger
 `forbid = []` permite todos los archivos, incluido el código PHP.
+No uses este valor con una raíz pública. Puede exponer el código de la aplicación y los secretos incrustados.
+:::
+
 Cada entrada empieza por un punto, contiene al menos dos caracteres y no contiene `/` ni espacios.
 Una entrada no válida impide iniciar el servidor.
 

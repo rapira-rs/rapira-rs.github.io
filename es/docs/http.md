@@ -144,7 +144,8 @@ Rapira elimina las respuestas provisionales y los trailers de PHP. El servidor H
 
 Si un worker termina antes de completar el cuerpo, el servidor cierra la conexión sin un terminador completo.
 El servidor también cierra la conexión si el cuerpo es menor que la longitud declarada por PHP.
-Un error fatal o una excepción no capturada también pueden terminar el script después de que empiece a escribir la salida.
+Un error fatal después de iniciar la salida puede terminar el script y truncar la respuesta.
+En modo Worker, una excepción no capturada del handler después de iniciar la salida trunca la respuesta, pero el bucle continúa.
 Cada caso produce un mensaje incompleto que el cliente puede detectar.
 
 Una respuesta de error del servidor HTTP no tiene cuerpo. Incluye `cache-control: private, no-store` y `connection: close`.

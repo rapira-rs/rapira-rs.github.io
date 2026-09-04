@@ -29,7 +29,12 @@ A relative path uses the configuration file directory as its base. `pool.entrypo
 
 `forbid` contains file-name suffixes that the middleware does not serve. Its default value is `[".php"]`.
 An explicit list replaces the default. For example, `forbid = [".php", ".env"]` blocks both suffixes.
+
+::: danger
 The value `forbid = []` permits all files under the root, including PHP source files.
+Do not use this value with a public root. It can expose application code and embedded secrets.
+:::
+
 Each entry starts with a dot and contains at least two characters. It cannot contain `/` or whitespace.
 An invalid entry prevents server initialization.
 

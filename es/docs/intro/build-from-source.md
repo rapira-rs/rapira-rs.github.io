@@ -50,7 +50,7 @@ La fórmula `php` de Homebrew no incluye el SAPI embed. Compila PHP desde el có
 Compila PHP cuando no haya un paquete embed. Compílalo también cuando el paquete no incluya las extensiones necesarias.
 
 El archivo `.github/php-configure-flags.txt` contiene las opciones de las compilaciones publicadas. Pásalo a `configure` dentro del código fuente de PHP extraído.
-Añade las opciones de las extensiones necesarias:
+Añade las opciones de las extensiones necesarias al final de la línea de `./configure`:
 
 ```bash
 ./configure --prefix="$HOME/.local/php-nts" $(tr '\n' ' ' < /path/to/rapira/.github/php-configure-flags.txt)

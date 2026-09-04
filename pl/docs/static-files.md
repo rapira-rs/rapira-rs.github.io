@@ -30,7 +30,12 @@ forbid = [".php"]   # Optional. This list replaces the default.
 
 `forbid` zawiera przyrostki nazw plików, których middleware nie serwuje. Domyślna wartość to `[".php"]`.
 Jawna lista zastępuje tę wartość. Na przykład `forbid = [".php", ".env"]` blokuje oba przyrostki.
+
+::: danger
 `forbid = []` zezwala na wszystkie pliki, w tym kod źródłowy PHP.
+Nie używaj tej wartości dla publicznego katalogu głównego. Może ujawnić kod aplikacji i osadzone sekrety.
+:::
+
 Każdy wpis zaczyna się kropką, ma co najmniej dwa znaki i nie zawiera `/` ani spacji.
 Nieprawidłowy wpis zatrzymuje uruchamianie serwera.
 

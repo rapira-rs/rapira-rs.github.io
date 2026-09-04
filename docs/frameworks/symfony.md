@@ -73,7 +73,7 @@ require __DIR__ . '/vendor/autoload.php';
 
 // public/index.php uses symfony/runtime for this operation.
 // The worker performs it once before the request loop.
-(new Dotenv())->usePutenv()->bootEnv(__DIR__ . '/.env');
+(new Dotenv())->bootEnv(__DIR__ . '/.env');
 
 $kernel = new Kernel($_SERVER['APP_ENV'], (bool) $_SERVER['APP_DEBUG']);
 $kernel->boot();
@@ -103,12 +103,11 @@ while (\Rapira\handle_request($handler)) {
 
 Most operations use standard Symfony initialization. Four parts are specific to this worker:
 
-**`(new Dotenv())->usePutenv()->bootEnv(...)`.** The standard `public/index.php` delegates this operation to `symfony/runtime`.
-The worker reads `.env` once before it creates the kernel. `usePutenv()` preserves these values if PHP rebuilds `$_ENV` during a request.
-See [`$_ENV` and `variables_order`](#env-and-variables-order) for more information.
+**`(new Dotenv())->bootEnv(...)`.** The standard `public/index.php` delegates this operation to `symfony/runtime`.
+The worker reads `.env` once before it creates the kernel. Rapira preserves these `$_ENV` values across requests.
 
 **The kernel initializes before the loop.** `new Kernel(...)`, `boot()`, and `getContainer()` run during worker initialization.
-Thus, the kernel reads `$_SERVER['APP_ENV']` before a request can clear Dotenv values. Each request uses the same container.
+The kernel reads `$_SERVER['APP_ENV']` during worker initialization. Each request uses the same container.
 
 **`$container->has('services_resetter')` before `get()`.** The `services_resetter` identifier is public in both supported versions.
 Its implementation class uses different namespaces in versions 7.4 and 8.1. The service identifier avoids a version condition.
@@ -123,39 +122,24 @@ The second option removes the container and creates a new one.
 After `$kernel->reboot(null)`, get the new container with `$kernel->getContainer()`. The handler must not use the previous container.
 Both options remove cached application state. Use them to find a memory leak, not as the default configuration.
 
-## `$_ENV` and `variables_order`
+## `$_ENV` and the process environment
 
-::: warning
-The tested base application used `bootEnv()` without `usePutenv()`.
-With `variables_order = "GPCS"` and `auto_globals_jit = On`, each `prod` request returned **500**.
-The failure occurred when `RequestContext` read `DEFAULT_URI` during the request.
-The exception was `EnvNotFoundException: Environment variable not found: "DEFAULT_URI"`. The same application in `dev` did not fail.
-:::
+Rapira preserves `$_ENV` until the worker script restarts. It does not rebuild this superglobal for each request.
+Values that `bootEnv()` loads before the loop remain available during later requests.
+This behavior also applies with `variables_order = "GPCS"` and `auto_globals_jit = On`.
 
-PHP causes this result. With `variables_order = "GPCS"` and `auto_globals_jit = On`, PHP resets the `$_ENV` JIT flag for each request.
-The first compiled file that uses `$_ENV` calls `php_auto_globals_create_env`. This function imports `$_ENV` from the process environment again.
-This operation removes values that `Dotenv->bootEnv()` added during initialization. Tests observed `$_ENV` become empty during a request.
-
-In `prod`, the first request compiles container and service files. PHP clears `$_ENV` before `RequestContext` resolves `%env(DEFAULT_URI)%`.
-In `dev`, the container resolves and caches environment values during `$kernel->boot()`. PHP clears `$_ENV` after this resolution.
-The reset occurs in both environments, but only `prod` uses the cleared value.
-
-Use this call:
+For example, add `usePutenv()` if application code must read Dotenv values with `getenv()`:
 
 ```php
 (new Dotenv())->usePutenv()->bootEnv(__DIR__ . '/.env');
 ```
 
-`usePutenv()` writes Dotenv values into the process environment. The later import reads these values.
-Symfony `EnvVarProcessor` can also read them with `getenv()`.
-Rapira runs one NTS PHP interpreter in each process. Therefore, concurrent PHP threads do not call `putenv()`.
+`usePutenv()` writes Dotenv values into the process environment.
+Symfony `%env(...)%` can read the preserved `$_ENV` values without this call.
+Rapira runs one NTS PHP interpreter in each process. PHP does not call `putenv()` from concurrent threads.
 
 In production, set environment variables through systemd, the container runtime, or the orchestrator.
-Use `.env` only for development. `usePutenv()` and the deployment environment both write values to the process environment.
-Therefore, a later import preserves the values.
-
-This behavior applies to each persistent PHP runtime that reads `$_ENV` during a request.
-See [Frameworks](/docs/frameworks/) for this and other persistent process behaviors.
+Use `.env` only for development.
 
 ## Starting Rapira
 
@@ -249,4 +233,4 @@ See [process model](/docs/process-model) and [running in production](/docs/deplo
 Symfony handles an uncaught application exception and returns its own `500` response. `dev` shows the exception page, while `prod` shows a general error page.
 The same worker processes the next request. The final reset removes changed service state after the exception.
 The configured Symfony logger controls exception output. The base application does not include a logger.
-Rapira logs PHP errors that leave the framework, such as the `EnvNotFoundException` above. See [Logging](/docs/logging) for level configuration.
+Rapira logs PHP errors that leave the framework. See [Logging](/docs/logging) for level configuration.

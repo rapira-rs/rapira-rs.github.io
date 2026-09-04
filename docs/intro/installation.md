@@ -57,7 +57,7 @@ Tarball installations use separate directories and can exist at the same time. S
 
 ## Release artifacts
 
-The [GitHub releases page](https://github.com/rapira-rs/rapira/releases) contains all release files.
+The [Rapira releases page](https://github.com/rapira-rs/rapira/releases) contains Linux and macOS release files. The [Rapira Windows releases page](https://github.com/rapira-rs/rapira-windows/releases) contains Windows release files.
 Use the [download page](/download) to select the operating system, architecture, PHP version, and package format.
 It also shows the SHA-256 value. Each `php8.5` artifact has a corresponding `php8.4` artifact.
 

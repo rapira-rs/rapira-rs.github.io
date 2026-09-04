@@ -24,7 +24,7 @@ const labels = {
 
 # 下载 Rapira
 
-预编译版本发布在 [GitHub releases](https://github.com/rapira-rs/rapira/releases) 页面。选好平台，下面的按钮就会下载该平台最新的稳定版。
+[Rapira 发布页](https://github.com/rapira-rs/rapira/releases)提供 Linux 和 macOS 版本。[Rapira Windows 发布页](https://github.com/rapira-rs/rapira-windows/releases)提供 Windows 版本。请选择平台。按钮会下载最新的稳定版。
 
 <DownloadBuilds :labels="labels">
 <template #dev-note>

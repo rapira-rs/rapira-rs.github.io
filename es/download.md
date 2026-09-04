@@ -24,7 +24,7 @@ const labels = {
 
 # Descargar Rapira
 
-Los binarios precompilados se publican en los [releases de GitHub](https://github.com/rapira-rs/rapira/releases). Elige tu plataforma: el botón de abajo descarga su última versión estable.
+La [página de releases de Rapira](https://github.com/rapira-rs/rapira/releases) contiene compilaciones para Linux y macOS. La [página de releases de Rapira para Windows](https://github.com/rapira-rs/rapira-windows/releases) contiene compilaciones para Windows. Elige una plataforma. El botón descarga la última versión estable.
 
 <DownloadBuilds :labels="labels">
 <template #dev-note>

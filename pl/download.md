@@ -24,7 +24,7 @@ const labels = {
 
 # Pobierz Rapirę
 
-Gotowe kompilacje publikujemy w [wydaniach na GitHubie](https://github.com/rapira-rs/rapira/releases). Wybierz platformę - przycisk poniżej pobierze najnowszą stabilną wersję dla niej.
+[Strona wydań Rapiry](https://github.com/rapira-rs/rapira/releases) zawiera kompilacje dla Linuksa i macOS. [Strona wydań Rapiry dla Windowsa](https://github.com/rapira-rs/rapira-windows/releases) zawiera kompilacje dla Windowsa. Wybierz platformę. Przycisk pobierze najnowszą stabilną wersję.
 
 <DownloadBuilds :labels="labels">
 <template #dev-note>

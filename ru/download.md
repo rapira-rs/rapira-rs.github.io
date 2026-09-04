@@ -24,7 +24,7 @@ const labels = {
 
 # Скачать Rapira
 
-Готовые сборки публикуются в [релизах на GitHub](https://github.com/rapira-rs/rapira/releases). Выберите платформу - кнопка внизу скачает последнюю стабильную версию для неё.
+[Страница релизов Rapira](https://github.com/rapira-rs/rapira/releases) содержит сборки для Linux и macOS. [Страница релизов Rapira для Windows](https://github.com/rapira-rs/rapira-windows/releases) содержит сборки для Windows. Выберите платформу. Кнопка скачивает последнюю стабильную версию.
 
 <DownloadBuilds :labels="labels">
 <template #dev-note>

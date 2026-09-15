@@ -175,7 +175,18 @@ grep rapira-v0.8.0-php8.5-macos-aarch64.tar.gz rapira-v0.8.0-SHA256SUMS.txt | sh
 FROM php:8.5-cli-trixie
 COPY --from=ghcr.io/rapira-rs/rapira:php8.5 / /
 COPY . /app
-CMD ["rapira", "serve", "--listen", ":8000", "--mode", "classic", "/app/public/index.php"]
+CMD ["rapira", "serve", "/app/rapira.toml"]
+```
+
+W katalogu aplikacji leży `rapira.toml`:
+
+```toml
+[http]
+listen = ":8000"
+
+[http.pool]
+entrypoint = "/app/public/index.php"
+mode = "classic"
 ```
 
 W obrazie leżą `/usr/local/bin/rapira`, `/usr/local/lib/libphp.so` i OPcache. Na PHP 8.4 OPcache jest osobnym `opcache.so` z własnym plikiem ini, a na PHP 8.5 jest wlinkowany w `libphp.so`. W `/usr/local/share/rapira` czekają jeszcze dwa pliki: `PHP_VERSION.txt` z wersją łatki dołączonej `libphp` oraz `debian-packages.txt` z pakietami Debiana, których `libphp` potrzebuje na obrazie bazowym bez PHP.
@@ -230,7 +241,7 @@ Na PHP 8.4 OPcache startuje tylko dla zamkniętej listy nazw SAPI, a nazwa spoza
 Ani pakiety, ani archiwa nie zawierają `php.ini`, a Rapira sama go nie tworzy, więc nietknięta instalacja działa na wbudowanych domyślnych ustawieniach PHP. Wskaż przez `PHPRC` konkretny plik albo katalog, w którym go szukać:
 
 ```bash
-PHPRC=/etc/rapira/php.ini rapira serve --config /etc/rapira/rapira.toml
+PHPRC=/etc/rapira/php.ini rapira serve /etc/rapira/rapira.toml
 ```
 
 ::: question Gdzie PHP samo szuka `php.ini`?

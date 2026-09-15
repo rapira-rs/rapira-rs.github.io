@@ -1,25 +1,23 @@
 ---
 title: Configuración
-description: "La referencia completa de rapira.toml: todas las claves de [http], [pool], [supervisor] y [log], con su tipo, su valor por defecto y las reglas que rechazan un valor inválido."
+description: "La referencia completa de rapira.toml: todas las claves de [http], [http.pool], [supervisor] y [log], con su tipo, su valor por defecto y las reglas que rechazan un valor inválido."
 ---
 
 # Configuración
 
-Rapira puede iniciarse sin un archivo de configuración. `rapira serve --mode worker app/worker.php` usa los ajustes predeterminados. Crea `rapira.toml` para cambiar la dirección, los workers, la sustitución, el pidfile o el nivel de registro. Indica el archivo con este comando:
+Rapira requiere un archivo de configuración. El comando `rapira serve` toma su ruta como único argumento. Cualquier nombre de archivo es válido, y esta documentación usa `rapira.toml`:
 
 ```bash
-rapira serve --config /etc/rapira/rapira.toml
+rapira serve /etc/rapira/rapira.toml
 ```
 
-El archivo tiene cuatro secciones opcionales. `[http]` configura la escucha y `[pool]` configura los workers. `[supervisor]` configura el proceso maestro. `[log]` configura la salida a stderr. El script de entrada de PHP no tiene valor predeterminado. Define `pool.entrypoint` o pasa el script como argumento.
+El archivo define la dirección, los workers, la sustitución, el pidfile y el nivel de registro. Un valor del archivo sustituye el valor predeterminado.
 
-::: info
-Las opciones de línea de comandos sustituyen los valores del archivo. Los valores del archivo sustituyen los valores predeterminados. Por ejemplo, `--processes 8` sustituye `processes = 4` durante una ejecución. Solo dos variables de entorno de registro afectan a los ajustes. Consulta las opciones en la [página de la línea de comandos](/es/docs/cli).
-:::
+El archivo tiene tres secciones. `[http]` configura la escucha y el pool de workers que hay detrás. `[supervisor]` configura el proceso maestro. `[log]` configura la salida a stderr. El script de entrada de PHP no tiene valor predeterminado. Define `http.pool.entrypoint`.
 
 ## Un rapira.toml completo
 
-El siguiente archivo contiene todas las claves admitidas. La mayoría de las claves ausentes usan su valor predeterminado. `pool.entrypoint` no tiene valor predeterminado. El escalado dinámico requiere `min_spare` y `max_spare`. La tabla `[http.static]` requiere `http.static.root`.
+El siguiente archivo contiene todas las claves admitidas. La mayoría de las claves ausentes usan su valor predeterminado. `http.pool.entrypoint` no tiene valor predeterminado. El escalado dinámico requiere `min_spare` y `max_spare`. La tabla `[http.static]` requiere `http.static.root`.
 
 Algunas claves deben aparecer juntas. La tabla `[http.static]` requiere la entrada `"static"` de `middleware`, y la entrada requiere la tabla. Elimina `min_spare` y `max_spare` cuando el escalado no sea `dynamic`. Rapira rechaza estas claves con `static` y `ondemand`.
 
@@ -49,7 +47,7 @@ max_files = 20                        # Optional. Limits file parts in one reque
 max_parts = 1024                      # Optional. Limits all parts in one request.
 max_part_headers = 32                 # Optional. Limits fields in one part.
 
-[pool]
+[http.pool]                           # The worker pool behind the http listener.
 entrypoint = "index.php"              # Relative paths use this file's directory.
 mode = "dispatcher"                   # Use "classic", "worker", or "dispatcher". Default: "dispatcher".
 processes = 4                         # Sets the worker count and the scaling maximum.
@@ -81,7 +79,7 @@ Esta sección cubre dónde escucha Rapira, qué le dice a PHP el entorno de la p
 
 | Clave | Tipo | Por defecto | Significado |
 | --- | --- | --- | --- |
-| `listen` | cadena | `"127.0.0.1:8000"` | La dirección de escucha, en una de estas tres formas: `host:port` con una IP literal (`127.0.0.1:8000`, `[::1]:8000`), `:port` para todas las interfaces, o `unix:/run/rapira.sock` para un socket Unix. Un puerto suelto y un nombre de host se rechazan los dos: la dirección tiene que decir a qué interfaz se refiere. |
+| `listen` | cadena | `"127.0.0.1:8000"` | La dirección de escucha. Usa `host:port` con una dirección IP, `:port` para todas las interfaces IPv4, o `unix:/run/rapira.sock` para un socket Unix. `:8080` es igual a `0.0.0.0:8080`. Usa `[::]:8080` para todas las interfaces IPv6. Pon una IPv6 literal entre corchetes, como en `[::1]:8000`. Rapira rechaza un puerto sin dirección y rechaza los nombres de host. |
 | `server_name` | cadena | `"localhost"` | Lo que PHP lee en `$_SERVER['SERVER_NAME']`. |
 | `server_port` | entero | el puerto de escucha, `80` con `unix:` | Lo que PHP lee en `$_SERVER['SERVER_PORT']`. Ponlo cuando el proxy que hay delante de Rapira termina en un puerto distinto del que abre Rapira. |
 | `max_body_size_mb` | entero | `8` | El cuerpo de petición más grande que acepta Rapira, en MiB (1024 × 1024 bytes). Todo lo que pase de ahí se responde con un `413`. Tiene que ser 1 como mínimo. |
@@ -111,7 +109,7 @@ La raíz de sendfile es el directorio del que lee `sendFile()`. Rapira canonical
 
 | Clave | Tipo | Por defecto | Significado |
 | --- | --- | --- | --- |
-| `root` | cadena | el directorio donde está el script de entrada | El único directorio del que puede leer `sendFile()`. Una ruta relativa se resuelve respecto al directorio donde está el archivo de configuración. |
+| `root` | cadena | el directorio de `http.pool.entrypoint` | El único directorio del que puede leer `sendFile()`. Una ruta relativa se resuelve respecto al directorio donde está el archivo de configuración. |
 
 Una raíz que no existe cuando arranca el servidor no se puede canonicalizar, y entonces `sendFile()` rechaza cualquier ruta. Crea el directorio antes de arrancar el servidor.
 
@@ -130,14 +128,16 @@ La tabla `[http.uploads]` acota el análisis de `multipart/form-data` que hace e
 
 Todos estos límites tienen que ser 1 como mínimo. A una petición que se pase de cualquiera de ellos se le responde `413`.
 
-## La sección `[pool]`
+### La tabla `[http.pool]`
 
-Los workers son los procesos que ejecutan PHP de verdad, y esta sección dice qué ejecutan, cuántos hay y cuándo el maestro retira a alguno. Qué hace el maestro con estos números lo explica el [modelo de procesos](/es/docs/process-model).
+Los workers son los procesos que ejecutan PHP de verdad, y esta tabla dice qué ejecutan, cuántos hay y cuándo el maestro retira a alguno. Qué hace el maestro con estos números lo explica el [modelo de procesos](/es/docs/process-model).
+
+Cada plugin es dueño de su pool bajo `[<plugin>.pool]`. `http` es el único plugin.
 
 | Clave | Tipo | Por defecto | Significado |
 | --- | --- | --- | --- |
-| `entrypoint` | cadena | ninguno - obligatorio | El script PHP que ejecuta cada worker. Una ruta relativa se resuelve respecto al directorio donde está el archivo de configuración. Un argumento `SCRIPT` en la línea de comandos lo sustituye, y uno de los dos tiene que estar o el servidor se niega a arrancar. |
-| `mode` | `"classic"` \| `"worker"` \| `"dispatcher"` | `"dispatcher"` | Cómo ejecuta un worker el script de entrada. `classic` lo vuelve a ejecutar desde cero en cada petición. `worker` lo mantiene residente y rellena de nuevo las superglobales en cada petición. `dispatcher` lo mantiene residente y le da un objeto dispatcher del que el script va sacando cada petición. La opción `--mode` de la línea de comandos se impone a esta clave en los dos sentidos. Consulta los [modos de ejecución](/es/docs/execution-modes). |
+| `entrypoint` | cadena | ninguno - obligatorio | El script PHP que ejecuta cada worker. Una ruta relativa se resuelve respecto al directorio donde está el archivo de configuración. Tienes que darle un valor. |
+| `mode` | `"classic"` \| `"worker"` \| `"dispatcher"` | `"dispatcher"` | Cómo ejecuta un worker el script de entrada. `classic` lo vuelve a ejecutar desde cero en cada petición. `worker` lo mantiene residente y rellena de nuevo las superglobales en cada petición. `dispatcher` lo mantiene residente y le da un objeto dispatcher del que el script va sacando cada petición. Consulta los [modos de ejecución](/es/docs/execution-modes). |
 | `processes` | entero | uno por CPU lógica | Cuántos procesos worker crear con fork. Con el escalado `dynamic` y con el `ondemand` esto es el techo, no la cantidad. Tiene que ser 1 como mínimo. |
 | `scaling` | `"static"` \| `"dynamic"` \| `"ondemand"` | `"static"` | Cómo se dimensiona el pool. `static` mantiene vivos `processes` workers todo el tiempo; `dynamic` escala entre los umbrales de reserva, con `processes` como techo; `ondemand` solo hace fork cuando hay trabajo y deja que se retiren los workers ociosos. |
 | `min_spare` | entero | ninguno | Solo con el escalado `dynamic`, y ahí obligatoria: mantén al menos este número de workers ociosos y listos. |
@@ -148,7 +148,7 @@ Los workers son los procesos que ejecutan PHP de verdad, y esta sección dice qu
 
 `mode` y `scaling` son dos ejes distintos: `mode` dice qué hace un worker con el script de entrada, y `scaling`, cuántos workers hay.
 
-Los umbrales de reserva se comprueban contra el valor efectivo de `processes`, así que una opción `--processes` en la línea de comandos baja el techo bajo el que tiene que caber `max_spare`.
+Los umbrales de reserva se comprueban contra el valor de `processes`.
 
 ## La sección `[supervisor]`
 
@@ -180,7 +180,7 @@ Rapira solo lee las variables de entorno `RUST_LOG` y `NO_COLOR`. Ambas afectan 
 
 ## Las claves desconocidas se rechazan
 
-Rapira solo acepta las tablas y claves documentadas. Por ejemplo, `[htttp]` o `lissten = ":8000"` impiden la inicialización. El error identifica el nombre desconocido. Rapira no lo ignora. Cada clave pertenece a una tabla. Por ejemplo, `max_requests` pertenece a `[pool]` y `pidfile` pertenece a `[supervisor]`.
+Rapira solo acepta las tablas y claves documentadas. Por ejemplo, `[htttp]` o `lissten = ":8000"` impiden la inicialización. El error identifica el nombre desconocido. Rapira no lo ignora. Cada clave pertenece a una tabla. Por ejemplo, `max_requests` pertenece a `[http.pool]` y `pidfile` pertenece a `[supervisor]`.
 
 Rapira también valida los valores. Rechaza los valores no admitidos en lugar de usar los predeterminados. Por ejemplo, rechaza `level = "verbose"`, `format = "pretty"` y `unsafe_field_names = "allow"`. Los valores numéricos tienen límites. Los workers, cuerpos, tiempos HTTP y límites de carga deben ser como mínimo 1. Cada clave `*_secs` tiene un máximo de `86400`, que equivale a un día.
 
@@ -190,9 +190,7 @@ La validación ocurre antes de que arranque nada, así que una clave que no se r
 
 ## Rutas relativas
 
-Cinco claves contienen rutas: `pool.entrypoint`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root` y `http.uploads.dir`. Cada ruta relativa usa como base el directorio del archivo de configuración. Por ejemplo, `entrypoint = "app/worker.php"` en `/etc/rapira/rapira.toml` produce `/etc/rapira/app/worker.php`.
-
-El argumento posicional `SCRIPT` usa el directorio actual como base de una ruta relativa.
+Cinco claves contienen rutas: `http.pool.entrypoint`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root` y `http.uploads.dir`. Cada ruta relativa usa como base el directorio del archivo de configuración. Por ejemplo, `entrypoint = "app/worker.php"` en `/etc/rapira/rapira.toml` produce `/etc/rapira/app/worker.php`.
 
 ::: tip
 Guarda `rapira.toml` dentro de la aplicación. Escribe sus rutas respecto al archivo. Este diseño permite mover el directorio de la aplicación sin cambiar las rutas.

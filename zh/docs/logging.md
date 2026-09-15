@@ -161,9 +161,9 @@ stderr 是终端时，Rapira 使用颜色。stderr 是文件时，Rapira 不使�
 `RUST_LOG` 从环境设置日志过滤器。它可以在不编辑配置的情况下更改过滤器：
 
 ```sh
-RUST_LOG=info rapira serve --mode worker worker.php
-RUST_LOG=rapira=debug,php=info rapira serve --mode worker worker.php
-RUST_LOG=warn,rapira=trace rapira serve --mode worker worker.php
+RUST_LOG=info rapira serve rapira.toml
+RUST_LOG=rapira=debug,php=info rapira serve rapira.toml
+RUST_LOG=warn,rapira=trace rapira serve rapira.toml
 ```
 
 第一个命令将所有目标设置为 `info`。第二个命令将 `rapira` 设置为 `debug`，将 `php` 设置为 `info`。 第三个命令将所有目标设置为 `warn`，将 `rapira` 设置为 `trace`。`rapira` 目标包含初始化、worker 和关闭记录。 需要 master 记录时，请使用 `RUST_LOG=warn,rapira=trace,master=trace`。

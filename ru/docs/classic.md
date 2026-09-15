@@ -17,12 +17,7 @@ description: "Режим Classic выполняет обычный входно�
 
 ## Настройка режима Classic
 
-Выберите режим одним из способов:
-
-- `--mode classic` в командной строке, рядом с входным скриптом.
-- `mode = "classic"` в секции `[pool]` файла `rapira.toml`.
-
-`--mode` заменяет `pool.mode` из файла конфигурации. Другие параметры командной строки также заменяют соответствующие параметры файла. Полный список ключей см. в разделе [Конфигурация](/ru/docs/configuration).
+Выберите режим Classic ключом `mode = "classic"` в таблице `[http.pool]` файла `rapira.toml`. Полный список ключей см. в разделе [Конфигурация](/ru/docs/configuration).
 
 Входной скрипт для режима Classic - это обычный PHP:
 
@@ -34,23 +29,18 @@ echo "Hello, " . ($_GET['name'] ?? 'anonymous') . "!\n";
 echo "Method: {$_SERVER['REQUEST_METHOD']}\n";
 ```
 
-Выберите режим через CLI или файл конфигурации:
+Файл `rapira.toml` для этого скрипта:
 
-::: code-group
+```toml
+[http]
+listen = "127.0.0.1:8000"
 
-```bash [CLI]
-rapira serve --mode classic public/index.php
-```
-
-```toml [rapira.toml]
-[pool]
+[http.pool]
 entrypoint = "public/index.php"
 mode = "classic"
 ```
 
-:::
-
-Для файла конфигурации выполните `rapira serve --config rapira.toml`. Относительный `pool.entrypoint` использует каталог файла конфигурации. Относительный путь CLI использует текущий каталог. Другие параметры см. в разделе [Командная строка](/ru/docs/cli).
+Запустите Rapira командой `rapira serve rapira.toml`. Относительный `http.pool.entrypoint` использует каталог файла конфигурации. Команду см. в разделе [Командная строка](/ru/docs/cli).
 
 ## Входной скрипт
 

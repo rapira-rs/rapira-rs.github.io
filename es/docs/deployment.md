@@ -27,7 +27,7 @@ After=network.target
 [Service]
 Type=exec
 WorkingDirectory=/srv/app
-ExecStart=/usr/bin/rapira serve --config /etc/rapira/rapira.toml
+ExecStart=/usr/bin/rapira serve /etc/rapira/rapira.toml
 ExecReload=/bin/kill -USR2 $MAINPID
 KillMode=mixed
 Restart=on-failure
@@ -67,11 +67,11 @@ Dos aplicaciones en un host requieren archivos de configuración, unidades y dir
 
 ## Rutas de configuración
 
-Esta guía usa `/etc/rapira/rapira.toml` para los ajustes de Rapira. Guarda `php.ini` en el mismo directorio y define `PHPRC=/etc/rapira`. Rapira no contiene estas rutas en el binario. La opción `--config` acepta cualquier ruta. PHP usa `PHPRC` para buscar su configuración. Usa otras rutas cuando el sistema las requiera.
+Esta guía usa `/etc/rapira/rapira.toml` para los ajustes de Rapira. Guarda `php.ini` en el mismo directorio y define `PHPRC=/etc/rapira`. Rapira no contiene estas rutas en el binario. El argumento `CONFIG` acepta cualquier ruta. PHP usa `PHPRC` para buscar su configuración. Usa otras rutas cuando el sistema las requiera.
 
 Rapira puede funcionar sin `php.ini`. Sus valores predeterminados envían los diagnósticos de PHP al registro y no a las respuestas HTTP. Crea `/etc/rapira/php.ini` para configurar OPcache, un límite de memoria o una zona horaria. Consulta [Registros](/es/docs/logging).
 
-Un `pool.entrypoint` relativo usa como base el directorio del archivo de configuración. Por tanto, `entrypoint = "index.php"` significa `/etc/rapira/index.php` en esta estructura. Usa una ruta absoluta para el script de entrada en producción. `supervisor.pidfile` usa la misma regla. El argumento `SCRIPT` y las operaciones de PHP usan el directorio de trabajo. Rapira no cambia este directorio. Systemd usa `/` de forma predeterminada, por lo que la unidad define `WorkingDirectory=/srv/app`. PHP también busca un archivo ini en este directorio. Consulta [Configuración](/es/docs/configuration).
+Un `http.pool.entrypoint` relativo usa como base el directorio del archivo de configuración. Por tanto, `entrypoint = "index.php"` significa `/etc/rapira/index.php` en esta estructura. Usa una ruta absoluta para el script de entrada en producción. `supervisor.pidfile` usa la misma regla. Las operaciones de archivos de PHP usan el directorio de trabajo. Rapira no cambia este directorio. Systemd usa `/` de forma predeterminada, por lo que la unidad define `WorkingDirectory=/srv/app`. PHP también busca un archivo ini en este directorio. Consulta [Configuración](/es/docs/configuration).
 
 ## Proxy inverso
 
@@ -142,7 +142,7 @@ Configura un recolector de registros para leer el journal de la unidad. Como alt
 En [modo Worker](/es/docs/execution-modes), el proceso conserva el estado de la aplicación entre peticiones. Por tanto, una fuga de memoria puede aumentar la memoria del proceso con el tiempo. Usa estos dos ajustes para limitar el efecto:
 
 ```toml
-[pool]
+[http.pool]
 max_requests = 500
 request_terminate_timeout_secs = 30
 ```

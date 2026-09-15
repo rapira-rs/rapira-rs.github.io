@@ -40,16 +40,22 @@ while (\Rapira\handle_request($handler)) {
 }
 ```
 
-Dispatcher is the default mode. Select Worker mode with one of these settings:
+Dispatcher is the default mode. Select Worker mode with `mode = "worker"` in the `[http.pool]` table of a `rapira.toml`:
 
-- `--mode worker` on the command line, next to the entry script.
-- `mode = "worker"` in the `[pool]` section of a `rapira.toml`.
+```toml
+[http]
+listen = "127.0.0.1:8000"
 
-```bash
-rapira serve --mode worker app/worker.php
+[http.pool]
+entrypoint = "app/worker.php"
+mode = "worker"
 ```
 
-See [CLI](/docs/cli) for the rest of the flags, and [Configuration](/docs/configuration) for the `rapira.toml` equivalents.
+```bash
+rapira serve rapira.toml
+```
+
+See [Configuration](/docs/configuration) for the other keys.
 
 ## The `handle_request()` contract
 
@@ -149,14 +155,14 @@ if (\Rapira\get_mode() === \Rapira\Mode::Worker) {
 **Request state remains between requests.** Check for request state that remains when an application fails only in Worker mode. Examples include a static array that grows, a request object in a singleton, or old user data in a logger.
 
 Reset this state at the start or end of the handler. Also reset request state in libraries.
-`pool.max_requests` replaces a worker after a specified request count. This limits the effect of a memory leak but does not correct it.
+`http.pool.max_requests` replaces a worker after a specified request count. This limits the effect of a memory leak but does not correct it.
 
 **Uncollected reference cycles.** PHP reference counting immediately releases most values. It releases cycles only when the cycle collector runs.
 The example calls `gc_collect_cycles()` between requests. This call is optional, but it makes collection time predictable.
 
 **Requests that do not finish.** A worker cannot handle another request while its current request runs.
-`pool.request_terminate_timeout_secs` limits the elapsed time of one request. Rapira terminates a worker that exceeds it.
-See [Configuration](/docs/configuration) for this key and `pool.max_requests`. See [Process model](/docs/process-model) for worker termination processing.
+`http.pool.request_terminate_timeout_secs` limits the elapsed time of one request. Rapira terminates a worker that exceeds it.
+See [Configuration](/docs/configuration) for this key and `http.pool.max_requests`. See [Process model](/docs/process-model) for worker termination processing.
 
 **An uncaught exception affects one request, not the worker.** Rapira returns `500` for an uncaught handler exception unless the handler already sent the response head. Rapira cannot change the status after the handler sends the response head. The loop continues, so the exception does not stop the worker. A fatal error ends the persistent script. The worker then starts the script again and initializes the application.
 

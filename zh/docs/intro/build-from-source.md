@@ -99,11 +99,20 @@ PHP_CONFIG=$HOME/.local/php-nts/bin/php-config cargo build --release
 
 ## 运行你构建出的二进制
 
-运行时 Rapira 会动态加载 `libphp.so`（macOS 上是 `libphp.dylib`）。如果它在标准位置，你什么都不用做；否则就把加载器指向它：
+运行时 Rapira 会动态加载 `libphp.so`（macOS 上是 `libphp.dylib`）。如果它在标准位置，你什么都不用做；否则就把加载器指向它。使用[快速上手](/zh/docs/intro/quickstart)里的 `worker.php`，在它旁边创建 `rapira.toml`：
+
+```toml
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
+entrypoint = "worker.php"
+mode = "worker"
+```
 
 ```bash
-LD_LIBRARY_PATH="$HOME/.local/php-nts/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ./target/release/rapira serve --mode worker worker.php         # Linux
-DYLD_LIBRARY_PATH="$HOME/.local/php-nts/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" ./target/release/rapira serve --mode worker worker.php   # macOS
+LD_LIBRARY_PATH="$HOME/.local/php-nts/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ./target/release/rapira serve rapira.toml         # Linux
+DYLD_LIBRARY_PATH="$HOME/.local/php-nts/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" ./target/release/rapira serve rapira.toml   # macOS
 ```
 
 构建出来的就是软件包安装的那个服务器：[快速开始](/zh/docs/intro/quickstart)带你写第一个脚本，[命令行](/zh/docs/cli)列出了 `serve` 接受的全部参数，[配置](/zh/docs/configuration)讲的是 `rapira.toml`。

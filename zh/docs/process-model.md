@@ -7,7 +7,7 @@ description: "Rapira 如何运行 PHP：单线程的 master 绑定套接字、�
 
 Rapira 以一个 master 进程加一池 worker 的形式运行。凡是全局只能有一份的东西--监听套接字、PHP 引擎映像、pidfile--都归 master 持有，备齐之后它就 fork；请求则由 worker 处理。请求从来不需要在进程之间倒手：worker *就是* master 的副本，是在 PHP 已经起来之后 fork 出来的，各自直接从套接字上取走自己的连接。
 
-无论运行 [Classic 模式](/zh/docs/classic)、[Worker 模式](/zh/docs/worker)还是 Dispatcher 模式，这套结构都一样。执行模式由 `pool.mode` 设定，它决定的是每个请求进了 worker 之后怎么走；至于进程池怎么搭起来、怎么被看管、怎么重载，跟它无关。更多内容见[执行模式](/zh/docs/execution-modes)。
+无论运行 [Classic 模式](/zh/docs/classic)、[Worker 模式](/zh/docs/worker)还是 Dispatcher 模式，这套结构都一样。执行模式由 `http.pool.mode` 设定，它决定的是每个请求进了 worker 之后怎么走；至于进程池怎么搭起来、怎么被看管、怎么重载，跟它无关。更多内容见[执行模式](/zh/docs/execution-modes)。
 
 ## master 与 worker
 
@@ -51,9 +51,9 @@ master 还在整个生命周期里持有 PHP 模块，也只有它会去关闭�
 - worker 运行至少十秒会重置延迟。
 - **初始化故障。**如果所有初始 worker 都在进程池处理请求之前失败，master 会退出。
 - 进程池处理请求后，master 使用正常替换延迟。重载期间，worker 初始化失败不会导致 master 退出。
-- **请求限制。**使用 `pool.max_requests` 时，worker 在达到请求限制后退出。然后 master 会替换它。
+- **请求限制。**使用 `http.pool.max_requests` 时，worker 在达到请求限制后退出。然后 master 会替换它。
 - Rapira 会添加最多为限制一半的随机值。这样可以避免同时替换 worker。
-- **请求超时。**使用 `pool.request_terminate_timeout_secs` 时，请求超过限制后，master 会发送 `SIGTERM`。
+- **请求超时。**使用 `http.pool.request_terminate_timeout_secs` 时，请求超过限制后，master 会发送 `SIGTERM`。
 - 如果 worker 在下一个维护周期后仍活动，master 会发送 `SIGKILL`。它会关闭排队连接并创建替换 worker。
 - master 不会在停止或重载期间应用此超时。
 - **伸缩。**使用 `dynamic` 时，维护过程可以创建 worker 或删除空闲 worker。
@@ -63,20 +63,20 @@ master 还在整个生命周期里持有 PHP 模块，也只有它会去关闭�
 
 ## 进程池伸缩
 
-`pool.scaling` 选择进程池如何更改大小。它与 `pool.mode` 不同。 `pool.mode` 设置 worker 内的执行模式。使用 `static` 时，`pool.processes` 是准确数量。 使用 `dynamic` 和 `ondemand` 时，它是最大数量。默认值为每个逻辑 CPU 一个 worker。
+`http.pool.scaling` 选择进程池如何更改大小。它与 `http.pool.mode` 不同。 `http.pool.mode` 设置 worker 内的执行模式。使用 `static` 时，`http.pool.processes` 是准确数量。 使用 `dynamic` 和 `ondemand` 时，它是最大数量。默认值为每个逻辑 CPU 一个 worker。
 
 | 伸缩策略 | 有多少个 worker | 生效的键 |
 | --- | --- | --- |
-| `static`（默认） | 正好 `pool.processes` 个，启动时 fork 出来，之后一直维持这个数。 | `processes` |
-| `dynamic` | 需求要多少就多少，上限是 `pool.processes`；master 把*空闲*数量控制在备用区间之内。 | `min_spare`, `max_spare` |
-| `ondemand` | 启动时一个都不 fork；随流量到来而 fork，上限是 `pool.processes`。 | `process_idle_timeout_secs` |
+| `static`（默认） | 正好 `http.pool.processes` 个，启动时 fork 出来，之后一直维持这个数。 | `processes` |
+| `dynamic` | 需求要多少就多少，上限是 `http.pool.processes`；master 把*空闲*数量控制在备用区间之内。 | `min_spare`, `max_spare` |
+| `ondemand` | 启动时一个都不 fork；随流量到来而 fork，上限是 `http.pool.processes`。 | `process_idle_timeout_secs` |
 
 **`static`** 适合大多数部署。它使用固定数量的 worker，并替换已退出的 worker。 PHP 是同步的，因此每个 worker 一次处理一个请求。I/O 密集型应用可能需要比 CPU 更多的 worker。 CPU 密集型应用通常不需要。
 
-**`dynamic`** 将空闲 worker 数量保持在两个限制之间。数量低于 `min_spare` 时，它会创建 worker。 连续维护周期的容量不足时，新 worker 数量会翻倍。数量超过 `max_spare` 时，它会删除最早的空闲 worker。 初始数量是两个限制的中间值。需求超过 `pool.processes` 时，Rapira 会记录一次警告。
+**`dynamic`** 将空闲 worker 数量保持在两个限制之间。数量低于 `min_spare` 时，它会创建 worker。 连续维护周期的容量不足时，新 worker 数量会翻倍。数量超过 `max_spare` 时，它会删除最早的空闲 worker。 初始数量是两个限制的中间值。需求超过 `http.pool.processes` 时，Rapira 会记录一次警告。
 
 ```toml
-[pool]
+[http.pool]
 scaling = "dynamic"
 processes = 8
 min_spare = 1
@@ -85,7 +85,7 @@ max_spare = 3
 
 这几个边界必须满足 `1 <= min_spare <= max_spare <= processes`；它们在 `dynamic` 下是必填的，在另外两种策略下则会被拒绝。写错地方是配置错误，而不是一个被悄悄忽略的键。
 
-**`ondemand`** 在启动时不创建 worker。master 监视监听套接字。 连接到达且没有空闲 worker 时，master 会创建一个。worker 空闲超过 `pool.process_idle_timeout_secs` 后会退出。 空进程池的第一个请求会等待创建 worker。将 `ondemand` 用于测试环境和低流量站点。 将其他策略用于稳定流量。
+**`ondemand`** 在启动时不创建 worker。master 监视监听套接字。 连接到达且没有空闲 worker 时，master 会创建一个。worker 空闲超过 `http.pool.process_idle_timeout_secs` 后会退出。 空进程池的第一个请求会等待创建 worker。将 `ondemand` 用于测试环境和低流量站点。 将其他策略用于稳定流量。
 
 完整的键参考在[配置](/zh/docs/configuration)那一页。
 

@@ -121,7 +121,7 @@ while (\Rapira\handle_request($handler)) {
 
 容器每次都是重建的，所以零件更少，没有可能写错的重置，容器里的状态也不会带到下一个请求；但 `static` 属性、全局变量以及启动文件建立起来的东西，在任何 worker 下都会常驻，得由你自己的代码来重置。这一套同样通过了全套测试。
 
-每个请求都会初始化容器。这会增加初始化时间，并创建 PHP 稍后必须释放的对象。 内存可能增加，直到 PHP 同时释放多个旧容器。此循环行为不一定是内存泄漏。 设置 `pool.max_requests` 以定期替换 worker。 有关此行为，请参阅[框架集成](/zh/docs/frameworks/)。有关设置，请参阅[配置](/zh/docs/configuration)。
+每个请求都会初始化容器。这会增加初始化时间，并创建 PHP 稍后必须释放的对象。 内存可能增加，直到 PHP 同时释放多个旧容器。此循环行为不一定是内存泄漏。 设置 `http.pool.max_requests` 以定期替换 worker。 有关此行为，请参阅[框架集成](/zh/docs/frameworks/)。有关设置，请参阅[配置](/zh/docs/configuration)。
 
 自动加载器和模板的启动文件仍然常驻，请求循环也仍然写在 worker 脚本里，所以这依然是一个 worker，只不过它在两次请求之间会丢弃应用，跟 [Classic 模式](/zh/docs/classic)不是一回事。
 
@@ -129,19 +129,30 @@ while (\Rapira\handle_request($handler)) {
 
 ## 启动 Rapira
 
-```bash
-rapira serve --mode worker worker.php
-```
-
-`--mode worker` 选定 Worker 模式。其余参数见[命令行](/zh/docs/cli)。
-
-上生产的话，把它写进 `rapira.toml`：
+在 `worker.php` 旁边创建 `rapira.toml`：
 
 ```toml
 [http]
 listen = "127.0.0.1:8000"
 
-[pool]
+[http.pool]
+entrypoint = "worker.php"
+mode = "worker"
+```
+
+```bash
+rapira serve rapira.toml
+```
+
+`mode = "worker"` 选定 Worker 模式。该命令见[命令行](/zh/docs/cli)。
+
+上生产的话，用一份完整的 `rapira.toml`：
+
+```toml
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
 entrypoint = "/srv/app/worker.php"
 mode = "worker"
 processes = 8
@@ -154,7 +165,7 @@ format = "json"
 ```
 
 ```bash
-rapira serve --config rapira.toml
+rapira serve rapira.toml
 ```
 
 每个键的默认值和取值范围都在[配置](/zh/docs/configuration)那一页；systemd unit 和挡在它前面的反向代理，见[部署](/zh/docs/deployment)。
@@ -179,13 +190,22 @@ rapira serve --config rapira.toml
 
 ## 回退到 Classic 模式
 
-Yii3 使用普通入口脚本也能运行：
+Yii3 使用普通入口脚本也能运行。请将 `rapira.toml` 改为 Classic 模式：
 
-```bash
-rapira serve --mode classic public/index.php
+```toml
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
+entrypoint = "public/index.php"
+mode = "classic"
 ```
 
-代码原封不动，不用写 worker 脚本，每个请求的状态都是全新的。详见 [Classic 模式](/zh/docs/classic)。
+```bash
+rapira serve rapira.toml
+```
+
+这份配置让代码原封不动，不用写 worker 脚本，每个请求的状态都是全新的。详见 [Classic 模式](/zh/docs/classic)。
 
 worker 脚本是额外的入口点，不会替代普通入口脚本。请保留 `public/index.php`：Classic 模式运行此脚本，本地使用 PHP 内置服务器时也需要它。
 

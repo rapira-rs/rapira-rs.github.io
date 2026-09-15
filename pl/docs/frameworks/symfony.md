@@ -114,13 +114,24 @@ W środowisku produkcyjnym ustaw zmienne przez systemd, kontener albo orkiestrat
 
 ## Uruchamianie Rapiry
 
+Utwórz `rapira.toml` obok `worker.php`:
+
+```toml
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
+entrypoint = "worker.php"
+mode = "worker"
+```
+
 Uruchom Rapirę:
 
 ```bash
-rapira serve --mode worker worker.php
+rapira serve rapira.toml
 ```
 
-`--mode worker` wybiera tryb Worker. `127.0.0.1:8000` to domyślny adres nasłuchu. `rapira serve` działa na pierwszym planie.
+`mode = "worker"` wybiera tryb Worker. `rapira serve` działa na pierwszym planie.
 
 Otwórz drugi terminal. Wyślij żądanie:
 
@@ -149,7 +160,7 @@ Mały `rapira.toml`, żeby to uruchomić:
 [http]
 listen = "127.0.0.1:8000"
 
-[pool]
+[http.pool]
 entrypoint = "worker.php"
 mode = "worker"
 processes = 4
@@ -157,7 +168,7 @@ max_requests = 500
 request_terminate_timeout_secs = 30
 ```
 
-`max_requests` zastępuje workera po określonej liczbie żądań. Ogranicza wpływ wycieku pamięci, ale go nie naprawia. `request_terminate_timeout_secs` ogranicza czas jednego żądania. Uruchom serwer poleceniem `APP_ENV=prod rapira serve --config rapira.toml`. Względny `entrypoint` używa katalogu pliku. Wszystkie ustawienia opisuje [Konfiguracja](/pl/docs/configuration).
+`max_requests` zastępuje workera po określonej liczbie żądań. Ogranicza wpływ wycieku pamięci, ale go nie naprawia. `request_terminate_timeout_secs` ogranicza czas jednego żądania. Uruchom serwer poleceniem `APP_ENV=prod rapira serve rapira.toml`. Względny `entrypoint` używa katalogu pliku. Wszystkie ustawienia opisuje [Konfiguracja](/pl/docs/configuration).
 
 ## Zerowanie stanu między żądaniami
 
@@ -173,10 +184,19 @@ Wywołaj [`rapira_finish_request()`](/pl/docs/http) między `$response->send()` 
 
 ## Codzienna praca nad kodem
 
-`rapira serve` działa na pierwszym planie i inicjalizuje aplikację raz. Dlatego **zastąp workera, aby wczytać zmieniony kod PHP**. Podczas programowania uruchamiaj serwer ponownie po każdej zmianie. Możesz też użyć [trybu Classic](/pl/docs/classic):
+`rapira serve` działa na pierwszym planie i inicjalizuje aplikację raz. Dlatego **zastąp workera, aby wczytać zmieniony kod PHP**. Podczas programowania uruchamiaj serwer ponownie po każdej zmianie. Możesz też użyć [trybu Classic](/pl/docs/classic). Zmień `rapira.toml` na tryb Classic:
+
+```toml
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
+entrypoint = "public/index.php"
+mode = "classic"
+```
 
 ```bash
-rapira serve --mode classic public/index.php
+rapira serve rapira.toml
 ```
 
 Ta sama aplikacja działa w trybie Classic i uruchamia się przy każdym żądaniu. Dlatego zmiany działają od razu, a każde żądanie obejmuje pełny rozruch. Na serwerze produkcyjnym wdrożony kod przejmuje pracę dzięki przeładowaniu kroczącemu (`SIGUSR2` do procesu nadrzędnego). Bieżące żądania mogą się zakończyć, ale bezczynne połączenia keep-alive są zamykane. Przy `opcache.validate_timestamps = 0` segment OPcache procesu nadrzędnego przeżywa całą pulę. W tej konfiguracji wdrożenie wymaga pełnego restartu. Więcej informacji zawierają [model procesów](/pl/docs/process-model) i [wdrożenie produkcyjne](/pl/docs/deployment).

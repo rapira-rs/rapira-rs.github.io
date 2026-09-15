@@ -173,9 +173,9 @@ Set [`NO_COLOR`](https://no-color.org/) to any non-empty value to disable termin
 `RUST_LOG` sets the log filter from the environment. The commands below change the filter and keep the configuration file unchanged:
 
 ```sh
-RUST_LOG=info rapira serve --mode worker worker.php
-RUST_LOG=rapira=debug,php=info rapira serve --mode worker worker.php
-RUST_LOG=warn,rapira=trace rapira serve --mode worker worker.php
+RUST_LOG=info rapira serve rapira.toml
+RUST_LOG=rapira=debug,php=info rapira serve rapira.toml
+RUST_LOG=warn,rapira=trace rapira serve rapira.toml
 ```
 
 The first command sets all targets to `info`. The second sets `rapira` to `debug` and `php` to `info`.

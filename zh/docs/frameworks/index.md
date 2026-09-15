@@ -22,7 +22,7 @@ description: "框架 worker 循环、请求状态、常驻状态、错误处理�
 
 **Worker 模式使进程保持活动。**脚本初始化应用，并在循环中请求工作。 应用状态保留在请求之间。有关详细信息，请参阅[执行模式](/zh/docs/execution-modes)和 [Worker 模式](/zh/docs/worker)。
 
-一个代码库可以使用两种模式。保留 `public/index.php`。将 `worker.php` 添加到项目根目录。 使用 `--mode` 选择执行模式。使用 `SCRIPT` 参数或 `pool.entrypoint` 选择脚本。 如果 Worker 模式迁移失败，请使用 Classic 模式。
+一个代码库可以使用两种模式。保留 `public/index.php`。将 `worker.php` 添加到项目根目录。 `http.pool.mode` 选择执行模式，`http.pool.entrypoint` 选择脚本。 如果 Worker 模式迁移失败，请使用 Classic 模式。
 
 ## Worker 循环
 
@@ -142,7 +142,7 @@ worker 可以在 handler 中创建应用。此设计只在一个请求期间保�
 测试发现，在循环或 handler 中调用 `gc_collect_cycles()` 都无法防止此行为。 后续初始化可能会保留对旧图的引用。其他对象引用图时，回收器无法释放它。 将 `memory_limit` 设置为高于测量的峰值。还要设置 worker 替换限制：
 
 ```toml
-[pool]
+[http.pool]
 max_requests = 100
 ```
 
@@ -156,7 +156,7 @@ Rapira 在创建 worker 之前在 master 中启动一次 PHP。OPcache 创建一
 
 在生产环境中，`opcache.validate_timestamps = 0` 会删除每个请求的文件检查。此设置会阻止自动缓存失效。 OPcache 段属于 master，并在 worker 替换期间保留。因此，部署需要完整重启。 有关步骤，请参阅[生产环境部署](/zh/docs/deployment)。
 
-在开发期间，常驻应用不会再次读取初始化代码。此行为与 OPcache 无关。 更改 worker 脚本或已初始化服务后，请重启服务器。按 Ctrl-C，然后再次运行 `rapira serve`。
+在开发期间，常驻应用不会再次读取初始化代码。此行为与 OPcache 无关。 更改 worker 脚本或已初始化服务后，请重启服务器。按 Ctrl-C，然后再次运行 `rapira serve rapira.toml`。
 
 ## 框架指南
 

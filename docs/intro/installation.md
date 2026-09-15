@@ -197,7 +197,18 @@ Copy its files into an application image:
 FROM php:8.5-cli-trixie
 COPY --from=ghcr.io/rapira-rs/rapira:php8.5 / /
 COPY . /app
-CMD ["rapira", "serve", "--listen", ":8000", "--mode", "classic", "/app/public/index.php"]
+CMD ["rapira", "serve", "/app/rapira.toml"]
+```
+
+The application directory holds a `rapira.toml`:
+
+```toml
+[http]
+listen = ":8000"
+
+[http.pool]
+entrypoint = "/app/public/index.php"
+mode = "classic"
 ```
 
 The image contains `/usr/local/bin/rapira`, `/usr/local/lib/libphp.so`, and OPcache.
@@ -263,7 +274,7 @@ Packages and tarballs do not contain `php.ini`, and Rapira does not create one. 
 Set `PHPRC` to a file or search directory:
 
 ```bash
-PHPRC=/etc/rapira/php.ini rapira serve --config /etc/rapira/rapira.toml
+PHPRC=/etc/rapira/php.ini rapira serve /etc/rapira/rapira.toml
 ```
 
 ::: question Where does PHP look for `php.ini` on its own?

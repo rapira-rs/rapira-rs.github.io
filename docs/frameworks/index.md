@@ -28,7 +28,7 @@ Only the static files, TLS, and OPcache sections below apply to Classic mode.
 **Worker mode keeps the process active.** The script initializes the application and requests work in a loop.
 The application state remains between requests. See [execution modes](/docs/execution-modes) and [Worker mode](/docs/worker) for more information.
 
-One codebase can use both modes. Keep `public/index.php`. Add `worker.php` to the project root. Use `--mode` to select the execution mode. Select the script with the `SCRIPT` argument or `pool.entrypoint`. Classic mode remains available if a Worker mode migration fails.
+One codebase can use both modes. Keep `public/index.php`. Add `worker.php` to the project root. `http.pool.mode` selects the execution mode, and `http.pool.entrypoint` selects the script. Classic mode remains available if a Worker mode migration fails.
 
 ## Worker loop
 
@@ -163,7 +163,7 @@ However, peak memory can be much larger than memory for one request.
 Tests found that `gc_collect_cycles()` in the loop or handler did not prevent this pattern. Later initialization can keep references to old graphs. The collector cannot release a graph while another object references it. Set `memory_limit` above the measured peak. Also set a worker replacement limit:
 
 ```toml
-[pool]
+[http.pool]
 max_requests = 100
 ```
 
@@ -181,7 +181,7 @@ Each worker inherits the same mapping. Compiled scripts remain cached across req
 
 In production, `opcache.validate_timestamps = 0` removes the file check from each request. This setting prevents automatic cache invalidation. The OPcache segment belongs to the master and remains during worker replacement. Thus, a deployment requires a complete restart. See [running in production](/docs/deployment) for the sequence.
 
-During development, a persistent application does not read its initialization code again. This behavior does not depend on OPcache. After changes to the worker script or initialized services, press Ctrl-C. Then run `rapira serve` again.
+During development, a persistent application does not read its initialization code again. This behavior does not depend on OPcache. After changes to the worker script or initialized services, press Ctrl-C. Then run `rapira serve rapira.toml` again.
 
 ## Framework guides
 

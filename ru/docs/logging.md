@@ -161,9 +161,9 @@ Rapira использует цвет, когда stderr является тер�
 `RUST_LOG` задаёт фильтр логов из окружения. Он позволяет изменить фильтр без изменения конфигурации:
 
 ```sh
-RUST_LOG=info rapira serve --mode worker worker.php
-RUST_LOG=rapira=debug,php=info rapira serve --mode worker worker.php
-RUST_LOG=warn,rapira=trace rapira serve --mode worker worker.php
+RUST_LOG=info rapira serve rapira.toml
+RUST_LOG=rapira=debug,php=info rapira serve rapira.toml
+RUST_LOG=warn,rapira=trace rapira serve rapira.toml
 ```
 
 Первая команда задаёт `info` для всех целей. Вторая задаёт `debug` для `rapira` и `info` для `php`. Третья задаёт `warn` для всех целей и `trace` для `rapira`. Цель `rapira` содержит записи инициализации, работы воркеров и остановки. Для записей мастер-процесса используйте `RUST_LOG=warn,rapira=trace,master=trace`.

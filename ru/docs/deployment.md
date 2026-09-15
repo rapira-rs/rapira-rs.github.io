@@ -27,7 +27,7 @@ After=network.target
 [Service]
 Type=exec
 WorkingDirectory=/srv/app
-ExecStart=/usr/bin/rapira serve --config /etc/rapira/rapira.toml
+ExecStart=/usr/bin/rapira serve /etc/rapira/rapira.toml
 ExecReload=/bin/kill -USR2 $MAINPID
 KillMode=mixed
 Restart=on-failure
@@ -67,11 +67,11 @@ sudo systemctl enable --now rapira
 
 ## Пути конфигурации
 
-Это руководство использует `/etc/rapira/rapira.toml` для настроек Rapira. Оно хранит `php.ini` в том же каталоге и задаёт `PHPRC=/etc/rapira`. Rapira не содержит эти пути в бинарнике. Параметр `--config` принимает любой путь. PHP использует `PHPRC` для поиска конфигурации. При необходимости используйте другие пути.
+Это руководство использует `/etc/rapira/rapira.toml` для настроек Rapira. Оно хранит `php.ini` в том же каталоге и задаёт `PHPRC=/etc/rapira`. Rapira не содержит эти пути в бинарнике. Аргумент `CONFIG` принимает любой путь. PHP использует `PHPRC` для поиска конфигурации. При необходимости используйте другие пути.
 
 Rapira может работать без `php.ini`. Значения по умолчанию отправляют диагностику PHP в лог, а не в HTTP-ответ. Создайте `/etc/rapira/php.ini` для настройки OPcache, ограничения памяти или часового пояса. См. раздел [Логирование](/ru/docs/logging).
 
-Относительный `pool.entrypoint` использует каталог файла конфигурации как базовый. Поэтому в этой структуре `entrypoint = "index.php"` означает `/etc/rapira/index.php`. Используйте абсолютный путь входного скрипта в продакшене. `supervisor.pidfile` использует то же правило. Позиционный аргумент `SCRIPT` и операции PHP используют рабочий каталог. Rapira не изменяет этот каталог. По умолчанию systemd использует `/`, поэтому юнит задаёт `WorkingDirectory=/srv/app`. PHP также ищет ini-файл в этом каталоге. Все ключи описаны в разделе [Конфигурация](/ru/docs/configuration).
+Относительный `http.pool.entrypoint` использует каталог файла конфигурации как базовый. Поэтому в этой структуре `entrypoint = "index.php"` означает `/etc/rapira/index.php`. Используйте абсолютный путь входного скрипта в продакшене. `supervisor.pidfile` использует то же правило. Операции PHP с файлами используют рабочий каталог. Rapira не изменяет этот каталог. По умолчанию systemd использует `/`, поэтому юнит задаёт `WorkingDirectory=/srv/app`. PHP также ищет ini-файл в этом каталоге. Все ключи описаны в разделе [Конфигурация](/ru/docs/configuration).
 
 ## Обратный прокси
 
@@ -145,7 +145,7 @@ journalctl -u rapira -f
 В [режиме Worker](/ru/docs/execution-modes) процесс сохраняет состояние приложения между запросами. Поэтому утечка памяти может постепенно увеличивать память процесса. Используйте следующие две настройки:
 
 ```toml
-[pool]
+[http.pool]
 max_requests = 500
 request_terminate_timeout_secs = 30
 ```

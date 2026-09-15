@@ -161,9 +161,9 @@ Rapira używa kolorów, gdy stderr jest terminalem. Nie używa ich, gdy stderr j
 `RUST_LOG` ustawia filtr ze środowiska. Pozwala zmienić filtr bez edycji konfiguracji:
 
 ```sh
-RUST_LOG=info rapira serve --mode worker worker.php
-RUST_LOG=rapira=debug,php=info rapira serve --mode worker worker.php
-RUST_LOG=warn,rapira=trace rapira serve --mode worker worker.php
+RUST_LOG=info rapira serve rapira.toml
+RUST_LOG=rapira=debug,php=info rapira serve rapira.toml
+RUST_LOG=warn,rapira=trace rapira serve rapira.toml
 ```
 
 Pierwsze polecenie ustawia wszystkie cele na `info`. Drugie ustawia `rapira` na `debug` i `php` na `info`. Trzecie ustawia wszystkie cele na `warn`, a `rapira` na `trace`. Cel `rapira` zawiera wpisy inicjalizacji, workerów i zamykania. Gdy potrzebujesz wpisów procesu nadrzędnego, użyj `RUST_LOG=warn,rapira=trace,master=trace`.

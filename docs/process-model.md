@@ -7,7 +7,7 @@ description: The Rapira master, PHP initialization, worker processes, pool scali
 
 Rapira runs one master process and a pool of workers. The master owns the listen socket, initialized PHP engine, and pidfile. The master then creates worker processes. Each worker inherits PHP and accepts connections from the shared socket. Rapira does not pass a request between processes.
 
-This process model is the same in [Classic](/docs/classic), [Worker](/docs/worker), and Dispatcher modes. `pool.mode` controls request processing inside a worker. This setting does not change pool creation, supervision, or reloads. See [Execution modes](/docs/execution-modes) for more information.
+This process model is the same in [Classic](/docs/classic), [Worker](/docs/worker), and Dispatcher modes. `http.pool.mode` controls request processing inside a worker. This setting does not change pool creation, supervision, or reloads. See [Execution modes](/docs/execution-modes) for more information.
 
 ## Master and workers
 
@@ -54,9 +54,9 @@ After pool initialization, the master runs maintenance approximately once each s
 - A worker lifetime of at least ten seconds resets the delay.
 - **Initialization failures.** The master exits when all initial workers fail before the pool serves a request.
 - After the pool serves a request, the master uses the normal replacement delay. During reload, a worker initialization failure does not make the master exit.
-- **Request limits.** With `pool.max_requests`, a worker exits after its request limit. The master then replaces it.
+- **Request limits.** With `http.pool.max_requests`, a worker exits after its request limit. The master then replaces it.
 - Rapira adds a random value of up to half the limit. This prevents simultaneous worker replacement.
-- **Request timeout.** With `pool.request_terminate_timeout_secs`, the master sends `SIGTERM` after a request exceeds the limit.
+- **Request timeout.** With `http.pool.request_terminate_timeout_secs`, the master sends `SIGTERM` after a request exceeds the limit.
 - It sends `SIGKILL` one maintenance interval later if the worker remains active. It closes queued connections and creates a replacement.
 - The master does not apply this timeout during a stop or reload.
 - **Scaling.** With `dynamic`, maintenance can create workers or remove idle workers.
@@ -66,13 +66,13 @@ After pool initialization, the master runs maintenance approximately once each s
 
 ## Pool scaling
 
-`pool.scaling` selects how the pool changes its size. The scaling policy is separate from `pool.mode`. The `pool.mode` key sets the execution mode inside a worker. `pool.processes` is an exact count for `static` scaling. `pool.processes` is the maximum count for `dynamic` and `ondemand` scaling. The default value is one worker for each logical CPU.
+`http.pool.scaling` selects how the pool changes its size. The scaling policy is separate from `http.pool.mode`. The `http.pool.mode` key sets the execution mode inside a worker. `http.pool.processes` is an exact count for `static` scaling. `http.pool.processes` is the maximum count for `dynamic` and `ondemand` scaling. The default value is one worker for each logical CPU.
 
 | Scaling | How many workers | Keys that apply |
 | --- | --- | --- |
-| `static` (default) | Exactly `pool.processes`, created during initialization and kept at that number. | `processes` |
-| `dynamic` | Up to `pool.processes`, as demand requires. The master keeps the idle count between the spare limits. | `min_spare`, `max_spare` |
-| `ondemand` | Zero during initialization. Connections cause worker creation, up to `pool.processes`. | `process_idle_timeout_secs` |
+| `static` (default) | Exactly `http.pool.processes`, created during initialization and kept at that number. | `processes` |
+| `dynamic` | Up to `http.pool.processes`, as demand requires. The master keeps the idle count between the spare limits. | `min_spare`, `max_spare` |
+| `ondemand` | Zero during initialization. Connections cause worker creation, up to `http.pool.processes`. | `process_idle_timeout_secs` |
 
 **`static`** is suitable for most deployments. It uses a fixed worker count and replaces workers that exit.
 PHP is synchronous, so each worker handles one request at a time. I/O-bound applications can require more workers than CPU cores.
@@ -80,10 +80,10 @@ CPU-bound applications usually do not.
 
 **`dynamic`** keeps the idle worker count between two limits. It creates workers when the count is below `min_spare`.
 The number of new workers doubles during consecutive maintenance intervals with insufficient capacity. It removes the oldest idle worker above `max_spare`.
-The initial count is the midpoint between the limits. Rapira writes one warning when demand exceeds `pool.processes`.
+The initial count is the midpoint between the limits. Rapira writes one warning when demand exceeds `http.pool.processes`.
 
 ```toml
-[pool]
+[http.pool]
 scaling = "dynamic"
 processes = 8
 min_spare = 1
@@ -93,7 +93,7 @@ max_spare = 3
 The limits must satisfy `1 <= min_spare <= max_spare <= processes`. Dynamic scaling requires both limits.
 Rapira rejects them with the other policies.
 
-**`ondemand`** forks nothing at startup. The master watches the listen socket. When a connection arrives without an idle worker, the master forks one and lets the child accept. A worker retires after it is idle for longer than `pool.process_idle_timeout_secs`.
+**`ondemand`** forks nothing at startup. The master watches the listen socket. When a connection arrives without an idle worker, the master forks one and lets the child accept. A worker retires after it is idle for longer than `http.pool.process_idle_timeout_secs`.
 
 The first request to an idle pool waits for a fork. Use `ondemand` for staging environments and sites with little traffic. Use another policy for steady traffic.
 

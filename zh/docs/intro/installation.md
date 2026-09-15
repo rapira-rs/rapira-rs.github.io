@@ -174,7 +174,18 @@ grep rapira-v0.8.0-php8.5-macos-aarch64.tar.gz rapira-v0.8.0-SHA256SUMS.txt | sh
 FROM php:8.5-cli-trixie
 COPY --from=ghcr.io/rapira-rs/rapira:php8.5 / /
 COPY . /app
-CMD ["rapira", "serve", "--listen", ":8000", "--mode", "classic", "/app/public/index.php"]
+CMD ["rapira", "serve", "/app/rapira.toml"]
+```
+
+应用目录里放着一份 `rapira.toml`：
+
+```toml
+[http]
+listen = ":8000"
+
+[http.pool]
+entrypoint = "/app/public/index.php"
+mode = "classic"
 ```
 
 镜像里带着 `/usr/local/bin/rapira`、`/usr/local/lib/libphp.so` 和 OPcache。在 PHP 8.4 上，OPcache 是单独的 `opcache.so` 加上它的 ini 文件；在 PHP 8.5 上，它直接链进了 `libphp.so`。`/usr/local/share/rapira` 下还有两个文件：`PHP_VERSION.txt` 写着随包 `libphp` 的补丁版本号，`debian-packages.txt` 列出在一个没有 PHP 的基础镜像上 `libphp` 需要的那些 Debian 软件包。
@@ -229,7 +240,7 @@ Rapira 使用 `--disable-all` 构建 `libphp`，并启用以下固定扩展：
 软件包和压缩包里都没有 `php.ini`，Rapira 也不会生成一个，所以原封不动的安装跑的是 PHP 的内置默认值。用 `PHPRC` 指向真正的文件，或者指向存放它的目录：
 
 ```bash
-PHPRC=/etc/rapira/php.ini rapira serve --config /etc/rapira/rapira.toml
+PHPRC=/etc/rapira/php.ini rapira serve /etc/rapira/rapira.toml
 ```
 
 ::: question PHP 自己会去哪里找 `php.ini`？

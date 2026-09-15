@@ -20,13 +20,24 @@ echo "Hello, " . ($_GET['name'] ?? 'anonymous') . "!\n";
 echo "Method: {$_SERVER['REQUEST_METHOD']}\n";
 ```
 
-启动服务器。`--mode classic` 参数选择模式。位置参数指定入口脚本：
+在 `public` 目录旁创建 `rapira.toml`。`mode` 键选择 Classic 模式，`entrypoint` 指定入口脚本：
 
-```bash
-rapira serve --mode classic public/index.php
+```toml
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
+entrypoint = "public/index.php"
+mode = "classic"
 ```
 
-Rapira 默认监听 `127.0.0.1:8000`。从另一个终端发送请求：
+使用文件路径启动服务器：
+
+```bash
+rapira serve rapira.toml
+```
+
+Rapira 监听 `127.0.0.1:8000`。从另一个终端发送请求：
 
 ```bash
 curl '127.0.0.1:8000/?name=world'
@@ -67,17 +78,26 @@ while (\Rapira\handle_request($handler)) {
 
 Rapira 的 PHP 模块提供 `\Rapira\handle_request()`。因此，此示例不需要自动加载器。 使用 Composer 依赖的应用必须在循环前加载 `vendor/autoload.php`。
 
-使用 `Ctrl-C` 停止 Classic 服务器。两个服务器都使用 `127.0.0.1:8000`。 Dispatcher 是默认模式。使用 `--mode worker` 参数选择 Worker 模式：
+使用 `Ctrl-C` 停止 Classic 服务器。两个服务器都使用 `127.0.0.1:8000`。 将 `rapira.toml` 改成 Worker 模式：
+
+```toml
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
+entrypoint = "worker.php"
+mode = "worker"
+```
 
 ```bash
-rapira serve --mode worker worker.php
+rapira serve rapira.toml
 ```
 
 ```bash
 curl '127.0.0.1:8000/?name=world'
 ```
 
-多次运行 `curl` 命令。同一进程处理另一个请求时，该 worker 的计数器会增加。 Rapira 默认为每个逻辑 CPU 创建一个 worker。操作系统为每个连接选择 worker。 每个 worker 有独立的计数器。响应中的进程标识符显示处理请求的 worker。 使用 `rapira serve --mode worker --processes 1 worker.php` 创建一个 worker。请参阅[进程模型](/zh/docs/process-model)。
+多次运行 `curl` 命令。同一进程处理另一个请求时，该 worker 的计数器会增加。 Rapira 默认为每个逻辑 CPU 创建一个 worker。操作系统为每个连接选择 worker。 每个 worker 有独立的计数器。响应中的进程标识符显示处理请求的 worker。 在 `[http.pool]` 里设置 `processes = 1` 创建一个 worker。请参阅[进程模型](/zh/docs/process-model)。
 
 在 `while` 循环前创建的对象会在内存中保留到 worker 脚本重新启动。 这些对象包括 Composer 自动加载器、容器、连接、路由和模板。Rapira 只初始化一次此状态。 每次迭代只创建新的请求状态。
 
@@ -89,24 +109,24 @@ worker 脚本必须重置保留在内存中的请求状态。 此状态包括静
 
 ## 配置文件
 
-将设置存入 `rapira.toml`，而不是命令行。在应用旁创建此文件：
+配置文件保存所有设置。把 worker 数量加进同一个文件：
 
 ```toml
 [http]
 listen = "127.0.0.1:8000"
 
-[pool]
+[http.pool]
 entrypoint = "worker.php"
 mode = "worker"
 processes = 4
 ```
 
 ```bash
-rapira serve --config rapira.toml
+rapira serve rapira.toml
 ```
 
 ::: info
-相对 `pool.entrypoint` 以配置文件目录为基准。当前目录不会影响此路径。 命令行参数覆盖文件值。例如，`--processes 1` 只更改 worker 数量。
+相对 `http.pool.entrypoint` 以配置文件目录为基准。当前目录不会影响此路径。
 :::
 
 此文件还控制进程池伸缩、worker 替换、请求超时、日志和 pidfile。 未知键会阻止服务器启动。请参阅[配置](/zh/docs/configuration)和[命令行](/zh/docs/cli)。

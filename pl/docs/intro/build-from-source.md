@@ -99,11 +99,20 @@ PHP_CONFIG=$HOME/.local/php-nts/bin/php-config cargo build --release
 
 ## Uruchamianie zbudowanej binarki
 
-W czasie działania Rapira ładuje `libphp.so` (na macOS `libphp.dylib`) dynamicznie. Jeśli biblioteka leży w standardowym miejscu, nie musisz nic robić; w przeciwnym razie wskaż ją loaderowi:
+W czasie działania Rapira ładuje `libphp.so` (na macOS `libphp.dylib`) dynamicznie. Jeśli biblioteka leży w standardowym miejscu, nie musisz nic robić; w przeciwnym razie wskaż ją loaderowi. Użyj pliku `worker.php` z [Szybkiego startu](/pl/docs/intro/quickstart). Utwórz `rapira.toml` obok niego:
+
+```toml
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
+entrypoint = "worker.php"
+mode = "worker"
+```
 
 ```bash
-LD_LIBRARY_PATH="$HOME/.local/php-nts/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ./target/release/rapira serve --mode worker worker.php         # Linux
-DYLD_LIBRARY_PATH="$HOME/.local/php-nts/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" ./target/release/rapira serve --mode worker worker.php   # macOS
+LD_LIBRARY_PATH="$HOME/.local/php-nts/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ./target/release/rapira serve rapira.toml         # Linux
+DYLD_LIBRARY_PATH="$HOME/.local/php-nts/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" ./target/release/rapira serve rapira.toml   # macOS
 ```
 
 Wynik udostępnia te same funkcje co serwer z pakietu. Zobacz strony [Szybki start](/pl/docs/intro/quickstart), [Wiersz poleceń](/pl/docs/cli) i [Konfiguracja](/pl/docs/configuration).

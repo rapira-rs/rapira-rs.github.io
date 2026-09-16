@@ -144,7 +144,7 @@ if (\Rapira\get_mode() === \Rapira\Mode::Worker) {
 
 **Niezebrane cykle referencji.** Zliczanie referencji w PHP natychmiast zwalnia większość wartości. Cykle zwalnia dopiero kolektor cykli. Przykład wywołuje `gc_collect_cycles()` między żądaniami. To wywołanie jest opcjonalne, ale zapewnia przewidywalny czas zbierania.
 
-**Żądania, które się nie kończą.** Worker nie może obsłużyć innego żądania podczas wykonywania bieżącego żądania. `http.pool.request_terminate_timeout_secs` ogranicza czas jednego żądania. Rapira kończy workera, który przekroczy tę wartość. Ten klucz i `http.pool.max_requests` opisuje [Konfiguracja](/pl/docs/configuration). Obsługę zakończenia opisuje [Model procesów](/pl/docs/process-model).
+**Żądania, które się nie kończą.** Worker nie może obsłużyć innego żądania podczas wykonywania bieżącego żądania. `http.pool.request_terminate_timeout_secs` ogranicza czas jednego żądania. Rapira kończy workera, gdy żądanie przekroczy tę wartość. Ten klucz i `http.pool.max_requests` opisuje [Konfiguracja](/pl/docs/configuration). Obsługę zakończenia opisuje [Model procesów](/pl/docs/process-model).
 
 **Nieprzechwycony wyjątek dotyczy jednego żądania, nie workera.** Rapira zwraca `500` dla nieprzechwyconego wyjątku handlera, jeśli handler nie wysłał jeszcze nagłówka odpowiedzi. Rapira nie może zmienić statusu po wysłaniu nagłówka odpowiedzi. Pętla działa dalej, więc wyjątek nie zatrzymuje workera. Błąd krytyczny kończy skrypt rezydentny. Następnie worker ponownie uruchamia skrypt i inicjalizuje aplikację.
 

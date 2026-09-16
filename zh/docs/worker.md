@@ -144,7 +144,7 @@ if (\Rapira\get_mode() === \Rapira\Mode::Worker) {
 
 **未回收的循环引用。**PHP 引用计数会立即释放大多数值。只有循环回收器运行时，PHP 才会释放循环。 示例在请求之间调用 `gc_collect_cycles()`。此调用是可选的，但可以使回收时间可预测。
 
-**无法完成的请求。**当前请求运行时，worker 无法处理其他请求。 `http.pool.request_terminate_timeout_secs` 限制一个请求的运行时间。Rapira 会终止超过此值的 worker。 有关此设置和 `http.pool.max_requests`，请参阅[配置](/zh/docs/configuration)。有关终止处理，请参阅[进程模型](/zh/docs/process-model)。
+**无法完成的请求。**当前请求运行时，worker 无法处理其他请求。 `http.pool.request_terminate_timeout_secs` 限制一个请求的运行时间。当请求超过此值时，Rapira 会终止该 worker。 有关此设置和 `http.pool.max_requests`，请参阅[配置](/zh/docs/configuration)。有关终止处理，请参阅[进程模型](/zh/docs/process-model)。
 
 **未捕获的异常影响一个请求，不影响 worker。**如果 handler 尚未发送响应头，Rapira 会为未捕获的 handler 异常返回 `500`。 handler 发送响应头后，Rapira 无法更改状态。 循环继续，因此异常不会停止 worker。致命错误会结束常驻脚本。 然后，worker 重新运行脚本并初始化应用。
 

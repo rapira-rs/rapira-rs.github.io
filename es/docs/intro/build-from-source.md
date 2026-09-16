@@ -111,8 +111,8 @@ mode = "worker"
 ```
 
 ```bash
-LD_LIBRARY_PATH="$HOME/.local/php-nts/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ./target/release/rapira serve rapira.toml         # Linux
-DYLD_LIBRARY_PATH="$HOME/.local/php-nts/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" ./target/release/rapira serve rapira.toml   # macOS
+LD_LIBRARY_PATH="$HOME/.local/php-nts/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ./target/release/rapira serve /path/to/app/rapira.toml         # Linux
+DYLD_LIBRARY_PATH="$HOME/.local/php-nts/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" ./target/release/rapira serve /path/to/app/rapira.toml   # macOS
 ```
 
 El resultado es el mismo servidor que instalan los paquetes: [Inicio rápido](/es/docs/intro/quickstart) te guía por un primer script, [CLI](/es/docs/cli) enumera lo que acepta `serve` y [Configuración](/es/docs/configuration) cubre `rapira.toml`.

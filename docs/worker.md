@@ -161,7 +161,7 @@ Reset this state at the start or end of the handler. Also reset request state in
 The example calls `gc_collect_cycles()` between requests. This call is optional, but it makes collection time predictable.
 
 **Requests that do not finish.** A worker cannot handle another request while its current request runs.
-`http.pool.request_terminate_timeout_secs` limits the elapsed time of one request. Rapira terminates a worker that exceeds it.
+`http.pool.request_terminate_timeout_secs` limits the elapsed time of one request. Rapira terminates the worker when the request exceeds the limit.
 See [Configuration](/docs/configuration) for this key and `http.pool.max_requests`. See [Process model](/docs/process-model) for worker termination processing.
 
 **An uncaught exception affects one request, not the worker.** Rapira returns `500` for an uncaught handler exception unless the handler already sent the response head. Rapira cannot change the status after the handler sends the response head. The loop continues, so the exception does not stop the worker. A fatal error ends the persistent script. The worker then starts the script again and initializes the application.

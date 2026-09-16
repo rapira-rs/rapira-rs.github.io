@@ -111,8 +111,8 @@ mode = "worker"
 ```
 
 ```bash
-LD_LIBRARY_PATH="$HOME/.local/php-nts/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ./target/release/rapira serve rapira.toml         # Linux
-DYLD_LIBRARY_PATH="$HOME/.local/php-nts/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" ./target/release/rapira serve rapira.toml   # macOS
+LD_LIBRARY_PATH="$HOME/.local/php-nts/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ./target/release/rapira serve /path/to/app/rapira.toml         # Linux
+DYLD_LIBRARY_PATH="$HOME/.local/php-nts/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" ./target/release/rapira serve /path/to/app/rapira.toml   # macOS
 ```
 
 Результат предоставляет те же функции, что и сервер из пакета. См. разделы [Быстрый старт](/ru/docs/intro/quickstart), [Командная строка](/ru/docs/cli) и [Конфигурация](/ru/docs/configuration).

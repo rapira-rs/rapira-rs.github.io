@@ -144,7 +144,7 @@ if (\Rapira\get_mode() === \Rapira\Mode::Worker) {
 
 **Ciclos de referencias sin recoger.** El conteo de referencias de PHP libera la mayoría de los valores inmediatamente. Solo libera los ciclos cuando se ejecuta el recolector. El ejemplo llama a `gc_collect_cycles()` entre peticiones. Esta llamada es opcional, pero hace predecible el momento de recogida.
 
-**Peticiones que no terminan.** Un worker no puede procesar otra petición mientras se ejecuta la petición actual. `http.pool.request_terminate_timeout_secs` limita el tiempo de una petición. Rapira termina un worker que supera este valor. Consulta esta clave y `http.pool.max_requests` en [Configuración](/es/docs/configuration). Consulta el proceso de terminación en [Modelo de procesos](/es/docs/process-model).
+**Peticiones que no terminan.** Un worker no puede procesar otra petición mientras se ejecuta la petición actual. `http.pool.request_terminate_timeout_secs` limita el tiempo de una petición. Rapira termina el worker cuando la petición supera este valor. Consulta esta clave y `http.pool.max_requests` en [Configuración](/es/docs/configuration). Consulta el proceso de terminación en [Modelo de procesos](/es/docs/process-model).
 
 **Una excepción sin capturar afecta a una petición, no al worker.** Rapira devuelve `500` para una excepción del handler sin capturar si el handler todavía no ha enviado la cabecera de respuesta. Rapira no puede cambiar el estado después de que el handler envíe la cabecera de respuesta. El bucle continúa, por lo que la excepción no detiene el worker. Un error fatal termina el script residente. El worker vuelve a iniciar el script y la aplicación.
 

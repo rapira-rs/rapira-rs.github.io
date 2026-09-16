@@ -109,7 +109,7 @@ Katalog sendfile wyznacza jedyne miejsce, z którego czyta `sendFile()`. Rapira 
 
 | Klucz | Typ | Domyślnie | Znaczenie |
 | --- | --- | --- | --- |
-| `root` | tekst | katalog klucza `http.pool.entrypoint` | Jedyny katalog, z którego `sendFile()` może czytać. Ścieżkę względną Rapira liczy od katalogu z plikiem konfiguracyjnym. |
+| `root` | tekst | katalog skryptu wejściowego (`http.pool.entrypoint`) | Jedyny katalog, z którego `sendFile()` może czytać. Ścieżkę względną Rapira liczy od katalogu z plikiem konfiguracyjnym. |
 
 Katalogu, którego przy starcie serwera nie ma, nie da się sprowadzić do postaci kanonicznej, a wtedy `sendFile()` odrzuca każdą ścieżkę. Utwórz katalog, zanim uruchomisz serwer.
 

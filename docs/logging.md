@@ -148,7 +148,9 @@ try {
 
 `\Rapira\log()` does not throw. If a context `jsonSerialize()` call throws, Rapira writes `null` for that value. It keeps the other keys.
 
-Rapira replaces values that JSON cannot represent with a placeholder. These values include resources, closures, `NAN`, `INF`, and invalid UTF-8 strings. Rapira keeps the other fields in the record. Rapira does not limit the context size. It serializes large arrays and strings completely. Pass identifiers instead of large objects.
+Rapira replaces values that JSON cannot represent with a placeholder. These values include resources, closures, `NAN`, `INF`, and invalid UTF-8 strings. Rapira keeps the other fields in the record.
+
+Context serialization preserves complete arrays and strings. If the encoded OTLP payload is 1 MiB or larger, the IPC sender drops the whole record. PHP execution continues. The stderr layer applies its configured filter to the full record. Pass identifiers for large objects.
 
 ## Formats
 

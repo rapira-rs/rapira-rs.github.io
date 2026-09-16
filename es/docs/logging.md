@@ -138,7 +138,9 @@ try {
 
 `\Rapira\log()` no lanza excepciones. Si `jsonSerialize()` lanza una excepción, Rapira escribe `null` para ese valor. Conserva las demás claves.
 
-Rapira sustituye los valores que JSON no puede representar. Incluyen recursos, closures, `NAN`, `INF` y cadenas UTF-8 no válidas. Conserva los demás campos. Rapira no limita el tamaño del contexto. Pasa identificadores en lugar de objetos grandes.
+Rapira sustituye los valores que JSON no puede representar. Incluyen recursos, closures, `NAN`, `INF` y cadenas UTF-8 no válidas. Conserva los demás campos.
+
+La serialización del contexto conserva los arrays y las cadenas completos. Si el contenido OTLP codificado ocupa 1 MiB o más, el emisor IPC descarta el registro completo. La ejecución de PHP continúa. La capa stderr aplica su filtro configurado al registro completo. Pasa identificadores para los objetos grandes.
 
 ## Formatos
 

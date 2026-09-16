@@ -13,9 +13,7 @@ It requires Rust, a C toolchain, and an embeddable PHP library. See [Installatio
 - **No prebuilt binary supports the platform.** Examples include an uncommon CPU architecture and a musl-based distribution such as Alpine.
 - **The distribution is older than the package requirements.** Releases require glibc 2.34 or newer.
 - Debian 12, Ubuntu 22.04, and RHEL 9 are the oldest supported package systems.
-- **The application requires other PHP extensions.** Release builds use [`.github/php-configure-flags.txt`](https://github.com/rapira-rs/rapira/blob/main/.github/php-configure-flags.txt).
-- They include session, mbstring, OPcache, OpenSSL, curl, XML extensions, PDO, and SQLite.
-- Build with another PHP when the application requires extensions such as `pdo_mysql`, `intl`, or `gd`.
+- **The application requires other PHP extensions.** Release builds include SQLite, PostgreSQL through `pdo_pgsql` and `pgsql`, `bcmath`, `intl`, `igbinary`, and `redis`. See [Installation](/docs/intro/installation) for the complete extension list. Build with another PHP when the application requires extensions such as `pdo_mysql` or `gd`.
 - **You modify Rapira** or need a change that is not in a release.
 
 ## The toolchain
@@ -54,15 +52,44 @@ The Homebrew `php` formula does not include the embed SAPI. Build PHP from sourc
 
 Build PHP when no embed package is available. Also build it when the package does not include required extensions.
 
-`.github/php-configure-flags.txt` contains the configuration options for release builds. Pass it to `configure` in an extracted PHP source directory. Append options for required extensions at the end of the `./configure` line:
+`.github/php-configure-flags.txt` contains the configuration options for extensions bundled with PHP. These include `bcmath`, `intl`, `pdo_pgsql`, and `pgsql`.
+
+Install the ICU and PostgreSQL client development libraries for `intl` and PostgreSQL support. Their package names are `libicu-dev` and `libpq-dev` on Debian or Ubuntu, and `libicu-devel` and `libpq-devel` on Rocky Linux. The `intl` extension also requires a C++ compiler.
+
+On macOS, install the build dependencies:
 
 ```bash
+brew install autoconf bison re2c pkg-config openssl@3 curl oniguruma libxml2 sqlite libffi gettext icu4c libpq
+```
+
+From the Rapira source directory, run the target for your platform:
+
+::: code-group
+
+```bash [Linux]
+make php PHP_SRC=/path/to/php-src PHP_PREFIX="$HOME/.local/php-nts"
+```
+
+```bash [macOS]
+make php-macos PHP_SRC=/path/to/php-src PHP_PREFIX="$HOME/.local/php-nts"
+```
+
+:::
+
+Both targets run `buildconf`, configure PHP, compile it, and install it under `PHP_PREFIX`. They enable the bundled PHP extensions from `.github/php-configure-flags.txt`. The `php-macos` target sets the Homebrew library paths and the SDK path for iconv.
+
+For a custom extension set, configure PHP directly in its source directory. Append the required extension options to `./configure`:
+
+```bash
+./buildconf --force
 ./configure --prefix="$HOME/.local/php-nts" $(tr '\n' ' ' < /path/to/rapira/.github/php-configure-flags.txt)
 make -j"$(getconf _NPROCESSORS_ONLN)"
 make install
 ```
 
-On macOS, install the dependencies with `brew install pkg-config openssl@3 curl oniguruma libxml2 sqlite`. Add their `lib/pkgconfig` directories to `PKG_CONFIG_PATH`. Append `--with-iconv="$(xcrun --show-sdk-path)/usr"` after the options file. This path lets `configure` find macOS libiconv. Autoconf uses the last value of a repeated option.
+For manual configuration on macOS, use the library paths and configure options from the `php-macos` target.
+
+Release CI also compiles `igbinary` and `redis` into `libphp`, with igbinary serialization enabled for Redis. Their source versions and checksums are pinned in [the release workflow](https://github.com/rapira-rs/rapira/blob/main/.github/workflows/build-binaries.yml). Extract their sources into PHP's `ext/igbinary` and `ext/redis` directories before running `./buildconf --force`. Add `--enable-igbinary --enable-redis --enable-redis-igbinary` to `./configure`.
 
 ### The plain `libphp.so` name
 

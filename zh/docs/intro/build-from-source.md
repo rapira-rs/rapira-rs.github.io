@@ -11,7 +11,7 @@ Rapira 可以在 Linux 和 macOS 上从源码构建。[安装](/zh/docs/intro/in
 
 - **你的平台没有预编译的二进制文件**--冷门的 CPU 架构，或者 Alpine 这类基于 musl 的发行版。
 - **你的发行版比软件包支持的更老。**发布的二进制是针对 glibc 2.34 构建的，能装上的最老的系统是 Debian 12、Ubuntu 22.04 和 RHEL 9（见[安装](/zh/docs/intro/installation)）。
-- **你需要另一套 PHP 扩展。**官方构建自带的 PHP 是照 [`.github/php-configure-flags.txt`](https://github.com/rapira-rs/rapira/blob/main/.github/php-configure-flags.txt) 里的参数列表编译的，而这份列表是刻意保持精简的：session、mbstring、OPcache、OpenSSL、curl、XML 家族，以及带 SQLite 的 PDO。如果你的应用要用 `pdo_mysql`、`intl` 或 `gd`，就得挑一个带这些扩展的 PHP 来构建 Rapira。
+- **应用需要其他 PHP 扩展。**发布构建包含 SQLite、通过 `pdo_pgsql` 和 `pgsql` 提供的 PostgreSQL 支持，以及 `bcmath`、`intl`、`igbinary` 和 `redis`。完整扩展列表请参阅[安装](/zh/docs/intro/installation)。如果应用需要 `pdo_mysql` 或 `gd` 等扩展，请使用另一份 PHP 构建 Rapira。
 - **你在开发 Rapira 本身**，或者想用上还没发布的东西。
 
 ## 工具链
@@ -47,15 +47,44 @@ Homebrew 的 `php` formula 不包含 embed SAPI。请在 macOS 上从源代码�
 
 如果没有 embed 软件包，请构建 PHP。软件包缺少所需扩展时，也请构建 PHP。
 
-`.github/php-configure-flags.txt` 文件包含发布构建的选项。在解压的 PHP 源代码目录中将此文件传给 `configure`。 在 `./configure` 行末尾添加所需扩展的选项：
+`.github/php-configure-flags.txt` 包含 PHP 随附扩展的配置选项，其中包括 `bcmath`、`intl`、`pdo_pgsql` 和 `pgsql`。
+
+请安装 ICU 和 PostgreSQL 客户端开发库，以启用 `intl` 和 PostgreSQL 支持。Debian 或 Ubuntu 上的软件包名为 `libicu-dev` 和 `libpq-dev`，Rocky Linux 上则为 `libicu-devel` 和 `libpq-devel`。`intl` 扩展还需要 C++ 编译器。
+
+在 macOS 上，请安装构建依赖：
 
 ```bash
+brew install autoconf bison re2c pkg-config openssl@3 curl oniguruma libxml2 sqlite libffi gettext icu4c libpq
+```
+
+在 Rapira 源代码目录中，运行对应平台的目标：
+
+::: code-group
+
+```bash [Linux]
+make php PHP_SRC=/path/to/php-src PHP_PREFIX="$HOME/.local/php-nts"
+```
+
+```bash [macOS]
+make php-macos PHP_SRC=/path/to/php-src PHP_PREFIX="$HOME/.local/php-nts"
+```
+
+:::
+
+两个目标都会运行 `buildconf`、配置并编译 PHP，然后将其安装到 `PHP_PREFIX`。它们启用 `.github/php-configure-flags.txt` 中列出的 PHP 随附扩展。`php-macos` 目标还会设置 Homebrew 库路径和 iconv 的 SDK 路径。
+
+如需自定义扩展集，请在 PHP 源代码目录中直接配置 PHP。将所需扩展选项追加到 `./configure`：
+
+```bash
+./buildconf --force
 ./configure --prefix="$HOME/.local/php-nts" $(tr '\n' ' ' < /path/to/rapira/.github/php-configure-flags.txt)
 make -j"$(getconf _NPROCESSORS_ONLN)"
 make install
 ```
 
-在 macOS 上先把依赖装齐（`brew install pkg-config openssl@3 curl oniguruma libxml2 sqlite`），把它们的 `lib/pkgconfig` 目录加进 `PKG_CONFIG_PATH`，并在参数文件后面追加 `--with-iconv="$(xcrun --show-sdk-path)/usr"`--光写一个 `--with-iconv` 在那儿找不到 libiconv，而在 autoconf 里写在后面的那个说了算。
+在 macOS 上手动配置时，请使用 `php-macos` 目标中的库路径和配置选项。
+
+发布 CI 还将 `igbinary` 和 `redis` 编译进 `libphp`，并为 Redis 启用 igbinary 序列化。它们的源代码版本和校验和固定在[发布工作流](https://github.com/rapira-rs/rapira/blob/main/.github/workflows/build-binaries.yml)中。运行 `./buildconf --force` 前，请将它们的源代码解压到 PHP 的 `ext/igbinary` 和 `ext/redis` 目录。将 `--enable-igbinary --enable-redis --enable-redis-igbinary` 添加到 `./configure`。
 
 ### 不带版本号的 `libphp.so`
 

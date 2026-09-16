@@ -11,7 +11,7 @@ Rapira kompiluje się ze źródeł na Linuksie i macOS. Samodzielne budowanie po
 
 - **Dla twojej platformy nie ma gotowej binarki** - nietypowa architektura procesora albo dystrybucja oparta na musl, na przykład Alpine.
 - **Twoja dystrybucja jest starsza, niż obsługują pakiety.** Wydania powstają na glibc 2.34, więc najstarsze systemy, na których się zainstalują, to Debian 12, Ubuntu 22.04 i RHEL 9 (zobacz [Instalację](/pl/docs/intro/installation)).
-- **Potrzebujesz innego zestawu rozszerzeń PHP.** Wydania zawierają PHP skompilowane z listy flag w pliku [`.github/php-configure-flags.txt`](https://github.com/rapira-rs/rapira/blob/main/.github/php-configure-flags.txt), celowo krótkiej: session, mbstring, OPcache, OpenSSL, curl, rodzina XML, PDO z SQLite. Jeśli twoja aplikacja potrzebuje `pdo_mysql`, `intl` albo `gd`, zbuduj Rapirę na PHP, które je ma.
+- **Aplikacja wymaga innych rozszerzeń PHP.** Wydania zawierają SQLite, PostgreSQL przez `pdo_pgsql` i `pgsql`, `bcmath`, `intl`, `igbinary` oraz `redis`. Pełna lista rozszerzeń znajduje się na stronie [Instalacja](/pl/docs/intro/installation). Zbuduj Rapirę z innym PHP, gdy aplikacja wymaga rozszerzeń takich jak `pdo_mysql` lub `gd`.
 - **Pracujesz nad samą Rapirą** albo chcesz coś, czego jeszcze nie wydaliśmy.
 
 ## Zestaw narzędzi
@@ -47,15 +47,44 @@ Formuła `php` z Homebrew nie zawiera SAPI embed. Na macOS zbuduj PHP ze źróde
 
 Zbuduj PHP, gdy pakiet embed jest niedostępny. Zbuduj je także wtedy, gdy pakiet nie zawiera wymaganych rozszerzeń.
 
-Plik `.github/php-configure-flags.txt` zawiera opcje używane w wydaniach. Przekaż go do `configure` w rozpakowanym katalogu źródeł PHP. Dodaj opcje wymaganych rozszerzeń na końcu wiersza `./configure`:
+Plik `.github/php-configure-flags.txt` zawiera opcje rozszerzeń dostarczanych ze źródłami PHP. Należą do nich `bcmath`, `intl`, `pdo_pgsql` i `pgsql`.
+
+Zainstaluj biblioteki deweloperskie ICU i klienta PostgreSQL, aby włączyć obsługę `intl` i PostgreSQL. Pakiety nazywają się `libicu-dev` i `libpq-dev` na Debianie lub Ubuntu oraz `libicu-devel` i `libpq-devel` na Rocky Linux. Rozszerzenie `intl` wymaga również kompilatora C++.
+
+Na macOS zainstaluj zależności potrzebne do budowania:
 
 ```bash
+brew install autoconf bison re2c pkg-config openssl@3 curl oniguruma libxml2 sqlite libffi gettext icu4c libpq
+```
+
+W katalogu źródeł Rapiry uruchom cel dla swojej platformy:
+
+::: code-group
+
+```bash [Linux]
+make php PHP_SRC=/path/to/php-src PHP_PREFIX="$HOME/.local/php-nts"
+```
+
+```bash [macOS]
+make php-macos PHP_SRC=/path/to/php-src PHP_PREFIX="$HOME/.local/php-nts"
+```
+
+:::
+
+Oba cele uruchamiają `buildconf`, konfigurują PHP, kompilują je i instalują w `PHP_PREFIX`. Włączają rozszerzenia dostarczane z PHP, wymienione w `.github/php-configure-flags.txt`. Cel `php-macos` ustawia ścieżki bibliotek Homebrew i ścieżkę SDK dla iconv.
+
+Aby użyć własnego zestawu rozszerzeń, skonfiguruj PHP bezpośrednio w jego katalogu źródeł. Dodaj opcje wymaganych rozszerzeń do `./configure`:
+
+```bash
+./buildconf --force
 ./configure --prefix="$HOME/.local/php-nts" $(tr '\n' ' ' < /path/to/rapira/.github/php-configure-flags.txt)
 make -j"$(getconf _NPROCESSORS_ONLN)"
 make install
 ```
 
-Na macOS zainstaluj zależności poleceniem `brew install pkg-config openssl@3 curl oniguruma libxml2 sqlite`. Dodaj ich katalogi `lib/pkgconfig` do `PKG_CONFIG_PATH`. Po opcjach z pliku dodaj `--with-iconv="$(xcrun --show-sdk-path)/usr"`. Ta ścieżka pozwala `configure` znaleźć bibliotekę libiconv w macOS. Autoconf używa ostatniej wartości powtórzonej opcji.
+Przy ręcznej konfiguracji na macOS użyj ścieżek bibliotek i opcji konfiguracji z celu `php-macos`.
+
+CI dla wydań kompiluje również `igbinary` i `redis` do `libphp`, z włączoną serializacją igbinary dla Redis. Wersje ich źródeł i sumy kontrolne są ustalone w [przepływie budowania wydań](https://github.com/rapira-rs/rapira/blob/main/.github/workflows/build-binaries.yml). Przed uruchomieniem `./buildconf --force` rozpakuj ich źródła do katalogów PHP `ext/igbinary` i `ext/redis`. Dodaj `--enable-igbinary --enable-redis --enable-redis-igbinary` do `./configure`.
 
 ### Nazwa `libphp.so` bez wersji
 

@@ -9,7 +9,8 @@ Rapira 是一个用 Rust 编写的 PHP 应用服务器。
 
 RoadRunner 维护者设计并开发 Rapira。Rapira 在服务器进程中直接调用 PHP。
 
-Rapira 目前支持 HTTP。项目计划支持更多 RoadRunner 插件功能。
+Rapira 支持 HTTP 和 [OpenTelemetry](../otel)。`http` 插件管理 PHP worker 进程池。可选的 `otel` 插件管理一个导出器进程。
+
 [博客](/zh/blog/)包含项目更新。
 
 ## HTTP

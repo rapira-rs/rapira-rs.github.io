@@ -7,6 +7,8 @@ description: The Rapira master, PHP initialization, worker processes, pool scali
 
 Rapira runs one master process and a pool of workers. The master owns the listen socket, initialized PHP engine, and pidfile. The master then creates worker processes. Each worker inherits PHP and accepts connections from the shared socket. Rapira does not pass a request between processes.
 
+With `[otel].enabled = true`, the master also supervises one exporter process started through `exec`. Workers and the master send telemetry directly through nonblocking local Unix streams. The master remains single-threaded. See [OpenTelemetry](./otel) for batching, delivery limits, and exporter replacement.
+
 This process model is the same in [Classic](/docs/classic), [Worker](/docs/worker), and Dispatcher modes. `http.pool.mode` controls request processing inside a worker. This setting does not change pool creation, supervision, or reloads. See [Execution modes](/docs/execution-modes) for more information.
 
 ## Master and workers

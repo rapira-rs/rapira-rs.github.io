@@ -74,6 +74,12 @@ See [Configuration](/docs/configuration) for the other keys.
 
 A request in Worker mode is one iteration of the `while` loop. Rapira completes request shutdown around the handler. It runs request shutdown functions, flushes output buffers, closes the session, and refills the superglobals. Values that the script holds outside the handler stay in memory. Rapira does not run a destructor pass at the end of a request. PHP destroys an object after code removes its last reference.
 
+## Trace context
+
+`Rapira\trace_context(): array` returns the active callback's native trace carrier as `array<string, string>`. Rapira keeps this native scope through per-job shutdown and teardown. The function returns an empty array outside active work or when telemetry is disabled.
+
+Extract PHP SDK context inside each handler. Activate that context for the handler. Detach the scope in `finally`. End the PHP spans in the same block. Configure the PHP SDK before the loop. See [OpenTelemetry](./otel) for the carrier example, sampling, and export settings.
+
 ## Single handler per worker
 
 `handle_request()` returns after every request. The worker script must provide the loop that keeps the worker alive.

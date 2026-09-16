@@ -13,7 +13,7 @@ rapira serve <CONFIG>
 
 Polecenie `serve` uruchamia PHP, rejestruje wbudowane rozszerzenia i przyjmuje żądania. `CONFIG` to ścieżka do pliku konfiguracyjnego. Jest wymagana. Dowolna nazwa pliku działa, a ta dokumentacja używa `rapira.toml`. Uruchom `rapira` bez argumentów, aby wyświetlić pomoc. Uruchom `rapira serve --help`, aby wyświetlić pomoc polecenia. Uruchom `rapira --version`, aby wyświetlić zainstalowaną wersję.
 
-Plik konfiguracyjny zawiera wszystkie ustawienia serwera. Wartość w pliku zastępuje wbudowaną wartość domyślną. `RUST_LOG` i `NO_COLOR` zmieniają tylko wyjście logów. Wszystkie klucze i formaty adresu `listen` opisuje [Konfiguracja](/pl/docs/configuration).
+Plik konfiguracyjny zawiera wszystkie ustawienia serwera. Wartość w pliku zastępuje wbudowaną wartość domyślną. `RUST_LOG` i `NO_COLOR` zmieniają tylko wyjście stderr. Wszystkie klucze i formaty adresu `listen` opisuje [Konfiguracja](/pl/docs/configuration).
 
 ## Rozwiązywanie ścieżki skryptu wejściowego
 

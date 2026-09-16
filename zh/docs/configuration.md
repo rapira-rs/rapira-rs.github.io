@@ -1,6 +1,6 @@
 ---
 title: 配置
-description: "rapira.toml 完整参考：[http]、[http.pool]、[supervisor] 和 [log] 里的每一个键，以及各自的类型、默认值和会让错误取值被拒绝的规则。"
+description: "rapira.toml 的所有键、类型、默认值和验证规则。"
 ---
 
 # 配置
@@ -13,7 +13,9 @@ rapira serve /etc/rapira/rapira.toml
 
 文件设置地址、worker 数量、替换策略、pidfile 和日志级别。文件中的值覆盖内置默认值。
 
-文件包含三个部分。`[http]` 配置监听器以及它后面的 worker 进程池。 `[supervisor]` 配置 master 进程。`[log]` 配置 stderr 输出。 PHP 入口脚本没有默认值。请设置 `http.pool.entrypoint`。
+文件包含四个部分。`[http]` 配置监听器及其 PHP worker 进程池。`[otel]` 配置遥测及其导出器进程。`[supervisor]` 配置 master 进程。`[log]` 配置 stderr 输出。
+
+PHP 入口脚本没有默认值。请设置 `http.pool.entrypoint`。
 
 ## 一份完整的 rapira.toml
 
@@ -57,6 +59,20 @@ max_spare = 3                         # For dynamic scaling. Sets the maximum id
 max_requests = 0                      # Replaces a worker after this request count. Zero disables the limit.
 process_idle_timeout_secs = 10        # For ondemand scaling. Removes workers after this idle time.
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
+
+[otel]
+enabled = false
+endpoint = "http://localhost:4318"
+service_name = "rapira"
+sample_ratio = 1.0
+traces = true
+logs = true
+metrics = true
+batch_size = 512
+queue_size = 2048
+flush_interval_ms = 1000
+export_timeout_secs = 5
+headers = {}
 
 [supervisor]                          # Optional. Sets master process behavior.
 pidfile = "/run/rapira.pid"           # Optional. Relative paths use this file's directory.
@@ -132,7 +148,7 @@ sendfile 根目录就是 `sendFile()` 能读取的那个目录。Rapira 会把�
 
 真正跑 PHP 的进程就是 worker，这张表说的是它们跑什么、有多少个、以及 master 什么时候把某一个收走。master 拿这些数字做什么，见[进程模型](/zh/docs/process-model)。
 
-每个插件在 `[<plugin>.pool]` 下拥有自己的进程池。`http` 是唯一的插件。
+`http` 插件管理此 PHP worker 进程池。`otel` 插件管理一个导出器进程，没有 PHP 进程池。
 
 | 键 | 类型 | 默认值 | 含义 |
 | --- | --- | --- | --- |
@@ -150,6 +166,29 @@ sendfile 根目录就是 `sendFile()` 能读取的那个目录。Rapira 会把�
 
 空闲数的上下界是按 `processes` 校验的。
 
+## `[otel]` 小节 {#otel}
+
+此部分配置原生 OpenTelemetry 信号和通过 HTTP/protobuf 传输的 OTLP 导出。进程行为、数据传输限制和 PHP 上下文示例请参阅 [OpenTelemetry](./otel)。
+
+| 键 | 类型 | 默认值 | 含义 |
+| --- | --- | --- | --- |
+| `enabled` | 布尔值 | `false` | 启用原生遥测。未启用 Cargo feature `otel` 构建的二进制文件拒绝 `true`。 |
+| `endpoint` | 字符串 | `"http://localhost:4318"` | 包含主机的 HTTP 或 HTTPS 基础 URL。Rapira 在路径前缀后追加 `/v1/traces`、`/v1/logs` 和 `/v1/metrics`。 |
+| `service_name` | 字符串 | `"rapira"` | OTLP 资源属性 `service.name`。值不能为空。 |
+| `sample_ratio` | 数值 | `1.0` | 根追踪采样比例。必须是有限数，范围为 `0.0` 到 `1.0`，包含两端。 |
+| `traces` | 布尔值 | `true` | 导出原生 span。`false` 保留上下文传播。 |
+| `logs` | 布尔值 | `true` | 导出日志记录，独立于 stderr 过滤。 |
+| `metrics` | 布尔值 | `true` | 导出原生指标。 |
+| `batch_size` | 整数 | `512` | 导出批次的记录数。至少为 1，最多为 `queue_size`。 |
+| `queue_size` | 整数 | `2048` | 导出队列可容纳的记录数。至少为 1。 |
+| `flush_interval_ms` | 整数 | `1000` | 批次刷新间隔，单位为毫秒。范围为 1 到 `86400000`。 |
+| `export_timeout_secs` | 整数 | `5` | 导出超时和正常关闭时的排空时限，单位为秒。范围为 1 到 `86400`。 |
+| `headers` | 字符串 → 字符串映射 | 空 | 额外的 OTLP HTTP 请求头。名称和值必须符合 HTTP 语法。也接受 `[otel.headers]` 表。 |
+
+ParentBased 采样器遵循传入父上下文的 sampled 或 unsampled 状态。`sample_ratio` 仅控制根追踪。`traces`、`logs` 和 `metrics` 是相互独立的导出开关。设置 `enabled = false` 时，PHP 追踪上下文 API 返回空数组。
+
+Rapira 从 TOML 读取这些设置，不读取 `OTEL_*` 环境变量。PHP SDK 的配置相互独立。
+
 ## `[supervisor]` 小节
 
 master 进程的策略--监听 socket 归它掌管，worker 由它照看，你发的信号也是发给它。init 系统打交道的对象同样是它，所以 unit 文件里通常设置的就是这几个键；见[部署](/zh/docs/deployment)。
@@ -161,7 +200,7 @@ master 进程的策略--监听 socket 归它掌管，worker 由它照看，你�
 
 ## `[log]` 小节
 
-Rapira 将所有日志记录写入 stderr。这一节决定日志的详细程度和每条记录的格式；具体目标、格式和 PHP 诊断级别见[日志](/zh/docs/logging)。
+此部分控制 stderr 日志级别和格式，不过滤 OTLP 信号。目标、格式和 PHP 诊断级别请参阅[日志](/zh/docs/logging)。
 
 | 键 | 类型 | 默认值 | 含义 |
 | --- | --- | --- | --- |
@@ -176,7 +215,7 @@ Rapira 将所有日志记录写入 stderr。这一节决定日志的详细程度
 "php_sys::callbacks" = "debug"
 ```
 
-Rapira 只读取 `RUST_LOG` 和 `NO_COLOR` 环境变量。这两个变量仅影响日志。 `RUST_LOG` 在一次运行中替换完整过滤器。非空的 `NO_COLOR` 值会禁用 `plain` 格式的颜色。
+`RUST_LOG` 和 `NO_COLOR` 仅影响 stderr 输出。`RUST_LOG` 在一次运行中替换完整的 stderr 过滤器。非空的 `NO_COLOR` 值会禁用 `plain` 格式的颜色。
 
 ## 不认识的键会被拒绝
 

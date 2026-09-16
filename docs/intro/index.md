@@ -9,7 +9,8 @@ Rapira is a PHP application server written in Rust.
 
 The RoadRunner maintainers design and implement Rapira. Rapira calls PHP directly in the server process.
 
-Rapira currently supports HTTP. The project plans to support more RoadRunner plugin functions.
+Rapira supports HTTP and [OpenTelemetry](../otel). The `http` plugin owns the PHP worker pool. The optional `otel` plugin owns one exporter process.
+
 The [blog](/blog/) contains project updates.
 
 ## HTTP

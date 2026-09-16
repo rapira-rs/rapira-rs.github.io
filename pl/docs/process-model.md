@@ -7,6 +7,8 @@ description: "Jak Rapira uruchamia PHP - jednowątkowy proces nadrzędny wiąże
 
 Rapira działa jako jeden proces nadrzędny i pula workerów. Proces nadrzędny trzyma wszystko, co może istnieć tylko w jednym egzemplarzu - nasłuchujące gniazdo, obraz silnika PHP, pidfile - a potem forkuje; żądaniami zajmują się workery. Żadne żądanie nie wędruje z procesu do procesu: workery *są* kopiami procesu nadrzędnego, sforkowanymi już po podniesieniu PHP, i każdy z nich zdejmuje swoje połączenia prosto z gniazda.
 
+Przy `[otel].enabled = true` proces nadrzędny nadzoruje też jeden proces eksportera uruchomiony przez `exec`. Workery i proces nadrzędny wysyłają telemetrię bezpośrednio przez nieblokujące lokalne strumienie Unix. Proces nadrzędny pozostaje jednowątkowy. Grupowanie rekordów, ograniczenia dostarczania danych i wymianę eksportera opisuje [OpenTelemetry](./otel).
+
 Ten układ wygląda tak samo w trybie [Classic](/pl/docs/classic), [Worker](/pl/docs/worker) i Dispatcher. Tryb wykonania, ustawiany kluczem `http.pool.mode`, decyduje o tym, co dzieje się wewnątrz workera przy każdym żądaniu. Nie zmienia natomiast tego, jak pula powstaje, jak jest nadzorowana i jak się ją przeładowuje. Więcej informacji znajdziesz w [Trybach wykonania](/pl/docs/execution-modes).
 
 ## Proces nadrzędny i workery

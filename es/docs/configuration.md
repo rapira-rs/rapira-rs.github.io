@@ -1,6 +1,6 @@
 ---
 title: Configuración
-description: "La referencia completa de rapira.toml: todas las claves de [http], [http.pool], [supervisor] y [log], con su tipo, su valor por defecto y las reglas que rechazan un valor inválido."
+description: "Todas las claves de rapira.toml, sus tipos, valores predeterminados y reglas de validación."
 ---
 
 # Configuración
@@ -13,7 +13,9 @@ rapira serve /etc/rapira/rapira.toml
 
 El archivo define la dirección, los workers, la sustitución, el pidfile y el nivel de registro. Un valor del archivo sustituye el valor predeterminado.
 
-El archivo tiene tres secciones. `[http]` configura la escucha y el pool de workers que hay detrás. `[supervisor]` configura el proceso maestro. `[log]` configura la salida a stderr. El script de entrada de PHP no tiene valor predeterminado. Define `http.pool.entrypoint`.
+El archivo tiene cuatro secciones. `[http]` configura la escucha y su pool de workers PHP. `[otel]` configura la telemetría y su proceso exportador. `[supervisor]` configura el proceso maestro. `[log]` configura la salida a stderr.
+
+El script de entrada de PHP no tiene valor predeterminado. Define `http.pool.entrypoint`.
 
 ## Un rapira.toml completo
 
@@ -57,6 +59,20 @@ max_spare = 3                         # For dynamic scaling. Sets the maximum id
 max_requests = 0                      # Replaces a worker after this request count. Zero disables the limit.
 process_idle_timeout_secs = 10        # For ondemand scaling. Removes workers after this idle time.
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
+
+[otel]
+enabled = false
+endpoint = "http://localhost:4318"
+service_name = "rapira"
+sample_ratio = 1.0
+traces = true
+logs = true
+metrics = true
+batch_size = 512
+queue_size = 2048
+flush_interval_ms = 1000
+export_timeout_secs = 5
+headers = {}
 
 [supervisor]                          # Optional. Sets master process behavior.
 pidfile = "/run/rapira.pid"           # Optional. Relative paths use this file's directory.
@@ -132,7 +148,7 @@ Todos estos límites tienen que ser 1 como mínimo. A una petición que se pase 
 
 Los workers son los procesos que ejecutan PHP de verdad, y esta tabla dice qué ejecutan, cuántos hay y cuándo el maestro retira a alguno. Qué hace el maestro con estos números lo explica el [modelo de procesos](/es/docs/process-model).
 
-Cada plugin es dueño de su pool bajo `[<plugin>.pool]`. `http` es el único plugin.
+El plugin `http` es dueño de este pool de workers PHP. El plugin `otel` es dueño de un proceso exportador y no tiene un pool PHP.
 
 | Clave | Tipo | Por defecto | Significado |
 | --- | --- | --- | --- |
@@ -150,6 +166,29 @@ Cada plugin es dueño de su pool bajo `[<plugin>.pool]`. `http` es el único plu
 
 Los umbrales de reserva se comprueban contra el valor de `processes`.
 
+## La sección `[otel]` {#otel}
+
+Esta sección configura las señales nativas de OpenTelemetry y la exportación OTLP sobre HTTP/protobuf. Consulta [OpenTelemetry](./otel) para ver el comportamiento de los procesos, los límites de entrega y los ejemplos de contexto PHP.
+
+| Clave | Tipo | Por defecto | Significado |
+| --- | --- | --- | --- |
+| `enabled` | booleano | `false` | Activa la telemetría nativa. Un binario compilado sin la feature de Cargo `otel` rechaza `true`. |
+| `endpoint` | cadena | `"http://localhost:4318"` | URL base HTTP o HTTPS con host. Rapira añade `/v1/traces`, `/v1/logs` y `/v1/metrics` después del prefijo de ruta. |
+| `service_name` | cadena | `"rapira"` | El atributo de recurso OTLP `service.name`. El valor no debe estar vacío. |
+| `sample_ratio` | número | `1.0` | Proporción de muestreo de trazas raíz. Debe ser finita y estar entre `0.0` y `1.0`, ambos incluidos. |
+| `traces` | booleano | `true` | Exporta spans nativos. `false` mantiene activa la propagación del contexto. |
+| `logs` | booleano | `true` | Exporta registros con independencia del filtro de stderr. |
+| `metrics` | booleano | `true` | Exporta métricas nativas. |
+| `batch_size` | entero | `512` | Tamaño del lote de exportación en registros. Debe ser al menos 1 y como máximo `queue_size`. |
+| `queue_size` | entero | `2048` | Capacidad de la cola de exportación en registros. Debe ser al menos 1. |
+| `flush_interval_ms` | entero | `1000` | Intervalo de envío de lotes en milisegundos. El rango es de 1 a `86400000`. |
+| `export_timeout_secs` | entero | `5` | Límite de exportación y de drenaje durante el apagado normal, en segundos. El rango es de 1 a `86400`. |
+| `headers` | mapa de cadena → cadena | vacío | Cabeceras HTTP adicionales de OTLP. Los nombres y valores deben usar sintaxis HTTP válida. También admite la tabla `[otel.headers]`. |
+
+El muestreador ParentBased respeta el estado sampled o unsampled del padre entrante. `sample_ratio` solo controla las raíces. `traces`, `logs` y `metrics` son interruptores de exportación independientes. Con `enabled = false`, las API de contexto de traza PHP devuelven arrays vacíos.
+
+Rapira lee estos ajustes de TOML, no de las variables de entorno `OTEL_*`. La configuración del SDK PHP es independiente.
+
 ## La sección `[supervisor]`
 
 Las reglas del proceso maestro: el que es dueño del socket de escucha, supervisa a los workers y recibe tus señales. También es con quien habla un sistema de init, así que estas son las claves que suele fijar un archivo de unidad; lo tienes en [En producción](/es/docs/deployment).
@@ -161,7 +200,7 @@ Las reglas del proceso maestro: el que es dueño del socket de escucha, supervis
 
 ## La sección `[log]`
 
-Rapira escribe todos los registros en stderr. Esta sección decide cuánto detalle tiene ese flujo y qué forma tiene cada entrada; en [Registros](/es/docs/logging) están los targets uno a uno, los formatos y cómo se corresponden los diagnósticos de PHP con los niveles.
+Esta sección controla el nivel y el formato de los registros de stderr. No filtra las señales OTLP. Consulta [Registros](/es/docs/logging) para ver los targets, los formatos y los niveles de diagnóstico PHP.
 
 | Clave | Tipo | Por defecto | Significado |
 | --- | --- | --- | --- |
@@ -176,7 +215,7 @@ Una clave de `[log.targets]` puede usar letras, dígitos, `_`, `:`, `.` y `-`. D
 "php_sys::callbacks" = "debug"
 ```
 
-Rapira solo lee las variables de entorno `RUST_LOG` y `NO_COLOR`. Ambas afectan solo a los registros. `RUST_LOG` sustituye el filtro completo durante una ejecución. Un valor no vacío de `NO_COLOR` desactiva los colores del formato `plain`.
+`RUST_LOG` y `NO_COLOR` solo afectan a la salida de stderr. `RUST_LOG` sustituye el filtro completo de stderr durante una ejecución. Un valor no vacío de `NO_COLOR` desactiva los colores del formato `plain`.
 
 ## Las claves desconocidas se rechazan
 

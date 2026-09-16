@@ -1,6 +1,6 @@
 ---
 title: Konfiguracja
-description: "Pełny opis rapira.toml: każdy klucz sekcji [http], [http.pool], [supervisor] i [log] wraz z typem, wartością domyślną i regułami, które odrzucą błędną wartość."
+description: "Wszystkie klucze rapira.toml, ich typy, wartości domyślne i reguły walidacji."
 ---
 
 # Konfiguracja
@@ -13,7 +13,9 @@ rapira serve /etc/rapira/rapira.toml
 
 Plik ustawia adres, liczbę workerów, wymianę, pidfile i poziom logowania. Wartość z pliku zastępuje wartość domyślną.
 
-Plik ma trzy sekcje. `[http]` konfiguruje nasłuch i pulę workerów za nim. `[supervisor]` konfiguruje proces nadrzędny. `[log]` konfiguruje wyjście stderr. Skrypt wejściowy PHP nie ma wartości domyślnej. Ustaw `http.pool.entrypoint`.
+Plik ma cztery sekcje. `[http]` konfiguruje nasłuch i jego pulę workerów PHP. `[otel]` konfiguruje telemetrię i jej proces eksportera. `[supervisor]` konfiguruje proces nadrzędny. `[log]` konfiguruje wyjście stderr.
+
+Skrypt wejściowy PHP nie ma wartości domyślnej. Ustaw `http.pool.entrypoint`.
 
 ## Kompletny rapira.toml
 
@@ -57,6 +59,20 @@ max_spare = 3                         # For dynamic scaling. Sets the maximum id
 max_requests = 0                      # Replaces a worker after this request count. Zero disables the limit.
 process_idle_timeout_secs = 10        # For ondemand scaling. Removes workers after this idle time.
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
+
+[otel]
+enabled = false
+endpoint = "http://localhost:4318"
+service_name = "rapira"
+sample_ratio = 1.0
+traces = true
+logs = true
+metrics = true
+batch_size = 512
+queue_size = 2048
+flush_interval_ms = 1000
+export_timeout_secs = 5
+headers = {}
 
 [supervisor]                          # Optional. Sets master process behavior.
 pidfile = "/run/rapira.pid"           # Optional. Relative paths use this file's directory.
@@ -132,7 +148,7 @@ Każdy z tych limitów musi wynosić co najmniej 1. Żądanie, które przekroczy
 
 Workery to procesy, które faktycznie wykonują PHP, a ta tabela mówi, co wykonują, ilu ich jest i kiedy proces nadrzędny któregoś zabiera. Co proces nadrzędny robi z tymi liczbami, wyjaśnia [model procesów](/pl/docs/process-model).
 
-Każdy plugin ma własną pulę pod `[<plugin>.pool]`. `http` jest jedynym pluginem.
+Wtyczka `http` zarządza tą pulą workerów PHP. Wtyczka `otel` zarządza jednym procesem eksportera i nie ma puli PHP.
 
 | Klucz | Typ | Domyślnie | Znaczenie |
 | --- | --- | --- | --- |
@@ -150,6 +166,29 @@ Każdy plugin ma własną pulę pod `[<plugin>.pool]`. `http` jest jedynym plugi
 
 Progi zapasu sprawdzane są względem wartości `processes`.
 
+## Sekcja `[otel]` {#otel}
+
+Ta sekcja konfiguruje natywne sygnały OpenTelemetry i eksport OTLP z transportem HTTP/protobuf. Działanie procesów, ograniczenia dostarczania danych i przykłady kontekstu PHP opisuje [OpenTelemetry](./otel).
+
+| Klucz | Typ | Domyślnie | Znaczenie |
+| --- | --- | --- | --- |
+| `enabled` | logiczny | `false` | Włącza natywną telemetrię. Plik binarny zbudowany bez funkcji Cargo `otel` odrzuca `true`. |
+| `endpoint` | tekst | `"http://localhost:4318"` | Bazowy URL HTTP lub HTTPS z hostem. Rapira dodaje `/v1/traces`, `/v1/logs` i `/v1/metrics` po prefiksie ścieżki. |
+| `service_name` | tekst | `"rapira"` | Atrybut zasobu OTLP `service.name`. Wartość nie może być pusta. |
+| `sample_ratio` | liczba | `1.0` | Współczynnik próbkowania śladów głównych. Musi być skończony i mieścić się w zakresie od `0.0` do `1.0` włącznie. |
+| `traces` | logiczny | `true` | Eksportuje natywne spany. `false` zachowuje przekazywanie kontekstu. |
+| `logs` | logiczny | `true` | Eksportuje rekordy logów niezależnie od filtrowania stderr. |
+| `metrics` | logiczny | `true` | Eksportuje natywne metryki. |
+| `batch_size` | liczba całkowita | `512` | Rozmiar partii eksportu w rekordach. Co najmniej 1 i najwyżej `queue_size`. |
+| `queue_size` | liczba całkowita | `2048` | Pojemność kolejki eksportu w rekordach. Co najmniej 1. |
+| `flush_interval_ms` | liczba całkowita | `1000` | Odstęp wysyłania partii w milisekundach. Zakres od 1 do `86400000`. |
+| `export_timeout_secs` | liczba całkowita | `5` | Limit czasu eksportu i wysyłania przy normalnym zamknięciu w sekundach. Zakres od 1 do `86400`. |
+| `headers` | mapa tekst → tekst | pusta | Dodatkowe nagłówki HTTP dla OTLP. Nazwy i wartości muszą mieć poprawną składnię HTTP. Obsługuje też tabelę `[otel.headers]`. |
+
+Sampler ParentBased uwzględnia stan sampled lub unsampled przychodzącego rodzica. `sample_ratio` steruje tylko śladami głównymi. `traces`, `logs` i `metrics` są niezależnymi przełącznikami eksportu. Przy `enabled = false` API kontekstu śledzenia PHP zwracają puste tablice.
+
+Rapira odczytuje te ustawienia z TOML, a nie ze zmiennych środowiskowych `OTEL_*`. Konfiguracja SDK PHP jest niezależna.
+
 ## Sekcja `[supervisor]`
 
 Zasady dla procesu nadrzędnego - tego, który trzyma gniazdo nasłuchu, pilnuje workerów i odbiera twoje sygnały. To również z nim rozmawia system init, więc to właśnie te klucze zwykle ustawia jednostka usługi; zobacz [wdrożenie produkcyjne](/pl/docs/deployment).
@@ -161,7 +200,7 @@ Zasady dla procesu nadrzędnego - tego, który trzyma gniazdo nasłuchu, pilnuje
 
 ## Sekcja `[log]`
 
-Rapira zapisuje wszystkie wpisy do stderr. Ta sekcja decyduje, jak szczegółowy jest ten strumień i jaki kształt ma pojedynczy rekord; poszczególne cele, formaty i to, jak diagnostyka PHP mapuje się na poziomy, opisują [Logi](/pl/docs/logging).
+Ta sekcja steruje poziomem i formatem logów stderr. Nie filtruje sygnałów OTLP. Cele, formaty i poziomy diagnostyki PHP opisują [Logi](/pl/docs/logging).
 
 | Klucz | Typ | Domyślnie | Znaczenie |
 | --- | --- | --- | --- |
@@ -176,7 +215,7 @@ Klucz `[log.targets]` może zawierać litery, cyfry, `_`, `:`, `.` i `-`. Musi z
 "php_sys::callbacks" = "debug"
 ```
 
-Rapira odczytuje tylko zmienne środowiskowe `RUST_LOG` i `NO_COLOR`. Obie wpływają wyłącznie na logi. `RUST_LOG` zastępuje cały filtr podczas jednego uruchomienia. Niepusta wartość `NO_COLOR` wyłącza kolory formatu `plain`.
+`RUST_LOG` i `NO_COLOR` wpływają tylko na wyjście stderr. `RUST_LOG` zastępuje cały filtr stderr podczas jednego uruchomienia. Niepusta wartość `NO_COLOR` wyłącza kolory formatu `plain`.
 
 ## Nieznane klucze są odrzucane
 

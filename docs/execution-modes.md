@@ -46,6 +46,10 @@ With the HTTP plugin, each unit is a `Rapira\Http\Exchange`.
 Its `getRequest()` method returns a `Rapira\Http\Request`. The request contains the method, target, headers, body, and peer addresses.
 The `writeHead()`, `writeBody()`, and `sendFile()` methods write the response.
 
+`Rapira\Http\Request` is a `final readonly` class. Its `$traceContext` property contains an `array<string, string>` carrier for the native `php.execute` span. The final public constructor argument is `array $traceContext`. Host-created objects capture their request's carrier, including lazy or retained objects.
+
+`Rapira\trace_context(): array` returns the active exchange carrier until the exchange finalizes. It returns an empty array outside active work. Disabled telemetry also produces empty carriers. PHP manages its own child spans and context activation. See [OpenTelemetry](./otel) for the PHP SDK example and Fiber context support.
+
 The application can pass the request object to functions or middleware. Rapira does not fill the superglobals in this mode.
 An application that reads superglobals needs Worker mode. Alternatively, an adapter can copy request data to the required variables.
 The `http.pool.mode` key selects the mode.

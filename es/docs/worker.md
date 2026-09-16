@@ -69,6 +69,12 @@ Consulta las demás claves en [Configuración](/es/docs/configuration).
 
 Una petición en modo Worker corresponde a una iteración del bucle `while`. Rapira completa el cierre de la petición alrededor del handler. Ejecuta las funciones de shutdown, vacía los búferes, cierra la sesión y vuelve a rellenar las superglobales. Los valores externos al handler permanecen en memoria. Rapira no ejecuta todos los destructores al final de una petición. PHP destruye un objeto cuando el código elimina su última referencia.
 
+## Contexto de traza
+
+`Rapira\trace_context(): array` devuelve el portador de traza nativo del callback activo como `array<string, string>`. Rapira mantiene este ámbito nativo durante el apagado y la liberación de recursos de cada tarea. La función devuelve un array vacío fuera del trabajo activo o cuando la telemetría está desactivada.
+
+Extrae el contexto del SDK PHP dentro de cada handler. Activa ese contexto para el handler. Desactiva el ámbito en `finally`. Termina los spans PHP en el mismo bloque. Configura el SDK PHP antes del bucle. Consulta [OpenTelemetry](./otel) para ver el ejemplo del portador, el muestreo y los ajustes de exportación.
+
 ## Un solo handler por worker
 
 `handle_request()` retorna después de cada petición. El script debe proporcionar el bucle que mantiene activo el worker.

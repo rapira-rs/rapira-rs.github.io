@@ -148,7 +148,7 @@ The master keeps its initial settings and OPcache shared memory during a reload.
 
 ## Logs
 
-Rapira writes each log record to **stderr**. Systemd sends stderr to the journal. Use JSON format in production:
+Rapira writes filtered log records to **stderr**. Systemd sends stderr to the journal. OTLP export uses separate [OpenTelemetry settings](./otel). Use JSON format for stderr in production:
 
 ```toml
 [log]

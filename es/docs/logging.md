@@ -5,13 +5,19 @@ description: "Cómo registra Rapira - niveles, ajustes por target, diagnósticos
 
 # Registros
 
-Rapira escribe todos los registros en stderr. Incluyen eventos del servidor, decisiones del proceso maestro, eventos HTTP, diagnósticos PHP y mensajes de la aplicación. Rapira envía los diagnósticos PHP a este registro en lugar de un destino `error_log` separado. El filtro de nivel configurado determina qué registros escribe.
+Rapira escribe los registros filtrados en stderr. Incluyen eventos del servidor, decisiones del proceso maestro, eventos HTTP, diagnósticos PHP y mensajes de la aplicación. Rapira envía los diagnósticos PHP a este registro en lugar de un destino `error_log` separado. El filtro de nivel configurado controla la salida de stderr.
 
-El nivel predeterminado es `error`, por lo que el servidor solo escribe errores. Cambia la configuración o establece `RUST_LOG` para elegir otro nivel.
+El nivel predeterminado de stderr es `error`, por lo que stderr solo contiene errores. Cambia la configuración o establece `RUST_LOG` para elegir otro nivel.
+
+## Exportación OpenTelemetry
+
+Con `[otel].enabled = true` y `logs = true`, Rapira también envía registros mediante su proceso exportador OTLP. Los registros se correlacionan con el span nativo activo. `[log]` y `RUST_LOG` solo filtran stderr. Los interruptores de señales de `otel` controlan la exportación OTLP. Los spans nativos permanecen activos por debajo del nivel de registro de stderr.
+
+Los registros de fallos de procesos contienen `worker_pid`, `pool` y `exit_code` o `signal`. Los diagnósticos del exportador y del SDK interno permanecen en stderr y no vuelven a entrar en OTLP. Todos los procesos usan los mismos ajustes de filtro y formato de stderr. Los búferes limitados de telemetría pueden descartar registros. Cada registro IPC codificado debe ocupar menos de 1 MiB. Consulta [OpenTelemetry](./otel) para ver los límites de entrega y el contexto PHP.
 
 ## Niveles y formato
 
-La sección `[log]` de `rapira.toml` controla los registros:
+La sección `[log]` de `rapira.toml` controla los registros de stderr:
 
 ```toml
 [log]
@@ -105,7 +111,7 @@ El nivel es un caso del enum `\Rapira\LogLevel`, y cada caso se corresponde con 
 | `Debug`         | `debug`      |
 | `Trace`         | `trace`      |
 
-`\Rapira\log()` usa `Info` cuando se omite `level`. El filtro global `error` descarta este registro a menos que se cambie el filtro. `[log.targets]` y `RUST_LOG` filtran igual los registros de la aplicación y del servidor. Por ejemplo, `app = "debug"` cambia solo el target de la aplicación.
+`\Rapira\log()` usa `Info` cuando se omite `level`. El filtro global `error` descarta este registro en stderr a menos que se cambie el filtro. `[log.targets]` y `RUST_LOG` filtran igual los registros de la aplicación y del servidor en stderr. Por ejemplo, `app = "debug"` cambia solo el target de la aplicación.
 
 Rapira serializa el array de contexto a JSON y lo añade como campo `context`. En JSON, este campo está dentro de `fields`. Conserva los nombres de clave y la estructura de los arrays anidados:
 
@@ -138,7 +144,7 @@ Rapira sustituye los valores que JSON no puede representar. Incluyen recursos, c
 
 Rapira escribe ambos formatos en stderr. Los registros grandes de distintos procesos pueden intercalarse cuando estos procesos escriben en la misma tubería de stderr.
 
-Rapira no escribe registros en otros destinos. Redirige stderr para escribirlos en un archivo. Un gestor de servicios puede recoger stderr. Consulta [En producción](/es/docs/deployment).
+Redirige stderr para escribir los registros en un archivo. Un gestor de servicios puede recoger stderr. Consulta [En producción](/es/docs/deployment).
 
 **`plain`** está pensado para leerlo en un terminal: marca de tiempo, nivel, target y mensaje:
 
@@ -158,7 +164,7 @@ Rapira usa colores cuando stderr es un terminal. No usa colores cuando stderr es
 
 ## `RUST_LOG`
 
-`RUST_LOG` establece el filtro desde el entorno. Permite cambiarlo sin editar la configuración:
+`RUST_LOG` establece el filtro de registros de stderr desde el entorno. Permite cambiarlo sin editar la configuración:
 
 ```sh
 RUST_LOG=info rapira serve rapira.toml

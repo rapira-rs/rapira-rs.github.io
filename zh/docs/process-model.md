@@ -7,6 +7,8 @@ description: "Rapira 如何运行 PHP：单线程的 master 绑定套接字、�
 
 Rapira 以一个 master 进程加一池 worker 的形式运行。凡是全局只能有一份的东西--监听套接字、PHP 引擎映像、pidfile--都归 master 持有，备齐之后它就 fork；请求则由 worker 处理。请求从来不需要在进程之间倒手：worker *就是* master 的副本，是在 PHP 已经起来之后 fork 出来的，各自直接从套接字上取走自己的连接。
 
+设置 `[otel].enabled = true` 时，master 还会监管一个通过 `exec` 启动的导出器进程。worker 和 master 通过非阻塞本地 Unix 流直接发送遥测。master 保持单线程。批量处理、数据传输限制和导出器替换请参阅 [OpenTelemetry](./otel)。
+
 无论运行 [Classic 模式](/zh/docs/classic)、[Worker 模式](/zh/docs/worker)还是 Dispatcher 模式，这套结构都一样。执行模式由 `http.pool.mode` 设定，它决定的是每个请求进了 worker 之后怎么走；至于进程池怎么搭起来、怎么被看管、怎么重载，跟它无关。更多内容见[执行模式](/zh/docs/execution-modes)。
 
 ## master 与 worker

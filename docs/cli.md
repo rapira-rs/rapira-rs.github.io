@@ -13,7 +13,7 @@ rapira serve <CONFIG>
 
 The `serve` command starts PHP, registers the built-in extensions, and accepts requests. `CONFIG` is the path to the configuration file. It is required. Any file name works, and this documentation uses `rapira.toml`. Run `rapira` without arguments to show help. Run `rapira serve --help` to show the command help. Run `rapira --version` to show the installed version.
 
-The configuration file holds every server setting. A value in the file overrides the built-in default. `RUST_LOG` and `NO_COLOR` change only the log output. See [Configuration](/docs/configuration) for all keys and for the `listen` address formats.
+The configuration file holds every server setting. A value in the file overrides the built-in default. `RUST_LOG` and `NO_COLOR` change only stderr output. See [Configuration](/docs/configuration) for all keys and for the `listen` address formats.
 
 ## Entry script resolution
 

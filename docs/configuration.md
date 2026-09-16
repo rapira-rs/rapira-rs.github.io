@@ -13,7 +13,9 @@ rapira serve /etc/rapira/rapira.toml
 
 The file sets the address, worker count, recycling policy, pidfile, and log level. A value in the file overrides the built-in default.
 
-The configuration file has three sections. `[http]` configures the listener and the worker pool behind it. `[supervisor]` configures the master process. `[log]` configures output to stderr. The PHP entry script has no default. Set `http.pool.entrypoint`.
+The configuration file has four sections. `[http]` configures the listener and its PHP worker pool. `[otel]` configures telemetry and its exporter process. `[supervisor]` configures the master process. `[log]` configures output to stderr.
+
+The PHP entry script has no default. Set `http.pool.entrypoint`.
 
 ## A complete rapira.toml
 
@@ -58,6 +60,20 @@ max_spare = 3                         # For dynamic scaling. Sets the maximum id
 max_requests = 0                      # Replaces a worker after this request count. Zero disables the limit.
 process_idle_timeout_secs = 10        # For ondemand scaling. Removes workers after this idle time.
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
+
+[otel]
+enabled = false
+endpoint = "http://localhost:4318"
+service_name = "rapira"
+sample_ratio = 1.0
+traces = true
+logs = true
+metrics = true
+batch_size = 512
+queue_size = 2048
+flush_interval_ms = 1000
+export_timeout_secs = 5
+headers = {}
 
 [supervisor]                          # Optional. Sets master process behavior.
 pidfile = "/run/rapira.pid"           # Optional. Relative paths use this file's directory.
@@ -141,7 +157,7 @@ Each limit must be at least 1. Rapira returns `413` when a request exceeds a lim
 
 Workers run PHP. This table defines what they run, how many run, and when the master removes one. The [process model](/docs/process-model) explains how the master uses these values.
 
-Each plugin owns its pool under `[<plugin>.pool]`. `http` is the only plugin.
+The `http` plugin owns this PHP worker pool. The `otel` plugin owns one exporter process and has no PHP pool.
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
@@ -159,6 +175,29 @@ Each plugin owns its pool under `[<plugin>.pool]`. `http` is the only plugin.
 
 Rapira checks the spare limits against the `processes` value.
 
+## The `[otel]` section {#otel}
+
+This section configures native OpenTelemetry signals and OTLP export over HTTP/protobuf. See [OpenTelemetry](./otel) for process behavior, delivery limits, and PHP context examples.
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `enabled` | boolean | `false` | Enables native telemetry. A binary built without the `otel` Cargo feature rejects `true`. |
+| `endpoint` | string | `"http://localhost:4318"` | HTTP or HTTPS base URL with a host. Rapira appends `/v1/traces`, `/v1/logs`, and `/v1/metrics` after its path prefix. |
+| `service_name` | string | `"rapira"` | The OTLP `service.name` resource attribute. The value must not be empty. |
+| `sample_ratio` | number | `1.0` | Root trace sampling ratio. The value must be finite and within `0.0` through `1.0`. |
+| `traces` | boolean | `true` | Exports native spans. `false` keeps context propagation active. |
+| `logs` | boolean | `true` | Exports log records independently of stderr filtering. |
+| `metrics` | boolean | `true` | Exports native metrics. |
+| `batch_size` | integer | `512` | Export batch size in records. Must be at least 1 and at most `queue_size`. |
+| `queue_size` | integer | `2048` | Export queue capacity in records. Must be at least 1. |
+| `flush_interval_ms` | integer | `1000` | Batch flush interval in milliseconds. The range is 1 through `86400000`. |
+| `export_timeout_secs` | integer | `5` | Export timeout and normal shutdown drain limit in seconds. The range is 1 through `86400`. |
+| `headers` | map of string → string | empty | Additional OTLP HTTP headers. Names and values must use valid HTTP syntax. Also accepts the `[otel.headers]` table. |
+
+The ParentBased sampler honors an incoming sampled or unsampled parent. `sample_ratio` controls roots only. `traces`, `logs`, and `metrics` are independent export switches. With `enabled = false`, the PHP trace context APIs return empty arrays.
+
+Rapira reads these settings from TOML, not from `OTEL_*` environment variables. PHP SDK configuration is independent.
+
 ## The `[supervisor]` section
 
 This section defines the master process policy. The master owns the listen socket, supervises workers, and receives signals.
@@ -171,7 +210,7 @@ The init system controls the master. See [deployment](/docs/deployment) for a un
 
 ## The `[log]` section
 
-Rapira writes each log record to stderr. This section controls the log level and format. See [logging](/docs/logging) for targets, formats, and PHP diagnostic levels.
+This section controls the stderr log level and format. It does not filter OTLP signals. See [logging](/docs/logging) for targets, formats, and PHP diagnostic levels.
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
@@ -186,8 +225,7 @@ A `[log.targets]` key uses letters, digits, `_`, `:`, `.`, or `-`. It must start
 "php_sys::callbacks" = "debug"
 ```
 
-Rapira reads only the `RUST_LOG` and `NO_COLOR` environment variables. Both variables affect only logs.
-`RUST_LOG` replaces the complete filter for one run. `NO_COLOR` disables plain output colors when its value is not empty.
+`RUST_LOG` and `NO_COLOR` affect stderr output only. `RUST_LOG` replaces the complete stderr filter for one run. `NO_COLOR` disables plain output colors when its value is not empty.
 
 ## Unknown key rejection
 

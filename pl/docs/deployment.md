@@ -124,7 +124,7 @@ Proces nadrzędny zachowuje ustawienia początkowe i pamięć współdzieloną O
 
 ## Logi
 
-Rapira zapisuje każdy wpis do logu na **stderr**. Stderr jednostki systemd trafia do journala bez dodatkowej konfiguracji. Na produkcji używaj JSON-a:
+Rapira zapisuje przefiltrowane wpisy do logu na **stderr**. Stderr jednostki systemd trafia do journala bez dodatkowej konfiguracji. Eksport OTLP używa osobnych [ustawień OpenTelemetry](./otel). Na produkcji używaj JSON-a dla stderr:
 
 ```toml
 [log]

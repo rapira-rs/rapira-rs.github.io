@@ -5,13 +5,19 @@ description: "Jak Rapira loguje - poziomy, nadpisania dla poszczególnych celów
 
 # Logi
 
-Rapira zapisuje wszystkie wpisy do stderr. Obejmują zdarzenia serwera, decyzje procesu nadrzędnego, zdarzenia HTTP, diagnostykę PHP i komunikaty aplikacji. Rapira kieruje diagnostykę PHP do tego logu zamiast do osobnego miejsca `error_log`. Skonfigurowany filtr poziomu określa, które wpisy Rapira zapisuje.
+Rapira zapisuje przefiltrowane wpisy do stderr. Obejmują zdarzenia serwera, decyzje procesu nadrzędnego, zdarzenia HTTP, diagnostykę PHP i komunikaty aplikacji. Rapira kieruje diagnostykę PHP do tego logu zamiast do osobnego miejsca `error_log`. Skonfigurowany filtr poziomu steruje wyjściem stderr.
 
-Domyślny poziom to `error`, więc serwer zapisuje tylko błędy. Zmień konfigurację lub ustaw `RUST_LOG`, aby wybrać inny poziom.
+Domyślny poziom stderr to `error`, więc stderr zawiera tylko błędy. Zmień konfigurację lub ustaw `RUST_LOG`, aby wybrać inny poziom.
+
+## Eksport OpenTelemetry
+
+Przy `[otel].enabled = true` i `logs = true` Rapira wysyła też rekordy logów przez proces eksportera OTLP. Rekordy są powiązane z aktywnym natywnym spanem. `[log]` i `RUST_LOG` filtrują tylko stderr. Przełączniki sygnałów `otel` sterują eksportem OTLP. Natywne spany pozostają aktywne poniżej poziomu logowania stderr.
+
+Rekordy awarii procesów zawierają `worker_pid`, `pool` oraz `exit_code` lub `signal`. Diagnostyka eksportera i wewnętrznego SDK pozostaje w stderr i nie trafia ponownie do OTLP. Wszystkie procesy używają tych samych ustawień filtra i formatu stderr. Bufory telemetrii o ograniczonym rozmiarze mogą odrzucać rekordy. Każdy zakodowany rekord IPC musi zajmować mniej niż 1 MiB. Ograniczenia dostarczania danych i kontekst PHP opisuje [OpenTelemetry](./otel).
 
 ## Poziomy i format
 
-Sekcja `[log]` pliku `rapira.toml` steruje logowaniem:
+Sekcja `[log]` pliku `rapira.toml` steruje logowaniem do stderr:
 
 ```toml
 [log]
@@ -105,7 +111,7 @@ Poziom to przypadek wyliczenia `\Rapira\LogLevel`, a każdy przypadek odpowiada 
 | `Debug`         | `debug`      |
 | `Trace`         | `trace`      |
 
-`\Rapira\log()` używa poziomu `Info`, gdy pominiesz `level`. Globalny filtr `error` odrzuca ten wpis, jeśli nie zmienisz filtra. `[log.targets]` i `RUST_LOG` tak samo filtrują wpisy aplikacji i serwera. Na przykład `app = "debug"` zmienia tylko cel aplikacji.
+`\Rapira\log()` używa poziomu `Info`, gdy pominiesz `level`. Globalny filtr `error` odrzuca ten wpis w stderr, jeśli nie zmienisz filtra. `[log.targets]` i `RUST_LOG` tak samo filtrują wpisy aplikacji i serwera w stderr. Na przykład `app = "debug"` zmienia tylko cel aplikacji.
 
 Rapira serializuje tablicę kontekstu do JSON-a i dodaje ją jako pole `context`. W JSON-ie to pole znajduje się w `fields`. Nazwy kluczy i struktura zagnieżdżonych tablic zostają zachowane:
 
@@ -138,7 +144,7 @@ Rapira zastępuje wartości, których JSON nie może przedstawić. Należą do n
 
 Rapira zapisuje oba formaty do stderr. Duże wpisy z różnych procesów mogą się przeplatać, gdy te procesy zapisują do tego samego potoku stderr.
 
-Rapira nie zapisuje logów w innych miejscach. Przekieruj stderr, aby zapisać je do pliku. Menedżer usług może zbierać stderr. Zobacz [Wdrożenie produkcyjne](/pl/docs/deployment).
+Przekieruj stderr, aby zapisać logi do pliku. Menedżer usług może zbierać stderr. Zobacz [Wdrożenie produkcyjne](/pl/docs/deployment).
 
 **`plain`** służy do czytania w terminalu - znacznik czasu, poziom, cel, komunikat:
 
@@ -158,7 +164,7 @@ Rapira używa kolorów, gdy stderr jest terminalem. Nie używa ich, gdy stderr j
 
 ## `RUST_LOG`
 
-`RUST_LOG` ustawia filtr ze środowiska. Pozwala zmienić filtr bez edycji konfiguracji:
+`RUST_LOG` ustawia filtr logów stderr ze środowiska. Pozwala zmienić filtr bez edycji konfiguracji:
 
 ```sh
 RUST_LOG=info rapira serve rapira.toml

@@ -5,13 +5,19 @@ description: Rapira log levels, target overrides, PHP diagnostics, application r
 
 # Logging
 
-Rapira writes all log records to stderr. These records include server events, master decisions, HTTP events, PHP diagnostics, and application messages. Rapira sends PHP diagnostics to this log instead of a separate `error_log` destination. The configured level filter controls which records it writes.
+Rapira writes filtered log records to stderr. These records include server events, master decisions, HTTP events, PHP diagnostics, and application messages. Rapira sends PHP diagnostics to this log instead of a separate `error_log` destination. The configured level filter controls stderr output.
 
-The default level is `error`, so the server writes only errors. Change the configuration or set `RUST_LOG` to select another level.
+The default stderr level is `error`, so stderr contains only errors. Change the configuration or set `RUST_LOG` to select another level.
+
+## OpenTelemetry export
+
+With `[otel].enabled = true` and `logs = true`, Rapira also sends log records through its OTLP exporter process. Records correlate with the active native span. `[log]` and `RUST_LOG` filter stderr only. The `otel` signal switches control OTLP export. Native spans remain active below the stderr log level.
+
+Process failure records contain `worker_pid`, `pool`, and `exit_code` or `signal`. Exporter and internal SDK diagnostics stay on stderr and do not re-enter OTLP. All processes use the same stderr filter and format settings. Bounded telemetry buffers can drop records. Each encoded IPC record must be less than 1 MiB. See [OpenTelemetry](./otel) for delivery limits and PHP context.
 
 ## Levels and format
 
-The `[log]` section of `rapira.toml` controls logging:
+The `[log]` section of `rapira.toml` controls stderr logging:
 
 ```toml
 [log]
@@ -113,7 +119,7 @@ The level is a case of the `\Rapira\LogLevel` enum. Each case maps to a Rapira l
 | `Debug`         | `debug`      |
 | `Trace`         | `trace`      |
 
-`\Rapira\log()` uses `Info` when you omit `level`. The global `error` filter suppresses this record unless you change the filter. `[log.targets]` and `RUST_LOG` filter application and server records in the same way. For example, `app = "debug"` changes only the application target.
+`\Rapira\log()` uses `Info` when you omit `level`. The global `error` filter suppresses this record on stderr unless you change the filter. `[log.targets]` and `RUST_LOG` filter application and server stderr records in the same way. For example, `app = "debug"` changes only the application target.
 
 Rapira serializes the context array to JSON and adds it as a `context` field. In JSON output, `fields` contains this field. Rapira keeps key names and the nested array structure:
 
@@ -148,8 +154,7 @@ Rapira replaces values that JSON cannot represent with a placeholder. These valu
 
 Rapira writes both formats to stderr. Large records from different processes can interleave when the processes write to the same stderr pipe.
 
-Rapira does not write logs to other destinations. Redirect stderr to write logs to a file.
-A service manager can collect stderr. See [deployment](/docs/deployment) for more information.
+Redirect stderr to write logs to a file. A service manager can collect stderr. See [deployment](/docs/deployment) for more information.
 
 **`plain`** is readable terminal output. It contains a timestamp, level, target, and message:
 
@@ -170,7 +175,7 @@ Set [`NO_COLOR`](https://no-color.org/) to any non-empty value to disable termin
 
 ## `RUST_LOG`
 
-`RUST_LOG` sets the log filter from the environment. The commands below change the filter and keep the configuration file unchanged:
+`RUST_LOG` sets the stderr log filter from the environment. The commands below change the filter and keep the configuration file unchanged:
 
 ```sh
 RUST_LOG=info rapira serve rapira.toml

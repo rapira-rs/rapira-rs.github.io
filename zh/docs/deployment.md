@@ -124,7 +124,7 @@ kill -USR2 "$(cat /run/rapira/rapira.pid)"
 
 ## 日志
 
-Rapira 将每条日志记录写入 **stderr**。systemd unit 的 stderr 无需其他配置即可进入 journal。 生产环境请使用 JSON：
+Rapira 将过滤后的日志记录写入 **stderr**。systemd unit 的 stderr 无需其他配置即可进入 journal。OTLP 导出使用独立的 [OpenTelemetry 设置](./otel)。生产环境请为 stderr 使用 JSON：
 
 ```toml
 [log]

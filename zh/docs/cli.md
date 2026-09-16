@@ -13,7 +13,7 @@ rapira serve <CONFIG>
 
 `serve` 命令启动 PHP、注册内置扩展并接受请求。`CONFIG` 是配置文件的路径。它是必填的。任何文件名都可以，本文档使用 `rapira.toml`。运行不带参数的 `rapira` 以显示帮助。运行 `rapira serve --help` 以显示该命令的帮助。运行 `rapira --version` 以显示已安装的版本。
 
-配置文件保存服务器的所有设置。文件中的值覆盖内置默认值。`RUST_LOG` 和 `NO_COLOR` 只改变日志输出。所有键和 `listen` 的地址格式见[配置](/zh/docs/configuration)。
+配置文件保存服务器的所有设置。文件中的值覆盖内置默认值。`RUST_LOG` 和 `NO_COLOR` 只改变 stderr 输出。所有键和 `listen` 的地址格式见[配置](/zh/docs/configuration)。
 
 ## 入口脚本的路径解析
 

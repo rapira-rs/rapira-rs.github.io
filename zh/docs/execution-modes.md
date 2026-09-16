@@ -36,6 +36,10 @@ worker 脚本和它的循环见 [Worker 模式](/zh/docs/worker)，回收阈值�
 
 在 Dispatcher 模式下，worker 脚本通过 API 调用请求每个工作单元。`Rapira\get_dispatcher()` 返回进程池的 dispatcher。 `receive(int $timeout = -1)` 等待下一个单元。超时单位为微秒，`-1` 禁用超时。 超时后会抛出 `Rapira\Exception\TimeoutException`。`tryReceive()` 不等待，直接返回单元或 `null`。 使用 HTTP 插件时，每个单元是 `Rapira\Http\Exchange`。 其 `getRequest()` 方法返回包含方法、目标、请求头、请求体和地址的 `Rapira\Http\Request`。 `writeHead()`、`writeBody()` 和 `sendFile()` 方法写入响应。
 
+`Rapira\Http\Request` 是 `final readonly` 类。其 `$traceContext` 属性包含原生 `php.execute` span 的 `array<string, string>` 载体。公开构造函数的最后一个参数是 `array $traceContext`。宿主创建的对象捕获所属请求的载体，包括延迟创建或保留的对象。
+
+`Rapira\trace_context(): array` 返回当前 exchange 的载体，直到 exchange 完成。没有活动工作时返回空数组。禁用遥测时也会产生空载体。PHP 管理自己的子 span 和上下文激活。PHP SDK 示例和 Fiber 上下文支持请参阅 [OpenTelemetry](./otel)。
+
 应用可以将请求对象传给函数或中间件。Rapira 在此模式下不填充超全局变量。 读取超全局变量的应用需要 Worker。也可以使用适配器复制请求数据。 通过 `http.pool.mode` 键选择模式。
 
 脚本控制活动工作单元的数量。顺序循环每次处理一个单元。 它调用 `receive()`，响应请求，然后再次调用 `receive()`。 并发脚本为每个请求启动一个 [Fiber](https://www.php.net/manual/en/language.fibers.php)。存在活动 fiber 时，它调用 `tryReceive()`。 没有活动 fiber 时，循环在 `receive()` 中等待。此设计让多个请求在一个解释器中保持活动状态。 并发采用协作式调度。只有当前运行的代码挂起其 fiber 后，另一个请求才会继续执行。 如果库不支持 fiber，请一次处理一个单元。

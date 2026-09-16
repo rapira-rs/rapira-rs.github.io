@@ -5,13 +5,19 @@ description: "Rapira 怎么记日志--级别、按目标单独覆盖、PHP 诊�
 
 # 日志
 
-Rapira 将所有日志记录写入 stderr。这些记录包括服务器事件、主进程决策、HTTP 事件、PHP 诊断和应用消息。 Rapira 将 PHP 诊断发送到此日志，而不是单独的 `error_log` 目标。配置的级别过滤器决定 Rapira 写入哪些记录。
+Rapira 将过滤后的日志记录写入 stderr。这些记录包括服务器事件、主进程决策、HTTP 事件、PHP 诊断和应用消息。Rapira 将 PHP 诊断发送到此日志，而不是单独的 `error_log` 目标。配置的级别过滤器控制 stderr 输出。
 
-默认级别为 `error`，因此服务器只写入错误。更改配置或设置 `RUST_LOG` 以选择其他级别。
+stderr 默认级别为 `error`，因此 stderr 仅包含错误。更改配置或设置 `RUST_LOG` 以选择其他级别。
+
+## OpenTelemetry 导出
+
+设置 `[otel].enabled = true` 且 `logs = true` 时，Rapira 还通过 OTLP 导出器进程发送日志记录。记录与当前原生 span 关联。`[log]` 和 `RUST_LOG` 仅过滤 stderr。`otel` 信号开关控制 OTLP 导出。低于 stderr 日志级别的原生 span 仍然有效。
+
+进程故障记录包含 `worker_pid`、`pool`，以及 `exit_code` 或 `signal`。导出器和内部 SDK 诊断保留在 stderr 中，不会再次进入 OTLP。所有进程使用相同的 stderr 过滤器和格式设置。有容量限制的遥测缓冲区可能丢弃记录。每条编码后的 IPC 记录必须小于 1 MiB。数据传输限制和 PHP 上下文请参阅 [OpenTelemetry](./otel)。
 
 ## 级别与格式
 
-`rapira.toml` 的 `[log]` 部分控制日志：
+`rapira.toml` 的 `[log]` 部分控制 stderr 日志：
 
 ```toml
 [log]
@@ -105,7 +111,7 @@ Rapira 将诊断发送到日志，而不是响应。默认值为 `display_errors
 | `Debug`         | `debug`      |
 | `Trace`         | `trace`      |
 
-省略 `level` 时，`\Rapira\log()` 使用 `Info`。除非更改过滤器，否则全局 `error` 过滤器会丢弃此记录。 `[log.targets]` 和 `RUST_LOG` 以相同方式过滤应用和服务器记录。 例如，`app = "debug"` 仅更改应用目标。
+省略 `level` 时，`\Rapira\log()` 使用 `Info`。除非更改过滤器，否则全局 `error` 过滤器会在 stderr 中丢弃此记录。`[log.targets]` 和 `RUST_LOG` 以相同方式过滤应用和服务器的 stderr 记录。例如，`app = "debug"` 仅更改应用目标。
 
 Rapira 将上下文数组序列化为 JSON，并将其添加为 `context` 字段。在 JSON 中，此字段位于 `fields` 内。 键名和嵌套数组结构保持不变：
 
@@ -138,7 +144,7 @@ Rapira 替换 JSON 无法表示的值。这些值包括资源、闭包、`NAN`�
 
 Rapira 将两种格式都写入 stderr。不同进程向同一个 stderr 管道写入时，大型记录可能会交错。
 
-Rapira 不会将日志写入其他位置。重定向 stderr 可以将日志写入文件。 服务管理器可以收集 stderr。请参阅[生产环境部署](/zh/docs/deployment)。
+重定向 stderr 可以将日志写入文件。服务管理器可以收集 stderr。请参阅[生产环境部署](/zh/docs/deployment)。
 
 **`plain`** 用于在终端里阅读--时间戳、级别、目标、消息：
 
@@ -158,7 +164,7 @@ stderr 是终端时，Rapira 使用颜色。stderr 是文件时，Rapira 不使�
 
 ## `RUST_LOG`
 
-`RUST_LOG` 从环境设置日志过滤器。它可以在不编辑配置的情况下更改过滤器：
+`RUST_LOG` 从环境设置 stderr 日志过滤器。它可以在不编辑配置的情况下更改过滤器：
 
 ```sh
 RUST_LOG=info rapira serve rapira.toml

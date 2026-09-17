@@ -66,7 +66,9 @@ Rust `opentelemetry` 0.32 SDK 会拒绝系统 ID 恰好为 14 个字符的有效
 | `rapira.operation.duration` | 直方图，秒（`s`） | `rapira.operation` |
 | `rapira.otel.dropped_records` | 计数器，记录数 | 无 |
 
-请求和原生操作完成后会触发累积指标快照。OTLP 资源包含 `service.name`、`process.pid` 和 `rapira.role`。每个进程还有一个稳定的随机 `service.instance.id`。worker 资源还包含 `rapira.pool`。
+请求和原生操作完成后会记录指标样本。每个 worker 的现有运行时每隔 `flush_interval_ms` 收集待发送的累积快照，空闲期间也会收集。worker 关闭时会提交最后的待发送样本。导出器使用同一间隔发送未满的批次。每次 sendfile 传输只有一个 span，其中包含字节数。
+
+OTLP 资源包含 `service.name`、`process.pid` 和 `rapira.role`。每个进程还有一个稳定的随机 `service.instance.id`。worker 资源还包含 `rapira.pool`。
 
 日志记录与当前原生 span 关联。`[log]` 和 `RUST_LOG` 仅控制 stderr 过滤。OTLP 使用自己的信号开关。低于 stderr 日志级别的原生 span 仍然有效。
 

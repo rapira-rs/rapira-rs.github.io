@@ -58,7 +58,7 @@ The Rust `opentelemetry` 0.32 SDK rejects valid multi-tenant `tracestate` keys w
 
 ## Native signals
 
-Native spans cover startup, request admission, middleware, body collection, multipart parsing, `queue.wait`, and `php.execute`. They also cover response streaming, sendfile, drain, and worker shutdown.
+Native spans cover startup, request admission, middleware, body collection, multipart parsing, `queue.wait`, and `php.execute`. They also cover response streaming, sendfile, drain, and worker shutdown. Each sendfile transfer has one span with its byte count.
 
 | Metric | Type and unit | Attributes |
 | --- | --- | --- |
@@ -66,7 +66,9 @@ Native spans cover startup, request admission, middleware, body collection, mult
 | `rapira.operation.duration` | Histogram, seconds (`s`) | `rapira.operation` |
 | `rapira.otel.dropped_records` | Counter, records | None |
 
-Completed requests and native operations trigger cumulative snapshots. OTLP resources contain `service.name`, `process.pid`, and `rapira.role`. Each process also has a stable random `service.instance.id`. Worker resources also contain `rapira.pool`.
+Completed requests and native operations record metric samples. Each worker's existing runtime collects pending cumulative snapshots every `flush_interval_ms`, including during idle periods. Worker shutdown submits the final pending samples. The exporter uses the same interval to flush partial batches.
+
+OTLP resources contain `service.name`, `process.pid`, and `rapira.role`. Each process also has a stable random `service.instance.id`. Worker resources also contain `rapira.pool`.
 
 Log records correlate with the active native span. `[log]` and `RUST_LOG` control stderr filtering only. OTLP uses its own signal switches. Native spans continue below the stderr log level.
 

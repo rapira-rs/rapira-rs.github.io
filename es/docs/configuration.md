@@ -181,7 +181,7 @@ Esta sección configura las señales nativas de OpenTelemetry y la exportación 
 | `metrics` | booleano | `true` | Exporta métricas nativas. |
 | `batch_size` | entero | `512` | Tamaño del lote de exportación en registros. Debe ser al menos 1 y como máximo `queue_size`. |
 | `queue_size` | entero | `2048` | Capacidad de la cola de exportación en registros. Debe ser al menos 1. |
-| `flush_interval_ms` | entero | `1000` | Intervalo de envío de lotes en milisegundos. El rango es de 1 a `86400000`. |
+| `flush_interval_ms` | entero | `1000` | Intervalo de recogida de métricas del worker y envío de lotes del exportador, en milisegundos. El rango es de 1 a `86400000`. |
 | `export_timeout_secs` | entero | `5` | Límite de exportación y de drenaje durante el apagado normal, en segundos. El rango es de 1 a `86400`. |
 | `headers` | mapa de cadena → cadena | vacío | Cabeceras HTTP adicionales de OTLP. Los nombres y valores deben usar sintaxis HTTP válida. También admite la tabla `[otel.headers]`. |
 

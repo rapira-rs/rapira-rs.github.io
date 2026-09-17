@@ -181,7 +181,7 @@ Ta sekcja konfiguruje natywne sygnały OpenTelemetry i eksport OTLP z transporte
 | `metrics` | logiczny | `true` | Eksportuje natywne metryki. |
 | `batch_size` | liczba całkowita | `512` | Rozmiar partii eksportu w rekordach. Co najmniej 1 i najwyżej `queue_size`. |
 | `queue_size` | liczba całkowita | `2048` | Pojemność kolejki eksportu w rekordach. Co najmniej 1. |
-| `flush_interval_ms` | liczba całkowita | `1000` | Odstęp wysyłania partii w milisekundach. Zakres od 1 do `86400000`. |
+| `flush_interval_ms` | liczba całkowita | `1000` | Odstęp zbierania metryk workera i wysyłania partii eksportera w milisekundach. Zakres od 1 do `86400000`. |
 | `export_timeout_secs` | liczba całkowita | `5` | Limit czasu eksportu i wysyłania przy normalnym zamknięciu w sekundach. Zakres od 1 do `86400`. |
 | `headers` | mapa tekst → tekst | pusta | Dodatkowe nagłówki HTTP dla OTLP. Nazwy i wartości muszą mieć poprawną składnię HTTP. Obsługuje też tabelę `[otel.headers]`. |
 

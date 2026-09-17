@@ -66,7 +66,9 @@ Natywne spany obejmują uruchamianie, przyjmowanie żądań, middleware, zbieran
 | `rapira.operation.duration` | Histogram, sekundy (`s`) | `rapira.operation` |
 | `rapira.otel.dropped_records` | Licznik, rekordy | Brak |
 
-Ukończone żądania i natywne operacje wywołują tworzenie skumulowanych migawek metryk. Zasoby OTLP zawierają `service.name`, `process.pid` i `rapira.role`. Każdy proces ma też stały losowy `service.instance.id`. Zasoby workera zawierają też `rapira.pool`.
+Ukończone żądania i natywne operacje zapisują próbki metryk. Istniejący runtime każdego workera zbiera oczekujące skumulowane migawki co `flush_interval_ms`, także podczas bezczynności. Przy zamykaniu worker wysyła ostatnie oczekujące próbki. Eksporter używa tego samego odstępu do wysyłania niepełnych partii. Każdy transfer sendfile ma jeden span z liczbą bajtów.
+
+Zasoby OTLP zawierają `service.name`, `process.pid` i `rapira.role`. Każdy proces ma też stały losowy `service.instance.id`. Zasoby workera zawierają też `rapira.pool`.
 
 Rekordy logów są powiązane z aktywnym natywnym spanem. `[log]` i `RUST_LOG` sterują tylko filtrowaniem stderr. OTLP używa własnych przełączników sygnałów. Natywne spany nadal działają poniżej poziomu logowania stderr.
 

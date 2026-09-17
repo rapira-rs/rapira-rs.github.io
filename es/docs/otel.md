@@ -66,7 +66,9 @@ Los spans nativos cubren el arranque, la admisión de peticiones, el middleware,
 | `rapira.operation.duration` | Histograma, segundos (`s`) | `rapira.operation` |
 | `rapira.otel.dropped_records` | Contador, registros | Ninguno |
 
-Las peticiones y operaciones nativas completadas generan instantáneas acumulativas de métricas. Los recursos OTLP contienen `service.name`, `process.pid` y `rapira.role`. Cada proceso también tiene un `service.instance.id` aleatorio y estable. Los recursos de los workers también contienen `rapira.pool`.
+Las peticiones y operaciones nativas completadas registran muestras de métricas. El runtime existente de cada worker recoge las instantáneas acumulativas pendientes cada `flush_interval_ms`, también durante los períodos de inactividad. Al detenerse, el worker envía las últimas muestras pendientes. El exportador usa el mismo intervalo para enviar lotes parciales. Cada transferencia sendfile tiene un span con su cantidad de bytes.
+
+Los recursos OTLP contienen `service.name`, `process.pid` y `rapira.role`. Cada proceso también tiene un `service.instance.id` aleatorio y estable. Los recursos de los workers también contienen `rapira.pool`.
 
 Los registros se correlacionan con el span nativo activo. `[log]` y `RUST_LOG` controlan solo el filtrado de stderr. OTLP usa sus propios interruptores de señales. Los spans nativos continúan por debajo del nivel de registro de stderr.
 

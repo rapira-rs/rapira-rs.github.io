@@ -190,7 +190,7 @@ This section configures native OpenTelemetry signals and OTLP export over HTTP/p
 | `metrics` | boolean | `true` | Exports native metrics. |
 | `batch_size` | integer | `512` | Export batch size in records. Must be at least 1 and at most `queue_size`. |
 | `queue_size` | integer | `2048` | Export queue capacity in records. Must be at least 1. |
-| `flush_interval_ms` | integer | `1000` | Batch flush interval in milliseconds. The range is 1 through `86400000`. |
+| `flush_interval_ms` | integer | `1000` | Worker metric collection and exporter batch flush interval in milliseconds. The range is 1 through `86400000`. |
 | `export_timeout_secs` | integer | `5` | Export timeout and normal shutdown drain limit in seconds. The range is 1 through `86400`. |
 | `headers` | map of string → string | empty | Additional OTLP HTTP headers. Names and values must use valid HTTP syntax. Also accepts the `[otel.headers]` table. |
 

@@ -181,7 +181,7 @@ sendfile 根目录就是 `sendFile()` 能读取的那个目录。Rapira 会把�
 | `metrics` | 布尔值 | `true` | 导出原生指标。 |
 | `batch_size` | 整数 | `512` | 导出批次的记录数。至少为 1，最多为 `queue_size`。 |
 | `queue_size` | 整数 | `2048` | 导出队列可容纳的记录数。至少为 1。 |
-| `flush_interval_ms` | 整数 | `1000` | 批次刷新间隔，单位为毫秒。范围为 1 到 `86400000`。 |
+| `flush_interval_ms` | 整数 | `1000` | worker 指标收集和导出器批次刷新间隔，单位为毫秒。范围为 1 到 `86400000`。 |
 | `export_timeout_secs` | 整数 | `5` | 导出超时和正常关闭时的排空时限，单位为秒。范围为 1 到 `86400`。 |
 | `headers` | 字符串 → 字符串映射 | 空 | 额外的 OTLP HTTP 请求头。名称和值必须符合 HTTP 语法。也接受 `[otel.headers]` 表。 |
 

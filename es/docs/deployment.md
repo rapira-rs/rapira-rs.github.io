@@ -121,7 +121,7 @@ El maestro conserva sus ajustes iniciales y la memoria compartida de OPcache dur
 
 ## Registros
 
-Rapira escribe los registros filtrados en **stderr**. La salida stderr de una unidad de systemd se envía al journal sin configuración adicional. La exportación OTLP usa [ajustes de OpenTelemetry](./otel) separados. En producción, usa JSON para stderr:
+Rapira escribe los registros filtrados en **stderr**. La salida stderr de una unidad de systemd se envía al journal sin configuración adicional. En producción, usa JSON para stderr:
 
 ```toml
 [log]

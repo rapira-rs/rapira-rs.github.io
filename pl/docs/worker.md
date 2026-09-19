@@ -69,12 +69,6 @@ Pozostałe klucze opisuje [Konfiguracja](/pl/docs/configuration).
 
 Żądanie w trybie Worker odpowiada jednej iteracji pętli `while`. Rapira wykonuje zamknięcie żądania wokół handlera. Uruchamia funkcje shutdown, opróżnia bufory, zamyka sesję i ponownie wypełnia zmienne superglobalne. Wartości spoza handlera pozostają w pamięci. Rapira nie uruchamia wszystkich destruktorów na końcu żądania. PHP niszczy obiekt po usunięciu jego ostatniej referencji.
 
-## Kontekst śledzenia
-
-`Rapira\trace_context(): array` zwraca natywny nośnik śledzenia aktywnego callbacku jako `array<string, string>`. Rapira zachowuje ten natywny zakres podczas zamykania i zwalniania zasobów każdego zadania. Funkcja zwraca pustą tablicę poza aktywną pracą lub gdy telemetria jest wyłączona.
-
-Odczytuj kontekst SDK PHP w każdym handlerze. Aktywuj ten kontekst dla handlera. Odłączaj zakres w `finally`. Kończ spany PHP w tym samym bloku. Skonfiguruj SDK PHP przed pętlą. Przykład nośnika, próbkowanie i ustawienia eksportu opisuje [OpenTelemetry](./otel).
-
 ## Jeden handler na worker
 
 `handle_request()` wraca po każdym żądaniu. Skrypt workera musi zawierać pętlę, która utrzymuje aktywnego workera.

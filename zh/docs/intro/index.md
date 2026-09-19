@@ -9,7 +9,7 @@ Rapira 是一个用 Rust 编写的 PHP 应用服务器。
 
 RoadRunner 维护者设计并开发 Rapira。Rapira 在服务器进程中直接调用 PHP。
 
-Rapira 支持 HTTP 和 [OpenTelemetry](../otel)。`http` 插件管理 PHP worker 进程池。可选的 `otel` 插件管理一个导出器进程。
+Rapira 支持 HTTP 和 [gRPC](../grpc)。每种协议都有自己的监听器和 PHP worker 进程池。
 
 [博客](/zh/blog/)包含项目更新。
 
@@ -28,3 +28,9 @@ Rapira 支持三种 PHP 执行模式：
 ::: info
 [执行模式](/zh/docs/execution-modes)页面介绍模式行为和选择标准。
 :::
+
+## gRPC
+
+Rapira 通过明文 HTTP/2 处理一元 gRPC 调用。PHP 应用通过 dispatcher 接收并返回二进制 protobuf 消息。master 在 worker 启动前从 `.proto` 文件加载服务模式定义。
+
+gRPC 进程池使用 Dispatcher 模式。HTTP 和 gRPC 可以使用不同的入口脚本同时运行。完整的服务、protobuf 类生成和客户端命令请参阅 [gRPC](../grpc)。

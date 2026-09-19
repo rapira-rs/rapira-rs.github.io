@@ -5,9 +5,9 @@ description: "Rapira 如何运行 PHP：单线程的 master 绑定套接字、�
 
 # 进程模型
 
-Rapira 以一个 master 进程加一池 worker 的形式运行。凡是全局只能有一份的东西--监听套接字、PHP 引擎映像、pidfile--都归 master 持有，备齐之后它就 fork；请求则由 worker 处理。请求从来不需要在进程之间倒手：worker *就是* master 的副本，是在 PHP 已经起来之后 fork 出来的，各自直接从套接字上取走自己的连接。
+Rapira 运行一个 master 进程，并为每种启用的协议运行一个 worker 进程池。master 持有监听套接字、已初始化的 PHP 引擎和 pidfile，然后创建 worker 进程。每个 worker 继承 PHP，并从所属进程池的共享套接字接受连接。Rapira 不在进程之间传递请求。
 
-设置 `[otel].enabled = true` 时，master 还会监管一个通过 `exec` 启动的导出器进程。worker 和 master 通过非阻塞本地 Unix 流直接发送遥测。master 保持单线程。批量处理、数据传输限制和导出器替换请参阅 [OpenTelemetry](./otel)。
+HTTP 和 [gRPC](./grpc) 有独立的监听器、入口脚本和进程池。`[http.pool]` 和 `[grpc.pool]` 分别配置它们。gRPC 进程池使用 Dispatcher 模式，每个 worker 同时处理一个活动调用。
 
 无论运行 [Classic 模式](/zh/docs/classic)、[Worker 模式](/zh/docs/worker)还是 Dispatcher 模式，这套结构都一样。执行模式由 `http.pool.mode` 设定，它决定的是每个请求进了 worker 之后怎么走；至于进程池怎么搭起来、怎么被看管、怎么重载，跟它无关。更多内容见[执行模式](/zh/docs/execution-modes)。
 
@@ -35,7 +35,7 @@ flowchart TB
   S -. accept .-> W3
 ```
 
-每个 worker 在自己的异步 HTTP 栈背后跑一个 NTS PHP 解释器。这个栈就是 hyper，跑在一个私有的 tokio 运行时上，配两个运行时线程。worker 在继承来的套接字上 accept。没有任何进程负责把连接派给 worker：所有 worker 都停在同一个套接字的 `accept()` 上，进来的每条连接由内核交给其中恰好一个。
+图中展示一个进程池。每个 worker 运行一个 NTS PHP 解释器和一个异步 HTTP 或 gRPC 服务器。服务器使用 hyper，在具有两个线程的私有 tokio 运行时上运行。每个 worker 在继承的套接字上调用 `accept()`。操作系统将每个新连接分配给一个 worker。
 
 master 从不处理请求，它压根就没有 HTTP 栈--只是一个单线程，阻塞在 self-pipe 的 `poll(2)` 上，等信号、等子进程退出、等自己的定时器；在 `ondemand` 模式下还要等监听套接字变为可读。这个进程必须活下来，好把其他一切重新拉起，所以它自己要做的事越少越好。
 
@@ -64,6 +64,8 @@ master 还在整个生命周期里持有 PHP 模块，也只有它会去关闭�
 - 如果 master 退出，管道返回 EOF，每个 worker 都会停止接受工作。master 故障不会留下不受管理的 worker。
 
 ## 进程池伸缩
+
+以下设置使用 `[http.pool]`。相同的伸缩和回收设置也适用于 `[grpc.pool]`。
 
 `http.pool.scaling` 选择进程池如何更改大小。它与 `http.pool.mode` 不同。 `http.pool.mode` 设置 worker 内的执行模式。使用 `static` 时，`http.pool.processes` 是准确数量。 使用 `dynamic` 和 `ondemand` 时，它是最大数量。默认值为每个逻辑 CPU 一个 worker。
 

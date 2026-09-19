@@ -5,15 +5,9 @@ description: "Jak Rapira loguje - poziomy, nadpisania dla poszczególnych celów
 
 # Logi
 
-Rapira zapisuje przefiltrowane wpisy do stderr. Obejmują zdarzenia serwera, decyzje procesu nadrzędnego, zdarzenia HTTP, diagnostykę PHP i komunikaty aplikacji. Rapira kieruje diagnostykę PHP do tego logu zamiast do osobnego miejsca `error_log`. Skonfigurowany filtr poziomu steruje wyjściem stderr.
+Rapira zapisuje przefiltrowane wpisy do stderr. Obejmują zdarzenia serwera, decyzje procesu nadrzędnego, zdarzenia HTTP i gRPC, diagnostykę PHP i komunikaty aplikacji. Rapira kieruje diagnostykę PHP do tego logu zamiast do osobnego miejsca `error_log`. Skonfigurowany filtr poziomu steruje wyjściem stderr.
 
 Domyślny poziom stderr to `error`, więc stderr zawiera tylko błędy. Zmień konfigurację lub ustaw `RUST_LOG`, aby wybrać inny poziom.
-
-## Eksport OpenTelemetry
-
-Przy `[otel].enabled = true` i `logs = true` Rapira wysyła też rekordy logów przez proces eksportera OTLP. Rekordy są powiązane z aktywnym natywnym spanem. `[log]` i `RUST_LOG` filtrują tylko stderr. Przełączniki sygnałów `otel` sterują eksportem OTLP. Natywne spany pozostają aktywne poniżej poziomu logowania stderr.
-
-Rekordy awarii procesów zawierają `worker_pid`, `pool` oraz `exit_code` lub `signal`. Diagnostyka eksportera i wewnętrznego SDK pozostaje w stderr i nie trafia ponownie do OTLP. Wszystkie procesy używają tych samych ustawień filtra i formatu stderr. Bufory telemetrii o ograniczonym rozmiarze mogą odrzucać rekordy. Każdy zakodowany rekord IPC musi zajmować mniej niż 1 MiB. Ograniczenia dostarczania danych i kontekst PHP opisuje [OpenTelemetry](./otel).
 
 ## Poziomy i format
 
@@ -51,6 +45,7 @@ Cele, pod którymi loguje sama Rapira:
 | `rapira` | cykl życia serwera: start, cykl życia workerów, zamykanie                      |
 | `master` | nadzór: forki, zbieranie zakończonych procesów, podstawianie nowych workerów, przeładowania, skalowanie puli |
 | `http`   | warstwa HTTP: nasłuchy, obsługa pól żądania i odpowiedzi, wygaszanie           |
+| `grpc`   | nasłuchy gRPC, błędy transportu, zatrzymywanie |
 | `ext`    | wyniki zadań rozszerzeń                                                        |
 | `php`    | wyjście i diagnostyka prosto z PHP                                             |
 | `app`    | wpisy zapisywane przez aplikację przez `\Rapira\log()`                        |
@@ -138,10 +133,10 @@ try {
 
 `\Rapira\log()` nie rzuca wyjątków. Jeśli `jsonSerialize()` rzuci wyjątek, Rapira zapisze `null` dla tej wartości. Pozostałe klucze zostają zachowane.
 
-::: question Jak Rapira serializuje i dostarcza duże konteksty logów?
+::: question Jak Rapira serializuje duże konteksty logów?
 Rapira zastępuje wartości, których JSON nie może przedstawić. Należą do nich zasoby, domknięcia, `NAN`, `INF` i nieprawidłowe ciągi UTF-8. Pozostałe pola zostają zachowane.
 
-Serializacja kontekstu zachowuje kompletne tablice i ciągi znaków. Jeśli zakodowane dane OTLP zajmują co najmniej 1 MiB, nadawca IPC odrzuca cały rekord. Wykonywanie PHP jest kontynuowane. Warstwa stderr stosuje skonfigurowany filtr do pełnego rekordu. Dla dużych obiektów przekazuj identyfikatory.
+Serializacja kontekstu zachowuje kompletne tablice i ciągi znaków. Warstwa stderr stosuje skonfigurowany filtr do pełnego rekordu. Dla dużych obiektów przekazuj identyfikatory.
 :::
 
 ## Formaty

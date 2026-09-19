@@ -5,9 +5,9 @@ description: "Cómo ejecuta PHP Rapira: un maestro de un solo hilo abre el socke
 
 # Modelo de procesos
 
-Rapira se ejecuta como un proceso maestro y un pool de workers. El maestro mantiene todo lo que tiene que existir exactamente una vez -el socket de escucha, la imagen del motor de PHP, el pidfile- y después hace fork; de las peticiones se encargan los workers. Ninguna petición pasa jamás de un proceso a otro: los workers *son* copias del maestro, hechas con fork cuando PHP ya estaba en marcha, y cada uno recoge sus conexiones directamente del socket.
+Rapira ejecuta un proceso maestro. Cada protocolo activado tiene su propio pool de workers. El maestro mantiene los sockets de escucha, el motor PHP inicializado y el pidfile. Después, crea los procesos worker. Cada worker hereda PHP y acepta conexiones desde el socket compartido de su pool. Rapira no pasa las peticiones entre procesos.
 
-Con `[otel].enabled = true`, el maestro también supervisa un proceso exportador iniciado mediante `exec`. Los workers y el maestro envían telemetría directamente mediante flujos Unix locales no bloqueantes. El maestro mantiene un solo hilo. Consulta [OpenTelemetry](./otel) para ver los lotes, los límites de entrega y la sustitución del exportador.
+HTTP y [gRPC](./grpc) tienen escuchas, scripts de entrada y pools separados. `[http.pool]` y `[grpc.pool]` los configuran de forma independiente. El pool gRPC usa el modo Dispatcher y procesa una llamada activa por worker.
 
 El esquema es el mismo en los modos [Classic](/es/docs/classic), [Worker](/es/docs/worker) y Dispatcher. El modo de ejecución, que fija `http.pool.mode`, decide qué ocurre dentro de un worker con cada petición; no cambia cómo se construye el pool, ni cómo se supervisa, ni cómo se recarga. Consulta [Modos de ejecución](/es/docs/execution-modes) para más información.
 
@@ -35,7 +35,7 @@ flowchart TB
   S -. accept .-> W3
 ```
 
-Cada worker ejecuta un intérprete de PHP NTS detrás de su propia pila HTTP asíncrona. Esa pila es hyper sobre un runtime de tokio propio, con dos hilos de ejecución. El worker acepta conexiones en el socket que ha heredado. Ningún proceso reparte las conexiones entre los workers: todos están aparcados en `accept()` sobre el mismo socket, y el kernel le entrega cada conexión entrante a uno solo de ellos.
+El diagrama muestra un pool. Cada worker ejecuta un intérprete PHP NTS y un servidor HTTP o gRPC asíncrono. El servidor usa hyper sobre un runtime de tokio propio, con dos hilos. Cada worker llama a `accept()` en el socket que ha heredado. El sistema operativo asigna cada conexión nueva a un worker.
 
 El maestro no atiende ni una petición. No tiene pila HTTP en absoluto: es un único hilo bloqueado en `poll(2)` sobre un self-pipe, esperando señales, muertes de sus hijos, sus propios temporizadores y, en modo `ondemand`, también a que el socket de escucha esté listo. El proceso que tiene que sobrevivir para reiniciar todo lo demás hace lo mínimo imprescindible.
 
@@ -64,6 +64,8 @@ Después de iniciar el pool, el maestro ejecuta el mantenimiento aproximadamente
 - Si termina el maestro, el pipe devuelve EOF y cada worker deja de aceptar trabajo. Un fallo del maestro no deja workers sin control.
 
 ## Escalado del pool
+
+Los ajustes siguientes usan `[http.pool]`. Los mismos ajustes de escalado y reciclaje se aplican a `[grpc.pool]`.
 
 `http.pool.scaling` selecciona cómo cambia el tamaño del pool. Es independiente de `http.pool.mode`. La clave `http.pool.mode` establece el modo de ejecución de un worker. `http.pool.processes` es el número exacto con `static`. Es el número máximo con `dynamic` y `ondemand`. El valor predeterminado es un worker por CPU lógica.
 

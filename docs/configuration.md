@@ -13,13 +13,13 @@ rapira serve /etc/rapira/rapira.toml
 
 The file sets the address, worker count, recycling policy, pidfile, and log level. A value in the file overrides the built-in default.
 
-The configuration file has four sections. `[http]` configures the listener and its PHP worker pool. `[otel]` configures telemetry and its exporter process. `[supervisor]` configures the master process. `[log]` configures output to stderr.
+`[http]` and `[grpc]` configure separate listeners and PHP worker pools. Configure at least one of these sections. `[supervisor]` configures the master process. `[log]` configures output to stderr.
 
-The PHP entry script has no default. Set `http.pool.entrypoint`.
+Each enabled listener requires a PHP entry script. Set `http.pool.entrypoint`, `grpc.pool.entrypoint`, or both.
 
 ## A complete rapira.toml
 
-The following configuration file contains each supported key. Most keys use their default when they are absent. `http.pool.entrypoint` has no default. Dynamic scaling requires `min_spare` and `max_spare`. The `[http.static]` table requires `http.static.root`.
+The following configuration enables both protocols and shows the supported tables. Most keys use their default when they are absent. Each pool requires `entrypoint`. Dynamic scaling requires `min_spare` and `max_spare`. The `[http.static]` table requires `http.static.root`.
 
 Some keys must occur together. The `[http.static]` table requires a `"static"` middleware entry, and that entry requires the table.
 Remove `min_spare` and `max_spare` when scaling is not `dynamic`. Rapira rejects these keys with `static` and `ondemand` scaling.
@@ -61,19 +61,26 @@ max_requests = 0                      # Replaces a worker after this request cou
 process_idle_timeout_secs = 10        # For ondemand scaling. Removes workers after this idle time.
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
 
-[otel]
-enabled = false
-endpoint = "http://localhost:4318"
-service_name = "rapira"
-sample_ratio = 1.0
-traces = true
-logs = true
-metrics = true
-batch_size = 512
-queue_size = 2048
-flush_interval_ms = 1000
-export_timeout_secs = 5
-headers = {}
+[grpc]
+listen = "127.0.0.1:9001"
+protos = ["proto"]                     # Required. Directories containing application schemas.
+import_paths = []                      # Optional. Additional schema dependency directories.
+reflection = true
+interceptors = []                     # The standalone binary accepts an empty list.
+max_request_message_size_mb = 4
+max_response_message_size_mb = 4
+
+[grpc.compression.gzip]
+enabled = false                       # Enables gzip responses when the client accepts gzip.
+
+[grpc.pool]
+entrypoint = "grpc.php"
+mode = "dispatcher"                   # Required mode for gRPC.
+processes = 4
+scaling = "static"
+max_requests = 0
+process_idle_timeout_secs = 10
+request_terminate_timeout_secs = 0
 
 [supervisor]                          # Optional. Sets master process behavior.
 pidfile = "/run/rapira.pid"           # Optional. Relative paths use this file's directory.
@@ -153,11 +160,11 @@ Classic and Worker modes parse them in PHP and use `php.ini` limits. Rapira reje
 
 Each limit must be at least 1. Rapira returns `413` when a request exceeds a limit.
 
-### The `[http.pool]` table
+### The `[http.pool]` table {#http-pool}
 
 Workers run PHP. This table defines what they run, how many run, and when the master removes one. The [process model](/docs/process-model) explains how the master uses these values.
 
-The `http` plugin owns this PHP worker pool. The `otel` plugin owns one exporter process and has no PHP pool.
+The `http` plugin owns this PHP worker pool. The gRPC listener uses a separate `[grpc.pool]` table.
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
@@ -175,28 +182,33 @@ The `http` plugin owns this PHP worker pool. The `otel` plugin owns one exporter
 
 Rapira checks the spare limits against the `processes` value.
 
-## The `[otel]` section {#otel}
+## The `[grpc]` section {#grpc}
 
-This section configures native OpenTelemetry signals and OTLP export over HTTP/protobuf. See [OpenTelemetry](./otel) for process behavior, delivery limits, and PHP context examples.
+This section enables native unary gRPC over cleartext HTTP/2. See [gRPC](./grpc) for a complete PHP service and client commands.
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `enabled` | boolean | `false` | Enables native telemetry. A binary built without the `otel` Cargo feature rejects `true`. |
-| `endpoint` | string | `"http://localhost:4318"` | HTTP or HTTPS base URL with a host. Rapira appends `/v1/traces`, `/v1/logs`, and `/v1/metrics` after its path prefix. |
-| `service_name` | string | `"rapira"` | The OTLP `service.name` resource attribute. The value must not be empty. |
-| `sample_ratio` | number | `1.0` | Root trace sampling ratio. The value must be finite and within `0.0` through `1.0`. |
-| `traces` | boolean | `true` | Exports native spans. `false` keeps context propagation active. |
-| `logs` | boolean | `true` | Exports log records independently of stderr filtering. |
-| `metrics` | boolean | `true` | Exports native metrics. |
-| `batch_size` | integer | `512` | Export batch size in records. Must be at least 1 and at most `queue_size`. |
-| `queue_size` | integer | `2048` | Export queue capacity in records. Must be at least 1. |
-| `flush_interval_ms` | integer | `1000` | Worker metric collection and exporter batch flush interval in milliseconds. The range is 1 through `86400000`. |
-| `export_timeout_secs` | integer | `5` | Export timeout and normal shutdown drain limit in seconds. The range is 1 through `86400`. |
-| `headers` | map of string → string | empty | Additional OTLP HTTP headers. Names and values must use valid HTTP syntax. Also accepts the `[otel.headers]` table. |
+| `listen` | string | `"127.0.0.1:9001"` | TCP address or `unix:` socket path. Uses the same address syntax as `http.listen`. |
+| `protos` | list of strings | none, required | Directories to search recursively for application `.proto` files. The list must contain at least one directory. |
+| `import_paths` | list of strings | empty | Additional directories for imported schemas. Imported-only services are not application routes. |
+| `reflection` | boolean | `true` | Enables the v1 and v1alpha reflection services. |
+| `interceptors` | list of strings | empty | The standalone binary accepts an empty list. Rust hosts can supply interceptors through the plugin API. |
+| `max_request_message_size_mb` | integer | `4` | Request message limit in MiB. Must be at least 1. Both compressed and uncompressed payloads must fit. |
+| `max_response_message_size_mb` | integer | `4` | Response message limit in MiB. Must be at least 1. Both compressed and uncompressed payloads must fit. |
 
-The ParentBased sampler honors an incoming sampled or unsampled parent. `sample_ratio` controls roots only. `traces`, `logs`, and `metrics` are independent export switches. With `enabled = false`, the PHP trace context APIs return empty arrays.
+Paths resolve against the configuration file directory. Import roots use configuration order: `protos` first, then `import_paths`. Standard `google/protobuf` imports are built in. Invalid schemas, missing imports, conflicting definitions, and streaming application methods stop initialization.
 
-Rapira reads these settings from TOML, not from `OTEL_*` environment variables. PHP SDK configuration is independent.
+### The `[grpc.compression.gzip]` table
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `enabled` | boolean | `false` | Enables gzip application responses when the client advertises gzip in `grpc-accept-encoding`. Gzip requests are accepted with either setting. |
+
+### The `[grpc.pool]` table {#grpc-pool}
+
+This table uses the [HTTP pool keys and defaults](#http-pool), with a required `entrypoint` and `mode = "dispatcher"`. Classic and Worker modes are rejected. Scaling, spare limits, recycling, and the process watchdog apply to this pool independently.
+
+HTTP and gRPC can run together. Each listener uses its own pool and entrypoint. Restart Rapira to load changed schemas.
 
 ## The `[supervisor]` section
 
@@ -210,13 +222,13 @@ The init system controls the master. See [deployment](/docs/deployment) for a un
 
 ## The `[log]` section
 
-This section controls the stderr log level and format. It does not filter OTLP signals. See [logging](/docs/logging) for targets, formats, and PHP diagnostic levels.
+This section controls the stderr log level and format. See [logging](/docs/logging) for targets, formats, and PHP diagnostic levels.
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `level` | `"error"` \| `"warn"` \| `"info"` \| `"debug"` \| `"trace"` | `"error"` | Verbosity, applied to every target at once. |
 | `format` | `"plain"` \| `"json"` | `"plain"` | The record format. Plain output contains readable lines and can use colors. JSON output contains one object per line. |
-| `[log.targets]` | table of target → level | empty | Log level overrides for targets. `php` contains PHP output, and `http` contains HTTP server output. Keys match target prefixes. See [Logging](/docs/logging). |
+| `[log.targets]` | table of target → level | empty | Log level overrides for targets. `php` contains PHP output. `http` and `grpc` contain protocol server output. Keys match target prefixes. See [Logging](/docs/logging). |
 
 A `[log.targets]` key uses letters, digits, `_`, `:`, `.`, or `-`. It must start with a letter, digit, or `_`. Rapira rejects other characters because the log filter can interpret them as syntax. A target key that contains `:` or `.` must use quotes because TOML does not permit these characters in a bare key. For example:
 
@@ -241,7 +253,7 @@ Rapira validates the configuration file before initialization. An unknown key st
 
 ## Relative paths
 
-Five keys contain file system paths: `http.pool.entrypoint`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root`, and `http.uploads.dir`. Each relative path uses the configuration file directory as its base. For example, set `entrypoint = "app/worker.php"` in `/etc/rapira/rapira.toml`. Rapira then uses `/etc/rapira/app/worker.php`.
+File system paths include both pool entrypoints, `grpc.protos`, `grpc.import_paths`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root`, and `http.uploads.dir`. Each relative path uses the configuration file directory as its base. Relative `unix:` listener paths also use this directory. For example, set `entrypoint = "app/worker.php"` in `/etc/rapira/rapira.toml`. Rapira then uses `/etc/rapira/app/worker.php`.
 
 ::: tip
 Keep the `rapira.toml` configuration file inside the application. Write its paths relative to the configuration file. You can move the application directory. These paths do not change.

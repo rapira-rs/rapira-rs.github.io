@@ -5,15 +5,9 @@ description: Rapira log levels, target overrides, PHP diagnostics, application r
 
 # Logging
 
-Rapira writes filtered log records to stderr. These records include server events, master decisions, HTTP events, PHP diagnostics, and application messages. Rapira sends PHP diagnostics to this log instead of a separate `error_log` destination. The configured level filter controls stderr output.
+Rapira writes filtered log records to stderr. These records include server events, master decisions, HTTP and gRPC events, PHP diagnostics, and application messages. Rapira sends PHP diagnostics to this log instead of a separate `error_log` destination. The configured level filter controls stderr output.
 
 The default stderr level is `error`, so stderr contains only errors. Change the configuration or set `RUST_LOG` to select another level.
-
-## OpenTelemetry export
-
-With `[otel].enabled = true` and `logs = true`, Rapira also sends log records through its OTLP exporter process. Records correlate with the active native span. `[log]` and `RUST_LOG` filter stderr only. The `otel` signal switches control OTLP export. Native spans remain active below the stderr log level.
-
-Process failure records contain `worker_pid`, `pool`, and `exit_code` or `signal`. Exporter and internal SDK diagnostics stay on stderr and do not re-enter OTLP. All processes use the same stderr filter and format settings. Bounded telemetry buffers can drop records. Each encoded IPC record must be less than 1 MiB. See [OpenTelemetry](./otel) for delivery limits and PHP context.
 
 ## Levels and format
 
@@ -53,6 +47,7 @@ Rapira uses these targets:
 | `rapira` | server initialization, worker lifecycle, shutdown              |
 | `master` | supervision: forks, reaps, respawns, reloads, pool scaling      |
 | `http`   | HTTP listeners, request and response field processing, shutdown |
+| `grpc`   | gRPC listeners, transport failures, shutdown                    |
 | `ext`    | extension task outcomes                                          |
 | `php`    | output and diagnostics from PHP itself                          |
 | `app`    | records the application writes with `\Rapira\log()`              |
@@ -148,10 +143,10 @@ try {
 
 `\Rapira\log()` does not throw. If a context `jsonSerialize()` call throws, Rapira writes `null` for that value. It keeps the other keys.
 
-::: question How does Rapira serialize and deliver large log contexts?
+::: question How does Rapira serialize large log contexts?
 Rapira replaces values that JSON cannot represent with a placeholder. These values include resources, closures, `NAN`, `INF`, and invalid UTF-8 strings. Rapira keeps the other fields in the record.
 
-Context serialization preserves complete arrays and strings. If the encoded OTLP payload is 1 MiB or larger, the IPC sender drops the whole record. PHP execution continues. The stderr layer applies its configured filter to the full record. Pass identifiers for large objects.
+Context serialization preserves complete arrays and strings. The stderr layer applies its configured filter to the full record. Pass identifiers for large objects.
 :::
 
 ## Formats

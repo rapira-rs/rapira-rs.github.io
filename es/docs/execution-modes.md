@@ -6,7 +6,7 @@ faqLevel: 2
 
 # Modos de ejecución
 
-Rapira ejecuta PHP en uno de sus tres modos de ejecución. Los tres modos están disponibles.
+El pool HTTP ejecuta PHP en uno de sus tres modos de ejecución. El [pool gRPC](./grpc) usa el modo Dispatcher.
 
 | Modo | Estado | Descripción |
 | --- | --- | --- |
@@ -36,21 +36,19 @@ En [Modo Worker](/es/docs/worker) está el script del worker y su bucle; en [Con
 
 En Dispatcher, el script del worker solicita cada unidad mediante una llamada a la API. `Rapira\get_dispatcher()` devuelve el dispatcher del pool. `receive(int $timeout = -1)` espera la siguiente unidad. El límite usa microsegundos y `-1` lo desactiva. Un límite agotado lanza `Rapira\Exception\TimeoutException`. `tryReceive()` devuelve una unidad o `null` sin esperar. Con el plugin HTTP, cada unidad es un `Rapira\Http\Exchange`. Su método `getRequest()` devuelve un `Rapira\Http\Request` con el método, objetivo, cabeceras, cuerpo y direcciones. Los métodos `writeHead()`, `writeBody()` y `sendFile()` escriben la respuesta.
 
-`Rapira\Http\Request` es una clase `final readonly`. Su propiedad `$traceContext` contiene un portador `array<string, string>` para el span nativo `php.execute`. El último argumento del constructor público es `array $traceContext`. Los objetos creados por el host capturan el portador de su petición, incluidos los objetos diferidos o retenidos.
+Con el plugin gRPC, cada unidad es una `Rapira\Grpc\UnaryCall`. `getMessage()` devuelve bytes protobuf. `respond()` envía una respuesta serializada y `fail()` envía un error gRPC. Cada worker gRPC procesa una llamada activa cada vez. Consulta [gRPC](./grpc) para ver el bucle del dispatcher.
 
-`Rapira\trace_context(): array` devuelve el portador del intercambio activo hasta que este finaliza. Devuelve un array vacío fuera del trabajo activo. La telemetría desactivada también produce portadores vacíos. PHP gestiona sus propios spans hijos y la activación del contexto. Consulta [OpenTelemetry](./otel) para ver el ejemplo del SDK PHP y el soporte de contexto Fiber.
+La aplicación puede pasar el objeto de petición a funciones o middleware. Rapira no rellena las superglobales en este modo. Una aplicación que usa superglobales necesita Worker. También puede usar un adaptador para copiar los datos. La clave `http.pool.mode` selecciona el modo HTTP. `grpc.pool.mode` debe ser `"dispatcher"`.
 
-La aplicación puede pasar el objeto de petición a funciones o middleware. Rapira no rellena las superglobales en este modo. Una aplicación que usa superglobales necesita Worker. También puede usar un adaptador para copiar los datos. Selecciona el modo con la clave `http.pool.mode`.
-
-El script controla el número de unidades de trabajo activas. Un bucle secuencial procesa una unidad cada vez. Llama a `receive()`, responde a la petición y vuelve a llamar a `receive()`. Un script concurrente inicia una [fibra](https://www.php.net/manual/en/language.fibers.php) por petición. Llama a `tryReceive()` mientras haya fibras activas. Cuando no hay fibras activas, el bucle espera en `receive()`. Este diseño mantiene varias peticiones activas en un mismo intérprete. La concurrencia es cooperativa. Otra petición solo progresa cuando el código en ejecución suspende su fibra. Procesa una unidad cada vez si una biblioteca no admite fibras.
+El script controla el número de unidades de trabajo activas. Un bucle secuencial procesa una unidad cada vez. Llama a `receive()`, responde a la petición y vuelve a llamar a `receive()`. Un script HTTP concurrente inicia una [fibra](https://www.php.net/manual/en/language.fibers.php) por petición. Llama a `tryReceive()` mientras haya fibras activas. Cuando no hay fibras activas, el bucle espera en `receive()`. Este diseño mantiene varias peticiones activas en un mismo intérprete. La concurrencia es cooperativa. Otra petición solo progresa cuando el código en ejecución suspende su fibra. Procesa una unidad cada vez si una biblioteca no admite fibras.
 
 ::: info
-Dispatcher es el valor predeterminado de `http.pool.mode`. Todavía no tiene una guía propia. [`rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php) documenta las interfaces `Dispatcher` y `Work`. [`rapira_http.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira_http.stub.php) documenta los tipos HTTP. [`examples/`](https://github.com/rapira-rs/rapira/tree/main/examples) contiene `dispatcher-sync.php` y `dispatcher-async.php`.
+Dispatcher es el modo predeterminado del pool. La [guía de gRPC](./grpc) contiene un servicio unario completo. [`rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php) documenta las interfaces `Dispatcher` y `Work`. [`rapira_http.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira_http.stub.php) documenta los tipos HTTP. [`examples/`](https://github.com/rapira-rs/rapira/tree/main/examples) contiene `dispatcher-sync.php` y `dispatcher-async.php`.
 :::
 
 ## Leer el modo en tiempo de ejecución
 
-`Rapira\get_mode()` devuelve el modo del proceso como un caso de `Rapira\Mode`. Los casos son `Classic`, `Worker` y `Dispatcher`. El caso coincide con el `http.pool.mode` inicial y no cambia durante el proceso. Compara los casos con `===`. La función no recibe argumentos ni lanza excepciones. Un script de entrada puede usarla para admitir varios modos:
+`Rapira\get_mode()` devuelve el modo del proceso como un caso de `Rapira\Mode`. Los casos son `Classic`, `Worker` y `Dispatcher`. El caso coincide con el modo inicial del pool de ese worker y no cambia durante el proceso. Compara los casos con `===`. La función no recibe argumentos ni lanza excepciones. Un script de entrada puede usarla para admitir varios modos:
 
 ```php
 <?php
@@ -68,7 +66,7 @@ match (\Rapira\get_mode()) {
 ```
 
 ::: question ¿Por qué el modo no cambia nunca mientras el proceso está en marcha?
-El host lee `http.pool.mode` y fija el modo antes de iniciar el intérprete. Todas las peticiones del worker devuelven el mismo caso. Reinicia el servidor para cambiar el modo.
+El host lee el modo del pool y lo fija antes de iniciar el intérprete. Todas las peticiones del worker devuelven el mismo caso. Reinicia el servidor para cambiar el modo.
 :::
 
 ## Selección del modo
@@ -88,9 +86,9 @@ mode = "classic"                      # Use "classic", "worker", or "dispatcher"
 rapira serve rapira.toml
 ```
 
-Rapira ofrece los tres modos a cada aplicación. El código y las dependencias de la aplicación pueden limitar la selección. Usa Classic si el estado global no puede permanecer entre peticiones. El código que usa superglobales necesita un adaptador para Dispatcher. Algunas integraciones de frameworks admiten Worker. Consulta [Frameworks](/es/docs/frameworks/).
+El pool HTTP admite los tres modos. El código y las dependencias de la aplicación pueden limitar la selección. Usa Classic si el estado global no puede permanecer entre peticiones. El código que usa superglobales necesita un adaptador para Dispatcher. Algunas integraciones de frameworks admiten Worker. Consulta [Frameworks](/es/docs/frameworks/).
 
-El modo se aplica a toda la instancia, no a rutas individuales. Una instancia no puede usar distintos modos. Ejecuta las rutas incompatibles en otra instancia Classic.
+El modo se aplica a un pool completo. Todas las rutas de ese pool usan el mismo modo. Los pools HTTP y gRPC pueden usar modos distintos en una misma instancia del servidor. Ejecuta las rutas HTTP incompatibles en otra instancia en modo Classic.
 
 Worker y Dispatcher necesitan un script de entrada persistente. Classic no lo necesita. Para seleccionar Classic, establece `mode = "classic"`. Después apunta `entrypoint` al script normal. El servidor, el binario y el [modelo de procesos](/es/docs/process-model) no cambian. Consulta [Configuración](/es/docs/configuration) y la [referencia CLI](/es/docs/cli).
 

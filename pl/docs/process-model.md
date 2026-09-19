@@ -5,9 +5,9 @@ description: "Jak Rapira uruchamia PHP - jednowątkowy proces nadrzędny wiąże
 
 # Model procesów
 
-Rapira działa jako jeden proces nadrzędny i pula workerów. Proces nadrzędny trzyma wszystko, co może istnieć tylko w jednym egzemplarzu - nasłuchujące gniazdo, obraz silnika PHP, pidfile - a potem forkuje; żądaniami zajmują się workery. Żadne żądanie nie wędruje z procesu do procesu: workery *są* kopiami procesu nadrzędnego, sforkowanymi już po podniesieniu PHP, i każdy z nich zdejmuje swoje połączenia prosto z gniazda.
+Rapira uruchamia jeden proces nadrzędny i osobną pulę workerów dla każdego włączonego protokołu. Proces nadrzędny zarządza gniazdami nasłuchującymi, zainicjalizowanym silnikiem PHP i plikiem pidfile. Następnie tworzy procesy workerów. Każdy worker dziedziczy PHP i przyjmuje połączenia ze wspólnego gniazda swojej puli. Rapira nie przekazuje żądań między procesami.
 
-Przy `[otel].enabled = true` proces nadrzędny nadzoruje też jeden proces eksportera uruchomiony przez `exec`. Workery i proces nadrzędny wysyłają telemetrię bezpośrednio przez nieblokujące lokalne strumienie Unix. Proces nadrzędny pozostaje jednowątkowy. Grupowanie rekordów, ograniczenia dostarczania danych i wymianę eksportera opisuje [OpenTelemetry](./otel).
+HTTP i [gRPC](./grpc) mają osobne nasłuchy, skrypty wejściowe i pule. `[http.pool]` i `[grpc.pool]` konfigurują je niezależnie. Pula gRPC używa trybu Dispatcher i obsługuje jedno aktywne wywołanie na workera.
 
 Ten układ wygląda tak samo w trybie [Classic](/pl/docs/classic), [Worker](/pl/docs/worker) i Dispatcher. Tryb wykonania, ustawiany kluczem `http.pool.mode`, decyduje o tym, co dzieje się wewnątrz workera przy każdym żądaniu. Nie zmienia natomiast tego, jak pula powstaje, jak jest nadzorowana i jak się ją przeładowuje. Więcej informacji znajdziesz w [Trybach wykonania](/pl/docs/execution-modes).
 
@@ -35,7 +35,7 @@ flowchart TB
   S -. accept .-> W3
 ```
 
-Każdy worker to jeden interpreter PHP w wersji NTS za własnym asynchronicznym stosem HTTP. Ten stos to hyper na prywatnym runtimie tokio z dwoma wątkami. Worker przyjmuje połączenia na odziedziczonym gnieździe. Żaden proces nie rozdziela połączeń między workery: wszystkie czekają w `accept()` na tym samym gnieździe, a jądro systemu oddaje każde przychodzące połączenie dokładnie jednemu z nich.
+Diagram pokazuje jedną pulę. Każdy worker uruchamia jeden interpreter PHP w wersji NTS i asynchroniczny serwer HTTP lub gRPC. Serwer używa hyper na prywatnym runtimie tokio z dwoma wątkami. Każdy worker wywołuje `accept()` na odziedziczonym gnieździe. System operacyjny przydziela każde nowe połączenie jednemu workerowi.
 
 Proces nadrzędny nigdy nie obsługuje żądania. Nie ma nawet stosu HTTP - to jeden wątek zablokowany w `poll(2)` na self-pipe, czekający na sygnały, śmierć potomków, własne timery, a w trybie `ondemand` także na gotowość gniazda nasłuchującego. Proces, który musi przeżyć, żeby zrestartować całą resztę, robi możliwie najmniej.
 
@@ -64,6 +64,8 @@ Po uruchomieniu puli proces nadrzędny wykonuje obsługę mniej więcej raz na s
 - Gdy proces nadrzędny kończy pracę, potok zwraca EOF i workery przestają przyjmować pracę. Awaria nie pozostawia workerów bez nadzoru.
 
 ## Skalowanie puli
+
+Poniższe ustawienia używają `[http.pool]`. Te same ustawienia skalowania i wymiany workerów dotyczą `[grpc.pool]`.
 
 `http.pool.scaling` określa sposób zmiany rozmiaru puli. Jest niezależny od `http.pool.mode`. Klucz `http.pool.mode` ustawia tryb wykonania w workerze. Przy `static` wartość `http.pool.processes` jest dokładną liczbą. Przy `dynamic` i `ondemand` jest liczbą maksymalną. Domyślna wartość to jeden worker na logiczny procesor.
 

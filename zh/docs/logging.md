@@ -5,15 +5,9 @@ description: "Rapira 怎么记日志--级别、按目标单独覆盖、PHP 诊�
 
 # 日志
 
-Rapira 将过滤后的日志记录写入 stderr。这些记录包括服务器事件、主进程决策、HTTP 事件、PHP 诊断和应用消息。Rapira 将 PHP 诊断发送到此日志，而不是单独的 `error_log` 目标。配置的级别过滤器控制 stderr 输出。
+Rapira 将过滤后的日志记录写入 stderr。这些记录包括服务器事件、主进程决策、HTTP 和 gRPC 事件、PHP 诊断和应用消息。Rapira 将 PHP 诊断发送到此日志，而不是单独的 `error_log` 目标。配置的级别过滤器控制 stderr 输出。
 
 stderr 默认级别为 `error`，因此 stderr 仅包含错误。更改配置或设置 `RUST_LOG` 以选择其他级别。
-
-## OpenTelemetry 导出
-
-设置 `[otel].enabled = true` 且 `logs = true` 时，Rapira 还通过 OTLP 导出器进程发送日志记录。记录与当前原生 span 关联。`[log]` 和 `RUST_LOG` 仅过滤 stderr。`otel` 信号开关控制 OTLP 导出。低于 stderr 日志级别的原生 span 仍然有效。
-
-进程故障记录包含 `worker_pid`、`pool`，以及 `exit_code` 或 `signal`。导出器和内部 SDK 诊断保留在 stderr 中，不会再次进入 OTLP。所有进程使用相同的 stderr 过滤器和格式设置。有容量限制的遥测缓冲区可能丢弃记录。每条编码后的 IPC 记录必须小于 1 MiB。数据传输限制和 PHP 上下文请参阅 [OpenTelemetry](./otel)。
 
 ## 级别与格式
 
@@ -51,6 +45,7 @@ Rapira 自己用的目标有这些：
 | `rapira` | 服务器生命周期：启动、worker 生命周期、关闭          |
 | `master` | 监管：fork、回收、重新拉起、重载、进程池伸缩         |
 | `http`   | HTTP 接入层：监听器、请求和响应的字段处理、排空      |
+| `grpc`   | gRPC 监听器、传输故障、关闭                          |
 | `ext`    | 扩展任务的执行结果                                   |
 | `php`    | 来自 PHP 本身的输出和诊断信息                        |
 | `app`    | 应用通过 `\Rapira\log()` 写入的记录                  |
@@ -138,10 +133,10 @@ try {
 
 `\Rapira\log()` 不抛出异常。如果 `jsonSerialize()` 抛出异常，Rapira 为该值写入 `null`。 其他键保持不变。
 
-::: question Rapira 如何序列化和传递大型日志上下文？
+::: question Rapira 如何序列化大型日志上下文？
 Rapira 替换 JSON 无法表示的值。这些值包括资源、闭包、`NAN`、`INF` 和无效 UTF-8 字符串。其他字段保持不变。
 
-上下文序列化会保留完整的数组和字符串。如果编码后的 OTLP 数据大小达到或超过 1 MiB，IPC 发送端会丢弃整条记录。PHP 继续执行。stderr 层仍对完整记录应用配置的过滤器。对于大型对象，请传递标识符。
+上下文序列化会保留完整的数组和字符串。stderr 层对完整记录应用配置的过滤器。对于大型对象，请传递标识符。
 :::
 
 ## 格式

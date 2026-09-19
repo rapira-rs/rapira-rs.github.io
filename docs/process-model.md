@@ -5,9 +5,9 @@ description: The Rapira master, PHP initialization, worker processes, pool scali
 
 # Process model
 
-Rapira runs one master process and a pool of workers. The master owns the listen socket, initialized PHP engine, and pidfile. The master then creates worker processes. Each worker inherits PHP and accepts connections from the shared socket. Rapira does not pass a request between processes.
+Rapira runs one master process and a worker pool for each enabled protocol. The master owns the listen sockets, initialized PHP engine, and pidfile. The master then creates worker processes. Each worker inherits PHP and accepts connections from its pool's shared socket. Rapira does not pass a request between processes.
 
-With `[otel].enabled = true`, the master also supervises one exporter process started through `exec`. Workers and the master send telemetry directly through nonblocking local Unix streams. The master remains single-threaded. See [OpenTelemetry](./otel) for batching, delivery limits, and exporter replacement.
+HTTP and [gRPC](./grpc) have separate listeners, entrypoints, and pools. `[http.pool]` and `[grpc.pool]` configure them independently. The gRPC pool uses Dispatcher mode and handles one active call per worker.
 
 This process model is the same in [Classic](/docs/classic), [Worker](/docs/worker), and Dispatcher modes. `http.pool.mode` controls request processing inside a worker. This setting does not change pool creation, supervision, or reloads. See [Execution modes](/docs/execution-modes) for more information.
 
@@ -37,7 +37,7 @@ flowchart TB
   S -. accept .-> W3
 ```
 
-Each worker runs one NTS PHP interpreter and an asynchronous HTTP server. The server uses hyper on a private tokio runtime with two threads. Each worker calls `accept()` on its inherited socket. The operating system assigns each new connection to one worker.
+The diagram shows one pool. Each worker runs one NTS PHP interpreter and an asynchronous HTTP or gRPC server. The server uses hyper on a private tokio runtime with two threads. Each worker calls `accept()` on its inherited socket. The operating system assigns each new connection to one worker.
 
 The master does not serve requests and has no HTTP server. Its single thread calls `poll(2)` on a self-pipe.
 It waits for signals, worker exits, and timers. With `ondemand`, it also waits for activity on the listen socket.
@@ -67,6 +67,8 @@ After pool initialization, the master runs maintenance approximately once each s
 - If the master exits, the pipe reaches EOF and each worker does not accept new work. Thus, a master failure does not leave unmanaged workers.
 
 ## Pool scaling
+
+The settings below use `[http.pool]`. The same scaling and recycling settings apply to `[grpc.pool]`.
 
 `http.pool.scaling` selects how the pool changes its size. The scaling policy is separate from `http.pool.mode`. The `http.pool.mode` key sets the execution mode inside a worker. `http.pool.processes` is an exact count for `static` scaling. `http.pool.processes` is the maximum count for `dynamic` and `ondemand` scaling. The default value is one worker for each logical CPU.
 

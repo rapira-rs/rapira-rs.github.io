@@ -13,13 +13,13 @@ rapira serve /etc/rapira/rapira.toml
 
 文件设置地址、worker 数量、替换策略、pidfile 和日志级别。文件中的值覆盖内置默认值。
 
-文件包含四个部分。`[http]` 配置监听器及其 PHP worker 进程池。`[otel]` 配置遥测及其导出器进程。`[supervisor]` 配置 master 进程。`[log]` 配置 stderr 输出。
+`[http]` 和 `[grpc]` 分别配置独立的监听器和 PHP worker 进程池。请至少配置其中一个部分。`[supervisor]` 配置 master 进程。`[log]` 配置 stderr 输出。
 
-PHP 入口脚本没有默认值。请设置 `http.pool.entrypoint`。
+每个启用的监听器都需要 PHP 入口脚本。请设置 `http.pool.entrypoint`、`grpc.pool.entrypoint`，或同时设置两者。
 
 ## 一份完整的 rapira.toml
 
-以下文件包含所有支持的键。大多数缺少的键使用默认值。 `http.pool.entrypoint` 没有默认值。动态伸缩需要 `min_spare` 和 `max_spare`。 `[http.static]` 表需要 `http.static.root`。
+以下配置文件启用两种协议，并展示支持的表。大多数缺少的键使用默认值。每个进程池都需要 `entrypoint`。动态伸缩需要 `min_spare` 和 `max_spare`。`[http.static]` 表需要 `http.static.root`。
 
 部分键必须一起出现。`[http.static]` 表需要 `middleware` 中的 `"static"`，该条目也需要此表。 当伸缩方式不是 `dynamic` 时，请删除 `min_spare` 和 `max_spare`。Rapira 会拒绝 `static` 和 `ondemand` 中的这些键。
 
@@ -60,19 +60,26 @@ max_requests = 0                      # Replaces a worker after this request cou
 process_idle_timeout_secs = 10        # For ondemand scaling. Removes workers after this idle time.
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
 
-[otel]
-enabled = false
-endpoint = "http://localhost:4318"
-service_name = "rapira"
-sample_ratio = 1.0
-traces = true
-logs = true
-metrics = true
-batch_size = 512
-queue_size = 2048
-flush_interval_ms = 1000
-export_timeout_secs = 5
-headers = {}
+[grpc]
+listen = "127.0.0.1:9001"
+protos = ["proto"]                     # Required. Directories containing application schemas.
+import_paths = []                      # Optional. Additional schema dependency directories.
+reflection = true
+interceptors = []                     # The standalone binary accepts an empty list.
+max_request_message_size_mb = 4
+max_response_message_size_mb = 4
+
+[grpc.compression.gzip]
+enabled = false                       # Enables gzip responses when the client accepts gzip.
+
+[grpc.pool]
+entrypoint = "grpc.php"
+mode = "dispatcher"                   # Required mode for gRPC.
+processes = 4
+scaling = "static"
+max_requests = 0
+process_idle_timeout_secs = 10
+request_terminate_timeout_secs = 0
 
 [supervisor]                          # Optional. Sets master process behavior.
 pidfile = "/run/rapira.pid"           # Optional. Relative paths use this file's directory.
@@ -144,11 +151,11 @@ sendfile 根目录就是 `sendFile()` 能读取的那个目录。Rapira 会把�
 
 这里每一项上限都至少为 1。请求超出其中任何一项，都以 `413` 作答。
 
-### `[http.pool]` 表
+### `[http.pool]` 表 {#http-pool}
 
 真正跑 PHP 的进程就是 worker，这张表说的是它们跑什么、有多少个、以及 master 什么时候把某一个收走。master 拿这些数字做什么，见[进程模型](/zh/docs/process-model)。
 
-`http` 插件管理此 PHP worker 进程池。`otel` 插件管理一个导出器进程，没有 PHP 进程池。
+`http` 插件管理此 PHP worker 进程池。gRPC 监听器使用独立的 `[grpc.pool]` 表。
 
 | 键 | 类型 | 默认值 | 含义 |
 | --- | --- | --- | --- |
@@ -166,28 +173,33 @@ sendfile 根目录就是 `sendFile()` 能读取的那个目录。Rapira 会把�
 
 空闲数的上下界是按 `processes` 校验的。
 
-## `[otel]` 小节 {#otel}
+## `[grpc]` 小节 {#grpc}
 
-此部分配置原生 OpenTelemetry 信号和通过 HTTP/protobuf 传输的 OTLP 导出。进程行为、数据传输限制和 PHP 上下文示例请参阅 [OpenTelemetry](./otel)。
+此部分启用明文 HTTP/2 上的原生一元 gRPC。完整的 PHP 服务和客户端命令请参阅 [gRPC](./grpc)。
 
 | 键 | 类型 | 默认值 | 含义 |
 | --- | --- | --- | --- |
-| `enabled` | 布尔值 | `false` | 启用原生遥测。未启用 Cargo feature `otel` 构建的二进制文件拒绝 `true`。 |
-| `endpoint` | 字符串 | `"http://localhost:4318"` | 包含主机的 HTTP 或 HTTPS 基础 URL。Rapira 在路径前缀后追加 `/v1/traces`、`/v1/logs` 和 `/v1/metrics`。 |
-| `service_name` | 字符串 | `"rapira"` | OTLP 资源属性 `service.name`。值不能为空。 |
-| `sample_ratio` | 数值 | `1.0` | 根追踪采样比例。必须是有限数，范围为 `0.0` 到 `1.0`，包含两端。 |
-| `traces` | 布尔值 | `true` | 导出原生 span。`false` 保留上下文传播。 |
-| `logs` | 布尔值 | `true` | 导出日志记录，独立于 stderr 过滤。 |
-| `metrics` | 布尔值 | `true` | 导出原生指标。 |
-| `batch_size` | 整数 | `512` | 导出批次的记录数。至少为 1，最多为 `queue_size`。 |
-| `queue_size` | 整数 | `2048` | 导出队列可容纳的记录数。至少为 1。 |
-| `flush_interval_ms` | 整数 | `1000` | worker 指标收集和导出器批次刷新间隔，单位为毫秒。范围为 1 到 `86400000`。 |
-| `export_timeout_secs` | 整数 | `5` | 导出超时和正常关闭时的排空时限，单位为秒。范围为 1 到 `86400`。 |
-| `headers` | 字符串 → 字符串映射 | 空 | 额外的 OTLP HTTP 请求头。名称和值必须符合 HTTP 语法。也接受 `[otel.headers]` 表。 |
+| `listen` | 字符串 | `"127.0.0.1:9001"` | TCP 地址或 `unix:` 套接字路径。使用与 `http.listen` 相同的地址语法。 |
+| `protos` | 字符串列表 | 无，必填 | 用于递归搜索应用 `.proto` 文件的目录。列表必须至少包含一个目录。 |
+| `import_paths` | 字符串列表 | 空 | 用于导入模式定义的额外目录。仅通过导入获得的服务不是应用路由。 |
+| `reflection` | 布尔值 | `true` | 启用 v1 和 v1alpha 反射服务。 |
+| `interceptors` | 字符串列表 | 空 | 独立二进制程序接受空列表。Rust 宿主可以通过插件 API 提供拦截器。 |
+| `max_request_message_size_mb` | 整数 | `4` | 请求消息大小限制，单位为 MiB。必须至少为 1。压缩和未压缩的数据都必须符合限制。 |
+| `max_response_message_size_mb` | 整数 | `4` | 响应消息大小限制，单位为 MiB。必须至少为 1。压缩和未压缩的数据都必须符合限制。 |
 
-ParentBased 采样器遵循传入父上下文的 sampled 或 unsampled 状态。`sample_ratio` 仅控制根追踪。`traces`、`logs` 和 `metrics` 是相互独立的导出开关。设置 `enabled = false` 时，PHP 追踪上下文 API 返回空数组。
+路径以配置文件所在目录为基准。导入根目录按配置顺序使用：先使用 `protos`，再使用 `import_paths`。标准 `google/protobuf` 导入已内置。无效的模式定义、导入缺失、定义冲突或应用流式方法都会阻止初始化。
 
-Rapira 从 TOML 读取这些设置，不读取 `OTEL_*` 环境变量。PHP SDK 的配置相互独立。
+### `[grpc.compression.gzip]` 表
+
+| 键 | 类型 | 默认值 | 含义 |
+| --- | --- | --- | --- |
+| `enabled` | 布尔值 | `false` | 客户端在 `grpc-accept-encoding` 中声明支持 gzip 时，启用应用 gzip 响应。无论此值如何，服务器都接受 gzip 请求。 |
+
+### `[grpc.pool]` 表 {#grpc-pool}
+
+此表使用 [HTTP 进程池的键和默认值](#http-pool)，且必须提供 `entrypoint` 并设置 `mode = "dispatcher"`。Classic 和 Worker 模式会被拒绝。伸缩、空闲数量限制、回收和进程看门狗独立作用于此进程池。
+
+HTTP 和 gRPC 可以同时运行。每个监听器使用自己的进程池和入口脚本。请重启 Rapira 以加载更改后的模式定义。
 
 ## `[supervisor]` 小节
 
@@ -200,13 +212,13 @@ master 进程的策略--监听 socket 归它掌管，worker 由它照看，你�
 
 ## `[log]` 小节
 
-此部分控制 stderr 日志级别和格式，不过滤 OTLP 信号。目标、格式和 PHP 诊断级别请参阅[日志](/zh/docs/logging)。
+此部分控制 stderr 日志级别和格式。目标、格式和 PHP 诊断级别请参阅[日志](/zh/docs/logging)。
 
 | 键 | 类型 | 默认值 | 含义 |
 | --- | --- | --- | --- |
 | `level` | `"error"` \| `"warn"` \| `"info"` \| `"debug"` \| `"trace"` | `"error"` | 详细程度，一次性作用于所有 target。 |
 | `format` | `"plain"` \| `"json"` | `"plain"` | 记录的形态：便于人读的文本行（stderr 是终端时带颜色），或者每行一个 JSON 对象，喂给日志收集器。 |
-| `[log.targets]` | target → 级别 的表 | 空 | 在 `level` 之上按 target 单独覆盖。每个键都对应 Rapira 实际会用到的一个 target：`php` 是 PHP 自己的输出，`http` 是 HTTP 接入层。键按前缀匹配，所以 `php` 也覆盖 `php_sys::callbacks` 和它下面的一切。全部 target 列在[日志](/zh/docs/logging)那一页。 |
+| `[log.targets]` | target → 级别 的表 | 空 | 在 `level` 之上按 target 单独覆盖。每个键都对应 Rapira 实际会用到的一个 target：`php` 是 PHP 自己的输出。`http` 和 `grpc` 包含协议服务器的输出。键按前缀匹配，所以 `php` 也覆盖 `php_sys::callbacks` 和它下面的一切。全部 target 列在[日志](/zh/docs/logging)那一页。 |
 
 `[log.targets]` 键可以使用字母、数字、`_`、`:`、`.` 和 `-`。第一个字符必须是字母、数字或 `_`。 Rapira 会拒绝其他字符，因为过滤器可能将其解释为语法。 包含 `:` 或 `.` 的目标键必须加引号，因为 TOML 的裸键不允许这些字符。例如：
 
@@ -229,7 +241,7 @@ Rapira 还会验证值。它拒绝不支持的值，不会使用默认值替换�
 
 ## 相对路径
 
-五个键包含路径：`http.pool.entrypoint`、`supervisor.pidfile`、`http.static.root`、`http.sendfile.root` 和 `http.uploads.dir`。 每个相对路径都以配置文件目录为基准。 例如，`/etc/rapira/rapira.toml` 中的 `entrypoint = "app/worker.php"` 产生 `/etc/rapira/app/worker.php`。
+文件系统路径包括两个进程池的入口脚本、`grpc.protos`、`grpc.import_paths`、`supervisor.pidfile`、`http.static.root`、`http.sendfile.root` 和 `http.uploads.dir`。每个相对路径都以配置文件目录为基准。相对的 `unix:` 监听路径也使用此目录。例如，`/etc/rapira/rapira.toml` 中的 `entrypoint = "app/worker.php"` 产生 `/etc/rapira/app/worker.php`。
 
 ::: tip
 将 `rapira.toml` 保存在应用内。相对于此文件指定路径。 此结构允许移动应用目录而不更改路径。

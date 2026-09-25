@@ -459,6 +459,10 @@ gtag('config', 'G-Q7Z14B1SZ9');`],
     },
     siteTitle: false,
 
+    socialLinks: [
+      { icon: 'discord', link: 'https://discord.gg/z7dcFATc9Q', ariaLabel: 'Discord' },
+    ],
+
     search: {
       provider: 'local',
     },

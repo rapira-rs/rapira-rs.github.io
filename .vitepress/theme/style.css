@@ -802,6 +802,36 @@ body {
   font-size: 14px;
 }
 
+/* ===== TEAM CARDS (sponsor page) ===== */
+
+/* The cards render inside the markdown container, where `.vp-doc a`
+   would underline every link and repaint it in the brand color. */
+.vp-doc .VPTeamMembers a {
+  font-weight: inherit;
+  text-decoration: none;
+}
+
+/* Lay the cards out three to a row. The selectors carry the `.rapira-team`
+   wrapper so they outrank the theme's scoped grid and width rules whatever
+   order the stylesheets load in. */
+@media (min-width: 768px) {
+  .vp-doc .rapira-team .VPTeamMembers.small .container {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .vp-doc .rapira-team .VPTeamMembers.small.count-1 .container,
+  .vp-doc .rapira-team .VPTeamMembers.small.count-2 .container {
+    max-width: none;
+  }
+}
+
+/* The round GitHub mark reads smaller than the square glyphs next to it,
+   so it gets an optical size correction. */
+.vp-doc .rapira-team .VPTeamMembers .vpi-social-github {
+  width: 22px;
+  height: 22px;
+}
+
 /* ===== CODE BLOCKS ===== */
 
 .vp-doc .vp-code-group,

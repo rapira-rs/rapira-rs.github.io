@@ -46,6 +46,7 @@ Cele, pod którymi loguje sama Rapira:
 | `master` | nadzór: forki, zbieranie zakończonych procesów, podstawianie nowych workerów, przeładowania, skalowanie puli |
 | `http`   | warstwa HTTP: nasłuchy, obsługa pól żądania i odpowiedzi, wygaszanie           |
 | `grpc`   | nasłuchy gRPC, błędy transportu, zatrzymywanie |
+| `net`    | pętla akceptowania połączeń nasłuchów HTTP i gRPC, błędy akceptowania |
 | `ext`    | wyniki zadań rozszerzeń                                                        |
 | `php`    | wyjście i diagnostyka prosto z PHP                                             |
 | `app`    | wpisy zapisywane przez aplikację przez `\Rapira\log()`                        |

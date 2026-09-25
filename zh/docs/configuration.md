@@ -61,16 +61,12 @@ process_idle_timeout_secs = 10        # For ondemand scaling. Removes workers af
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
 
 [grpc]
-listen = "127.0.0.1:9001"
-protos = ["proto"]                     # Required. Directories containing application schemas.
-import_paths = []                      # Optional. Additional schema dependency directories.
-reflection = true
-interceptors = []                     # The standalone binary accepts an empty list.
-max_request_message_size_mb = 4
-max_response_message_size_mb = 4
-
-[grpc.compression.gzip]
-enabled = false                       # Enables gzip responses when the client accepts gzip.
+listen = "127.0.0.1:50051"
+descriptor_set = "api.binpb"          # Required. A FileDescriptorSet with its imports.
+services = ["example.v1.Echo"]        # Optional. Default: the services of the files that no other file imports.
+reflection = false
+default_timeout_secs = 30             # Optional. Deadline of a call without a client timeout.
+max_timeout_secs = 60                 # Optional. Upper limit for a client timeout.
 
 [grpc.pool]
 entrypoint = "grpc.php"
@@ -175,31 +171,24 @@ sendfile 根目录就是 `sendFile()` 能读取的那个目录。Rapira 会把�
 
 ## `[grpc]` 小节 {#grpc}
 
-此部分启用明文 HTTP/2 上的原生一元 gRPC。完整的 PHP 服务和客户端命令请参阅 [gRPC](./grpc)。
+此部分在一个监听器上启用一元 gRPC、gRPC-Web 和 Connect 调用。完整的 PHP 服务和客户端命令请参阅 [gRPC](./grpc)。
 
 | 键 | 类型 | 默认值 | 含义 |
 | --- | --- | --- | --- |
-| `listen` | 字符串 | `"127.0.0.1:9001"` | TCP 地址或 `unix:` 套接字路径。使用与 `http.listen` 相同的地址语法。 |
-| `protos` | 字符串列表 | 无，必填 | 用于递归搜索应用 `.proto` 文件的目录。列表必须至少包含一个目录。 |
-| `import_paths` | 字符串列表 | 空 | 用于导入模式定义的额外目录。仅通过导入获得的服务不是应用路由。 |
-| `reflection` | 布尔值 | `true` | 启用 v1 和 v1alpha 反射服务。 |
-| `interceptors` | 字符串列表 | 空 | 独立二进制程序接受空列表。Rust 宿主可以通过插件 API 提供拦截器。 |
-| `max_request_message_size_mb` | 整数 | `4` | 请求消息大小限制，单位为 MiB。必须至少为 1。压缩和未压缩的数据都必须符合限制。 |
-| `max_response_message_size_mb` | 整数 | `4` | 响应消息大小限制，单位为 MiB。必须至少为 1。压缩和未压缩的数据都必须符合限制。 |
+| `listen` | 字符串 | `"127.0.0.1:50051"` | TCP 地址或 `unix:` 套接字路径。使用与 `http.listen` 相同的地址语法。 |
+| `descriptor_set` | 字符串 | 无，必填 | 二进制 `google.protobuf.FileDescriptorSet` 的路径，该文件包含所有导入的文件。使用 `buf build --as-file-descriptor-set` 或 `protoc --include_imports` 构建它。 |
+| `services` | 字符串列表 | 未设置 | 所提供服务的完全限定名称。未设置时，进程池提供集合中未被其他文件导入的文件里的服务。列表不能为空。 |
+| `reflection` | 布尔值 | `false` | 启用 `grpc.reflection.v1` 和 `v1alpha` 服务。 |
+| `default_timeout_secs` | 整数 | 未设置 | 没有客户端超时的调用的截止时间。未设置时，此类调用没有截止时间。 |
+| `max_timeout_secs` | 整数 | 未设置 | 客户端超时的上限。未设置时，没有上限。 |
 
-路径以配置文件所在目录为基准。导入根目录按配置顺序使用：先使用 `protos`，再使用 `import_paths`。标准 `google/protobuf` 导入已内置。无效的模式定义、导入缺失、定义冲突或应用流式方法都会阻止初始化。
-
-### `[grpc.compression.gzip]` 表
-
-| 键 | 类型 | 默认值 | 含义 |
-| --- | --- | --- | --- |
-| `enabled` | 布尔值 | `false` | 客户端在 `grpc-accept-encoding` 中声明支持 gzip 时，启用应用 gzip 响应。无论此值如何，服务器都接受 gzip 请求。 |
+master 在 fork 出 worker 前加载描述符集。以下错误会阻止初始化：Rapira 无法读取或解码的描述符集、不含其导入文件的描述符集，以及没有可提供服务的描述符集。不在描述符集中的 `services` 条目、重复的条目，以及指向健康检查服务或反射服务的条目也会阻止初始化。`default_timeout_secs` 不能大于 `max_timeout_secs`。
 
 ### `[grpc.pool]` 表 {#grpc-pool}
 
 此表使用 [HTTP 进程池的键和默认值](#http-pool)，且必须提供 `entrypoint` 并设置 `mode = "dispatcher"`。Classic 和 Worker 模式会被拒绝。伸缩、空闲数量限制、回收和进程看门狗独立作用于此进程池。
 
-HTTP 和 gRPC 可以同时运行。每个监听器使用自己的进程池和入口脚本。请重启 Rapira 以加载更改后的模式定义。
+HTTP 和 gRPC 可以同时运行。每个监听器使用自己的进程池和入口脚本。请重启 Rapira 以加载更改后的描述符集。重载会保留旧的描述符集。
 
 ## `[supervisor]` 小节
 
@@ -218,7 +207,7 @@ master 进程的策略--监听 socket 归它掌管，worker 由它照看，你�
 | --- | --- | --- | --- |
 | `level` | `"error"` \| `"warn"` \| `"info"` \| `"debug"` \| `"trace"` | `"error"` | 详细程度，一次性作用于所有 target。 |
 | `format` | `"plain"` \| `"json"` | `"plain"` | 记录的形态：便于人读的文本行（stderr 是终端时带颜色），或者每行一个 JSON 对象，喂给日志收集器。 |
-| `[log.targets]` | target → 级别 的表 | 空 | 在 `level` 之上按 target 单独覆盖。每个键都对应 Rapira 实际会用到的一个 target：`php` 是 PHP 自己的输出。`http` 和 `grpc` 包含协议服务器的输出。键按前缀匹配，所以 `php` 也覆盖 `php_sys::callbacks` 和它下面的一切。全部 target 列在[日志](/zh/docs/logging)那一页。 |
+| `[log.targets]` | target → 级别 的表 | 空 | 在 `level` 之上按 target 单独覆盖。每个键都对应 Rapira 实际会用到的一个 target：`php` 是 PHP 自己的输出。`http` 和 `grpc` 包含协议服务器的输出。`net` 包含接收循环（accept loop）的记录。键按前缀匹配，所以 `php` 也覆盖 `php_sys::callbacks` 和它下面的一切。全部 target 列在[日志](/zh/docs/logging)那一页。 |
 
 `[log.targets]` 键可以使用字母、数字、`_`、`:`、`.` 和 `-`。第一个字符必须是字母、数字或 `_`。 Rapira 会拒绝其他字符，因为过滤器可能将其解释为语法。 包含 `:` 或 `.` 的目标键必须加引号，因为 TOML 的裸键不允许这些字符。例如：
 
@@ -241,7 +230,7 @@ Rapira 还会验证值。它拒绝不支持的值，不会使用默认值替换�
 
 ## 相对路径
 
-文件系统路径包括两个进程池的入口脚本、`grpc.protos`、`grpc.import_paths`、`supervisor.pidfile`、`http.static.root`、`http.sendfile.root` 和 `http.uploads.dir`。每个相对路径都以配置文件目录为基准。相对的 `unix:` 监听路径也使用此目录。例如，`/etc/rapira/rapira.toml` 中的 `entrypoint = "app/worker.php"` 产生 `/etc/rapira/app/worker.php`。
+文件系统路径包括两个进程池的入口脚本、`grpc.descriptor_set`、`supervisor.pidfile`、`http.static.root`、`http.sendfile.root` 和 `http.uploads.dir`。每个相对路径都以配置文件目录为基准。相对的 `unix:` 监听路径也使用此目录。例如，`/etc/rapira/rapira.toml` 中的 `entrypoint = "app/worker.php"` 产生 `/etc/rapira/app/worker.php`。
 
 ::: tip
 将 `rapira.toml` 保存在应用内。相对于此文件指定路径。 此结构允许移动应用目录而不更改路径。

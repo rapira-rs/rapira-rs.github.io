@@ -61,16 +61,12 @@ process_idle_timeout_secs = 10        # For ondemand scaling. Removes workers af
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
 
 [grpc]
-listen = "127.0.0.1:9001"
-protos = ["proto"]                     # Required. Directories containing application schemas.
-import_paths = []                      # Optional. Additional schema dependency directories.
-reflection = true
-interceptors = []                     # The standalone binary accepts an empty list.
-max_request_message_size_mb = 4
-max_response_message_size_mb = 4
-
-[grpc.compression.gzip]
-enabled = false                       # Enables gzip responses when the client accepts gzip.
+listen = "127.0.0.1:50051"
+descriptor_set = "api.binpb"          # Required. A FileDescriptorSet with its imports.
+services = ["example.v1.Echo"]        # Optional. Default: the services of the files that no other file imports.
+reflection = false
+default_timeout_secs = 30             # Optional. Deadline of a call without a client timeout.
+max_timeout_secs = 60                 # Optional. Upper limit for a client timeout.
 
 [grpc.pool]
 entrypoint = "grpc.php"
@@ -175,31 +171,24 @@ Progi zapasu sprawdzane są względem wartości `processes`.
 
 ## Sekcja `[grpc]` {#grpc}
 
-Ta sekcja włącza natywny unarny gRPC przez nieszyfrowany HTTP/2. Kompletną usługę PHP i polecenia klienta opisuje [gRPC](./grpc).
+Ta sekcja włącza unarne wywołania gRPC, gRPC-Web i Connect na jednym nasłuchu. Kompletną usługę PHP i polecenia klienta opisuje [gRPC](./grpc).
 
 | Klucz | Typ | Domyślnie | Znaczenie |
 | --- | --- | --- | --- |
-| `listen` | tekst | `"127.0.0.1:9001"` | Adres TCP lub ścieżka gniazda `unix:`. Używa tej samej składni adresu co `http.listen`. |
-| `protos` | lista tekstów | brak, wymagane | Katalogi do rekurencyjnego wyszukiwania plików `.proto` aplikacji. Lista musi zawierać co najmniej jeden katalog. |
-| `import_paths` | lista tekstów | pusta | Dodatkowe katalogi dla importowanych schematów. Usługi z plików dostępnych tylko przez import nie stają się trasami aplikacji. |
-| `reflection` | logiczny | `true` | Włącza usługi refleksji v1 i v1alpha. |
-| `interceptors` | lista tekstów | pusta | Samodzielny plik binarny akceptuje pustą listę. Hosty napisane w Rust mogą dostarczać interceptory przez API wtyczki. |
-| `max_request_message_size_mb` | liczba całkowita | `4` | Limit komunikatu żądania w MiB. Co najmniej 1. Zarówno skompresowane, jak i nieskompresowane dane muszą mieścić się w limicie. |
-| `max_response_message_size_mb` | liczba całkowita | `4` | Limit komunikatu odpowiedzi w MiB. Co najmniej 1. Zarówno skompresowane, jak i nieskompresowane dane muszą mieścić się w limicie. |
+| `listen` | tekst | `"127.0.0.1:50051"` | Adres TCP lub ścieżka gniazda `unix:`. Używa tej samej składni adresu co `http.listen`. |
+| `descriptor_set` | tekst | brak, wymagane | Ścieżka binarnego `google.protobuf.FileDescriptorSet`, który zawiera wszystkie importowane pliki. Zbuduj go poleceniem `buf build --as-file-descriptor-set` lub `protoc --include_imports`. |
+| `services` | lista tekstów | nieustawione | W pełni kwalifikowane nazwy obsługiwanych usług. Gdy klucz nie jest ustawiony, pula obsługuje usługi z plików, których nie importuje żaden inny plik zestawu. Lista nie może być pusta. |
+| `reflection` | logiczny | `false` | Włącza usługi `grpc.reflection.v1` i `v1alpha`. |
+| `default_timeout_secs` | liczba całkowita | nieustawione | Termin zakończenia wywołania, dla którego klient nie podał limitu czasu. Gdy klucz nie jest ustawiony, takie wywołanie nie ma terminu zakończenia. |
+| `max_timeout_secs` | liczba całkowita | nieustawione | Górna granica limitu czasu klienta. Gdy klucz nie jest ustawiony, granica nie istnieje. |
 
-Ścieżki są rozwiązywane względem katalogu pliku konfiguracyjnego. Katalogi główne importów są używane w kolejności konfiguracji: najpierw `protos`, potem `import_paths`. Standardowe importy `google/protobuf` są wbudowane. Nieprawidłowe schematy, brakujące importy, sprzeczne definicje i metody strumieniowe aplikacji zatrzymują inicjalizację.
-
-### Tabela `[grpc.compression.gzip]`
-
-| Klucz | Typ | Domyślnie | Znaczenie |
-| --- | --- | --- | --- |
-| `enabled` | logiczny | `false` | Włącza kompresję gzip odpowiedzi aplikacji, gdy klient zgłasza obsługę gzip w `grpc-accept-encoding`. Żądania gzip są akceptowane przy obu ustawieniach. |
+Proces nadrzędny wczytuje zestaw deskryptorów przed forkowaniem workerów. Te błędy zatrzymują inicjalizację: zestaw, którego Rapira nie może odczytać lub zdekodować, zestaw bez importowanych plików i zestaw bez usługi do obsługi. Zatrzymuje ją też wpis `services`, którego nie ma w zestawie, powtórzony wpis oraz wpis, który wskazuje usługę health lub refleksji. `default_timeout_secs` nie może być większe niż `max_timeout_secs`.
 
 ### Tabela `[grpc.pool]` {#grpc-pool}
 
 Ta tabela używa [kluczy i wartości domyślnych puli HTTP](#http-pool), z wymaganym `entrypoint` i `mode = "dispatcher"`. Tryby Classic i Worker są odrzucane. Skalowanie, limity zapasu bezczynnych workerów, wymiana workerów i nadzór nad czasem działania procesów dotyczą tej puli niezależnie.
 
-HTTP i gRPC mogą działać razem. Każdy nasłuch używa własnej puli i skryptu wejściowego. Uruchom ponownie Rapirę, aby wczytać zmienione schematy.
+HTTP i gRPC mogą działać razem. Każdy nasłuch używa własnej puli i skryptu wejściowego. Uruchom ponownie Rapirę, aby wczytać zmieniony zestaw deskryptorów. Przeładowanie zachowuje stary zestaw.
 
 ## Sekcja `[supervisor]`
 
@@ -218,7 +207,7 @@ Ta sekcja steruje poziomem i formatem logów stderr. Cele, formaty i poziomy dia
 | --- | --- | --- | --- |
 | `level` | `"error"` \| `"warn"` \| `"info"` \| `"debug"` \| `"trace"` | `"error"` | Poziom szczegółowości, wspólny od razu dla wszystkich celów. |
 | `format` | `"plain"` \| `"json"` | `"plain"` | Kształt rekordu: czytelne dla człowieka linie (kolorowane, gdy stderr jest terminalem) albo jeden obiekt JSON na linię dla kolektora logów. |
-| `[log.targets]` | tabela cel → poziom | pusta | Nadpisania dla poszczególnych celów, nakładane na `level`. Każdy klucz nazywa jeden z celów, pod którymi Rapira pisze: `php` niesie wyjście samego PHP, a `http` i `grpc` wyjście serwerów odpowiednich protokołów. Klucz dopasowuje się po prefiksie, więc `php` obejmuje też `php_sys::callbacks` i wszystko poniżej. Pełną listę celów mają [Logi](/pl/docs/logging). |
+| `[log.targets]` | tabela cel → poziom | pusta | Nadpisania dla poszczególnych celów, nakładane na `level`. Każdy klucz nazywa jeden z celów, pod którymi Rapira pisze: `php` niesie wyjście samego PHP, a `http` i `grpc` wyjście serwerów odpowiednich protokołów. `net` zawiera wpisy pętli akceptowania połączeń. Klucz dopasowuje się po prefiksie, więc `php` obejmuje też `php_sys::callbacks` i wszystko poniżej. Pełną listę celów mają [Logi](/pl/docs/logging). |
 
 Klucz `[log.targets]` może zawierać litery, cyfry, `_`, `:`, `.` i `-`. Musi zaczynać się literą, cyfrą lub `_`. Rapira odrzuca inne znaki, ponieważ filtr może odczytać je jako składnię. Klucz celu zawierający `:` lub `.` musi być ujęty w cudzysłów, ponieważ TOML nie zezwala na te znaki w prostym kluczu bez cudzysłowu. Na przykład:
 
@@ -241,7 +230,7 @@ Walidacja odbywa się, zanim cokolwiek wystartuje, więc nierozpoznany klucz prz
 
 ## Ścieżki względne
 
-Ścieżki systemu plików obejmują skrypty wejściowe obu pul, `grpc.protos`, `grpc.import_paths`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root` i `http.uploads.dir`. Każda ścieżka względna używa katalogu pliku konfiguracyjnego jako podstawy. Względne ścieżki nasłuchów `unix:` także używają tego katalogu. Na przykład `entrypoint = "app/worker.php"` w `/etc/rapira/rapira.toml` daje `/etc/rapira/app/worker.php`.
+Ścieżki systemu plików obejmują skrypty wejściowe obu pul, `grpc.descriptor_set`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root` i `http.uploads.dir`. Każda ścieżka względna używa katalogu pliku konfiguracyjnego jako podstawy. Względne ścieżki nasłuchów `unix:` także używają tego katalogu. Na przykład `entrypoint = "app/worker.php"` w `/etc/rapira/rapira.toml` daje `/etc/rapira/app/worker.php`.
 
 ::: tip
 Przechowuj `rapira.toml` w aplikacji. Zapisuj ścieżki względem tego pliku. Ten układ umożliwia przenoszenie katalogu aplikacji bez zmiany ścieżek.

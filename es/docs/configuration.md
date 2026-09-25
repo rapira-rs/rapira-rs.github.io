@@ -61,16 +61,12 @@ process_idle_timeout_secs = 10        # For ondemand scaling. Removes workers af
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
 
 [grpc]
-listen = "127.0.0.1:9001"
-protos = ["proto"]                     # Required. Directories containing application schemas.
-import_paths = []                      # Optional. Additional schema dependency directories.
-reflection = true
-interceptors = []                     # The standalone binary accepts an empty list.
-max_request_message_size_mb = 4
-max_response_message_size_mb = 4
-
-[grpc.compression.gzip]
-enabled = false                       # Enables gzip responses when the client accepts gzip.
+listen = "127.0.0.1:50051"
+descriptor_set = "api.binpb"          # Required. A FileDescriptorSet with its imports.
+services = ["example.v1.Echo"]        # Optional. Default: the services of the files that no other file imports.
+reflection = false
+default_timeout_secs = 30             # Optional. Deadline of a call without a client timeout.
+max_timeout_secs = 60                 # Optional. Upper limit for a client timeout.
 
 [grpc.pool]
 entrypoint = "grpc.php"
@@ -175,31 +171,24 @@ Los umbrales de reserva se comprueban contra el valor de `processes`.
 
 ## La sección `[grpc]` {#grpc}
 
-Esta sección activa gRPC unario nativo sobre HTTP/2 sin cifrar. Consulta [gRPC](./grpc) para ver un servicio PHP completo y comandos de cliente.
+Esta sección activa llamadas unarias gRPC, gRPC-Web y Connect en una sola escucha. Consulta [gRPC](./grpc) para ver un servicio PHP completo y comandos de cliente.
 
 | Clave | Tipo | Por defecto | Significado |
 | --- | --- | --- | --- |
-| `listen` | cadena | `"127.0.0.1:9001"` | Dirección TCP o ruta de socket `unix:`. Usa la misma sintaxis de dirección que `http.listen`. |
-| `protos` | lista de cadenas | ninguna, obligatoria | Directorios donde buscar de forma recursiva los archivos `.proto` de la aplicación. La lista debe contener al menos un directorio. |
-| `import_paths` | lista de cadenas | vacía | Directorios adicionales para los esquemas importados. Los servicios que solo se importan no son rutas de la aplicación. |
-| `reflection` | booleano | `true` | Activa los servicios de reflexión v1 y v1alpha. |
-| `interceptors` | lista de cadenas | vacía | El binario independiente acepta una lista vacía. Los hosts Rust pueden proporcionar interceptores mediante la API de plugins. |
-| `max_request_message_size_mb` | entero | `4` | Límite de mensajes de petición en MiB. Debe ser al menos 1. Tanto el contenido comprimido como el descomprimido deben respetar el límite. |
-| `max_response_message_size_mb` | entero | `4` | Límite de mensajes de respuesta en MiB. Debe ser al menos 1. Tanto el contenido comprimido como el descomprimido deben respetar el límite. |
+| `listen` | cadena | `"127.0.0.1:50051"` | Dirección TCP o ruta de socket `unix:`. Usa la misma sintaxis de dirección que `http.listen`. |
+| `descriptor_set` | cadena | ninguna, obligatoria | Ruta de un `google.protobuf.FileDescriptorSet` binario que contiene todos los archivos importados. Genéralo con `buf build --as-file-descriptor-set` o `protoc --include_imports`. |
+| `services` | lista de cadenas | sin definir | Nombres completos de los servicios atendidos. Si no se define, el pool atiende los servicios de los archivos que ningún otro archivo del conjunto importa. La lista no puede estar vacía. |
+| `reflection` | booleano | `false` | Activa los servicios `grpc.reflection.v1` y `v1alpha`. |
+| `default_timeout_secs` | entero | sin definir | Plazo de una llamada que no tiene tiempo de espera del cliente. Si no se define, esa llamada no tiene plazo. |
+| `max_timeout_secs` | entero | sin definir | Límite superior del tiempo de espera del cliente. Si no se define, no hay límite. |
 
-Las rutas se resuelven respecto al directorio del archivo de configuración. Los directorios raíz de importación siguen el orden de la configuración: primero `protos` y después `import_paths`. Las importaciones estándar de `google/protobuf` están integradas. Los esquemas no válidos, las importaciones ausentes, las definiciones en conflicto y los métodos de aplicación en streaming impiden la inicialización.
-
-### La tabla `[grpc.compression.gzip]`
-
-| Clave | Tipo | Por defecto | Significado |
-| --- | --- | --- | --- |
-| `enabled` | booleano | `false` | Activa las respuestas gzip de la aplicación cuando el cliente anuncia gzip en `grpc-accept-encoding`. Se aceptan peticiones gzip con ambos valores. |
+El maestro carga el descriptor set antes de crear los workers con fork. Estos errores impiden la inicialización: un conjunto que Rapira no puede leer ni decodificar, un conjunto sin sus importaciones y un conjunto sin ningún servicio que atender. También la impiden una entrada de `services` que no está en el conjunto, una entrada duplicada y una entrada que nombra el servicio de salud o el de reflexión. `default_timeout_secs` no puede ser mayor que `max_timeout_secs`.
 
 ### La tabla `[grpc.pool]` {#grpc-pool}
 
 Esta tabla usa las [claves y los valores predeterminados del pool HTTP](#http-pool), con un `entrypoint` obligatorio y `mode = "dispatcher"`. Se rechazan los modos Classic y Worker. El escalado, los límites de reserva, el reciclaje y el mecanismo de vigilancia del proceso se aplican a este pool de forma independiente.
 
-HTTP y gRPC pueden ejecutarse juntos. Cada escucha usa su propio pool y script de entrada. Reinicia Rapira para cargar los esquemas modificados.
+HTTP y gRPC pueden ejecutarse juntos. Cada escucha usa su propio pool y script de entrada. Reinicia Rapira para cargar un descriptor set modificado. Una recarga conserva el conjunto anterior.
 
 ## La sección `[supervisor]`
 
@@ -218,7 +207,7 @@ Esta sección controla el nivel y el formato de los registros de stderr. Consult
 | --- | --- | --- | --- |
 | `level` | `"error"` \| `"warn"` \| `"info"` \| `"debug"` \| `"trace"` | `"error"` | El nivel de detalle, aplicado a todos los targets a la vez. |
 | `format` | `"plain"` \| `"json"` | `"plain"` | La forma de cada entrada: líneas legibles para una persona (con color cuando stderr es un terminal), o un objeto JSON por línea para un recolector de registros. |
-| `[log.targets]` | tabla de target → nivel | vacía | Ajustes por target que se aplican encima de `level`. Cada clave nombra uno de los targets bajo los que Rapira emite: `php` lleva la salida del propio PHP. `http` y `grpc` contienen la salida de los servidores de protocolo. La coincidencia es por prefijo, así que `php` cubre también `php_sys::callbacks` y todo lo que cuelgue de ahí. En [Registros](/es/docs/logging) están todos los targets. |
+| `[log.targets]` | tabla de target → nivel | vacía | Ajustes por target que se aplican encima de `level`. Cada clave nombra uno de los targets bajo los que Rapira emite: `php` lleva la salida del propio PHP. `http` y `grpc` contienen la salida de los servidores de protocolo. `net` contiene los registros del bucle de aceptación. La coincidencia es por prefijo, así que `php` cubre también `php_sys::callbacks` y todo lo que cuelgue de ahí. En [Registros](/es/docs/logging) están todos los targets. |
 
 Una clave de `[log.targets]` puede usar letras, dígitos, `_`, `:`, `.` y `-`. Debe empezar con una letra, un dígito o `_`. Rapira rechaza otros caracteres porque el filtro puede interpretarlos como sintaxis. Una clave de target que contiene `:` o `.` debe ir entre comillas porque TOML no permite estos caracteres en una clave simple sin comillas. Por ejemplo:
 
@@ -241,7 +230,7 @@ La validación ocurre antes de que arranque nada, así que una clave que no se r
 
 ## Rutas relativas
 
-Las rutas del sistema de archivos incluyen los scripts de entrada de ambos pools, `grpc.protos`, `grpc.import_paths`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root` y `http.uploads.dir`. Cada ruta relativa usa como base el directorio del archivo de configuración. Las rutas relativas de escucha `unix:` también usan este directorio. Por ejemplo, `entrypoint = "app/worker.php"` en `/etc/rapira/rapira.toml` produce `/etc/rapira/app/worker.php`.
+Las rutas del sistema de archivos incluyen los scripts de entrada de ambos pools, `grpc.descriptor_set`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root` y `http.uploads.dir`. Cada ruta relativa usa como base el directorio del archivo de configuración. Las rutas relativas de escucha `unix:` también usan este directorio. Por ejemplo, `entrypoint = "app/worker.php"` en `/etc/rapira/rapira.toml` produce `/etc/rapira/app/worker.php`.
 
 ::: tip
 Guarda `rapira.toml` dentro de la aplicación. Escribe sus rutas respecto al archivo. Este diseño permite mover el directorio de la aplicación sin cambiar las rutas.

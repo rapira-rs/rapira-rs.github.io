@@ -1,17 +1,17 @@
 ---
 title: gRPC
-description: "配置一元 gRPC 服务，编写 PHP dispatcher，并使用 grpcurl 调用服务。"
+description: "通过 PHP dispatcher 提供一元 gRPC、gRPC-Web 和 Connect 调用，并使用 grpcurl 或 curl 调用服务。"
 ---
 
 # gRPC
 
-Rapira 通过 TCP 或 Unix 套接字上的明文 HTTP/2 提供原生 gRPC 服务。每个 PHP worker 一次处理一个一元调用。一元调用包含一个请求消息和一个响应消息。
+Rapira 通过 PHP 处理一元 RPC 调用。一个监听器通过 HTTP/1.1 或明文 HTTP/2，在 TCP 或 Unix 套接字上接受 gRPC、gRPC-Web 和 Connect 调用。一元调用包含一个请求消息和一个响应消息。
 
-gRPC 进程池使用 Dispatcher 模式。Rapira 处理传输，并将二进制 protobuf 消息传给 PHP。不支持应用流式方法、gRPC-Web 和 Connect。TLS 代理与 Rapira 之间的上游连接必须使用 HTTP/2。
+gRPC 进程池使用 Dispatcher 模式。Rapira 处理传输，并将二进制 protobuf 消息传给 PHP。每个 PHP worker 一次处理一个调用。不支持流式方法。监听器不终止 TLS。
 
 ## 运行回显服务
 
-安装支持原生 gRPC 的 Rapira。安装 [grpcurl](https://github.com/fullstorydev/grpcurl#installation) 以运行客户端命令。此示例将请求字节原样返回为响应。它不需要生成的 PHP 类，也不需要 PHP gRPC 扩展。
+安装 Rapira。安装 [buf](https://buf.build/docs/installation/) 以构建描述符集，并安装 [grpcurl](https://github.com/fullstorydev/grpcurl#installation) 以运行客户端命令。此示例将请求字节原样返回为响应。它不需要生成的 PHP 类，也不需要 PHP gRPC 扩展。
 
 创建以下目录结构：
 
@@ -44,7 +44,23 @@ message EchoMessage {
 }
 ```
 
-Rapira 在启动时解析模式定义。路由为 `/example.v1.Echo/Echo`。PHP 上下文中的方法名为 `example.v1.Echo/Echo`，不含开头的斜杠。
+路由为 `/example.v1.Echo/Echo`。PHP 上下文中的方法名为 `example.v1.Echo/Echo`，不含开头的斜杠。
+
+### 构建描述符集
+
+Rapira 从描述符集读取模式定义。描述符集是一个二进制 `google.protobuf.FileDescriptorSet`，包含所有导入的文件。在 `app/` 中构建它：
+
+```sh
+buf build proto --as-file-descriptor-set -o api.binpb
+```
+
+也可以使用 `protoc` 构建。请添加 `--include_imports`，因为没有此选项时 `protoc` 不包含导入的文件：
+
+```sh
+protoc --include_imports --descriptor_set_out=api.binpb -I proto proto/echo.proto
+```
+
+Rapira 运行时不需要 `protoc` 可执行文件。
 
 ### 编写 PHP dispatcher
 
@@ -84,8 +100,8 @@ try {
 
 ```toml
 [grpc]
-listen = "127.0.0.1:9001"
-protos = ["proto"]
+listen = "127.0.0.1:50051"
+descriptor_set = "api.binpb"
 reflection = true
 
 [grpc.pool]
@@ -94,7 +110,7 @@ mode = "dispatcher"
 processes = 2
 ```
 
-`protos` 包含目录。Rapira 在这些目录中递归搜索 `.proto` 文件。相对路径以配置文件所在目录为基准。仅使用 gRPC 的配置不需要 `[http]` 部分。
+`descriptor_set` 以配置文件所在目录为基准。仅使用 gRPC 的配置不需要 `[http]` 部分。
 
 从 `app/` 启动服务器：
 
@@ -107,13 +123,13 @@ rapira serve rapira.toml
 在另一个终端中列出服务：
 
 ```sh
-grpcurl -plaintext 127.0.0.1:9001 list
+grpcurl -plaintext 127.0.0.1:50051 list
 ```
 
 调用回显方法：
 
 ```sh
-grpcurl -plaintext -d '{"text":"hello"}' 127.0.0.1:9001 example.v1.Echo/Echo
+grpcurl -plaintext -d '{"text":"hello"}' 127.0.0.1:50051 example.v1.Echo/Echo
 ```
 
 响应如下：
@@ -124,11 +140,17 @@ grpcurl -plaintext -d '{"text":"hello"}' 127.0.0.1:9001 example.v1.Echo/Echo
 }
 ```
 
-这些命令通过反射获取模式定义。在地址前添加 `-v` 可以查看响应头和尾部字段。
+grpcurl 通过反射获取模式定义。在地址前添加 `-v` 可以查看响应头和尾部字段。
+
+Connect 客户端可以发送 JSON。Rapira 在 PHP 收到请求前将 JSON 请求转换为二进制 protobuf，并将二进制响应转换回 JSON：
+
+```sh
+curl -H 'Content-Type: application/json' -d '{"text":"hello"}' http://127.0.0.1:50051/example.v1.Echo/Echo
+```
 
 ## 使用生成的 PHP 消息类
 
-当 handler 需要读取或修改消息字段时，请生成 PHP 类。安装 `protoc` 和 Composer 以完成此构建步骤。服务器自行解析 `.proto` 文件，运行时不需要 `protoc` 可执行文件。
+当 handler 需要读取或修改消息字段时，请生成 PHP 类。安装 `protoc` 和 Composer 以完成此构建步骤。
 
 在 `app/` 中安装 PHP protobuf 运行时：
 
@@ -182,7 +204,7 @@ $message->setText(strtoupper($message->getText()));
 $call->respond($message->serializeToString());
 ```
 
-重启示例服务器。相同的客户端调用现在返回 `{"text":"HELLO"}`。在应用 handler 中捕获 protobuf 解析异常，并将其转换为 `StatusCode::InvalidArgument`。
+重启示例服务器。相同的客户端调用现在返回 `{"text":"HELLO"}`。在应用 handler 中捕获 protobuf 解析异常，并发送 `StatusCode::InvalidArgument`。
 
 [PHP 生成代码指南](https://protobuf.dev/reference/php/php-generated/)说明消息访问方法和序列化。此服务器 API 不需要 PHP gRPC 扩展。
 
@@ -193,18 +215,20 @@ $call->respond($message->serializeToString());
 | API | 行为 |
 | --- | --- |
 | `receive(int $timeout = -1)` | 返回下一个 `UnaryCall`。等待时限以微秒为单位。`-1` 表示无限等待。超时后抛出 `Rapira\Exception\TimeoutException`。 |
-| `tryReceive()` | 立即返回 `UnaryCall` 或 `null`。 |
-| `getServices()` | 列出应用服务及其方法、输入类型、输出类型和方法种类。首次调用前即可使用。 |
+| `tryReceive()` | 返回 `UnaryCall`；没有等待中的调用时返回 `null`。它不等待。 |
+| `getServices()` | 列出所提供的服务及其方法、输入类型、输出类型和方法种类。列表包含流式方法。首次调用前即可使用。 |
 | `$call->getContext()` | 返回方法、元数据、对端地址、协议、接收时间和截止时间。 |
-| `$call->getMessage()` | 以 PHP 字符串返回请求的 protobuf 字节。 |
-| `$call->respond(string $message)` | 用一个序列化的 protobuf 响应完成调用。 |
-| `$call->fail(Status $status)` | 用 gRPC 错误完成调用。 |
-| `$call->isCancelled()` | 报告客户端是否取消调用，或是否已到截止时间。 |
+| `$call->getMessage()` | 以 PHP 字符串返回二进制 protobuf 格式的请求消息。 |
+| `$call->respond(string $message)` | 用一个序列化的 protobuf 响应结束调用。 |
+| `$call->fail(Status $status)` | 用 gRPC 错误状态结束调用。 |
+| `$call->isCancelled()` | 报告客户端取消、连接关闭或截止时间已到。 |
 | `$call->isFinalized()` | 报告调用是否已结束。 |
 
-先完成当前调用，再接收下一个调用。重复完成调用会抛出 `Rapira\Exception\AlreadyFinalizedError`。取消后响应会抛出 `WorkDiscardedException`。丢弃未完成的调用会向客户端报告 `INTERNAL`。
+先完成当前调用，再接收下一个调用。调用未结束时，`receive()` 抛出 `\Error`。重复完成调用会抛出 `Rapira\Exception\AlreadyFinalizedError`。取消后响应会抛出 `WorkDiscardedException`。
 
-模式定义包含多个方法时，请使用 `$call->getContext()->method` 选择 handler。在迭代之间清除应用中每次调用的专有状态。dispatcher 将 PHP 应用保留在内存中，不填充 HTTP 超全局变量。
+PHP 未完成的调用会丢失。此时客户端收到 `INTERNAL`，消息为 `internal error`。未捕获的 throwable 也会导致调用丢失，客户端看不到其消息。
+
+模式定义包含多个方法时，请使用 `$call->getContext()->method` 选择 handler。`$call->getContext()->protocol` 为 `Grpc`、`GrpcWeb` 或 `Connect`。在下一次迭代前清除本次调用的应用状态。dispatcher 不填充 HTTP 超全局变量。
 
 ## 返回错误和详细信息
 
@@ -217,13 +241,19 @@ $call->fail(new Rapira\Grpc\Status(
 ));
 ```
 
-`StatusCode` 包含 gRPC 错误码。成功的 `respond()` 提供 `OK` 状态。未捕获的异常导致调用被放弃时，Rapira 返回隐藏内部细节的 `INTERNAL` 状态。
+`StatusCode` 包含 gRPC 状态码。成功的 `respond()` 发送 `OK` 状态。`fail()` 是发送错误状态的唯一方式。
 
-`Status` 的第三个参数可选，是一个 `Rapira\Grpc\ErrorDetail` 对象列表。每个对象接受 protobuf 类型 URL 和序列化的消息字节。Rapira 将这些详细信息编码到 `grpc-status-details-bin` 中。`Rapira\Grpc\Exception\GrpcException` 公开 `$status` 属性，应用的 catch 块可以将其传给 `fail()`。
+`Status` 的第三个参数可选，是一个 `Rapira\Grpc\ErrorDetail` 对象列表。每个对象保存一个 protobuf 类型 URL 和序列化的消息字节。对于 gRPC 和 gRPC-Web，Rapira 在 `grpc-status-details-bin` 中发送这些详细信息。对于 Connect，Rapira 在 JSON 错误体中发送它们。
+
+Rapira 不捕获 `Rapira\Grpc\Exception\GrpcException`。请捕获它，并将其 `$status` 属性传给 `fail()`。
+
+Rapira 在 PHP 收到调用前拒绝该调用时，客户端收到 `UNAVAILABLE`。以下情况会发生这种拒绝：worker 队列持续满载 30 秒、进程池停止，或 worker 的 PHP 启动失败。
 
 ## 元数据
 
-从 `$call->getContext()->metadata` 读取请求元数据。`values($name)` 返回指定名称的所有值，且不区分名称大小写。只读的 `entries` 数组保存小写名称。在 PHP 中，以 `-bin` 结尾的名称所对应的值是原始二进制数据。
+从 `$call->getContext()->metadata` 读取请求元数据。`values($name)` 按到达顺序返回指定名称的所有值，且不区分名称大小写。只读的 `entries` 数组保存小写名称。
+
+Rapira 从请求元数据中删除传输层名称，例如 `grpc-timeout`、`content-type` 和 `te`。它丢弃不是可打印 ASCII 的文本值。对于以 `-bin` 结尾的名称，Rapira 按 `,` 拆分值，并对每一段进行 base64 解码。PHP 收到原始字节。无法解码的段会被丢弃。
 
 在 `respond()` 或 `fail()` 前添加响应元数据：
 
@@ -235,51 +265,80 @@ $metadata->addBinaryHeader('x-token-bin', "\x00\xff");
 $metadata->addTrailer('x-result', 'completed');
 ```
 
-`addHeader()` 和 `addTrailer()` 接受可打印的 ASCII 值。二进制值使用 `addBinaryHeader()` 或 `addBinaryTrailer()`。重复添加时会保留每个值。传输层保留的名称（例如 `grpc-status`）会被拒绝。
+`addHeader()` 和 `addTrailer()` 接受可打印的 ASCII 值。允许空值。Rapira 在发送文本值时删除其开头和结尾的空格。二进制值使用 `addBinaryHeader()` 或 `addBinaryTrailer()`。二进制值的名称必须以 `-bin` 结尾。
 
-`headers()` 和 `trailers()` 返回不可变的快照。调用结束时，响应元数据即固定。使用 grpcurl 的 `-H 'x-request-id: demo-1'` 选项传递请求元数据。
+按照 [gRPC 协议](https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md#requests)的规定，元数据名称只能包含 `0-9`、`a-z`、`_`、`-` 和 `.`。传输层名称、无效名称或无效值会抛出 `\ValueError`。重复的名称会添加一个值。
+
+`headers()` 和 `trailers()` 返回快照。对于 Connect，每个尾部字段都作为带 `trailer-` 前缀的头部发送。使用 grpcurl 的 `-H 'x-request-id: demo-1'` 选项传递请求元数据。
 
 ## 截止时间和取消
 
-客户端通过 `grpc-timeout` 提供截止时间。Rapira 在接收请求和等待 PHP 时检查此截止时间。`$call->getContext()->deadline` 是以秒为单位的 Unix 时间戳，或为 `null`。`receivedAt` 是以秒为单位的接收时间戳。
+客户端通过 `grpc-timeout`（gRPC 和 gRPC-Web）或 `connect-timeout-ms`（Connect）设置超时。`grpc.default_timeout_secs` 设置没有客户端超时的调用的超时。`grpc.max_timeout_secs` 将更长的客户端超时缩短为其值。两个键默认均未设置，因此没有客户端超时的调用没有截止时间。
 
-例如，在客户端设置两秒的调用时限：
+`$call->getContext()->deadline` 是以秒为单位的 Unix 时间戳形式的截止时间，或为 `null`。`receivedAt` 是 Rapira 读完整个请求消息的时间。
+
+例如，在客户端设置两秒的截止时间：
 
 ```sh
-grpcurl -plaintext -max-time 2 -d '{"text":"hello"}' 127.0.0.1:9001 example.v1.Echo/Echo
+grpcurl -plaintext -max-time 2 -d '{"text":"hello"}' 127.0.0.1:50051 example.v1.Echo/Echo
 ```
 
-取消后，PHP 代码可以继续运行。在长时间操作中检查 `isCancelled()`。在响应方法周围捕获 `WorkDiscardedException`，因为取消可能发生在检查之后。
+截止时间到达时，客户端收到 `DEADLINE_EXCEEDED`，`isCancelled()` 返回 `true`。Rapira 无法停止 PHP 代码，因此 PHP 会继续处理该调用。在长时间操作中检查 `isCancelled()`。在响应方法周围捕获 `WorkDiscardedException`，因为取消可能发生在检查之后。
 
-`receive()` 的超时限制 PHP 等待新工作的时间。它与调用的截止时间相互独立。`grpc.pool.request_terminate_timeout_secs` 是进程看门狗；活动调用超过其时限时，它会终止并替换 worker。
+`receive()` 的超时限制 PHP 等待新工作的时间。它与调用的截止时间无关。`grpc.pool.request_terminate_timeout_secs` 是进程看门狗。调用运行时间超过其时限时，它会替换 worker。
 
-## 模式定义和反射
+## 服务和反射
 
-master 在 fork 出 worker 前加载 proto2 和 proto3 模式定义。在 `protos` 下发现的文件会注册应用服务。仅通过 `import_paths` 找到的文件提供依赖类型和反射数据。
+master 在 fork 出 worker 前加载描述符集。无效的描述符集、不含其导入文件的描述符集或未知服务会阻止启动。更改描述符集后，需要停止并重新启动 Rapira。重载会保留旧的描述符集。
 
-导入根目录按配置顺序使用：先使用 `protos`，再使用 `import_paths`。标准 `google/protobuf` 导入已内置。导入缺失、定义冲突或应用流式方法都会阻止初始化。更改模式定义后，请重启 Rapira。
+默认情况下，进程池提供集合中未被其他文件导入的文件里的服务。被其他文件导入的文件是依赖项，例如 `google/longrunning/operations.proto`。其中的服务不会被提供。设置 `grpc.services` 以指定所提供的服务，例如 `["billing.v1.InvoiceService"]`。当多个 Rapira 实例共用一个描述符集，或需要提供某个导入文件中的服务时，请使用此键。
 
-反射默认启用。它在 Rust 中提供 `grpc.reflection.v1` 和 `grpc.reflection.v1alpha` 服务。它列出应用服务和反射服务，并提供包含自定义选项的描述符。PHP 的 `getServices()` 仅列出应用服务。
+流式方法、进程池未提供的服务中的方法以及未知方法都返回 `UNIMPLEMENTED`。启动时，Rapira 为所提供服务中的每个流式方法记录一条警告。
+
+反射默认禁用。设置 `reflection = true` 时，Rust 提供 `grpc.reflection.v1` 和 `grpc.reflection.v1alpha`。`ListServices` 返回所提供的服务。描述符集中的所有文件和符号都可获取，因此每个客户端都可以读取完整的描述符集。
 
 设置 `reflection = false` 时，请向客户端提供模式定义：
 
 ```sh
-grpcurl -plaintext -import-path proto -proto echo.proto -d '{"text":"hello"}' 127.0.0.1:9001 example.v1.Echo/Echo
+grpcurl -plaintext -import-path proto -proto echo.proto -d '{"text":"hello"}' 127.0.0.1:50051 example.v1.Echo/Echo
 ```
 
-## 压缩和消息大小限制
+## 健康检查
 
-服务器接受 gzip 请求。gzip 响应默认禁用。使用以下配置启用应用响应压缩：
+Rust 在每个 worker 中提供 [gRPC 健康检查协议](https://github.com/grpc/grpc/blob/master/doc/health-checking.md)（`grpc.health.v1.Health`）。对于空名称 `""` 和每个所提供的服务，`Check` 和 `Watch` 报告 `SERVING`。关闭期间，它们报告 `NOT_SERVING`。
 
-```toml
-[grpc.compression.gzip]
-enabled = true
+健康检查服务不检查 PHP。PHP 启动失败的 worker 报告 `SERVING`，而它的调用收到 `UNAVAILABLE`。`grpc.services` 不能指定健康检查服务或反射服务，因为 Rapira 自己提供这些服务。
+
+反射不列出健康检查服务。Connect JSON 请求不需要模式定义：
+
+```sh
+curl -H 'Content-Type: application/json' -d '{}' http://127.0.0.1:50051/grpc.health.v1.Health/Check
 ```
 
-客户端还必须在 `grpc-accept-encoding` 中声明支持 gzip。两个消息大小限制的默认值均为 4 MiB。设置 `grpc.max_request_message_size_mb` 和 `grpc.max_response_message_size_mb` 可以更改限制。压缩和未压缩的数据都必须符合所配置的限制。请配置客户端限制，使其能接受预期大小的响应。
+## 协议和限制
+
+- 无法解码的 Connect JSON 请求返回 `INVALID_ARGUMENT`，PHP 不会收到该调用。JSON 解码器忽略未知字段。它不忽略描述符集未声明的枚举值名称。
+- 带有 `option idempotency_level = NO_SIDE_EFFECTS;` 的方法也接受 Connect GET 请求。
+- 消息可以使用 gzip 压缩。使用其他消息编码的请求返回 `UNIMPLEMENTED`。
+- 消息大小限制为 4 MiB。更大的请求返回 `RESOURCE_EXHAUSTED`。
+- `$call->getContext()->tls` 始终为 `null`。客户端需要 TLS 时，请在监听器前放置 TLS 代理。对于原生 gRPC，代理与 Rapira 之间的连接必须使用 HTTP/2。
+- Rapira 每 10 秒向空闲连接发送一次 HTTP/2 keepalive PING。连接在 10 秒内没有响应时，Rapira 关闭该连接。
+
+::: warning 一个连接使用一个 worker
+一个 worker 进程服务每个连接。gRPC 客户端通常在一个 HTTP/2 连接上发送一个 channel 的所有调用。无论进程池大小如何，这样的客户端只能获得一个 worker 的吞吐量。要使用更多 worker，请打开多个连接，或使用能分发调用的 L7 负载均衡器。
+:::
 
 ## 同时运行 HTTP 和 gRPC
 
 一份配置可以同时包含 `[http]` 和 `[grpc]`。每个插件都有自己的监听器、PHP 入口脚本和 worker 进程池。master 监管两个进程池。gRPC 进程池支持与 HTTP 进程池相同的伸缩和回收设置，且使用 `mode = "dispatcher"`。
 
-独立二进制程序接受空的 `grpc.interceptors` 列表。Rust 宿主可以通过共享的 `Middleware` API 提供拦截器。所有 gRPC 设置请参阅[配置](./configuration#grpc)，进程池监管请参阅[进程模型](./process-model)。
+所有 gRPC 设置请参阅[配置](./configuration#grpc)，进程池监管请参阅[进程模型](./process-model)。
+
+## Windows
+
+[Windows 版本](https://github.com/rapira-rs/rapira-windows)提供相同的 gRPC 监听器和 PHP API。存在以下差异：
+
+- `grpc.listen` 只接受 TCP 地址。
+- gRPC 进程池是一个进程内 PHP 解释器线程的静态池。`grpc.pool.processes` 设置线程数。
+- `getmypid()` 在每个解释器中返回相同的进程 ID。
+- 任一进程池的 PHP 启动失败都会使服务器以退出码 70 停止。

@@ -48,6 +48,7 @@ Rapira uses these targets:
 | `master` | supervision: forks, reaps, respawns, reloads, pool scaling      |
 | `http`   | HTTP listeners, request and response field processing, shutdown |
 | `grpc`   | gRPC listeners, transport failures, shutdown                    |
+| `net`    | the accept loop of the HTTP and gRPC listeners, accept failures |
 | `ext`    | extension task outcomes                                          |
 | `php`    | output and diagnostics from PHP itself                          |
 | `app`    | records the application writes with `\Rapira\log()`              |

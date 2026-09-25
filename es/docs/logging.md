@@ -46,6 +46,7 @@ Estos son los targets bajo los que emite el propio Rapira:
 | `master` | la supervisión: forks, recogida de procesos, reinicios, recargas, escalado del pool |
 | `http`   | el frontal HTTP: los sockets de escucha, el tratamiento de los campos de petición y respuesta, el drenaje |
 | `grpc`   | las escuchas gRPC, los fallos de transporte, el apagado          |
+| `net`    | el bucle de aceptación de las escuchas HTTP y gRPC, los fallos de aceptación |
 | `ext`    | cómo acaban las tareas de las extensiones                       |
 | `php`    | la salida y los diagnósticos que vienen del propio PHP          |
 | `app`    | las entradas que la aplicación escribe con `\Rapira\log()`      |

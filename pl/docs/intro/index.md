@@ -31,6 +31,6 @@ Strona [Tryby wykonania](/pl/docs/execution-modes) opisuje działanie trybów i 
 
 ## gRPC
 
-Rapira obsługuje unarne wywołania gRPC przez nieszyfrowany HTTP/2. Aplikacja PHP odbiera i zwraca binarne komunikaty protobuf przez dyspozytora. Proces nadrzędny wczytuje schematy usług z plików `.proto` przed uruchomieniem workerów.
+Rapira obsługuje unarne wywołania gRPC, gRPC-Web i Connect na jednym nasłuchu. Aplikacja PHP odbiera i zwraca binarne komunikaty protobuf przez dyspozytora. Proces nadrzędny wczytuje schematy usług z zestawu deskryptorów przed uruchomieniem workerów.
 
 Pula gRPC używa trybu Dispatcher. HTTP i gRPC mogą działać razem z osobnymi skryptami wejściowymi. Kompletną usługę, generowanie klas protobuf i polecenia klienta opisuje [gRPC](../grpc).

@@ -46,6 +46,7 @@ Rapira 自己用的目标有这些：
 | `master` | 监管：fork、回收、重新拉起、重载、进程池伸缩         |
 | `http`   | HTTP 接入层：监听器、请求和响应的字段处理、排空      |
 | `grpc`   | gRPC 监听器、传输故障、关闭                          |
+| `net`    | HTTP 和 gRPC 监听器的接收循环、accept 失败           |
 | `ext`    | 扩展任务的执行结果                                   |
 | `php`    | 来自 PHP 本身的输出和诊断信息                        |
 | `app`    | 应用通过 `\Rapira\log()` 写入的记录                  |

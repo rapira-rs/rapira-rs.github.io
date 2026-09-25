@@ -31,6 +31,6 @@ Consulta [Modos de ejecución](/es/docs/execution-modes) para conocer el comport
 
 ## gRPC
 
-Rapira atiende llamadas gRPC unarias sobre HTTP/2 sin cifrar. La aplicación PHP recibe y devuelve mensajes protobuf binarios mediante un dispatcher. El maestro carga los esquemas de servicio desde archivos `.proto` antes de iniciar los workers.
+Rapira atiende llamadas unarias gRPC, gRPC-Web y Connect en una sola escucha. La aplicación PHP recibe y devuelve mensajes protobuf binarios mediante un dispatcher. El maestro carga los esquemas de servicio desde un descriptor set antes de iniciar los workers.
 
 El pool gRPC usa el modo Dispatcher. HTTP y gRPC pueden ejecutarse juntos con scripts de entrada separados. Consulta [gRPC](../grpc) para ver un servicio completo, la generación de clases protobuf y comandos de cliente.

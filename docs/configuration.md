@@ -62,16 +62,12 @@ process_idle_timeout_secs = 10        # For ondemand scaling. Removes workers af
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
 
 [grpc]
-listen = "127.0.0.1:9001"
-protos = ["proto"]                     # Required. Directories containing application schemas.
-import_paths = []                      # Optional. Additional schema dependency directories.
-reflection = true
-interceptors = []                     # The standalone binary accepts an empty list.
-max_request_message_size_mb = 4
-max_response_message_size_mb = 4
-
-[grpc.compression.gzip]
-enabled = false                       # Enables gzip responses when the client accepts gzip.
+listen = "127.0.0.1:50051"
+descriptor_set = "api.binpb"          # Required. A FileDescriptorSet with its imports.
+services = ["example.v1.Echo"]        # Optional. Default: the services of the files that no other file imports.
+reflection = false
+default_timeout_secs = 30             # Optional. Deadline of a call without a client timeout.
+max_timeout_secs = 60                 # Optional. Upper limit for a client timeout.
 
 [grpc.pool]
 entrypoint = "grpc.php"
@@ -184,31 +180,24 @@ Rapira checks the spare limits against the `processes` value.
 
 ## The `[grpc]` section {#grpc}
 
-This section enables native unary gRPC over cleartext HTTP/2. See [gRPC](./grpc) for a complete PHP service and client commands.
+This section enables unary gRPC, gRPC-Web, and Connect calls on one listener. See [gRPC](./grpc) for a complete PHP service and client commands.
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `listen` | string | `"127.0.0.1:9001"` | TCP address or `unix:` socket path. Uses the same address syntax as `http.listen`. |
-| `protos` | list of strings | none, required | Directories to search recursively for application `.proto` files. The list must contain at least one directory. |
-| `import_paths` | list of strings | empty | Additional directories for imported schemas. Imported-only services are not application routes. |
-| `reflection` | boolean | `true` | Enables the v1 and v1alpha reflection services. |
-| `interceptors` | list of strings | empty | The standalone binary accepts an empty list. Rust hosts can supply interceptors through the plugin API. |
-| `max_request_message_size_mb` | integer | `4` | Request message limit in MiB. Must be at least 1. Both compressed and uncompressed payloads must fit. |
-| `max_response_message_size_mb` | integer | `4` | Response message limit in MiB. Must be at least 1. Both compressed and uncompressed payloads must fit. |
+| `listen` | string | `"127.0.0.1:50051"` | TCP address or `unix:` socket path. Uses the same address syntax as `http.listen`. |
+| `descriptor_set` | string | none, required | Path of a binary `google.protobuf.FileDescriptorSet` that contains every imported file. Build it with `buf build --as-file-descriptor-set` or `protoc --include_imports`. |
+| `services` | list of strings | unset | Fully qualified names of the served services. When unset, the pool serves the services of the files that no other file in the set imports. The list must not be empty. |
+| `reflection` | boolean | `false` | Enables the `grpc.reflection.v1` and `v1alpha` services. |
+| `default_timeout_secs` | integer | unset | Deadline of a call that has no client timeout. When unset, such a call has no deadline. |
+| `max_timeout_secs` | integer | unset | Upper limit for a client timeout. When unset, there is no limit. |
 
-Paths resolve against the configuration file directory. Import roots use configuration order: `protos` first, then `import_paths`. Standard `google/protobuf` imports are built in. Invalid schemas, missing imports, conflicting definitions, and streaming application methods stop initialization.
-
-### The `[grpc.compression.gzip]` table
-
-| Key | Type | Default | Meaning |
-| --- | --- | --- | --- |
-| `enabled` | boolean | `false` | Enables gzip application responses when the client advertises gzip in `grpc-accept-encoding`. Gzip requests are accepted with either setting. |
+The master loads the descriptor set before it forks the workers. These errors stop initialization: a set that Rapira cannot read or decode, a set without its imports, and a set with no service to serve. A `services` entry that is not in the set, a duplicate entry, and an entry that names the health or reflection service also stop it. `default_timeout_secs` must not be larger than `max_timeout_secs`.
 
 ### The `[grpc.pool]` table {#grpc-pool}
 
 This table uses the [HTTP pool keys and defaults](#http-pool), with a required `entrypoint` and `mode = "dispatcher"`. Classic and Worker modes are rejected. Scaling, spare limits, recycling, and the process watchdog apply to this pool independently.
 
-HTTP and gRPC can run together. Each listener uses its own pool and entrypoint. Restart Rapira to load changed schemas.
+HTTP and gRPC can run together. Each listener uses its own pool and entrypoint. Restart Rapira to load a changed descriptor set. A reload keeps the old set.
 
 ## The `[supervisor]` section
 
@@ -228,7 +217,7 @@ This section controls the stderr log level and format. See [logging](/docs/loggi
 | --- | --- | --- | --- |
 | `level` | `"error"` \| `"warn"` \| `"info"` \| `"debug"` \| `"trace"` | `"error"` | Verbosity, applied to every target at once. |
 | `format` | `"plain"` \| `"json"` | `"plain"` | The record format. Plain output contains readable lines and can use colors. JSON output contains one object per line. |
-| `[log.targets]` | table of target → level | empty | Log level overrides for targets. `php` contains PHP output. `http` and `grpc` contain protocol server output. Keys match target prefixes. See [Logging](/docs/logging). |
+| `[log.targets]` | table of target → level | empty | Log level overrides for targets. `php` contains PHP output. `http` and `grpc` contain protocol server output. `net` contains the accept loop records. Keys match target prefixes. See [Logging](/docs/logging). |
 
 A `[log.targets]` key uses letters, digits, `_`, `:`, `.`, or `-`. It must start with a letter, digit, or `_`. Rapira rejects other characters because the log filter can interpret them as syntax. A target key that contains `:` or `.` must use quotes because TOML does not permit these characters in a bare key. For example:
 
@@ -253,7 +242,7 @@ Rapira validates the configuration file before initialization. An unknown key st
 
 ## Relative paths
 
-File system paths include both pool entrypoints, `grpc.protos`, `grpc.import_paths`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root`, and `http.uploads.dir`. Each relative path uses the configuration file directory as its base. Relative `unix:` listener paths also use this directory. For example, set `entrypoint = "app/worker.php"` in `/etc/rapira/rapira.toml`. Rapira then uses `/etc/rapira/app/worker.php`.
+File system paths include both pool entrypoints, `grpc.descriptor_set`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root`, and `http.uploads.dir`. Each relative path uses the configuration file directory as its base. Relative `unix:` listener paths also use this directory. For example, set `entrypoint = "app/worker.php"` in `/etc/rapira/rapira.toml`. Rapira then uses `/etc/rapira/app/worker.php`.
 
 ::: tip
 Keep the `rapira.toml` configuration file inside the application. Write its paths relative to the configuration file. You can move the application directory. These paths do not change.

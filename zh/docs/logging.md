@@ -5,13 +5,13 @@ description: "Rapira 怎么记日志--级别、按目标单独覆盖、PHP 诊�
 
 # 日志
 
-Rapira 将所有日志记录写入 stderr。这些记录包括服务器事件、主进程决策、HTTP 事件、PHP 诊断和应用消息。 Rapira 将 PHP 诊断发送到此日志，而不是单独的 `error_log` 目标。配置的级别过滤器决定 Rapira 写入哪些记录。
+Rapira 将过滤后的日志记录写入 stderr。这些记录包括服务器事件、主进程决策、HTTP 和 gRPC 事件、PHP 诊断和应用消息。Rapira 将 PHP 诊断发送到此日志，而不是单独的 `error_log` 目标。配置的级别过滤器控制 stderr 输出。
 
-默认级别为 `error`，因此服务器只写入错误。更改配置或设置 `RUST_LOG` 以选择其他级别。
+stderr 默认级别为 `error`，因此 stderr 仅包含错误。更改配置或设置 `RUST_LOG` 以选择其他级别。
 
 ## 级别与格式
 
-`rapira.toml` 的 `[log]` 部分控制日志：
+`rapira.toml` 的 `[log]` 部分控制 stderr 日志：
 
 ```toml
 [log]
@@ -45,6 +45,8 @@ Rapira 自己用的目标有这些：
 | `rapira` | 服务器生命周期：启动、worker 生命周期、关闭          |
 | `master` | 监管：fork、回收、重新拉起、重载、进程池伸缩         |
 | `http`   | HTTP 接入层：监听器、请求和响应的字段处理、排空      |
+| `grpc`   | gRPC 监听器、传输故障、关闭                          |
+| `net`    | HTTP 和 gRPC 监听器的接收循环、accept 失败           |
 | `ext`    | 扩展任务的执行结果                                   |
 | `php`    | 来自 PHP 本身的输出和诊断信息                        |
 | `app`    | 应用通过 `\Rapira\log()` 写入的记录                  |
@@ -105,7 +107,7 @@ Rapira 将诊断发送到日志，而不是响应。默认值为 `display_errors
 | `Debug`         | `debug`      |
 | `Trace`         | `trace`      |
 
-省略 `level` 时，`\Rapira\log()` 使用 `Info`。除非更改过滤器，否则全局 `error` 过滤器会丢弃此记录。 `[log.targets]` 和 `RUST_LOG` 以相同方式过滤应用和服务器记录。 例如，`app = "debug"` 仅更改应用目标。
+省略 `level` 时，`\Rapira\log()` 使用 `Info`。除非更改过滤器，否则全局 `error` 过滤器会在 stderr 中丢弃此记录。`[log.targets]` 和 `RUST_LOG` 以相同方式过滤应用和服务器的 stderr 记录。例如，`app = "debug"` 仅更改应用目标。
 
 Rapira 将上下文数组序列化为 JSON，并将其添加为 `context` 字段。在 JSON 中，此字段位于 `fields` 内。 键名和嵌套数组结构保持不变：
 
@@ -132,13 +134,17 @@ try {
 
 `\Rapira\log()` 不抛出异常。如果 `jsonSerialize()` 抛出异常，Rapira 为该值写入 `null`。 其他键保持不变。
 
-Rapira 替换 JSON 无法表示的值。这些值包括资源、闭包、`NAN`、`INF` 和无效 UTF-8 字符串。 其他字段保持不变。Rapira 不限制上下文大小。 请传递标识符，而不是大型对象。
+::: question Rapira 如何序列化大型日志上下文？
+Rapira 替换 JSON 无法表示的值。这些值包括资源、闭包、`NAN`、`INF` 和无效 UTF-8 字符串。其他字段保持不变。
+
+上下文序列化会保留完整的数组和字符串。stderr 层对完整记录应用配置的过滤器。对于大型对象，请传递标识符。
+:::
 
 ## 格式
 
 Rapira 将两种格式都写入 stderr。不同进程向同一个 stderr 管道写入时，大型记录可能会交错。
 
-Rapira 不会将日志写入其他位置。重定向 stderr 可以将日志写入文件。 服务管理器可以收集 stderr。请参阅[生产环境部署](/zh/docs/deployment)。
+重定向 stderr 可以将日志写入文件。服务管理器可以收集 stderr。请参阅[生产环境部署](/zh/docs/deployment)。
 
 **`plain`** 用于在终端里阅读--时间戳、级别、目标、消息：
 
@@ -158,12 +164,12 @@ stderr 是终端时，Rapira 使用颜色。stderr 是文件时，Rapira 不使�
 
 ## `RUST_LOG`
 
-`RUST_LOG` 从环境设置日志过滤器。它可以在不编辑配置的情况下更改过滤器：
+`RUST_LOG` 从环境设置 stderr 日志过滤器。它可以在不编辑配置的情况下更改过滤器：
 
 ```sh
-RUST_LOG=info rapira serve --mode worker worker.php
-RUST_LOG=rapira=debug,php=info rapira serve --mode worker worker.php
-RUST_LOG=warn,rapira=trace rapira serve --mode worker worker.php
+RUST_LOG=info rapira serve rapira.toml
+RUST_LOG=rapira=debug,php=info rapira serve rapira.toml
+RUST_LOG=warn,rapira=trace rapira serve rapira.toml
 ```
 
 第一个命令将所有目标设置为 `info`。第二个命令将 `rapira` 设置为 `debug`，将 `php` 设置为 `info`。 第三个命令将所有目标设置为 `warn`，将 `rapira` 设置为 `trace`。`rapira` 目标包含初始化、worker 和关闭记录。 需要 master 记录时，请使用 `RUST_LOG=warn,rapira=trace,master=trace`。

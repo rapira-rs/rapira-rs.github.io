@@ -6,7 +6,7 @@ faqLevel: 2
 
 # 安装
 
-Rapira 发布出来就是一个 `rapira` 二进制文件，外加放在它旁边的 `libphp`--服务器加载进自己进程的那个 PHP 解释器。产物里再没有别的东西：没有 `php` 命令，没有 php-fpm，也没有存放 ini 的目录。想跑起 Rapira，机器上不必另外装 PHP。
+每个 Rapira 软件包或压缩包都包含 `rapira` 二进制文件及其解释器库 `libphp`。服务器将此库加载到自己的进程中。软件包和压缩包不包含 `php` 命令、php-fpm 或 ini 目录。Rapira 不需要系统安装 PHP。
 
 ::: question `libphp` 是什么，为什么它不等于「PHP」？
 同一份 PHP 源码可以编译出好几种通往引擎的接口，它们叫 SAPI。引擎始终是同一个--Zend 加上各种扩展；不同的只是外面那层包装，以及由谁来掌控程序的走向：
@@ -73,7 +73,7 @@ rapira --version
 :::
 
 ::: question 系统里会多出哪些文件？
-四个：`/usr/bin/rapira` 二进制文件、`/usr/lib/rapira/libphp.so` 解释器，以及 `/usr/share/doc/rapira/` 下的许可证和 README。除此之外软件包什么都不改。
+软件包安装 `/usr/bin/rapira`、`/usr/lib/rapira/libphp.so`，并将 ICU 库安装到 `/usr/lib/rapira/`。许可证和 README 安装在 `/usr/share/doc/rapira/` 中。
 :::
 
 ## RHEL、Rocky 与 Fedora
@@ -95,11 +95,13 @@ rapira --version
 ```text
 rapira-v0.8.0-php8.5-linux-x86_64/
 ├── bin/rapira
-├── lib/rapira/libphp.so
+├── lib/rapira/
 ├── share/php/PHP_VERSION.txt
 ├── README.md
 └── LICENSE
 ```
+
+在 Linux 上，`lib/rapira` 包含 `libphp.so` 和所需的 ICU 库。
 
 把目录挪到它长期存放的位置，再用符号链接把二进制文件放进 `PATH`：
 
@@ -145,7 +147,9 @@ ln -s "$HOME/.local/opt/rapira/bin/rapira" "$HOME/.local/bin/rapira"
 :::
 
 ::: question 压缩包需要系统提供哪些库？
-在 macOS 上，`lib/rapira` 里除了 `libphp.dylib`，还带齐了它依赖的所有非系统库，整个目录树是自给自足的。在 Linux 上只包含 `libphp.so`，常见的系统库--OpenSSL 3、libcurl、libxml2、SQLite、Oniguruma、zlib--需要系统里已经有。普通发行版上它们本来就在；deb 和 rpm 声明的依赖正是这些，再加上 glibc 和 libgcc。
+在 macOS 上，`lib/rapira` 包含 `libphp.dylib` 和所有必需的非系统库。该目录包含完整的运行依赖。
+
+在 Linux 上，`lib/rapira` 包含 `libphp.so` 和所需的 ICU 库。每个产物都包含构建其解释器时使用的 ICU 版本。系统必须提供 OpenSSL 3、libcurl、libxml2、SQLite、Oniguruma、zlib、libpq 和 libstdc++。deb 和 RPM 软件包将这些库、glibc 和 libgcc 声明为依赖项。
 :::
 
 ## 验证校验和
@@ -173,13 +177,31 @@ grep rapira-v0.8.0-php8.5-macos-aarch64.tar.gz rapira-v0.8.0-SHA256SUMS.txt | sh
 ```dockerfile
 FROM php:8.5-cli-trixie
 COPY --from=ghcr.io/rapira-rs/rapira:php8.5 / /
+RUN apt-get update \
+    && xargs -r apt-get install -y --no-install-recommends < /usr/local/share/rapira/debian-packages.txt \
+    && rm -rf /var/lib/apt/lists/*
 COPY . /app
-CMD ["rapira", "serve", "--listen", ":8000", "--mode", "classic", "/app/public/index.php"]
+CMD ["rapira", "serve", "/app/rapira.toml"]
 ```
 
-镜像里带着 `/usr/local/bin/rapira`、`/usr/local/lib/libphp.so` 和 OPcache。在 PHP 8.4 上，OPcache 是单独的 `opcache.so` 加上它的 ini 文件；在 PHP 8.5 上，它直接链进了 `libphp.so`。`/usr/local/share/rapira` 下还有两个文件：`PHP_VERSION.txt` 写着随包 `libphp` 的补丁版本号，`debian-packages.txt` 列出在一个没有 PHP 的基础镜像上 `libphp` 需要的那些 Debian 软件包。
+应用目录里放着一份 `rapira.toml`：
 
-镜像里的 `libphp.so` 来自构建时所用的 PHP 官方基础镜像：`php:8.4-cli-trixie` 或 `php:8.5-cli-trixie`。因此它带的是那个镜像的扩展集，而不是 [libphp 构建](#libphp-构建)里说的那套 `--disable-all` 扩展集。要加扩展就在你自己的基础镜像上加：在 PHP 基础镜像里，`docker-php-ext-install` 会把扩展编译到同一份 `libphp.so` 上。
+```toml
+[http]
+listen = ":8000"
+
+[http.pool]
+entrypoint = "/app/public/index.php"
+mode = "classic"
+```
+
+镜像包含 `/usr/local/bin/rapira`、`/usr/local/lib/libphp.so` 和 OPcache。在 PHP 8.4 上，OPcache 是独立的 `opcache.so`，并附带一个 ini 文件。在 PHP 8.5 上，它是 `libphp.so` 的一部分。
+
+镜像还包含 `bcmath`、`intl`、`pdo_pgsql`、`pgsql`、`igbinary` 和 `redis` 共享模块，以及启用这些模块的 INI 文件。Redis 支持 igbinary 序列化。
+
+`/usr/local/share/rapira` 目录还包含两个文件。`PHP_VERSION.txt` 记录随附 PHP 的补丁版本。`debian-packages.txt` 列出 `libphp` 及其共享扩展所需的运行时软件包。请在应用镜像中安装这些软件包，即使基础镜像已包含 PHP。
+
+镜像构建使用 `php:8.4-cli-trixie` 或 `php:8.5-cli-trixie` 中的 `libphp.so`，并添加上述六个共享扩展。请在应用的基础镜像中添加其他扩展。在 PHP 基础镜像中，`docker-php-ext-install` 会针对同一份 `libphp.so` 编译扩展。
 
 ::: question 镜像为什么用 `FROM scratch` 构建？
 scratch 镜像里除了构建时拷进去的东西什么都没有，所以 `COPY --from=ghcr.io/rapira-rs/rapira:php8.5 / /` 只会取走这份内容，别的一概不带。基础镜像仍然由你自己挑，这次拷贝也不会在它上面再压一个发行版。
@@ -204,19 +226,21 @@ registry 里还有构建过程中先产出的那些单架构标签，比如 `X.Y
 
 ## libphp 构建
 
-Rapira 使用 `--disable-all` 构建 `libphp`，并启用以下固定扩展：
+发布的软件包和压缩包使用以 `--disable-all` 构建的 `libphp`，并启用以下固定扩展：
 
 - **运行时基础**：session、filter、mbstring、iconv、ctype、tokenizer、fileinfo、phar、posix。
 - **OPcache**，以及开启了 JIT 的 PCRE。
 - **网络与压缩**：openssl、curl、zlib、sockets、ftp。
 - **XML**：libxml、dom、xml、simplexml、xmlreader、xmlwriter。
-- **数据库**：带 `pdo_sqlite` 的 PDO，以及 `sqlite3` 本身。
+- **数据库**：带 `pdo_sqlite` 和 `pdo_pgsql` 的 PDO，以及 `sqlite3` 和 `pgsql`。
+- **十进制运算和国际化**：bcmath 和 intl。
+- **序列化和缓存**：igbinary 和 redis，并为 Redis 启用 igbinary 序列化。
 - **共享内存与 System V IPC**：shmop、sysvmsg、sysvsem、sysvshm。
 - **日期、图像元数据与翻译**：calendar、exif、gettext。
 - **外部函数接口**：ffi。
 - **必要的 PHP 组件**：Core、standard、SPL、date、json、hash、random、Reflection。
 
-*没有*的是：`pdo_mysql`、`pgsql`、redis、apcu、imagick 之类。如果你的应用需要其中某个扩展，就把它编进 `libphp`，再用这份库编译 Rapira--具体做法见[从源码构建](/zh/docs/intro/build-from-source)。
+如需 `pdo_mysql`、APCu 或 Imagick 等其他扩展，请用所需选项构建 `libphp`。然后使用该库编译 Rapira。请参阅[从源码构建](/zh/docs/intro/build-from-source)。
 
 每个版本使用其 PHP 分支中可用的最新补丁版本。压缩包的 `share/php/PHP_VERSION.txt` 包含确切版本。 在运行的服务器上，`PHP_VERSION` 和 `phpinfo()` 会报告此版本。
 
@@ -229,7 +253,7 @@ Rapira 使用 `--disable-all` 构建 `libphp`，并启用以下固定扩展：
 软件包和压缩包里都没有 `php.ini`，Rapira 也不会生成一个，所以原封不动的安装跑的是 PHP 的内置默认值。用 `PHPRC` 指向真正的文件，或者指向存放它的目录：
 
 ```bash
-PHPRC=/etc/rapira/php.ini rapira serve --config /etc/rapira/rapira.toml
+PHPRC=/etc/rapira/php.ini rapira serve /etc/rapira/rapira.toml
 ```
 
 ::: question PHP 自己会去哪里找 `php.ini`？

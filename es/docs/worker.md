@@ -34,16 +34,22 @@ while (\Rapira\handle_request($handler)) {
 }
 ```
 
-Dispatcher es el modo predeterminado. Selecciona el modo Worker con uno de estos ajustes:
+Dispatcher es el modo predeterminado. Selecciona el modo Worker con `mode = "worker"` en la tabla `[http.pool]` de un `rapira.toml`:
 
-- `--mode worker` en la línea de comandos, junto al script de entrada.
-- `mode = "worker"` en la sección `[pool]` de un `rapira.toml`.
+```toml
+[http]
+listen = "127.0.0.1:8000"
 
-```bash
-rapira serve --mode worker app/worker.php
+[http.pool]
+entrypoint = "app/worker.php"
+mode = "worker"
 ```
 
-El resto de las opciones están en [CLI](/es/docs/cli), y sus equivalentes de `rapira.toml`, en [Configuración](/es/docs/configuration).
+```bash
+rapira serve rapira.toml
+```
+
+Consulta las demás claves en [Configuración](/es/docs/configuration).
 
 ## El contrato de `handle_request()`
 
@@ -134,11 +140,11 @@ if (\Rapira\get_mode() === \Rapira\Mode::Worker) {
 
 ## Problemas habituales
 
-**Estado retenido entre peticiones.** Comprueba el estado de la petición si la aplicación falla solo en modo Worker. Algunos ejemplos son un array estático creciente, un objeto de petición en un singleton o datos antiguos en un logger. Reinicia este estado al principio o al final del handler. Reinicia también el estado de petición de las bibliotecas. `pool.max_requests` sustituye un worker después de un número especificado de peticiones. Limita una fuga de memoria, pero no la corrige.
+**Estado retenido entre peticiones.** Comprueba el estado de la petición si la aplicación falla solo en modo Worker. Algunos ejemplos son un array estático creciente, un objeto de petición en un singleton o datos antiguos en un logger. Reinicia este estado al principio o al final del handler. Reinicia también el estado de petición de las bibliotecas. `http.pool.max_requests` sustituye un worker después de un número especificado de peticiones. Limita una fuga de memoria, pero no la corrige.
 
 **Ciclos de referencias sin recoger.** El conteo de referencias de PHP libera la mayoría de los valores inmediatamente. Solo libera los ciclos cuando se ejecuta el recolector. El ejemplo llama a `gc_collect_cycles()` entre peticiones. Esta llamada es opcional, pero hace predecible el momento de recogida.
 
-**Peticiones que no terminan.** Un worker no puede procesar otra petición mientras se ejecuta la petición actual. `pool.request_terminate_timeout_secs` limita el tiempo de una petición. Rapira termina un worker que supera este valor. Consulta esta clave y `pool.max_requests` en [Configuración](/es/docs/configuration). Consulta el proceso de terminación en [Modelo de procesos](/es/docs/process-model).
+**Peticiones que no terminan.** Un worker no puede procesar otra petición mientras se ejecuta la petición actual. `http.pool.request_terminate_timeout_secs` limita el tiempo de una petición. Rapira termina el worker cuando la petición supera este valor. Consulta esta clave y `http.pool.max_requests` en [Configuración](/es/docs/configuration). Consulta el proceso de terminación en [Modelo de procesos](/es/docs/process-model).
 
 **Una excepción sin capturar afecta a una petición, no al worker.** Rapira devuelve `500` para una excepción del handler sin capturar si el handler todavía no ha enviado la cabecera de respuesta. Rapira no puede cambiar el estado después de que el handler envíe la cabecera de respuesta. El bucle continúa, por lo que la excepción no detiene el worker. Un error fatal termina el script residente. El worker vuelve a iniciar el script y la aplicación.
 

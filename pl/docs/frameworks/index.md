@@ -22,7 +22,7 @@ Testy uruchamiały te aplikacje na Linuksie z jednym procesem workera. Stwierdze
 
 **Tryb Worker utrzymuje aktywny proces.** Skrypt inicjalizuje aplikację i pobiera pracę w pętli. Stan aplikacji pozostaje między żądaniami. Więcej informacji zawierają strony [tryby wykonania](/pl/docs/execution-modes) i [tryb Worker](/pl/docs/worker).
 
-Jedna baza kodu może używać obu trybów. Zachowaj `public/index.php`. Dodaj `worker.php` do katalogu głównego projektu. Użyj `--mode`, aby wybrać tryb wykonania. Wybierz skrypt argumentem `SCRIPT` albo ustawieniem `pool.entrypoint`. Użyj trybu Classic, jeśli migracja do trybu Worker nie działa.
+Jedna baza kodu może używać obu trybów. Zachowaj `public/index.php`. Dodaj `worker.php` do katalogu głównego projektu. Klucz `http.pool.mode` wybiera tryb wykonania, a `http.pool.entrypoint` wybiera skrypt. Użyj trybu Classic, jeśli migracja do trybu Worker nie działa.
 
 ## Pętla Worker
 
@@ -142,7 +142,7 @@ Każde żądanie w tym wariancie tworzy graf obiektów. Cykle referencji mogą z
 Testy wykazały, że `gc_collect_cycles()` nie zapobiega temu zachowaniu w pętli ani w handlerze. Późniejsza inicjalizacja może zachować referencje do starych grafów. Kolektor nie zwolni grafu, gdy odwołuje się do niego inny obiekt. Ustaw `memory_limit` powyżej zmierzonego maksimum. Ustaw też limit wymiany workera:
 
 ```toml
-[pool]
+[http.pool]
 max_requests = 100
 ```
 
@@ -156,7 +156,7 @@ Rapira uruchamia PHP raz w procesie nadrzędnym przed utworzeniem workerów. OPc
 
 W środowisku produkcyjnym `opcache.validate_timestamps = 0` wyłącza sprawdzanie plików dla każdego żądania. To ustawienie wyłącza automatyczne unieważnianie pamięci podręcznej. Segment OPcache należy do procesu nadrzędnego i pozostaje podczas wymiany workerów. Dlatego wdrożenie wymaga pełnego ponownego uruchomienia. Sekwencję opisuje [wdrożenie produkcyjne](/pl/docs/deployment).
 
-Podczas programowania trwała aplikacja nie czyta ponownie kodu inicjalizacji. To zachowanie nie zależy od OPcache. Uruchom serwer ponownie po zmianie skryptu workera lub zainicjalizowanych usług. Naciśnij Ctrl-C i ponownie uruchom `rapira serve`.
+Podczas programowania trwała aplikacja nie czyta ponownie kodu inicjalizacji. To zachowanie nie zależy od OPcache. Uruchom serwer ponownie po zmianie skryptu workera lub zainicjalizowanych usług. Naciśnij Ctrl-C i ponownie uruchom `rapira serve rapira.toml`.
 
 ## Przewodniki po frameworkach
 

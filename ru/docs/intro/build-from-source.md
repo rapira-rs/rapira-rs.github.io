@@ -11,7 +11,7 @@ Rapira собирается из исходников на Linux и macOS. Са�
 
 - **Для вашей платформы нет готового бинарника** - необычная архитектура процессора или дистрибутив на musl вроде Alpine.
 - **Дистрибутив старше, чем поддерживают пакеты.** Релизы собраны под glibc 2.34, так что самые старые системы, куда они встанут, - это Debian 12, Ubuntu 22.04 и RHEL 9 (подробности на странице [Установка](/ru/docs/intro/installation)).
-- **Нужен другой набор расширений PHP.** В релизные сборки вложен PHP, собранный по списку флагов из [`.github/php-configure-flags.txt`](https://github.com/rapira-rs/rapira/blob/main/.github/php-configure-flags.txt), а список этот намеренно короткий: session, mbstring, OPcache, OpenSSL, curl, семейство XML, PDO с SQLite. Если приложению нужны `pdo_mysql`, `intl` или `gd`, соберите Rapira с тем PHP, где они есть.
+- **Приложению нужны другие расширения PHP.** Релизные сборки включают SQLite, PostgreSQL через `pdo_pgsql` и `pgsql`, `bcmath`, `intl`, `igbinary` и `redis`. Полный список расширений приведён на странице [Установка](/ru/docs/intro/installation). Соберите Rapira с другим PHP, если приложению нужны расширения вроде `pdo_mysql` или `gd`.
 - **Вы дорабатываете саму Rapira** или хотите то, что ещё не попало в релиз.
 
 ## Инструменты сборки
@@ -47,15 +47,44 @@ sudo apk add php84-dev php84-embed            # Alpine
 
 Соберите PHP, если пакет embed недоступен. Также соберите PHP, если пакет не содержит нужные расширения.
 
-Файл `.github/php-configure-flags.txt` содержит параметры выпусков. Передайте его в `configure` в распакованном каталоге исходного кода PHP. Добавьте параметры нужных расширений в конец строки `./configure`:
+Файл `.github/php-configure-flags.txt` содержит параметры расширений, поставляемых с PHP. Среди них `bcmath`, `intl`, `pdo_pgsql` и `pgsql`.
+
+Для поддержки `intl` и PostgreSQL установите библиотеки разработки ICU и клиента PostgreSQL. Пакеты называются `libicu-dev` и `libpq-dev` в Debian или Ubuntu, а в Rocky Linux - `libicu-devel` и `libpq-devel`. Расширению `intl` также нужен компилятор C++.
+
+В macOS установите зависимости для сборки:
 
 ```bash
+brew install autoconf bison re2c pkg-config openssl@3 curl oniguruma libxml2 sqlite libffi gettext icu4c libpq
+```
+
+В каталоге исходников Rapira запустите цель для своей платформы:
+
+::: code-group
+
+```bash [Linux]
+make php PHP_SRC=/path/to/php-src PHP_PREFIX="$HOME/.local/php-nts"
+```
+
+```bash [macOS]
+make php-macos PHP_SRC=/path/to/php-src PHP_PREFIX="$HOME/.local/php-nts"
+```
+
+:::
+
+Обе цели запускают `buildconf`, настраивают PHP, компилируют его и устанавливают в `PHP_PREFIX`. Они включают расширения, поставляемые с PHP и перечисленные в `.github/php-configure-flags.txt`. Цель `php-macos` задаёт пути к библиотекам Homebrew и путь SDK для iconv.
+
+Для собственного набора расширений настройте PHP напрямую в каталоге его исходников. Добавьте параметры нужных расширений к `./configure`:
+
+```bash
+./buildconf --force
 ./configure --prefix="$HOME/.local/php-nts" $(tr '\n' ' ' < /path/to/rapira/.github/php-configure-flags.txt)
 make -j"$(getconf _NPROCESSORS_ONLN)"
 make install
 ```
 
-В macOS установите зависимости командой `brew install pkg-config openssl@3 curl oniguruma libxml2 sqlite`. Добавьте их каталоги `lib/pkgconfig` в `PKG_CONFIG_PATH`. После параметров из файла добавьте `--with-iconv="$(xcrun --show-sdk-path)/usr"`. Этот путь позволяет `configure` найти libiconv в macOS. Autoconf использует последнее значение повторяющегося параметра.
+При ручной настройке в macOS используйте пути к библиотекам и параметры конфигурации из цели `php-macos`.
+
+Релизный CI также собирает `igbinary` и `redis` в составе `libphp`, включая поддержку сериализации igbinary в Redis. Версии их исходников и контрольные суммы закреплены в [процессе сборки релизов](https://github.com/rapira-rs/rapira/blob/main/.github/workflows/build-binaries.yml). Распакуйте их исходники в каталоги PHP `ext/igbinary` и `ext/redis` перед запуском `./buildconf --force`. Добавьте `--enable-igbinary --enable-redis --enable-redis-igbinary` к `./configure`.
 
 ### Простое имя `libphp.so`
 
@@ -99,11 +128,20 @@ PHP_CONFIG=$HOME/.local/php-nts/bin/php-config cargo build --release
 
 ## Запуск собранного бинарника
 
-Во время работы Rapira подгружает `libphp.so` (на macOS - `libphp.dylib`) динамически. Если библиотека лежит в стандартном месте, делать ничего не нужно; если нет - укажите загрузчику путь к ней:
+Во время работы Rapira подгружает `libphp.so` (на macOS - `libphp.dylib`) динамически. Если библиотека лежит в стандартном месте, делать ничего не нужно; если нет - укажите загрузчику путь к ней. Возьмите `worker.php` из раздела [Быстрый старт](/ru/docs/intro/quickstart). Создайте `rapira.toml` рядом с ним:
+
+```toml
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
+entrypoint = "worker.php"
+mode = "worker"
+```
 
 ```bash
-LD_LIBRARY_PATH="$HOME/.local/php-nts/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ./target/release/rapira serve --mode worker worker.php         # Linux
-DYLD_LIBRARY_PATH="$HOME/.local/php-nts/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" ./target/release/rapira serve --mode worker worker.php   # macOS
+LD_LIBRARY_PATH="$HOME/.local/php-nts/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ./target/release/rapira serve /path/to/app/rapira.toml         # Linux
+DYLD_LIBRARY_PATH="$HOME/.local/php-nts/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" ./target/release/rapira serve /path/to/app/rapira.toml   # macOS
 ```
 
 Результат предоставляет те же функции, что и сервер из пакета. См. разделы [Быстрый старт](/ru/docs/intro/quickstart), [Командная строка](/ru/docs/cli) и [Конфигурация](/ru/docs/configuration).

@@ -6,7 +6,7 @@ faqLevel: 2
 
 # Instalacja
 
-Rapira to binarka `rapira` i leżąca obok niej `libphp` - interpreter PHP, który serwer ładuje do własnego procesu. W artefakcie nie ma nic poza tym: żadnego polecenia `php`, żadnego php-fpm, żadnego katalogu z plikami ini. Żeby Rapira ruszyła, nie musisz instalować PHP na maszynie.
+Każdy pakiet lub archiwum Rapiry zawiera plik binarny `rapira` i bibliotekę interpretera `libphp`. Serwer ładuje tę bibliotekę do swojego procesu. Pakiety i archiwa nie zawierają polecenia `php`, php-fpm ani katalogu z plikami ini. Rapira nie wymaga systemowej instalacji PHP.
 
 ::: question Czym jest `libphp` i dlaczego to nie jest „zwykłe PHP”?
 Z tych samych źródeł PHP powstaje kilka interfejsów do silnika, nazywanych SAPI. Silnik za każdym razem jest ten sam - Zend wraz z rozszerzeniami; różni się tylko otoczka i to, kto prowadzi program:
@@ -74,7 +74,7 @@ To właśnie początkowe `./` mówi aptowi, że chodzi o plik lokalny, a nie o n
 :::
 
 ::: question Jakie pliki pojawią się w systemie?
-Cztery: binarka `/usr/bin/rapira`, interpreter `/usr/lib/rapira/libphp.so` oraz licencja i README w `/usr/share/doc/rapira/`. Poza tym pakiet niczego nie zmienia.
+Pakiet instaluje `/usr/bin/rapira`, `/usr/lib/rapira/libphp.so` oraz biblioteki ICU w `/usr/lib/rapira/`. Licencję i README instaluje w `/usr/share/doc/rapira/`.
 :::
 
 ## RHEL, Rocky i Fedora
@@ -96,11 +96,13 @@ Archiwum rozpakowuje się do jednego katalogu, w którym leży cały serwer:
 ```text
 rapira-v0.8.0-php8.5-linux-x86_64/
 ├── bin/rapira
-├── lib/rapira/libphp.so
+├── lib/rapira/
 ├── share/php/PHP_VERSION.txt
 ├── README.md
 └── LICENSE
 ```
+
+Na Linuksie katalog `lib/rapira` zawiera `libphp.so` i wymagane biblioteki ICU.
 
 Przenieś katalog tam, gdzie ma zostać na stałe, i dodaj binarkę do `PATH` przez dowiązanie symboliczne:
 
@@ -146,7 +148,9 @@ Binarka szuka swojego interpretera obok siebie, więc katalog można przenosić 
 :::
 
 ::: question Jakich bibliotek systemowych potrzebuje archiwum?
-Na macOS w `lib/rapira` leży `libphp.dylib` razem ze wszystkimi niesystemowymi bibliotekami, od których zależy - drzewo jest samowystarczalne. Na Linuksie w komplecie jest tylko `libphp.so`, a zwyczajne biblioteki systemowe - OpenSSL 3, libcurl, libxml2, SQLite, Oniguruma, zlib - muszą już być w systemie. W typowej dystrybucji i tak są; to dokładnie one figurują jako zależności pakietów deb i rpm, obok glibc i libgcc.
+Na macOS katalog `lib/rapira` zawiera `libphp.dylib` i wszystkie wymagane biblioteki niesystemowe. Katalog jest samowystarczalny.
+
+Na Linuksie katalog `lib/rapira` zawiera `libphp.so` i wymagane biblioteki ICU. Każdy artefakt zawiera wersję ICU użytą do zbudowania interpretera. System musi udostępniać OpenSSL 3, libcurl, libxml2, SQLite, Oniguruma, zlib, libpq i libstdc++. Pakiety deb i RPM deklarują te biblioteki, glibc i libgcc jako zależności.
 :::
 
 ## Weryfikacja sum kontrolnych
@@ -174,13 +178,31 @@ grep rapira-v0.8.0-php8.5-macos-aarch64.tar.gz rapira-v0.8.0-SHA256SUMS.txt | sh
 ```dockerfile
 FROM php:8.5-cli-trixie
 COPY --from=ghcr.io/rapira-rs/rapira:php8.5 / /
+RUN apt-get update \
+    && xargs -r apt-get install -y --no-install-recommends < /usr/local/share/rapira/debian-packages.txt \
+    && rm -rf /var/lib/apt/lists/*
 COPY . /app
-CMD ["rapira", "serve", "--listen", ":8000", "--mode", "classic", "/app/public/index.php"]
+CMD ["rapira", "serve", "/app/rapira.toml"]
 ```
 
-W obrazie leżą `/usr/local/bin/rapira`, `/usr/local/lib/libphp.so` i OPcache. Na PHP 8.4 OPcache jest osobnym `opcache.so` z własnym plikiem ini, a na PHP 8.5 jest wlinkowany w `libphp.so`. W `/usr/local/share/rapira` czekają jeszcze dwa pliki: `PHP_VERSION.txt` z wersją łatki dołączonej `libphp` oraz `debian-packages.txt` z pakietami Debiana, których `libphp` potrzebuje na obrazie bazowym bez PHP.
+W katalogu aplikacji leży `rapira.toml`:
 
-`libphp.so` z obrazu pochodzi z oficjalnego obrazu bazowego PHP, na którym powstał build: `php:8.4-cli-trixie` albo `php:8.5-cli-trixie`. Niesie więc zestaw rozszerzeń tamtego obrazu, a nie zestaw `--disable-all` opisany w sekcji [Kompilacja libphp](#kompilacja-libphp). Kolejne rozszerzenia dokładasz na własnym obrazie bazowym: na obrazie z PHP skompilujesz je pod tę samą `libphp.so` przez `docker-php-ext-install`.
+```toml
+[http]
+listen = ":8000"
+
+[http.pool]
+entrypoint = "/app/public/index.php"
+mode = "classic"
+```
+
+Obraz zawiera `/usr/local/bin/rapira`, `/usr/local/lib/libphp.so` i OPcache. W PHP 8.4 OPcache jest osobnym plikiem `opcache.so` z plikiem ini. W PHP 8.5 jest częścią `libphp.so`.
+
+Obraz zawiera też `bcmath`, `intl`, `pdo_pgsql`, `pgsql`, `igbinary` i `redis` jako moduły współdzielone wraz z plikami INI, które je włączają. Redis obsługuje serializację igbinary.
+
+Katalog `/usr/local/share/rapira` zawiera jeszcze dwa pliki. `PHP_VERSION.txt` zawiera wersję poprawkową dołączonego PHP. `debian-packages.txt` wymienia pakiety potrzebne do uruchomienia `libphp` i jej rozszerzeń współdzielonych. Zainstaluj te pakiety w obrazie aplikacji, także gdy obraz bazowy zawiera PHP.
+
+Proces budowania obrazu używa `libphp.so` z `php:8.4-cli-trixie` lub `php:8.5-cli-trixie`. Dodaje sześć rozszerzeń współdzielonych wymienionych powyżej. Dodaj inne rozszerzenia w obrazie bazowym aplikacji. W obrazie bazowym PHP polecenie `docker-php-ext-install` kompiluje je dla tej samej `libphp.so`.
 
 ::: question Dlaczego obraz powstaje `FROM scratch`?
 W obrazie scratch nie ma nic poza tym, co wkopiuje build, więc `COPY --from=ghcr.io/rapira-rs/rapira:php8.5 / /` bierze sam ładunek i nic więcej. Obraz bazowy zostaje twoim wyborem, a kopiowanie nie dokłada na niego drugiej dystrybucji.
@@ -205,19 +227,21 @@ Każdy przebieg CI, który przejdzie na `main`, buduje obrazy na nowo z tego com
 
 ## Kompilacja libphp
 
-Rapira buduje `libphp` z `--disable-all` i włącza stały zestaw rozszerzeń:
+Pakiety i archiwa wydań używają `libphp` zbudowanej z `--disable-all` i następującym zestawem rozszerzeń:
 
 - **Podstawa runtime'u**: session, filter, mbstring, iconv, ctype, tokenizer, fileinfo, phar, posix.
 - **OPcache** oraz PCRE z włączonym JIT-em.
 - **Sieć i kompresja**: openssl, curl, zlib, sockets, ftp.
 - **XML**: libxml, dom, xml, simplexml, xmlreader, xmlwriter.
-- **Bazy danych**: PDO z `pdo_sqlite` oraz samo `sqlite3`.
+- **Bazy danych**: PDO z `pdo_sqlite` i `pdo_pgsql`, a także `sqlite3` i `pgsql`.
+- **Arytmetyka dziesiętna i internacjonalizacja**: bcmath i intl.
+- **Serializacja i pamięć podręczna**: igbinary i redis, z włączoną serializacją igbinary dla Redis.
 - **Pamięć współdzielona i System V IPC**: shmop, sysvmsg, sysvsem, sysvshm.
 - **Daty, metadane obrazów i tłumaczenia**: calendar, exif, gettext.
 - **Interfejs do funkcji zewnętrznych**: ffi.
 - **Wymagane komponenty PHP**: Core, standard, SPL, date, json, hash, random, Reflection.
 
-Czego w niej *nie ma*: `pdo_mysql`, `pgsql`, redis, apcu, imagick i reszty z tej półki. Jeśli twoja aplikacja potrzebuje takiego rozszerzenia, skompiluj `libphp` razem z nim i zbuduj Rapirę pod tę bibliotekę - jak, opisuje strona [Budowanie ze źródeł](/pl/docs/intro/build-from-source).
+Dla innych rozszerzeń, takich jak `pdo_mysql`, APCu lub Imagick, zbuduj `libphp` z wymaganymi opcjami. Następnie skompiluj Rapirę z tą biblioteką. Zobacz [Budowanie ze źródeł](/pl/docs/intro/build-from-source).
 
 Każde wydanie używa najnowszej dostępnej wersji poprawkowej swojej gałęzi PHP. Plik `share/php/PHP_VERSION.txt` w archiwum zawiera dokładną wersję. Na działającym serwerze wersję podają `PHP_VERSION` i `phpinfo()`.
 
@@ -230,7 +254,7 @@ Na PHP 8.4 OPcache startuje tylko dla zamkniętej listy nazw SAPI, a nazwa spoza
 Ani pakiety, ani archiwa nie zawierają `php.ini`, a Rapira sama go nie tworzy, więc nietknięta instalacja działa na wbudowanych domyślnych ustawieniach PHP. Wskaż przez `PHPRC` konkretny plik albo katalog, w którym go szukać:
 
 ```bash
-PHPRC=/etc/rapira/php.ini rapira serve --config /etc/rapira/rapira.toml
+PHPRC=/etc/rapira/php.ini rapira serve /etc/rapira/rapira.toml
 ```
 
 ::: question Gdzie PHP samo szuka `php.ini`?

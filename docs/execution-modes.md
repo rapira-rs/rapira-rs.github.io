@@ -6,7 +6,7 @@ faqLevel: 2
 
 # Execution modes
 
-Rapira runs PHP in one of three execution modes. All three modes are available.
+The HTTP pool runs PHP in one of three execution modes. The [gRPC pool](./grpc) uses Dispatcher mode.
 
 | Mode | Status | Description |
 | --- | --- | --- |
@@ -14,7 +14,7 @@ Rapira runs PHP in one of three execution modes. All three modes are available.
 | [Worker](/docs/worker) | Available | A persistent script handles requests in a loop. Rapira refills the superglobals for each request. |
 | Dispatcher | Available | The worker gets each request through an API call and uses a request object instead of the superglobals. |
 
-The mode names are `pool.mode` values and `Rapira\Mode` enum cases. Classic removes application request state after each request. Worker and Dispatcher keep one initialized application for many requests. Application state and API dependencies determine which modes an application can use.
+The mode names are `http.pool.mode` values and `Rapira\Mode` enum cases. Classic removes application request state after each request. Worker and Dispatcher keep one initialized application for many requests. Application state and API dependencies determine which modes an application can use.
 
 ## Classic <Badge type="tip" text="available" />
 
@@ -46,19 +46,21 @@ With the HTTP plugin, each unit is a `Rapira\Http\Exchange`.
 Its `getRequest()` method returns a `Rapira\Http\Request`. The request contains the method, target, headers, body, and peer addresses.
 The `writeHead()`, `writeBody()`, and `sendFile()` methods write the response.
 
+With the gRPC plugin, each unit is a `Rapira\Grpc\UnaryCall`. `getMessage()` returns protobuf bytes. `respond()` sends a serialized response, and `fail()` sends a gRPC error. Each gRPC worker handles one active call at a time. See [gRPC](./grpc) for the dispatcher loop.
+
 The application can pass the request object to functions or middleware. Rapira does not fill the superglobals in this mode.
 An application that reads superglobals needs Worker mode. Alternatively, an adapter can copy request data to the required variables.
-The `pool.mode` key or `--mode` flag selects the mode.
+The `http.pool.mode` key selects the HTTP mode. `grpc.pool.mode` must be `"dispatcher"`.
 
 The script controls the number of active work units. A sequential loop handles one unit at a time. It calls `receive()`, answers the request, and calls `receive()` again.
 
-A concurrent script starts a [Fiber](https://www.php.net/manual/en/language.fibers.php) for each request. It calls `tryReceive()` while fibers are active.
+A concurrent HTTP script starts a [Fiber](https://www.php.net/manual/en/language.fibers.php) for each request. It calls `tryReceive()` while fibers are active.
 When no fiber is active, the loop waits in `receive()`. This design keeps several requests active in one interpreter.
 
 Concurrency is cooperative. Another request progresses only after the active code suspends its fiber. Process one unit at a time when a library does not support fibers.
 
 ::: info
-Dispatcher is the default `pool.mode`. A dedicated guide is not available yet.
+Dispatcher is the default pool mode. The [gRPC guide](./grpc) contains a complete unary service.
 The [`rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php) IDE stub documents the `Dispatcher` and `Work` interfaces.
 The [`rapira_http.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira_http.stub.php) stub documents the HTTP types.
 The [`examples/`](https://github.com/rapira-rs/rapira/tree/main/examples) directory contains `dispatcher-sync.php` and `dispatcher-async.php`.
@@ -67,7 +69,7 @@ The [`examples/`](https://github.com/rapira-rs/rapira/tree/main/examples) direct
 ## Reading the mode at runtime
 
 `Rapira\get_mode()` returns the process mode as a `Rapira\Mode` enum case. The cases are `Classic`, `Worker`, and `Dispatcher`.
-The case matches the initial `pool.mode` for the complete process lifetime. Use `===` to compare enum cases.
+The case matches the initial mode of that worker's pool for the complete process lifetime. Use `===` to compare enum cases.
 The function takes no arguments and does not throw. An entry script can use it to support more than one mode.
 
 ```php
@@ -86,32 +88,34 @@ match (\Rapira\get_mode()) {
 ```
 
 ::: question Why does the mode never change while a process runs?
-The host reads `pool.mode` and fixes the mode before it starts the interpreter. Every request in that worker reports the same case. Changing the mode requires a server restart.
+The host reads the pool's mode and fixes it before starting the interpreter. Every request in that worker reports the same case. Changing the mode requires a server restart.
 :::
 
 ## Mode selection
 
-The default `pool.mode` is `dispatcher`. Set the mode explicitly in `rapira.toml`, or with `--mode` on the command line.
+The default `http.pool.mode` is `dispatcher`. Set the mode explicitly in `rapira.toml`.
 
 ```toml
-[pool]
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
 entrypoint = "public/index.php"
 mode = "classic"                      # Use "classic", "worker", or "dispatcher". Default: "dispatcher".
 ```
 
 ```sh
-rapira serve --mode classic public/index.php
+rapira serve rapira.toml
 ```
 
-Rapira makes all three modes available to each application. Application code and dependencies can restrict the selection.
+The HTTP pool supports all three modes. Application code and dependencies can restrict the selection.
 Use Classic when global state cannot remain between requests. Code that reads superglobals cannot use Dispatcher without an adapter.
 Some framework integrations provide Worker mode support. See [Frameworks](/docs/frameworks/) for documented integrations.
 
-The mode applies to a complete server instance, not to individual routes. One instance cannot use different modes for different routes.
-Run incompatible routes in a separate Classic mode instance.
+The mode applies to a complete pool. All routes in that pool use the same mode. HTTP and gRPC pools can use different modes in one server instance. Run incompatible HTTP routes in a separate Classic mode instance.
 
 Worker and Dispatcher require a persistent entry script. Classic does not.
-To select Classic, set `mode = "classic"` or pass `--mode classic`. Then specify the ordinary entry script.
+To select Classic, set `mode = "classic"`. Then set `entrypoint` to the ordinary entry script.
 The server, binary, and [process model](/docs/process-model) do not change.
 See [Configuration](/docs/configuration) and the [CLI reference](/docs/cli) for more information.
 

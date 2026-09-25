@@ -25,7 +25,7 @@ forbid = [".php"]   # Optional. This list replaces the default.
 `middleware` holds the middleware chain in list order. `static` is currently the only name it accepts.
 
 `root` names the directory that contains the files to serve. It has no default, so the section must set it.
-A relative path uses the configuration file directory as its base. `pool.entrypoint` uses the same rule.
+A relative path uses the configuration file directory as its base. `http.pool.entrypoint` uses the same rule.
 
 `forbid` contains file-name suffixes that the middleware does not serve. Its default value is `[".php"]`. An explicit list replaces the default. For example, `forbid = [".php", ".env"]` blocks both suffixes.
 

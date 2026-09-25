@@ -17,12 +17,7 @@ Classic 模式执行普通 PHP 入口脚本。它可以是 php-fpm 运行的 `pu
 
 ## Classic 模式配置
 
-使用以下一种方式选择模式：
-
-- 命令行上加 `--mode classic`，紧挨着入口脚本。
-- 在 `rapira.toml` 的 `[pool]` 段里写 `mode = "classic"`。
-
-`--mode` 替换配置文件中的 `pool.mode`。其他 CLI 参数也会替换相应的配置值。 完整键列表请参阅[配置](/zh/docs/configuration)。
+在 `rapira.toml` 的 `[http.pool]` 表里写 `mode = "classic"` 来选择 Classic 模式。 完整键列表请参阅[配置](/zh/docs/configuration)。
 
 Classic 模式的入口脚本就是普通 PHP：
 
@@ -34,23 +29,18 @@ echo "Hello, " . ($_GET['name'] ?? 'anonymous') . "!\n";
 echo "Method: {$_SERVER['REQUEST_METHOD']}\n";
 ```
 
-使用 CLI 或配置文件选择模式：
+此脚本对应的 `rapira.toml` 是：
 
-::: code-group
+```toml
+[http]
+listen = "127.0.0.1:8000"
 
-```bash [CLI]
-rapira serve --mode classic public/index.php
-```
-
-```toml [rapira.toml]
-[pool]
+[http.pool]
 entrypoint = "public/index.php"
 mode = "classic"
 ```
 
-:::
-
-运行 `rapira serve --config rapira.toml` 以使用配置文件。 相对 `pool.entrypoint` 使用配置文件目录。相对 CLI 脚本路径使用当前目录。 其他选项请参阅[命令行参考](/zh/docs/cli)。
+运行 `rapira serve rapira.toml` 启动 Rapira。相对 `http.pool.entrypoint` 以配置文件目录为基准。该命令请参阅[命令行参考](/zh/docs/cli)。
 
 ## 入口脚本
 

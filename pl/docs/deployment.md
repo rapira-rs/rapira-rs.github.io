@@ -27,7 +27,7 @@ After=network.target
 [Service]
 Type=exec
 WorkingDirectory=/srv/app
-ExecStart=/usr/bin/rapira serve --config /etc/rapira/rapira.toml
+ExecStart=/usr/bin/rapira serve /etc/rapira/rapira.toml
 ExecReload=/bin/kill -USR2 $MAINPID
 KillMode=mixed
 Restart=on-failure
@@ -67,11 +67,11 @@ Dwie aplikacje na jednym hoście wymagają osobnych plików konfiguracyjnych, je
 
 ## Ścieżki konfiguracji
 
-Ten przewodnik używa `/etc/rapira/rapira.toml` dla ustawień Rapiry. Przechowuje `php.ini` w tym samym katalogu i ustawia `PHPRC=/etc/rapira`. Rapira nie zawiera tych ścieżek w pliku binarnym. Opcja `--config` przyjmuje dowolną ścieżkę. PHP używa `PHPRC` do wyszukiwania konfiguracji. Użyj innych ścieżek, jeśli wymaga ich system.
+Ten przewodnik używa `/etc/rapira/rapira.toml` dla ustawień Rapiry. Przechowuje `php.ini` w tym samym katalogu i ustawia `PHPRC=/etc/rapira`. Rapira nie zawiera tych ścieżek w pliku binarnym. Argument `CONFIG` przyjmuje dowolną ścieżkę. PHP używa `PHPRC` do wyszukiwania konfiguracji. Użyj innych ścieżek, jeśli wymaga ich system.
 
 Rapira może działać bez `php.ini`. Ustawienia domyślne zapisują diagnostykę PHP w logu, a nie w odpowiedziach HTTP. Utwórz `/etc/rapira/php.ini`, aby skonfigurować OPcache, limit pamięci lub strefę czasową. Więcej informacji zawierają [Logi](/pl/docs/logging).
 
-Względny `pool.entrypoint` używa katalogu pliku konfiguracyjnego jako podstawy. Dlatego `entrypoint = "index.php"` w tym układzie oznacza `/etc/rapira/index.php`. W środowisku produkcyjnym użyj bezwzględnej ścieżki skryptu wejściowego. `supervisor.pidfile` używa tej samej reguły. Argument `SCRIPT` i operacje PHP używają katalogu roboczego. Rapira nie zmienia tego katalogu. Systemd domyślnie używa `/`, dlatego jednostka ustawia `WorkingDirectory=/srv/app`. PHP szuka w tym katalogu również pliku ini. Wszystkie klucze zawiera [Konfiguracja](/pl/docs/configuration).
+Względny `http.pool.entrypoint` używa katalogu pliku konfiguracyjnego jako podstawy. Dlatego `entrypoint = "index.php"` w tym układzie oznacza `/etc/rapira/index.php`. W środowisku produkcyjnym użyj bezwzględnej ścieżki skryptu wejściowego. `supervisor.pidfile` używa tej samej reguły. Operacje PHP na plikach używają katalogu roboczego. Rapira nie zmienia tego katalogu. Systemd domyślnie używa `/`, dlatego jednostka ustawia `WorkingDirectory=/srv/app`. PHP szuka w tym katalogu również pliku ini. Wszystkie klucze zawiera [Konfiguracja](/pl/docs/configuration).
 
 ## Reverse proxy
 
@@ -124,7 +124,7 @@ Proces nadrzędny zachowuje ustawienia początkowe i pamięć współdzieloną O
 
 ## Logi
 
-Rapira zapisuje każdy wpis do logu na **stderr**. Stderr jednostki systemd trafia do journala bez dodatkowej konfiguracji. Na produkcji używaj JSON-a:
+Rapira zapisuje przefiltrowane wpisy do logu na **stderr**. Stderr jednostki systemd trafia do journala bez dodatkowej konfiguracji. Na produkcji używaj JSON-a dla stderr:
 
 ```toml
 [log]
@@ -145,7 +145,7 @@ Skonfiguruj kolektor logów do odczytu dziennika jednostki. Możesz też przekaz
 W [trybie Worker](/pl/docs/execution-modes) proces zachowuje stan aplikacji między żądaniami. Dlatego wyciek pamięci może stopniowo zwiększać pamięć procesu. Użyj tych dwóch ustawień:
 
 ```toml
-[pool]
+[http.pool]
 max_requests = 500
 request_terminate_timeout_secs = 30
 ```

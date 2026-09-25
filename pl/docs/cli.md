@@ -1,6 +1,6 @@
 ---
 title: Wiersz poleceń
-description: "Wszystkie opcje polecenia rapira serve, sposób nakładania się flag na plik konfiguracyjny i reguły rozwiązywania ścieżek skryptu wejściowego."
+description: "Polecenie rapira serve, jego argument z plikiem konfiguracyjnym i reguły rozwiązywania ścieżek skryptu wejściowego."
 ---
 
 # Wiersz poleceń
@@ -8,58 +8,19 @@ description: "Wszystkie opcje polecenia rapira serve, sposób nakładania się f
 Rapira to jeden plik binarny z jednym podpoleceniem:
 
 ```bash
-rapira serve [OPTIONS] [SCRIPT]
+rapira serve <CONFIG>
 ```
 
-Polecenie `serve` uruchamia PHP, rejestruje wbudowane rozszerzenia i przyjmuje żądania. Uruchom `rapira` bez argumentów, aby wyświetlić pomoc. Uruchom `rapira serve --help`, aby wyświetlić dostępne opcje. Uruchom `rapira --version`, aby wyświetlić zainstalowaną wersję.
+Polecenie `serve` uruchamia PHP, rejestruje wbudowane rozszerzenia i przyjmuje żądania. `CONFIG` to ścieżka do pliku konfiguracyjnego. Jest wymagana. Dowolna nazwa pliku działa, a ta dokumentacja używa `rapira.toml`. Uruchom `rapira` bez argumentów, aby wyświetlić pomoc. Uruchom `rapira serve --help`, aby wyświetlić pomoc polecenia. Uruchom `rapira --version`, aby wyświetlić zainstalowaną wersję.
 
-Plik konfiguracyjny jest opcjonalny. Polecenie ze ścieżką skryptu może uruchomić serwer z ustawieniami domyślnymi.
-
-## Priorytet ustawień
-
-Rapira odczytuje ustawienia w następującej kolejności:
-
-**Flagi wiersza poleceń > plik konfiguracyjny > wbudowane wartości domyślne.**
-
-Tylko cztery flagi z tabeli i argument `SCRIPT` mają formę wiersza poleceń. Pozostałe ustawienia używają pliku lub wartości domyślnej.
-
-Flaga zastępuje odpowiednią wartość w `rapira.toml`. Wartość w `rapira.toml` zastępuje wartość domyślną. Ta kolejność umożliwia użycie wartości tymczasowej podczas jednego uruchomienia. Na przykład przetestuj inny port bez edycji pliku.
-
-Niezdefiniowane opcje używają wartości domyślnych z tabeli. Plik kontroluje skalowanie puli, logowanie i limity żądań. Wszystkie ustawienia pliku zawiera [Konfiguracja](/pl/docs/configuration).
-
-## Opcje
-
-| Opcja             | Domyślnie        | Co robi                                                                                          |
-| ----------------- | ---------------- | ------------------------------------------------------------------------------------------------ |
-| `--config <PATH>` | brak             | Wczytuje ustawienia z pliku `rapira.toml`.                                                       |
-| `--listen <ADDR>` | `127.0.0.1:8000` | Adres nasłuchu: `host:port`, `:port` (wszystkie interfejsy) albo `unix:<path>`.                  |
-| `--processes <N>` | liczba CPU       | Ile procesów workerów sforkować.                                                                 |
-| `--mode <MODE>`   | `dispatcher`     | Tryb pracy: `classic`, `worker` albo `dispatcher`. Nadpisuje `pool.mode` z pliku konfiguracyjnego. |
-| `SCRIPT`          | wymagany*        | Skrypt wejściowy PHP. Nadpisuje `pool.entrypoint` z pliku konfiguracyjnego.                      |
-
-\* Wymagany, o ile plik konfiguracyjny nie ustawia `pool.entrypoint`. Gdy nie ma ani jednego, ani drugiego, `serve` zgłasza błąd i nie startuje.
-
-**`--listen`** przyjmuje trzy formaty adresu. `127.0.0.1:8000` wiąże interfejs pętli zwrotnej. Systemy zdalne nie mogą połączyć się z tym adresem. `:8080` odpowiada `0.0.0.0:8080` i wiąże wszystkie interfejsy IPv4. Użyj `[::]:8080` dla wszystkich interfejsów IPv6. `unix:/run/rapira.sock` tworzy gniazdo uniksowe dla lokalnego reverse proxy. Literały IPv6 umieszczaj w nawiasach kwadratowych, na przykład `[::1]:8000`. Rapira odrzuca port bez adresu. Użyj `--listen :8080` albo `--listen 127.0.0.1:8080`. Rapira nie rozwiązuje nazw hostów w tej opcji. Użyj `127.0.0.1:8000` zamiast `localhost:8000`.
-
-**`--processes`** domyślnie przyjmuje liczbę logicznych CPU. Skalowanie statyczne używa jej jako dokładnej liczby workerów. Skalowanie dynamiczne i `ondemand` używają jej jako liczby maksymalnej. Więcej informacji zawiera [Model procesów](/pl/docs/process-model).
-
-**`--mode`** wybiera tryb wykonania. Wartością domyślną jest `dispatcher`. W tym trybie skrypt pobiera każde żądanie od hosta. W trybie `worker` skrypt wejściowy pozostaje aktywny i uruchamia handler dla każdego żądania. Tryb `classic` uruchamia nowe żądanie PHP dla każdego żądania HTTP. Flaga zastępuje tryb z pliku konfiguracyjnego. Więcej informacji zawierają strony [tryb Classic](/pl/docs/classic), [tryb Worker](/pl/docs/worker) i [Tryby wykonania](/pl/docs/execution-modes).
-
-::: info
-`pool.scaling` i `pool.mode` to dwa różne klucze. `pool.scaling` wybiera politykę, która dobiera rozmiar puli. `pool.processes` podaje liczbę workerów, do której ta polityka się stosuje, a `--processes` ją nadpisuje. `pool.mode` decyduje o tym, co worker robi z żądaniem. `pool.scaling` nie ma własnej flagi. Ustaw go w pliku konfiguracyjnym.
-:::
+Plik konfiguracyjny zawiera wszystkie ustawienia serwera. Wartość w pliku zastępuje wbudowaną wartość domyślną. `RUST_LOG` i `NO_COLOR` zmieniają tylko wyjście stderr. Wszystkie klucze i formaty adresu `listen` opisuje [Konfiguracja](/pl/docs/configuration).
 
 ## Rozwiązywanie ścieżki skryptu wejściowego
 
-Podaj skrypt przez argument `SCRIPT` lub parametr `pool.entrypoint`. Argument zastępuje `pool.entrypoint`, ale pozostałe ustawienia pliku konfiguracyjnego nadal obowiązują. Rapira przekształca ścieżkę skryptu na bezwzględną przed utworzeniem workerów. Dlatego późniejsze zmiany katalogu roboczego nie wpływają na ścieżkę.
-
-Dwie formy względne używają różnych katalogów bazowych:
-
-- Względny `SCRIPT` z wiersza poleceń jest rozwiązywany względem **bieżącego katalogu**.
-- Względny `pool.entrypoint` jest rozwiązywany względem **katalogu pliku konfiguracyjnego**.
+`http.pool.entrypoint` wskazuje skrypt wejściowy PHP. Ścieżka względna używa katalogu pliku konfiguracyjnego jako podstawy. Rapira przekształca ścieżkę na bezwzględną przed utworzeniem workerów. Dlatego późniejsze zmiany katalogu roboczego nie wpływają na ścieżkę.
 
 ```toml
-[pool]
+[http.pool]
 entrypoint = "public/index.php"
 ```
 
@@ -67,25 +28,53 @@ To ustawienie w `/etc/rapira/rapira.toml` wskazuje `/etc/rapira/public/index.php
 
 ## Przykłady
 
-Typowe wywołania:
+Każdy przykład to kompletny plik `rapira.toml`. Tryb Dispatcher jest domyślny:
 
-```bash
-rapira serve app/dispatcher.php
-rapira serve --mode worker app/worker.php
-rapira serve --mode classic public/index.php
-rapira serve --listen :8080 --processes 8 app/dispatcher.php
-rapira serve --listen unix:/run/rapira.sock app/dispatcher.php
-rapira serve --config /etc/rapira/rapira.toml
-rapira serve --config /etc/rapira/rapira.toml --listen 127.0.0.1:9000
+```toml
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
+entrypoint = "app/dispatcher.php"
+mode = "dispatcher"
 ```
 
-Pierwsze polecenie nie ustawia `--listen`. Dlatego serwer używa adresu domyślnego. Wyślij żądanie tym poleceniem:
+Tryb Worker:
+
+```toml
+[http]
+listen = ":8080"
+
+[http.pool]
+entrypoint = "app/worker.php"
+mode = "worker"
+```
+
+Tryb Classic:
+
+```toml
+[http]
+listen = "unix:/run/rapira.sock"
+
+[http.pool]
+entrypoint = "public/index.php"
+mode = "classic"
+```
+
+Uruchom serwer, podając ścieżkę do pliku:
+
+```bash
+rapira serve rapira.toml
+rapira serve /etc/rapira/rapira.toml
+```
+
+Pierwszy przykład nasłuchuje na `127.0.0.1:8000`. Wyślij żądanie tym poleceniem:
 
 ```bash
 curl http://127.0.0.1:8000/
 ```
 
-Skrypty wejściowe do poleceń `--mode classic` i `--mode worker` znajdziesz w [Szybkim starcie](/pl/docs/intro/quickstart). Skrypt wejściowy dla trybu Dispatcher weź z pliku `dispatcher-sync.php` albo `dispatcher-async.php` w katalogu [`examples/`](https://github.com/rapira-rs/rapira/tree/main/examples) w repozytorium.
+Skrypty wejściowe dla trybów Classic i Worker znajdziesz w [Szybkim starcie](/pl/docs/intro/quickstart). Skrypt wejściowy dla trybu Dispatcher weź z pliku `dispatcher-sync.php` albo `dispatcher-async.php` w katalogu [`examples/`](https://github.com/rapira-rs/rapira/tree/main/examples) w repozytorium.
 
 ## Zatrzymywanie serwera
 

@@ -1,25 +1,25 @@
 ---
 title: Konfiguracja
-description: "Pełny opis rapira.toml: każdy klucz sekcji [http], [pool], [supervisor] i [log] wraz z typem, wartością domyślną i regułami, które odrzucą błędną wartość."
+description: "Wszystkie klucze rapira.toml, ich typy, wartości domyślne i reguły walidacji."
 ---
 
 # Konfiguracja
 
-Rapira może uruchomić się bez pliku konfiguracyjnego. `rapira serve --mode worker app/worker.php` używa ustawień domyślnych. Utwórz `rapira.toml`, aby zmienić adres, liczbę workerów, wymianę, pidfile lub poziom logowania. Wskaż plik tym poleceniem:
+Rapira wymaga pliku konfiguracyjnego. Polecenie `rapira serve` przyjmuje jego ścieżkę jako jedyny argument. Dowolna nazwa pliku działa, a ta dokumentacja używa `rapira.toml`:
 
 ```bash
-rapira serve --config /etc/rapira/rapira.toml
+rapira serve /etc/rapira/rapira.toml
 ```
 
-Plik ma cztery opcjonalne sekcje. `[http]` konfiguruje nasłuch, a `[pool]` konfiguruje workery. `[supervisor]` konfiguruje proces nadrzędny. `[log]` konfiguruje wyjście stderr. Skrypt wejściowy PHP nie ma wartości domyślnej. Ustaw `pool.entrypoint` albo podaj skrypt jako argument.
+Plik ustawia adres, liczbę workerów, wymianę, pidfile i poziom logowania. Wartość z pliku zastępuje wartość domyślną.
 
-::: info
-Flagi wiersza poleceń zastępują wartości pliku. Wartości pliku zastępują wartości domyślne. Na przykład `--processes 8` zastępuje `processes = 4` podczas jednego uruchomienia. Tylko dwie zmienne środowiskowe logowania wpływają na ustawienia. Dostępne flagi opisuje [Wiersz poleceń](/pl/docs/cli).
-:::
+`[http]` i `[grpc]` konfigurują osobne nasłuchy i pule workerów PHP. Skonfiguruj co najmniej jedną z tych sekcji. `[supervisor]` konfiguruje proces nadrzędny. `[log]` konfiguruje wyjście stderr.
+
+Każdy włączony nasłuch wymaga skryptu wejściowego PHP. Ustaw `http.pool.entrypoint`, `grpc.pool.entrypoint` lub oba klucze.
 
 ## Kompletny rapira.toml
 
-Poniższy plik zawiera wszystkie obsługiwane klucze. Większość brakujących kluczy używa wartości domyślnej. `pool.entrypoint` nie ma wartości domyślnej. Skalowanie dynamiczne wymaga `min_spare` i `max_spare`. Tabela `[http.static]` wymaga `http.static.root`.
+Poniższa konfiguracja włącza oba protokoły i pokazuje obsługiwane tabele. Większość brakujących kluczy używa wartości domyślnej. Każda pula wymaga `entrypoint`. Skalowanie dynamiczne wymaga `min_spare` i `max_spare`. Tabela `[http.static]` wymaga `http.static.root`.
 
 Niektóre klucze muszą występować razem. Tabela `[http.static]` wymaga wpisu `"static"` w `middleware`, a wpis wymaga tabeli. Usuń `min_spare` i `max_spare`, gdy skalowanie nie jest `dynamic`. Rapira odrzuca te klucze ze skalowaniem `static` i `ondemand`.
 
@@ -49,7 +49,7 @@ max_files = 20                        # Optional. Limits file parts in one reque
 max_parts = 1024                      # Optional. Limits all parts in one request.
 max_part_headers = 32                 # Optional. Limits fields in one part.
 
-[pool]
+[http.pool]                           # The worker pool behind the http listener.
 entrypoint = "index.php"              # Relative paths use this file's directory.
 mode = "dispatcher"                   # Use "classic", "worker", or "dispatcher". Default: "dispatcher".
 processes = 4                         # Sets the worker count and the scaling maximum.
@@ -59,6 +59,23 @@ max_spare = 3                         # For dynamic scaling. Sets the maximum id
 max_requests = 0                      # Replaces a worker after this request count. Zero disables the limit.
 process_idle_timeout_secs = 10        # For ondemand scaling. Removes workers after this idle time.
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
+
+[grpc]
+listen = "127.0.0.1:50051"
+descriptor_set = "api.binpb"          # Required. A FileDescriptorSet with its imports.
+services = ["example.v1.Echo"]        # Optional. Default: the services of the files that no other file imports.
+reflection = false
+default_timeout_secs = 30             # Optional. Deadline of a call without a client timeout.
+max_timeout_secs = 60                 # Optional. Upper limit for a client timeout.
+
+[grpc.pool]
+entrypoint = "grpc.php"
+mode = "dispatcher"                   # Required mode for gRPC.
+processes = 4
+scaling = "static"
+max_requests = 0
+process_idle_timeout_secs = 10
+request_terminate_timeout_secs = 0
 
 [supervisor]                          # Optional. Sets master process behavior.
 pidfile = "/run/rapira.pid"           # Optional. Relative paths use this file's directory.
@@ -81,7 +98,7 @@ Ta sekcja opisuje, gdzie Rapira nasłuchuje, co środowisko żądania mówi PHP 
 
 | Klucz | Typ | Domyślnie | Znaczenie |
 | --- | --- | --- | --- |
-| `listen` | tekst | `"127.0.0.1:8000"` | Adres nasłuchu w jednej z trzech postaci: `host:port` z literałem IP (`127.0.0.1:8000`, `[::1]:8000`), `:port` dla wszystkich interfejsów albo `unix:/run/rapira.sock` dla gniazda uniksowego. Sam port i nazwa hosta są odrzucane - z adresu musi wynikać, o który interfejs chodzi. |
+| `listen` | tekst | `"127.0.0.1:8000"` | Adres nasłuchu. Użyj `host:port` z adresem IP, `:port` dla wszystkich interfejsów IPv4 albo `unix:/run/rapira.sock` dla gniazda uniksowego. `:8080` jest równe `0.0.0.0:8080`. Użyj `[::]:8080` dla wszystkich interfejsów IPv6. Literał IPv6 podaj w nawiasach kwadratowych, na przykład `[::1]:8000`. Rapira odrzuca port bez adresu i odrzuca nazwy hostów. |
 | `server_name` | tekst | `"localhost"` | To, co PHP odczyta jako `$_SERVER['SERVER_NAME']`. |
 | `server_port` | liczba całkowita | port z `listen`, `80` dla `unix:` | To, co PHP odczyta jako `$_SERVER['SERVER_PORT']`. Ustaw go, gdy proxy stojące przed Rapirą przyjmuje ruch na innym porcie niż ten, na którym nasłuchuje sama Rapira. |
 | `max_body_size_mb` | liczba całkowita | `8` | Największa treść żądania, jaką Rapira przyjmie, w MiB (1024 × 1024 bajtów). Na cokolwiek większego odpowiada `413`. Minimum to 1. |
@@ -111,7 +128,7 @@ Katalog sendfile wyznacza jedyne miejsce, z którego czyta `sendFile()`. Rapira 
 
 | Klucz | Typ | Domyślnie | Znaczenie |
 | --- | --- | --- | --- |
-| `root` | tekst | katalog ze skryptem wejściowym | Jedyny katalog, z którego `sendFile()` może czytać. Ścieżkę względną Rapira liczy od katalogu z plikiem konfiguracyjnym. |
+| `root` | tekst | katalog skryptu wejściowego (`http.pool.entrypoint`) | Jedyny katalog, z którego `sendFile()` może czytać. Ścieżkę względną Rapira liczy od katalogu z plikiem konfiguracyjnym. |
 
 Katalogu, którego przy starcie serwera nie ma, nie da się sprowadzić do postaci kanonicznej, a wtedy `sendFile()` odrzuca każdą ścieżkę. Utwórz katalog, zanim uruchomisz serwer.
 
@@ -130,14 +147,16 @@ Tabela `[http.uploads]` ogranicza parsowanie `multipart/form-data` po stronie ho
 
 Każdy z tych limitów musi wynosić co najmniej 1. Żądanie, które przekroczy którykolwiek z nich, dostaje `413`.
 
-## Sekcja `[pool]`
+### Tabela `[http.pool]` {#http-pool}
 
-Workery to procesy, które faktycznie wykonują PHP, a ta sekcja mówi, co wykonują, ilu ich jest i kiedy proces nadrzędny któregoś zabiera. Co proces nadrzędny robi z tymi liczbami, wyjaśnia [model procesów](/pl/docs/process-model).
+Workery to procesy, które faktycznie wykonują PHP, a ta tabela mówi, co wykonują, ilu ich jest i kiedy proces nadrzędny któregoś zabiera. Co proces nadrzędny robi z tymi liczbami, wyjaśnia [model procesów](/pl/docs/process-model).
+
+Wtyczka `http` zarządza tą pulą workerów PHP. Nasłuch gRPC używa osobnej tabeli `[grpc.pool]`.
 
 | Klucz | Typ | Domyślnie | Znaczenie |
 | --- | --- | --- | --- |
-| `entrypoint` | tekst | brak - wymagane | Skrypt PHP, który wykonuje każdy worker. Ścieżkę względną Rapira liczy od katalogu z plikiem konfiguracyjnym. Argument `SCRIPT` w wierszu poleceń ma przed nim pierwszeństwo, a jedno z dwóch musi się pojawić - inaczej serwer w ogóle nie wystartuje. |
-| `mode` | `"classic"` \| `"worker"` \| `"dispatcher"` | `"dispatcher"` | Jak worker wykonuje skrypt wejściowy. `classic` uruchamia skrypt od zera przy każdym żądaniu. `worker` zostawia skrypt rezydentnym i wypełnia zmienne superglobalne na nowo przy każdym żądaniu. `dispatcher` zostawia skrypt rezydentnym i daje mu obiekt dyspozytora, z którego skrypt sam pobiera kolejne żądania. Flaga `--mode` w wierszu poleceń nadpisuje ten klucz w obie strony. Zobacz [tryby wykonania](/pl/docs/execution-modes). |
+| `entrypoint` | tekst | brak - wymagane | Skrypt PHP, który wykonuje każdy worker. Ścieżkę względną Rapira liczy od katalogu z plikiem konfiguracyjnym. Musisz ustawić wartość. |
+| `mode` | `"classic"` \| `"worker"` \| `"dispatcher"` | `"dispatcher"` | Jak worker wykonuje skrypt wejściowy. `classic` uruchamia skrypt od zera przy każdym żądaniu. `worker` zostawia skrypt rezydentnym i wypełnia zmienne superglobalne na nowo przy każdym żądaniu. `dispatcher` zostawia skrypt rezydentnym i daje mu obiekt dyspozytora, z którego skrypt sam pobiera kolejne żądania. Zobacz [tryby wykonania](/pl/docs/execution-modes). |
 | `processes` | liczba całkowita | jeden na logiczny rdzeń CPU | Ile procesów workerów sforkować. Przy skalowaniu `dynamic` i `ondemand` to górny limit, a nie stała liczba. Minimum to 1. |
 | `scaling` | `"static"` \| `"dynamic"` \| `"ondemand"` | `"static"` | Jak pula dobiera swój rozmiar. `static` trzyma przy życiu `processes` workerów bez przerwy; `dynamic` skaluje się między progami zapasu, z sufitem na `processes`; `ondemand` forkuje dopiero wtedy, gdy jest praca, i pozwala bezczynnym workerom odejść. |
 | `min_spare` | liczba całkowita | brak | Tylko przy skalowaniu `dynamic` i tam wymagane: utrzymuj co najmniej tylu workerów bezczynnych i gotowych do pracy. |
@@ -148,7 +167,28 @@ Workery to procesy, które faktycznie wykonują PHP, a ta sekcja mówi, co wykon
 
 `mode` i `scaling` to dwie osobne osie: `mode` mówi, co worker robi ze skryptem wejściowym, a `scaling` ilu jest workerów.
 
-Progi zapasu sprawdzane są względem obowiązującej wartości `processes`, więc flaga `--processes` w wierszu poleceń obniża też sufit, pod którym musi zmieścić się `max_spare`.
+Progi zapasu sprawdzane są względem wartości `processes`.
+
+## Sekcja `[grpc]` {#grpc}
+
+Ta sekcja włącza unarne wywołania gRPC, gRPC-Web i Connect na jednym nasłuchu. Kompletną usługę PHP i polecenia klienta opisuje [gRPC](./grpc).
+
+| Klucz | Typ | Domyślnie | Znaczenie |
+| --- | --- | --- | --- |
+| `listen` | tekst | `"127.0.0.1:50051"` | Adres TCP lub ścieżka gniazda `unix:`. Używa tej samej składni adresu co `http.listen`. |
+| `descriptor_set` | tekst | brak, wymagane | Ścieżka binarnego `google.protobuf.FileDescriptorSet`, który zawiera wszystkie importowane pliki. Zbuduj go poleceniem `buf build --as-file-descriptor-set` lub `protoc --include_imports`. |
+| `services` | lista tekstów | nieustawione | W pełni kwalifikowane nazwy obsługiwanych usług. Gdy klucz nie jest ustawiony, pula obsługuje usługi z plików, których nie importuje żaden inny plik zestawu. Lista nie może być pusta. |
+| `reflection` | logiczny | `false` | Włącza usługi `grpc.reflection.v1` i `v1alpha`. |
+| `default_timeout_secs` | liczba całkowita | nieustawione | Termin zakończenia wywołania, dla którego klient nie podał limitu czasu. Gdy klucz nie jest ustawiony, takie wywołanie nie ma terminu zakończenia. |
+| `max_timeout_secs` | liczba całkowita | nieustawione | Górna granica limitu czasu klienta. Gdy klucz nie jest ustawiony, granica nie istnieje. |
+
+Proces nadrzędny wczytuje zestaw deskryptorów przed forkowaniem workerów. Te błędy zatrzymują inicjalizację: zestaw, którego Rapira nie może odczytać lub zdekodować, zestaw bez importowanych plików i zestaw bez usługi do obsługi. Zatrzymuje ją też wpis `services`, którego nie ma w zestawie, powtórzony wpis oraz wpis, który wskazuje usługę health lub refleksji. `default_timeout_secs` nie może być większe niż `max_timeout_secs`.
+
+### Tabela `[grpc.pool]` {#grpc-pool}
+
+Ta tabela używa [kluczy i wartości domyślnych puli HTTP](#http-pool), z wymaganym `entrypoint` i `mode = "dispatcher"`. Tryby Classic i Worker są odrzucane. Skalowanie, limity zapasu bezczynnych workerów, wymiana workerów i nadzór nad czasem działania procesów dotyczą tej puli niezależnie.
+
+HTTP i gRPC mogą działać razem. Każdy nasłuch używa własnej puli i skryptu wejściowego. Uruchom ponownie Rapirę, aby wczytać zmieniony zestaw deskryptorów. Przeładowanie zachowuje stary zestaw.
 
 ## Sekcja `[supervisor]`
 
@@ -161,13 +201,13 @@ Zasady dla procesu nadrzędnego - tego, który trzyma gniazdo nasłuchu, pilnuje
 
 ## Sekcja `[log]`
 
-Rapira zapisuje wszystkie wpisy do stderr. Ta sekcja decyduje, jak szczegółowy jest ten strumień i jaki kształt ma pojedynczy rekord; poszczególne cele, formaty i to, jak diagnostyka PHP mapuje się na poziomy, opisują [Logi](/pl/docs/logging).
+Ta sekcja steruje poziomem i formatem logów stderr. Cele, formaty i poziomy diagnostyki PHP opisują [Logi](/pl/docs/logging).
 
 | Klucz | Typ | Domyślnie | Znaczenie |
 | --- | --- | --- | --- |
 | `level` | `"error"` \| `"warn"` \| `"info"` \| `"debug"` \| `"trace"` | `"error"` | Poziom szczegółowości, wspólny od razu dla wszystkich celów. |
 | `format` | `"plain"` \| `"json"` | `"plain"` | Kształt rekordu: czytelne dla człowieka linie (kolorowane, gdy stderr jest terminalem) albo jeden obiekt JSON na linię dla kolektora logów. |
-| `[log.targets]` | tabela cel → poziom | pusta | Nadpisania dla poszczególnych celów, nakładane na `level`. Każdy klucz nazywa jeden z celów, pod którymi Rapira pisze: `php` niesie wyjście samego PHP, a `http` front HTTP. Klucz dopasowuje się po prefiksie, więc `php` obejmuje też `php_sys::callbacks` i wszystko poniżej. Pełną listę celów mają [Logi](/pl/docs/logging). |
+| `[log.targets]` | tabela cel → poziom | pusta | Nadpisania dla poszczególnych celów, nakładane na `level`. Każdy klucz nazywa jeden z celów, pod którymi Rapira pisze: `php` niesie wyjście samego PHP, a `http` i `grpc` wyjście serwerów odpowiednich protokołów. `net` zawiera wpisy pętli akceptowania połączeń. Klucz dopasowuje się po prefiksie, więc `php` obejmuje też `php_sys::callbacks` i wszystko poniżej. Pełną listę celów mają [Logi](/pl/docs/logging). |
 
 Klucz `[log.targets]` może zawierać litery, cyfry, `_`, `:`, `.` i `-`. Musi zaczynać się literą, cyfrą lub `_`. Rapira odrzuca inne znaki, ponieważ filtr może odczytać je jako składnię. Klucz celu zawierający `:` lub `.` musi być ujęty w cudzysłów, ponieważ TOML nie zezwala na te znaki w prostym kluczu bez cudzysłowu. Na przykład:
 
@@ -176,11 +216,11 @@ Klucz `[log.targets]` może zawierać litery, cyfry, `_`, `:`, `.` i `-`. Musi z
 "php_sys::callbacks" = "debug"
 ```
 
-Rapira odczytuje tylko zmienne środowiskowe `RUST_LOG` i `NO_COLOR`. Obie wpływają wyłącznie na logi. `RUST_LOG` zastępuje cały filtr podczas jednego uruchomienia. Niepusta wartość `NO_COLOR` wyłącza kolory formatu `plain`.
+`RUST_LOG` i `NO_COLOR` wpływają tylko na wyjście stderr. `RUST_LOG` zastępuje cały filtr stderr podczas jednego uruchomienia. Niepusta wartość `NO_COLOR` wyłącza kolory formatu `plain`.
 
 ## Nieznane klucze są odrzucane
 
-Rapira akceptuje tylko udokumentowane tabele i klucze. Na przykład `[htttp]` albo `lissten = ":8000"` zatrzymuje inicjalizację. Błąd wskazuje nieznaną nazwę. Rapira jej nie ignoruje. Każdy klucz należy do jednej tabeli. Na przykład `max_requests` należy do `[pool]`, a `pidfile` do `[supervisor]`.
+Rapira akceptuje tylko udokumentowane tabele i klucze. Na przykład `[htttp]` albo `lissten = ":8000"` zatrzymuje inicjalizację. Błąd wskazuje nieznaną nazwę. Rapira jej nie ignoruje. Każdy klucz należy do jednej tabeli. Na przykład `max_requests` należy do `[http.pool]`, a `pidfile` do `[supervisor]`.
 
 Rapira sprawdza również wartości. Odrzuca nieobsługiwane wartości zamiast używać wartości domyślnych. Na przykład odrzuca `level = "verbose"`, `format = "pretty"` i `unsafe_field_names = "allow"`. Wartości liczbowe mają granice. Liczby workerów, rozmiary treści, limity czasu HTTP i limity przesyłanych plików muszą wynosić co najmniej 1. Każdy klucz `*_secs` ma maksimum `86400`, czyli jeden dzień.
 
@@ -190,9 +230,7 @@ Walidacja odbywa się, zanim cokolwiek wystartuje, więc nierozpoznany klucz prz
 
 ## Ścieżki względne
 
-Pięć kluczy zawiera ścieżki: `pool.entrypoint`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root` i `http.uploads.dir`. Każda ścieżka względna używa katalogu pliku konfiguracyjnego jako podstawy. Na przykład `entrypoint = "app/worker.php"` w `/etc/rapira/rapira.toml` daje `/etc/rapira/app/worker.php`.
-
-Argument pozycyjny `SCRIPT` używa bieżącego katalogu jako podstawy ścieżki względnej.
+Ścieżki systemu plików obejmują skrypty wejściowe obu pul, `grpc.descriptor_set`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root` i `http.uploads.dir`. Każda ścieżka względna używa katalogu pliku konfiguracyjnego jako podstawy. Względne ścieżki nasłuchów `unix:` także używają tego katalogu. Na przykład `entrypoint = "app/worker.php"` w `/etc/rapira/rapira.toml` daje `/etc/rapira/app/worker.php`.
 
 ::: tip
 Przechowuj `rapira.toml` w aplikacji. Zapisuj ścieżki względem tego pliku. Ten układ umożliwia przenoszenie katalogu aplikacji bez zmiany ścieżek.

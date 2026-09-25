@@ -34,16 +34,22 @@ while (\Rapira\handle_request($handler)) {
 }
 ```
 
-Dispatcher jest trybem domyślnym. Wybierz tryb Worker jednym z tych ustawień:
+Dispatcher jest trybem domyślnym. Wybierz tryb Worker przez `mode = "worker"` w tabeli `[http.pool]` pliku `rapira.toml`:
 
-- `--mode worker` w wierszu poleceń, obok skryptu wejściowego.
-- `mode = "worker"` w sekcji `[pool]` pliku `rapira.toml`.
+```toml
+[http]
+listen = "127.0.0.1:8000"
 
-```bash
-rapira serve --mode worker app/worker.php
+[http.pool]
+entrypoint = "app/worker.php"
+mode = "worker"
 ```
 
-Pozostałe flagi znajdziesz w [Wierszu poleceń](/pl/docs/cli), a ich odpowiedniki w `rapira.toml` w [Konfiguracji](/pl/docs/configuration).
+```bash
+rapira serve rapira.toml
+```
+
+Pozostałe klucze opisuje [Konfiguracja](/pl/docs/configuration).
 
 ## Kontrakt `handle_request()`
 
@@ -134,11 +140,11 @@ if (\Rapira\get_mode() === \Rapira\Mode::Worker) {
 
 ## Typowe problemy
 
-**Stan zachowany między żądaniami.** Sprawdź stan żądania, jeśli aplikacja nie działa tylko w trybie Worker. Przykłady to rosnąca tablica statyczna, obiekt żądania w singletonie albo stare dane użytkownika w loggerze. Zeruj ten stan na początku albo na końcu handlera. Zeruj też stan żądania w bibliotekach. `pool.max_requests` zastępuje workera po określonej liczbie żądań. Ogranicza wyciek pamięci, ale go nie naprawia.
+**Stan zachowany między żądaniami.** Sprawdź stan żądania, jeśli aplikacja nie działa tylko w trybie Worker. Przykłady to rosnąca tablica statyczna, obiekt żądania w singletonie albo stare dane użytkownika w loggerze. Zeruj ten stan na początku albo na końcu handlera. Zeruj też stan żądania w bibliotekach. `http.pool.max_requests` zastępuje workera po określonej liczbie żądań. Ogranicza wyciek pamięci, ale go nie naprawia.
 
 **Niezebrane cykle referencji.** Zliczanie referencji w PHP natychmiast zwalnia większość wartości. Cykle zwalnia dopiero kolektor cykli. Przykład wywołuje `gc_collect_cycles()` między żądaniami. To wywołanie jest opcjonalne, ale zapewnia przewidywalny czas zbierania.
 
-**Żądania, które się nie kończą.** Worker nie może obsłużyć innego żądania podczas wykonywania bieżącego żądania. `pool.request_terminate_timeout_secs` ogranicza czas jednego żądania. Rapira kończy workera, który przekroczy tę wartość. Ten klucz i `pool.max_requests` opisuje [Konfiguracja](/pl/docs/configuration). Obsługę zakończenia opisuje [Model procesów](/pl/docs/process-model).
+**Żądania, które się nie kończą.** Worker nie może obsłużyć innego żądania podczas wykonywania bieżącego żądania. `http.pool.request_terminate_timeout_secs` ogranicza czas jednego żądania. Rapira kończy workera, gdy żądanie przekroczy tę wartość. Ten klucz i `http.pool.max_requests` opisuje [Konfiguracja](/pl/docs/configuration). Obsługę zakończenia opisuje [Model procesów](/pl/docs/process-model).
 
 **Nieprzechwycony wyjątek dotyczy jednego żądania, nie workera.** Rapira zwraca `500` dla nieprzechwyconego wyjątku handlera, jeśli handler nie wysłał jeszcze nagłówka odpowiedzi. Rapira nie może zmienić statusu po wysłaniu nagłówka odpowiedzi. Pętla działa dalej, więc wyjątek nie zatrzymuje workera. Błąd krytyczny kończy skrypt rezydentny. Następnie worker ponownie uruchamia skrypt i inicjalizuje aplikację.
 

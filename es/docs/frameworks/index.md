@@ -22,7 +22,7 @@ Las pruebas ejecutaron estas aplicaciones en Linux con un proceso worker. Las af
 
 **El modo Worker mantiene activo el proceso.** El script inicia la aplicación y solicita trabajo en un bucle. El estado de la aplicación permanece entre peticiones. Consulta [modos de ejecución](/es/docs/execution-modes) y [modo Worker](/es/docs/worker).
 
-Un código base puede usar ambos modos. Conserva `public/index.php`. Añade `worker.php` a la raíz del proyecto. Usa `--mode` para seleccionar el modo de ejecución. Selecciona el script con el argumento `SCRIPT` o con `pool.entrypoint`. Usa el modo Classic si falla la migración al modo Worker.
+Un código base puede usar ambos modos. Conserva `public/index.php`. Añade `worker.php` a la raíz del proyecto. `http.pool.mode` selecciona el modo de ejecución y `http.pool.entrypoint` selecciona el script. Usa el modo Classic si falla la migración al modo Worker.
 
 ## Bucle de Worker
 
@@ -142,7 +142,7 @@ Cada petición de este diseño crea un grafo de objetos. Los ciclos de referenci
 Las pruebas mostraron que `gc_collect_cycles()` no evita este comportamiento en el bucle ni en el handler. Una inicialización posterior puede conservar referencias a grafos antiguos. El recolector no puede liberar un grafo mientras otro objeto lo referencia. Establece `memory_limit` por encima del máximo medido. También establece un límite de sustitución:
 
 ```toml
-[pool]
+[http.pool]
 max_requests = 100
 ```
 
@@ -156,7 +156,7 @@ Rapira inicia PHP una vez en el maestro antes de crear workers. OPcache crea un 
 
 En producción, `opcache.validate_timestamps = 0` elimina la comprobación de archivos de cada petición. Este ajuste impide la invalidación automática de la caché. El segmento de OPcache pertenece al maestro y permanece durante la sustitución de workers. Por tanto, un despliegue requiere un reinicio completo. Consulta [En producción](/es/docs/deployment) para ver la secuencia.
 
-Durante el desarrollo, una aplicación persistente no vuelve a leer su código de inicialización. Este comportamiento no depende de OPcache. Reinicia el servidor después de cambiar el script del worker o los servicios iniciados. Pulsa Ctrl-C y vuelve a ejecutar `rapira serve`.
+Durante el desarrollo, una aplicación persistente no vuelve a leer su código de inicialización. Este comportamiento no depende de OPcache. Reinicia el servidor después de cambiar el script del worker o los servicios iniciados. Pulsa Ctrl-C y vuelve a ejecutar `rapira serve rapira.toml`.
 
 ## Guías de frameworks
 

@@ -6,8 +6,7 @@ faqLevel: 2
 
 # Installation
 
-Each Rapira artifact contains the `rapira` binary and its `libphp` interpreter library. The server loads this library into its process.
-The artifact does not contain the `php` command, php-fpm, or an ini directory. Rapira does not require a system PHP installation.
+Each Rapira package or tarball contains the `rapira` binary and its `libphp` interpreter library. The server loads this library into its process. Packages and tarballs do not contain the `php` command, php-fpm, or an ini directory. Rapira does not require a system PHP installation.
 
 ::: question What is `libphp`, and how does it differ from the PHP command?
 PHP builds several interfaces to its engine. These interfaces are Server Application Programming Interfaces, or SAPIs.
@@ -88,7 +87,7 @@ The leading `./` tells apt to use a local file instead of a repository package n
 :::
 
 ::: question Which files does the package install?
-The package installs `/usr/bin/rapira` and `/usr/lib/rapira/libphp.so`. It installs the license and README under `/usr/share/doc/rapira/`.
+The package installs `/usr/bin/rapira`, `/usr/lib/rapira/libphp.so`, and ICU libraries under `/usr/lib/rapira/`. It installs the license and README under `/usr/share/doc/rapira/`.
 :::
 
 ## RHEL, Rocky and Fedora
@@ -110,11 +109,13 @@ A tarball unpacks into a single directory that holds the whole server:
 ```text
 rapira-v0.8.0-php8.5-linux-x86_64/
 ├── bin/rapira
-├── lib/rapira/libphp.so
+├── lib/rapira/
 ├── share/php/PHP_VERSION.txt
 ├── README.md
 └── LICENSE
 ```
+
+On Linux, `lib/rapira` contains `libphp.so` and the required ICU libraries.
 
 Move the directory to its permanent location. Add a symbolic link to the binary on `PATH`:
 
@@ -164,8 +165,8 @@ A copy in `/usr/local/bin` has no adjacent `lib/rapira` directory and cannot fin
 
 ::: question Which system libraries does the tarball need?
 On macOS, `lib/rapira` contains `libphp.dylib` and all required non-system libraries. The directory is self-contained.
-On Linux, the artifact includes only `libphp.so`. The system must provide OpenSSL 3, libcurl, libxml2, SQLite, Oniguruma, and zlib.
-The deb and RPM packages declare these libraries, glibc, and libgcc as dependencies.
+
+On Linux, `lib/rapira` contains `libphp.so` and the required ICU libraries. Each artifact carries the ICU version used to build its interpreter. The system must provide OpenSSL 3, libcurl, libxml2, SQLite, Oniguruma, zlib, libpq, and libstdc++. The deb and RPM packages declare these libraries, glibc, and libgcc as dependencies.
 :::
 
 ## Verifying checksums
@@ -196,18 +197,31 @@ Copy its files into an application image:
 ```dockerfile
 FROM php:8.5-cli-trixie
 COPY --from=ghcr.io/rapira-rs/rapira:php8.5 / /
+RUN apt-get update \
+    && xargs -r apt-get install -y --no-install-recommends < /usr/local/share/rapira/debian-packages.txt \
+    && rm -rf /var/lib/apt/lists/*
 COPY . /app
-CMD ["rapira", "serve", "--listen", ":8000", "--mode", "classic", "/app/public/index.php"]
+CMD ["rapira", "serve", "/app/rapira.toml"]
 ```
 
-The image contains `/usr/local/bin/rapira`, `/usr/local/lib/libphp.so`, and OPcache.
-For PHP 8.4, OPcache is a separate `opcache.so` with an ini file. For PHP 8.5, it is part of `libphp.so`.
-The `/usr/local/share/rapira` directory contains two more files. `PHP_VERSION.txt` contains the bundled PHP patch version.
-`debian-packages.txt` lists required Debian packages for a base image without PHP.
+The application directory holds a `rapira.toml`:
 
-The image build uses `libphp.so` from `php:8.4-cli-trixie` or `php:8.5-cli-trixie`.
-It includes the extensions from that image, not the set in [The libphp build](#the-libphp-build).
-Add other extensions in the application base image. On a PHP base image, `docker-php-ext-install` compiles against the same `libphp.so`.
+```toml
+[http]
+listen = ":8000"
+
+[http.pool]
+entrypoint = "/app/public/index.php"
+mode = "classic"
+```
+
+The image contains `/usr/local/bin/rapira`, `/usr/local/lib/libphp.so`, and OPcache. For PHP 8.4, OPcache is a separate `opcache.so` with an ini file. For PHP 8.5, it is part of `libphp.so`.
+
+The image also includes `bcmath`, `intl`, `pdo_pgsql`, `pgsql`, `igbinary`, and `redis` as shared modules with INI files that enable them. Redis supports igbinary serialization.
+
+The `/usr/local/share/rapira` directory contains two more files. `PHP_VERSION.txt` contains the bundled PHP patch version. `debian-packages.txt` lists the runtime packages for `libphp` and its shared extensions. Install these packages in the application image, including when the base image contains PHP.
+
+The image build uses `libphp.so` from `php:8.4-cli-trixie` or `php:8.5-cli-trixie`. It adds the six shared extensions listed above. Add other extensions in the application base image. On a PHP base image, `docker-php-ext-install` compiles against the same `libphp.so`.
 
 ::: question Why is the image built `FROM scratch`?
 A scratch image contains only files that the build copies into it.
@@ -233,21 +247,21 @@ Each successful CI run on `main` builds images from that commit. The build gets 
 
 ## The libphp build
 
-Rapira builds `libphp` with `--disable-all` and enables this fixed set of extensions:
+Release packages and tarballs use `libphp` built with `--disable-all` and this fixed set of extensions:
 
 - **Runtime basics**: session, filter, mbstring, iconv, ctype, tokenizer, fileinfo, phar, posix.
 - **OPcache** and PCRE with JIT enabled.
 - **Networking and compression**: openssl, curl, zlib, sockets, ftp.
 - **XML**: libxml, dom, xml, simplexml, xmlreader, xmlwriter.
-- **Databases**: PDO with `pdo_sqlite`, and `sqlite3` itself.
+- **Databases**: PDO with `pdo_sqlite` and `pdo_pgsql`, plus `sqlite3` and `pgsql`.
+- **Decimal arithmetic and internationalization**: bcmath and intl.
+- **Serialization and caching**: igbinary and redis, with igbinary serialization enabled for Redis.
 - **Shared memory and System V IPC**: shmop, sysvmsg, sysvsem, sysvshm.
 - **Dates, image metadata and translations**: calendar, exif, gettext.
 - **Foreign function interface**: ffi.
 - **Required PHP components**: Core, standard, SPL, date, json, hash, random, Reflection.
 
-The build does not include `pdo_mysql`, `pgsql`, Redis, APCu, or Imagick.
-If the application requires another extension, build `libphp` with it. Then compile Rapira against that library.
-See [Build from source](/docs/intro/build-from-source).
+For other extensions, such as `pdo_mysql`, APCu, or Imagick, build `libphp` with the required options. Then compile Rapira against that library. See [Build from source](/docs/intro/build-from-source).
 
 Each artifact uses the latest available patch release in its PHP 8.4 or PHP 8.5 series. In a tarball, `share/php/PHP_VERSION.txt` contains the exact version. On an active server, `PHP_VERSION` and `phpinfo()` report it.
 
@@ -263,7 +277,7 @@ Packages and tarballs do not contain `php.ini`, and Rapira does not create one. 
 Set `PHPRC` to a file or search directory:
 
 ```bash
-PHPRC=/etc/rapira/php.ini rapira serve --config /etc/rapira/rapira.toml
+PHPRC=/etc/rapira/php.ini rapira serve /etc/rapira/rapira.toml
 ```
 
 ::: question Where does PHP look for `php.ini` on its own?

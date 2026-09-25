@@ -32,7 +32,7 @@ After=network.target
 [Service]
 Type=exec
 WorkingDirectory=/srv/app
-ExecStart=/usr/bin/rapira serve --config /etc/rapira/rapira.toml
+ExecStart=/usr/bin/rapira serve /etc/rapira/rapira.toml
 ExecReload=/bin/kill -USR2 $MAINPID
 KillMode=mixed
 Restart=on-failure
@@ -75,16 +75,16 @@ Each instance initializes PHP and creates a separate worker pool.
 ## Configuration paths
 
 This guide uses `/etc/rapira/rapira.toml` for Rapira settings. It puts `php.ini` in the same directory and sets `PHPRC=/etc/rapira`.
-Rapira does not contain these paths in the binary. The `--config` option accepts any file path.
+Rapira does not contain these paths in the binary. The `CONFIG` argument accepts any file path.
 PHP uses `PHPRC` to find its configuration. Use different paths when the system configuration requires them.
 
 Rapira can run without a `php.ini`. Its defaults write PHP diagnostics to the log instead of HTTP responses.
 Create `/etc/rapira/php.ini` to configure OPcache, a memory limit, or a time zone. See [Logging](/docs/logging) for diagnostic settings.
 
-A relative `pool.entrypoint` uses the **configuration file directory** as its base. In this layout, `entrypoint = "index.php"` means `/etc/rapira/index.php`.
+A relative `http.pool.entrypoint` uses the **configuration file directory** as its base. In this layout, `entrypoint = "index.php"` means `/etc/rapira/index.php`.
 Use an absolute entry point path in production. `supervisor.pidfile` uses the same resolution rule.
 
-The positional `SCRIPT` argument and PHP file operations use the working directory. Rapira does not change this directory.
+PHP file operations use the working directory. Rapira does not change this directory.
 Systemd uses `/` by default, so the unit sets `WorkingDirectory=/srv/app`. PHP also searches this directory for an ini file.
 See [Configuration](/docs/configuration) for all keys and defaults.
 
@@ -148,7 +148,7 @@ The master keeps its initial settings and OPcache shared memory during a reload.
 
 ## Logs
 
-Rapira writes each log record to **stderr**. Systemd sends stderr to the journal. Use JSON format in production:
+Rapira writes filtered log records to **stderr**. Systemd sends stderr to the journal. Use JSON format for stderr in production:
 
 ```toml
 [log]
@@ -171,7 +171,7 @@ See [Logging](/docs/logging) for target levels and the `RUST_LOG` override.
 In [Worker mode](/docs/execution-modes), the process keeps application state between requests. Thus, a memory leak can increase process memory over time. Use these two settings to limit the effect:
 
 ```toml
-[pool]
+[http.pool]
 max_requests = 500
 request_terminate_timeout_secs = 30
 ```

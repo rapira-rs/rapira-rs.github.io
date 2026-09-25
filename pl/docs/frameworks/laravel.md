@@ -23,27 +23,19 @@ Sprawdź rozszerzenia bazy danych przed pierwszym uruchomieniem. Nowy projekt `l
 
 ## Uruchamianie Rapiry
 
-Tryb Classic trzeba włączyć jawnie, więc polecenie wprost go nazywa:
+Tryb Classic trzeba włączyć jawnie w `rapira.toml`:
 
-::: code-group
+```toml
+[http]
+listen = "127.0.0.1:8000"
 
-```bash [CLI]
-rapira serve --mode classic public/index.php
-```
-
-```toml [rapira.toml]
-[pool]
+[http.pool]
 entrypoint = "public/index.php"
 mode = "classic"
 processes = 4
-
-[http]
-listen = "127.0.0.1:8000"
 ```
 
-:::
-
-Uruchom `rapira serve --config rapira.toml`, aby użyć pliku konfiguracyjnego. Względny `entrypoint` używa katalogu pliku. Wszystkie klucze opisuje [Konfiguracja](/pl/docs/configuration).
+Uruchom `rapira serve rapira.toml`, aby wystartować serwer. Względny `entrypoint` używa katalogu pliku. Wszystkie klucze opisuje [Konfiguracja](/pl/docs/configuration).
 
 Rapira uruchamia nowe żądanie PHP dla każdego żądania HTTP. Dlatego cykl życia jest taki sam jak w php-fpm. Aplikacja nie ma trwałego stanu. PHP uruchamia się w procesie nadrzędnym przed utworzeniem workerów. OPcache zapewnia wspólny cache kodu aplikacji i `vendor/`. Zobacz [tryb Classic](/pl/docs/classic).
 

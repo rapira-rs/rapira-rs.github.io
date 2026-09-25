@@ -11,7 +11,7 @@ Rapira se compila desde el código en Linux y macOS. Compilarlo tú mismo resuel
 
 - **No hay binario para tu plataforma**: una arquitectura de CPU poco habitual, o una distro basada en musl como Alpine.
 - **Tu distribución es más antigua de lo que admiten los paquetes.** Las releases se compilan contra glibc 2.34, así que Debian 12, Ubuntu 22.04 y RHEL 9 son las versiones más antiguas donde llegan a instalarse (lo tienes en [Instalación](/es/docs/intro/installation)).
-- **Necesitas otro conjunto de extensiones de PHP.** Las compilaciones de release incluyen un PHP construido con la lista de flags de [`.github/php-configure-flags.txt`](https://github.com/rapira-rs/rapira/blob/main/.github/php-configure-flags.txt), que es corta a propósito: session, mbstring, OPcache, OpenSSL, curl, la familia XML y PDO con SQLite. Si tu aplicación necesita `pdo_mysql`, `intl` o `gd`, compila Rapira contra un PHP que las traiga.
+- **La aplicación necesita otras extensiones de PHP.** Las compilaciones publicadas incluyen SQLite, PostgreSQL mediante `pdo_pgsql` y `pgsql`, `bcmath`, `intl`, `igbinary` y `redis`. Consulta [Instalación](/es/docs/intro/installation) para ver la lista completa. Compila con otro PHP cuando la aplicación necesite extensiones como `pdo_mysql` o `gd`.
 - **Estás trabajando en el propio Rapira**, o quieres algo que todavía no se ha publicado.
 
 ## Las herramientas
@@ -47,15 +47,44 @@ La fórmula `php` de Homebrew no incluye el SAPI embed. Compila PHP desde el có
 
 Compila PHP cuando no haya un paquete embed. Compílalo también cuando el paquete no incluya las extensiones necesarias.
 
-El archivo `.github/php-configure-flags.txt` contiene las opciones de las compilaciones publicadas. Pásalo a `configure` dentro del código fuente de PHP extraído. Añade las opciones de las extensiones necesarias al final de la línea de `./configure`:
+El archivo `.github/php-configure-flags.txt` contiene las opciones de las extensiones distribuidas con PHP. Entre ellas están `bcmath`, `intl`, `pdo_pgsql` y `pgsql`.
+
+Instala las bibliotecas de desarrollo de ICU y del cliente PostgreSQL para habilitar `intl` y PostgreSQL. Los paquetes se llaman `libicu-dev` y `libpq-dev` en Debian o Ubuntu, y `libicu-devel` y `libpq-devel` en Rocky Linux. La extensión `intl` también requiere un compilador de C++.
+
+En macOS, instala las dependencias de compilación:
 
 ```bash
+brew install autoconf bison re2c pkg-config openssl@3 curl oniguruma libxml2 sqlite libffi gettext icu4c libpq
+```
+
+Desde el directorio de código fuente de Rapira, ejecuta el objetivo de tu plataforma:
+
+::: code-group
+
+```bash [Linux]
+make php PHP_SRC=/path/to/php-src PHP_PREFIX="$HOME/.local/php-nts"
+```
+
+```bash [macOS]
+make php-macos PHP_SRC=/path/to/php-src PHP_PREFIX="$HOME/.local/php-nts"
+```
+
+:::
+
+Ambos objetivos ejecutan `buildconf`, configuran PHP, lo compilan y lo instalan en `PHP_PREFIX`. Activan las extensiones distribuidas con PHP que figuran en `.github/php-configure-flags.txt`. El objetivo `php-macos` configura las rutas de las bibliotecas de Homebrew y la ruta del SDK para iconv.
+
+Para un conjunto personalizado de extensiones, configura PHP directamente en su directorio de código fuente. Añade las opciones de las extensiones necesarias a `./configure`:
+
+```bash
+./buildconf --force
 ./configure --prefix="$HOME/.local/php-nts" $(tr '\n' ' ' < /path/to/rapira/.github/php-configure-flags.txt)
 make -j"$(getconf _NPROCESSORS_ONLN)"
 make install
 ```
 
-En macOS, instala antes las dependencias (`brew install pkg-config openssl@3 curl oniguruma libxml2 sqlite`), mete sus directorios `lib/pkgconfig` en `PKG_CONFIG_PATH` y añade `--with-iconv="$(xcrun --show-sdk-path)/usr"` después del archivo de flags: un `--with-iconv` a secas no encuentra ahí libiconv, y en autoconf gana la última forma.
+Para configurar PHP manualmente en macOS, usa las rutas de bibliotecas y las opciones de configuración del objetivo `php-macos`.
+
+El CI de publicación también compila `igbinary` y `redis` dentro de `libphp`, con serialización igbinary activada para Redis. Sus versiones de código fuente y sumas de verificación están fijadas en [el flujo de publicación](https://github.com/rapira-rs/rapira/blob/main/.github/workflows/build-binaries.yml). Extrae sus fuentes en los directorios `ext/igbinary` y `ext/redis` de PHP antes de ejecutar `./buildconf --force`. Añade `--enable-igbinary --enable-redis --enable-redis-igbinary` a `./configure`.
 
 ### El nombre `libphp.so` a secas
 
@@ -99,11 +128,20 @@ PHP_CONFIG=$HOME/.local/php-nts/bin/php-config cargo build --release
 
 ## Ejecutar el binario que has compilado
 
-En tiempo de ejecución, Rapira carga `libphp.so` (`libphp.dylib` en macOS) de forma dinámica. Si está en una ruta estándar no hay nada que hacer; si no, apunta el cargador hacia ella:
+En tiempo de ejecución, Rapira carga `libphp.so` (`libphp.dylib` en macOS) de forma dinámica. Si está en una ruta estándar no hay nada que hacer; si no, apunta el cargador hacia ella. Usa el `worker.php` de [Inicio rápido](/es/docs/intro/quickstart). Antes crea `rapira.toml` junto a él:
+
+```toml
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
+entrypoint = "worker.php"
+mode = "worker"
+```
 
 ```bash
-LD_LIBRARY_PATH="$HOME/.local/php-nts/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ./target/release/rapira serve --mode worker worker.php         # Linux
-DYLD_LIBRARY_PATH="$HOME/.local/php-nts/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" ./target/release/rapira serve --mode worker worker.php   # macOS
+LD_LIBRARY_PATH="$HOME/.local/php-nts/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ./target/release/rapira serve /path/to/app/rapira.toml         # Linux
+DYLD_LIBRARY_PATH="$HOME/.local/php-nts/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" ./target/release/rapira serve /path/to/app/rapira.toml   # macOS
 ```
 
 El resultado es el mismo servidor que instalan los paquetes: [Inicio rápido](/es/docs/intro/quickstart) te guía por un primer script, [CLI](/es/docs/cli) enumera lo que acepta `serve` y [Configuración](/es/docs/configuration) cubre `rapira.toml`.

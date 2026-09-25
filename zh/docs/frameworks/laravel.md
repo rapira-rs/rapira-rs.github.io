@@ -23,27 +23,19 @@ Rapira 使用标准 `public/index.php` 脚本以 Classic 模式运行 Laravel。
 
 ## 启动 Rapira
 
-Classic 模式需要显式开启，所以命令里直接把它写了出来：
+Classic 模式需要显式开启，所以在 `rapira.toml` 里直接把它写了出来：
 
-::: code-group
+```toml
+[http]
+listen = "127.0.0.1:8000"
 
-```bash [CLI]
-rapira serve --mode classic public/index.php
-```
-
-```toml [rapira.toml]
-[pool]
+[http.pool]
 entrypoint = "public/index.php"
 mode = "classic"
 processes = 4
-
-[http]
-listen = "127.0.0.1:8000"
 ```
 
-:::
-
-运行 `rapira serve --config rapira.toml` 以使用配置文件。 相对 `entrypoint` 使用配置文件目录。所有键和默认值请参阅[配置](/zh/docs/configuration)。
+运行 `rapira serve rapira.toml` 启动服务器。 相对 `entrypoint` 使用配置文件目录。所有键和默认值请参阅[配置](/zh/docs/configuration)。
 
 Rapira 为每个 HTTP 请求启动新的 PHP 请求。因此，框架生命周期与 php-fpm 相同。 应用没有持久状态。PHP 在主进程创建 worker 前启动。 OPcache 为应用代码和 `vendor/` 提供共享编译脚本缓存。请参阅 [Classic 模式](/zh/docs/classic)。
 

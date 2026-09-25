@@ -20,13 +20,24 @@ echo "Hello, " . ($_GET['name'] ?? 'anonymous') . "!\n";
 echo "Method: {$_SERVER['REQUEST_METHOD']}\n";
 ```
 
-Uruchom serwer. Flaga `--mode classic` wybiera tryb. Argument pozycyjny wskazuje skrypt wejściowy:
+Utwórz `rapira.toml` obok katalogu `public`. Klucz `mode` wybiera tryb Classic, a `entrypoint` wskazuje skrypt wejściowy:
 
-```bash
-rapira serve --mode classic public/index.php
+```toml
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
+entrypoint = "public/index.php"
+mode = "classic"
 ```
 
-Rapira domyślnie nasłuchuje na `127.0.0.1:8000`. Wyślij żądanie z drugiego terminala:
+Uruchom serwer, podając ścieżkę do pliku:
+
+```bash
+rapira serve rapira.toml
+```
+
+Rapira nasłuchuje na `127.0.0.1:8000`. Wyślij żądanie z drugiego terminala:
 
 ```bash
 curl '127.0.0.1:8000/?name=world'
@@ -67,17 +78,26 @@ while (\Rapira\handle_request($handler)) {
 
 Moduł PHP Rapiry udostępnia `\Rapira\handle_request()`. Dlatego przykład nie wymaga autoloadera. Aplikacja z zależnościami Composera musi wczytać `vendor/autoload.php` przed pętlą.
 
-Zatrzymaj serwer Classic przez `Ctrl-C`. Oba serwery używają adresu `127.0.0.1:8000`. Dispatcher jest trybem domyślnym. Wybierz tryb Worker flagą `--mode worker`:
+Zatrzymaj serwer Classic przez `Ctrl-C`. Oba serwery używają adresu `127.0.0.1:8000`. Zmień `rapira.toml` na tryb Worker:
+
+```toml
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
+entrypoint = "worker.php"
+mode = "worker"
+```
 
 ```bash
-rapira serve --mode worker worker.php
+rapira serve rapira.toml
 ```
 
 ```bash
 curl '127.0.0.1:8000/?name=world'
 ```
 
-Uruchom polecenie `curl` kilka razy. Licznik danego workera rośnie, gdy ten sam proces obsłuży kolejne żądanie. Rapira domyślnie tworzy jednego workera na każdy logiczny procesor. System operacyjny wybiera workera dla każdego połączenia. Każdy worker ma oddzielny licznik. Identyfikator procesu w odpowiedzi wskazuje wybranego workera. Użyj `rapira serve --mode worker --processes 1 worker.php`, aby utworzyć jednego workera. Więcej informacji zawiera [Model procesów](/pl/docs/process-model).
+Uruchom polecenie `curl` kilka razy. Licznik danego workera rośnie, gdy ten sam proces obsłuży kolejne żądanie. Rapira domyślnie tworzy jednego workera na każdy logiczny procesor. System operacyjny wybiera workera dla każdego połączenia. Każdy worker ma oddzielny licznik. Identyfikator procesu w odpowiedzi wskazuje wybranego workera. Ustaw `processes = 1` w `[http.pool]`, aby utworzyć jednego workera. Więcej informacji zawiera [Model procesów](/pl/docs/process-model).
 
 Obiekty utworzone przed pętlą `while` pozostają w pamięci do ponownego uruchomienia skryptu workera. Obejmują one autoloader Composera, kontener, połączenia, trasy i szablony. Rapira inicjalizuje ten stan raz. Tylko stan żądania jest nowy w każdej iteracji.
 
@@ -89,27 +109,27 @@ Handler może używać `header()`, `http_response_code()` i `echo`. Funkcja `rap
 
 ## Plik konfiguracyjny
 
-Zapisz ustawienia w `rapira.toml` zamiast w wierszu poleceń. Utwórz ten plik obok aplikacji:
+Plik konfiguracyjny zawiera wszystkie ustawienia. Dodaj liczbę workerów do tego samego pliku:
 
 ```toml
 [http]
 listen = "127.0.0.1:8000"
 
-[pool]
+[http.pool]
 entrypoint = "worker.php"
 mode = "worker"
 processes = 4
 ```
 
 ```bash
-rapira serve --config rapira.toml
+rapira serve rapira.toml
 ```
 
 ::: info
-Względna wartość `pool.entrypoint` używa katalogu pliku konfiguracyjnego jako podstawy. Bieżący katalog jej nie zmienia. Flagi wiersza poleceń zastępują wartości z pliku. Na przykład `--processes 1` zmienia tylko liczbę workerów.
+Względna wartość `http.pool.entrypoint` używa katalogu pliku konfiguracyjnego jako podstawy. Bieżący katalog jej nie zmienia.
 :::
 
-Plik kontroluje też skalowanie puli, wymianę workerów, limity czasu, logowanie i pidfile. Nieznany klucz uniemożliwia uruchomienie. Więcej informacji zawierają [Konfiguracja](/pl/docs/configuration) i [Wiersz poleceń](/pl/docs/cli).
+Plik kontroluje też skalowanie puli, wymianę workerów, limity czasu, logowanie i pidfile. Nieznany klucz uniemożliwia uruchomienie. Więcej informacji zawierają [Konfiguracja](/pl/docs/configuration) i [Wiersz poleceń](/pl/docs/cli) z opisem polecenia.
 
 ## Zatrzymywanie serwera
 

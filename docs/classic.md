@@ -23,12 +23,7 @@ The application initializes its autoloader, configuration, container, and routes
 
 ## Mode selection
 
-Select Classic mode with one of these settings:
-
-- `--mode classic` on the command line, next to the entry script.
-- `mode = "classic"` in the `[pool]` section of a `rapira.toml`.
-
-`--mode` overrides `pool.mode` in the configuration file. Other CLI flags also override the corresponding configuration values.
+Select Classic mode with `mode = "classic"` in the `[http.pool]` table of a `rapira.toml`.
 See [configuration](/docs/configuration) for the complete key list.
 
 A classic entry script is ordinary PHP:
@@ -41,25 +36,18 @@ echo "Hello, " . ($_GET['name'] ?? 'anonymous') . "!\n";
 echo "Method: {$_SERVER['REQUEST_METHOD']}\n";
 ```
 
-Select the mode with the CLI or the configuration file:
+The `rapira.toml` for this script is:
 
-::: code-group
+```toml
+[http]
+listen = "127.0.0.1:8000"
 
-```bash [CLI]
-rapira serve --mode classic public/index.php
-```
-
-```toml [rapira.toml]
-[pool]
+[http.pool]
 entrypoint = "public/index.php"
 mode = "classic"
 ```
 
-:::
-
-Start Rapira with `rapira serve --config rapira.toml` when you use the configuration file.
-A relative `pool.entrypoint` uses the configuration file directory as its base. A relative CLI script path uses the current directory.
-See the [CLI reference](/docs/cli) for the other options.
+Start Rapira with `rapira serve rapira.toml`. A relative `http.pool.entrypoint` uses the configuration file directory as its base. See the [CLI reference](/docs/cli) for the command.
 
 ## Entry script
 

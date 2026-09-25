@@ -20,13 +20,24 @@ echo "Hello, " . ($_GET['name'] ?? 'anonymous') . "!\n";
 echo "Method: {$_SERVER['REQUEST_METHOD']}\n";
 ```
 
-Inicia el servidor. La opción `--mode classic` selecciona el modo. El argumento posicional especifica el script de entrada:
+Crea `rapira.toml` junto al directorio `public`. La clave `mode` selecciona el modo Classic y `entrypoint` indica el script de entrada:
 
-```bash
-rapira serve --mode classic public/index.php
+```toml
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
+entrypoint = "public/index.php"
+mode = "classic"
 ```
 
-Rapira escucha en `127.0.0.1:8000` de forma predeterminada. Envía una petición desde otra terminal:
+Inicia el servidor con la ruta del archivo:
+
+```bash
+rapira serve rapira.toml
+```
+
+Rapira escucha en `127.0.0.1:8000`. Envía una petición desde otra terminal:
 
 ```bash
 curl '127.0.0.1:8000/?name=world'
@@ -67,17 +78,26 @@ while (\Rapira\handle_request($handler)) {
 
 El módulo PHP de Rapira proporciona `\Rapira\handle_request()`. Por tanto, el ejemplo no necesita un autoloader. Una aplicación con dependencias de Composer debe cargar `vendor/autoload.php` antes del bucle.
 
-Detén el servidor Classic con `Ctrl-C`. Ambos servidores usan `127.0.0.1:8000`. Dispatcher es el modo predeterminado. Usa la opción `--mode worker` para seleccionar el modo Worker:
+Detén el servidor Classic con `Ctrl-C`. Ambos servidores usan `127.0.0.1:8000`. Cambia `rapira.toml` al modo Worker:
+
+```toml
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
+entrypoint = "worker.php"
+mode = "worker"
+```
 
 ```bash
-rapira serve --mode worker worker.php
+rapira serve rapira.toml
 ```
 
 ```bash
 curl '127.0.0.1:8000/?name=world'
 ```
 
-Ejecuta el comando `curl` varias veces. El contador de un worker aumenta cuando ese proceso gestiona otra petición. Rapira crea un worker por CPU lógica de forma predeterminada. El sistema operativo selecciona un worker para cada conexión. Cada worker tiene su propio contador. El identificador del proceso en la respuesta muestra qué worker respondió. Usa `rapira serve --mode worker --processes 1 worker.php` para crear un solo worker. Consulta [Modelo de procesos](/es/docs/process-model).
+Ejecuta el comando `curl` varias veces. El contador de un worker aumenta cuando ese proceso gestiona otra petición. Rapira crea un worker por CPU lógica de forma predeterminada. El sistema operativo selecciona un worker para cada conexión. Cada worker tiene su propio contador. El identificador del proceso en la respuesta muestra qué worker respondió. Establece `processes = 1` en `[http.pool]` para crear un solo worker. Consulta [Modelo de procesos](/es/docs/process-model).
 
 Los objetos creados antes del bucle `while` permanecen en memoria hasta que el script del worker se reinicia. Estos objetos incluyen el autoloader de Composer, el contenedor, las conexiones, las rutas y las plantillas. Rapira inicializa este estado una vez. Solo el estado de la petición es nuevo en cada iteración.
 
@@ -89,27 +109,27 @@ El handler puede usar `header()`, `http_response_code()` y `echo`. `rapira_finis
 
 ## Archivo de configuración
 
-Guarda los ajustes en `rapira.toml` en lugar de la línea de comandos. Crea este archivo junto a la aplicación:
+El archivo de configuración contiene todos los ajustes. Añade el número de workers al mismo archivo:
 
 ```toml
 [http]
 listen = "127.0.0.1:8000"
 
-[pool]
+[http.pool]
 entrypoint = "worker.php"
 mode = "worker"
 processes = 4
 ```
 
 ```bash
-rapira serve --config rapira.toml
+rapira serve rapira.toml
 ```
 
 ::: info
-Un `pool.entrypoint` relativo usa como base el directorio del archivo de configuración. El directorio actual no lo afecta. Las opciones de línea de comandos sustituyen los valores del archivo. Por ejemplo, `--processes 1` cambia solo el número de workers.
+Un `http.pool.entrypoint` relativo usa como base el directorio del archivo de configuración. El directorio actual no lo afecta.
 :::
 
-El archivo también controla el escalado del pool, la sustitución de workers, los tiempos límite, los registros y el pidfile. Una clave desconocida impide el inicio. Consulta [Configuración](/es/docs/configuration) y [Línea de comandos](/es/docs/cli).
+El archivo también controla el escalado del pool, la sustitución de workers, los tiempos límite, los registros y el pidfile. Una clave desconocida impide el inicio. Consulta [Configuración](/es/docs/configuration) y el comando en [Línea de comandos](/es/docs/cli).
 
 ## Parar el servidor
 

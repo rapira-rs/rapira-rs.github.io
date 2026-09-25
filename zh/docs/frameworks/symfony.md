@@ -114,13 +114,24 @@ Rapira 会保留 `$_ENV`，直到 worker 重新运行脚本。它不会为每个
 
 ## 启动 Rapira
 
+在 `worker.php` 旁边创建 `rapira.toml`：
+
+```toml
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
+entrypoint = "worker.php"
+mode = "worker"
+```
+
 启动 Rapira：
 
 ```bash
-rapira serve --mode worker worker.php
+rapira serve rapira.toml
 ```
 
-`--mode worker` 选择 Worker 模式。`127.0.0.1:8000` 是默认监听地址。 `rapira serve` 在前台运行。
+`mode = "worker"` 选择 Worker 模式。`rapira serve` 在前台运行。
 
 打开另一个终端。发送请求：
 
@@ -149,7 +160,7 @@ APP_ENV=prod php bin/console cache:warmup
 [http]
 listen = "127.0.0.1:8000"
 
-[pool]
+[http.pool]
 entrypoint = "worker.php"
 mode = "worker"
 processes = 4
@@ -157,7 +168,7 @@ max_requests = 500
 request_terminate_timeout_secs = 30
 ```
 
-`max_requests` 在指定请求数后替换 worker。它限制内存泄漏的影响，但不会修复泄漏。 `request_terminate_timeout_secs` 限制一个请求的运行时间。 使用 `APP_ENV=prod rapira serve --config rapira.toml` 启动服务器。 相对 `entrypoint` 使用配置文件目录。有关所有设置，请参阅[配置](/zh/docs/configuration)。
+`max_requests` 在指定请求数后替换 worker。它限制内存泄漏的影响，但不会修复泄漏。 `request_terminate_timeout_secs` 限制一个请求的运行时间。 使用 `APP_ENV=prod rapira serve rapira.toml` 启动服务器。 相对 `entrypoint` 使用配置文件目录。有关所有设置，请参阅[配置](/zh/docs/configuration)。
 
 ## 请求之间的状态重置
 
@@ -173,10 +184,19 @@ request_terminate_timeout_secs = 30
 
 ## 开发时的循环
 
-`rapira serve` 在前台运行，并初始化应用一次。因此，**请替换 worker 以加载更改后的 PHP 代码**。 开发期间，每次更改后都重启服务器。或者使用 [Classic 模式](/zh/docs/classic)：
+`rapira serve` 在前台运行，并初始化应用一次。因此，**请替换 worker 以加载更改后的 PHP 代码**。 开发期间，每次更改后都重启服务器。或者使用 [Classic 模式](/zh/docs/classic)。请将 `rapira.toml` 改为 Classic 模式：
+
+```toml
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
+entrypoint = "public/index.php"
+mode = "classic"
+```
 
 ```bash
-rapira serve --mode classic public/index.php
+rapira serve rapira.toml
 ```
 
 还是同一个应用，只是跑在 Classic 模式下。它每个请求都要启动一遍，所以改动立刻生效。每个请求也会执行一次完整的启动。已经在跑的生产服务器可以通过滚动重载（给 master 发 `SIGUSR2`）使用新部署的代码。当前请求可以完成，但空闲 keep-alive 连接会关闭。如果启用了 `opcache.validate_timestamps = 0`，master 的 OPcache 段比整个进程池活得久，部署就需要完整重启；见[进程模型](/zh/docs/process-model)和[生产环境部署](/zh/docs/deployment)。

@@ -147,7 +147,7 @@ Tests also confirmed this design.
 The container initializes for each request. This adds initialization time and creates objects that PHP must later release.
 Memory can increase until PHP releases several old containers together. This cyclic pattern is not necessarily a memory leak.
 
-Set `pool.max_requests` to replace workers periodically.
+Set `http.pool.max_requests` to replace workers periodically.
 See the [frameworks overview](/docs/frameworks/) for this memory pattern. See [Configuration](/docs/configuration) for the setting.
 
 The autoloader and template bootstrap remain resident. The request loop also remains in the worker script. Thus, this design is still a worker that discards its application between requests. It is not [Classic mode](/docs/classic).
@@ -156,19 +156,30 @@ Use the persistent runner by default. It follows the framework design and requir
 
 ## Starting Rapira
 
-```bash
-rapira serve --mode worker worker.php
-```
-
-`--mode worker` selects Worker mode. See [CLI](/docs/cli) for the other flags.
-
-For production, store the settings in `rapira.toml`:
+Create `rapira.toml` next to `worker.php`:
 
 ```toml
 [http]
 listen = "127.0.0.1:8000"
 
-[pool]
+[http.pool]
+entrypoint = "worker.php"
+mode = "worker"
+```
+
+```bash
+rapira serve rapira.toml
+```
+
+`mode = "worker"` selects Worker mode. See [CLI](/docs/cli) for the command.
+
+For production, use a complete `rapira.toml`:
+
+```toml
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
 entrypoint = "/srv/app/worker.php"
 mode = "worker"
 processes = 8
@@ -181,7 +192,7 @@ format = "json"
 ```
 
 ```bash
-rapira serve --config rapira.toml
+rapira serve rapira.toml
 ```
 
 See [Configuration](/docs/configuration) for each key, default, and limit. See [Deployment](/docs/deployment) for systemd and reverse proxy configuration.
@@ -212,13 +223,22 @@ If Worker mode rejects a POST, first verify that the form contains and sends the
 
 ## Classic mode alternative
 
-Yii3 also runs with an ordinary entry script:
+Yii3 also runs with an ordinary entry script. Change `rapira.toml` to Classic mode:
 
-```bash
-rapira serve --mode classic public/index.php
+```toml
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
+entrypoint = "public/index.php"
+mode = "classic"
 ```
 
-This command uses the standard application code without a worker script. Each request has new application state.
+```bash
+rapira serve rapira.toml
+```
+
+This configuration uses the standard application code without a worker script. Each request has new application state.
 See [Classic mode](/docs/classic) for more information.
 
 The worker script is an additional entry point, not a replacement for the standard entry script. Keep `public/index.php` because Classic mode uses it. It is also useful for local work with PHP's built-in server.

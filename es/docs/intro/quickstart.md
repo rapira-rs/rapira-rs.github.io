@@ -129,7 +129,7 @@ rapira serve rapira.toml
 Un `http.pool.entrypoint` relativo usa como base el directorio del archivo de configuración. El directorio actual no lo afecta.
 :::
 
-El archivo también controla el escalado del pool, la sustitución de workers, los tiempos límite, los registros y el pidfile. Una clave desconocida impide el inicio. Consulta [Configuración](/es/docs/configuration) y el comando en [Línea de comandos](/es/docs/cli).
+El archivo también controla el número de workers, la sustitución de workers, los tiempos límite, los registros y el pidfile. Una clave desconocida impide el inicio. Consulta [Configuración](/es/docs/configuration) y el comando en [Línea de comandos](/es/docs/cli).
 
 ## Parar el servidor
 

@@ -45,7 +45,7 @@ Rapira uses these targets:
 | Target   | What it covers                                                  |
 | -------- | --------------------------------------------------------------- |
 | `rapira` | server initialization, worker lifecycle, shutdown              |
-| `master` | supervision: forks, reaps, respawns, reloads, pool scaling      |
+| `master` | supervision: forks, reaps, respawns, reloads                    |
 | `http`   | HTTP listeners, request and response field processing, shutdown |
 | `grpc`   | gRPC listeners, transport failures, shutdown                    |
 | `net`    | the accept loop of the HTTP and gRPC listeners, accept failures |
@@ -59,7 +59,7 @@ A dependency writes trace records under its module path. The same prefix filteri
 Each record contains its target name. Add that name to `[log.targets]` to reduce its output.
 
 ::: tip
-The `master` target contains worker replacement, reload, and pool scaling records. See [process model](/docs/process-model) for these events.
+The `master` target contains worker replacement and reload records. See [process model](/docs/process-model) for these events.
 :::
 
 ## PHP diagnostics

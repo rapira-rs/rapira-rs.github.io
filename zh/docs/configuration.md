@@ -19,9 +19,9 @@ rapira serve /etc/rapira/rapira.toml
 
 ## 一份完整的 rapira.toml
 
-以下配置文件启用两种协议，并展示支持的表。大多数缺少的键使用默认值。每个进程池都需要 `entrypoint`。动态伸缩需要 `min_spare` 和 `max_spare`。`[http.static]` 表需要 `http.static.root`。
+以下配置文件启用两种协议，并展示支持的表。大多数缺少的键使用默认值。每个进程池都需要 `entrypoint`。`[http.static]` 表需要 `http.static.root`。
 
-部分键必须一起出现。`[http.static]` 表需要 `middleware` 中的 `"static"`，该条目也需要此表。 当伸缩方式不是 `dynamic` 时，请删除 `min_spare` 和 `max_spare`。Rapira 会拒绝 `static` 和 `ondemand` 中的这些键。
+部分键必须一起出现。`[http.static]` 表需要 `middleware` 中的 `"static"`，该条目也需要此表。
 
 ```toml
 [http]
@@ -52,12 +52,8 @@ max_part_headers = 32                 # Optional. Limits fields in one part.
 [http.pool]                           # The worker pool behind the http listener.
 entrypoint = "index.php"              # Relative paths use this file's directory.
 mode = "dispatcher"                   # Use "classic", "worker", or "dispatcher". Default: "dispatcher".
-processes = 4                         # Sets the worker count and the scaling maximum.
-scaling = "dynamic"                   # Use "static", "dynamic", or "ondemand". Default: "static".
-min_spare = 1                         # For dynamic scaling. Sets the minimum idle worker count.
-max_spare = 3                         # For dynamic scaling. Sets the maximum idle worker count.
+processes = 4                         # Sets the fixed worker count.
 max_requests = 0                      # Replaces a worker after this request count. Zero disables the limit.
-process_idle_timeout_secs = 10        # For ondemand scaling. Removes workers after this idle time.
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
 
 [grpc]
@@ -72,9 +68,7 @@ max_timeout_secs = 60                 # Optional. Upper limit for a client timeo
 entrypoint = "grpc.php"
 mode = "dispatcher"                   # Required mode for gRPC.
 processes = 4
-scaling = "static"
 max_requests = 0
-process_idle_timeout_secs = 10
 request_terminate_timeout_secs = 0
 
 [supervisor]                          # Optional. Sets master process behavior.
@@ -157,17 +151,11 @@ sendfile 根目录就是 `sendFile()` 能读取的那个目录。Rapira 会把�
 | --- | --- | --- | --- |
 | `entrypoint` | 字符串 | 无--必填 | 每个 worker 要跑的 PHP 脚本。相对路径按配置文件所在的目录解析。必须设置一个值。 |
 | `mode` | `"classic"` \| `"worker"` \| `"dispatcher"` | `"dispatcher"` | worker 怎么跑入口脚本。`classic` 每个请求都把脚本从头跑一遍；`worker` 让脚本常驻，并为每个请求重新填好超全局变量；`dispatcher` 让脚本常驻，并交给它一个 dispatcher 对象，由脚本自己从中取出每个请求。见[执行模式](/zh/docs/execution-modes)。 |
-| `processes` | 整数 | 每个逻辑 CPU 一个 | 要 fork 多少个 worker 进程。在 `dynamic` 和 `ondemand` 这两种伸缩方式下它是上限，不是实际数量。至少为 1。 |
-| `scaling` | `"static"` \| `"dynamic"` \| `"ondemand"` | `"static"` | 进程池怎么决定自己的规模。`static` 始终保持 `processes` 个 worker 存活；`dynamic` 在两个空闲阈值之间伸缩，上限是 `processes`；`ondemand` 只在有活干的时候才 fork，空闲的 worker 会被淘汰。 |
-| `min_spare` | 整数 | 无 | 仅用于 `dynamic` 伸缩，并且在那里是必填：至少保留这么多个空闲待命的 worker。 |
-| `max_spare` | 整数 | 无 | 仅用于 `dynamic` 伸缩，并且在那里是必填：空闲 worker 最多留这么多，多的裁掉。两者必须满足 `1 <= min_spare <= max_spare <= processes`；在别的伸缩方式下写任何一个都是错误。 |
+| `processes` | 整数 | 每个逻辑 CPU 一个 | worker 数量。master 保持这么多个 worker 运行。最小值为 1。 |
 | `max_requests` | 整数 | `0` | 一个 worker 处理够这么多请求就回收掉，另外加一点抖动，免得整个进程池同时被回收。`0` 表示永不回收。 |
-| `process_idle_timeout_secs` | 整数 | `10` | 使用 `ondemand` 伸缩时，master 会在 worker 空闲这么久后将其删除。 |
 | `request_terminate_timeout_secs` | 整数 | `0` | 单个请求的墙钟时间预算。超时还没处理完的 worker 会被杀掉并换新。`0` 表示关掉这项检查。 |
 
-`mode` 和 `scaling` 是两条互不相干的轴：`mode` 决定一个 worker 拿入口脚本怎么办，`scaling` 决定同时存在多少个 worker。
-
-空闲数的上下界是按 `processes` 校验的。
+`mode` 控制入口脚本的执行方式。`processes` 控制 worker 数量。
 
 ## `[grpc]` 小节 {#grpc}
 
@@ -186,7 +174,7 @@ master 在 fork 出 worker 前加载描述符集。以下错误会阻止初始�
 
 ### `[grpc.pool]` 表 {#grpc-pool}
 
-此表使用 [HTTP 进程池的键和默认值](#http-pool)，且必须提供 `entrypoint` 并设置 `mode = "dispatcher"`。Classic 和 Worker 模式会被拒绝。伸缩、空闲数量限制、回收和进程看门狗独立作用于此进程池。
+此表使用 [HTTP 进程池的键和默认值](#http-pool)，且必须提供 `entrypoint` 并设置 `mode = "dispatcher"`。Classic 和 Worker 模式会被拒绝。worker 数量、回收和进程看门狗独立作用于此进程池。
 
 HTTP 和 gRPC 可以同时运行。每个监听器使用自己的进程池和入口脚本。请重启 Rapira 以加载更改后的描述符集。重载会保留旧的描述符集。
 

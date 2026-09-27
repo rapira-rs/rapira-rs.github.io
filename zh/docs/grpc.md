@@ -330,7 +330,7 @@ curl -H 'Content-Type: application/json' -d '{}' http://127.0.0.1:50051/grpc.hea
 
 ## 同时运行 HTTP 和 gRPC
 
-一份配置可以同时包含 `[http]` 和 `[grpc]`。每个插件都有自己的监听器、PHP 入口脚本和 worker 进程池。master 监管两个进程池。gRPC 进程池支持与 HTTP 进程池相同的伸缩和回收设置，且使用 `mode = "dispatcher"`。
+一份配置可以同时包含 `[http]` 和 `[grpc]`。每个插件都有自己的监听器、PHP 入口脚本和 worker 进程池。master 监管两个进程池。gRPC 进程池支持与 HTTP 进程池相同的 worker 数量和回收设置，且使用 `mode = "dispatcher"`。
 
 所有 gRPC 设置请参阅[配置](./configuration#grpc)，进程池监管请参阅[进程模型](./process-model)。
 

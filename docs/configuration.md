@@ -19,10 +19,9 @@ Each enabled listener requires a PHP entry script. Set `http.pool.entrypoint`, `
 
 ## A complete rapira.toml
 
-The following configuration enables both protocols and shows the supported tables. Most keys use their default when they are absent. Each pool requires `entrypoint`. Dynamic scaling requires `min_spare` and `max_spare`. The `[http.static]` table requires `http.static.root`.
+The following configuration enables both protocols and shows the supported tables. Most keys use their default when they are absent. Each pool requires `entrypoint`. The `[http.static]` table requires `http.static.root`.
 
 Some keys must occur together. The `[http.static]` table requires a `"static"` middleware entry, and that entry requires the table.
-Remove `min_spare` and `max_spare` when scaling is not `dynamic`. Rapira rejects these keys with `static` and `ondemand` scaling.
 
 ```toml
 [http]
@@ -53,12 +52,8 @@ max_part_headers = 32                 # Optional. Limits fields in one part.
 [http.pool]                           # The worker pool behind the http listener.
 entrypoint = "index.php"              # Relative paths use this file's directory.
 mode = "dispatcher"                   # Use "classic", "worker", or "dispatcher". Default: "dispatcher".
-processes = 4                         # Sets the worker count and the scaling maximum.
-scaling = "dynamic"                   # Use "static", "dynamic", or "ondemand". Default: "static".
-min_spare = 1                         # For dynamic scaling. Sets the minimum idle worker count.
-max_spare = 3                         # For dynamic scaling. Sets the maximum idle worker count.
+processes = 4                         # Sets the fixed worker count.
 max_requests = 0                      # Replaces a worker after this request count. Zero disables the limit.
-process_idle_timeout_secs = 10        # For ondemand scaling. Removes workers after this idle time.
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
 
 [grpc]
@@ -73,9 +68,7 @@ max_timeout_secs = 60                 # Optional. Upper limit for a client timeo
 entrypoint = "grpc.php"
 mode = "dispatcher"                   # Required mode for gRPC.
 processes = 4
-scaling = "static"
 max_requests = 0
-process_idle_timeout_secs = 10
 request_terminate_timeout_secs = 0
 
 [supervisor]                          # Optional. Sets master process behavior.
@@ -166,17 +159,11 @@ The `http` plugin owns this PHP worker pool. The gRPC listener uses a separate `
 | --- | --- | --- | --- |
 | `entrypoint` | string | none, required | The PHP script that each worker runs. A relative path uses the configuration file directory as its base. You must set a value. |
 | `mode` | `"classic"` \| `"worker"` \| `"dispatcher"` | `"dispatcher"` | How a worker runs the entry script. `classic` starts a new PHP request each time. `worker` keeps the script and refills the superglobals. `dispatcher` keeps the script and gives it a dispatcher object. See [execution modes](/docs/execution-modes). |
-| `processes` | integer | one per logical CPU | The worker count. With `dynamic` and `ondemand` scaling, it is the maximum count. The minimum is 1. |
-| `scaling` | `"static"` \| `"dynamic"` \| `"ondemand"` | `"static"` | The pool size policy. `static` keeps `processes` workers. `dynamic` uses the spare limits. `ondemand` creates workers for requests and removes idle workers. |
-| `min_spare` | integer | none | Required with `dynamic` scaling. The master keeps at least this many idle workers. |
-| `max_spare` | integer | none | Required with `dynamic` scaling. The master keeps no more than this many idle workers. The values must satisfy `1 <= min_spare <= max_spare <= processes`. |
+| `processes` | integer | one per logical CPU | The worker count. The master keeps this many workers running. The minimum is 1. |
 | `max_requests` | integer | `0` | The request limit before worker replacement. Rapira varies the limit slightly to prevent simultaneous replacements. `0` disables the limit. |
-| `process_idle_timeout_secs` | integer | `10` | With `ondemand` scaling, the master removes a worker after this idle time. |
 | `request_terminate_timeout_secs` | integer | `0` | Wall-clock limit for one request. Rapira terminates and replaces a worker that exceeds this limit. `0` disables the check. |
 
-`mode` controls entry script execution. `scaling` controls the worker count.
-
-Rapira checks the spare limits against the `processes` value.
+`mode` controls entry script execution. `processes` controls the worker count.
 
 ## The `[grpc]` section {#grpc}
 
@@ -195,7 +182,7 @@ The master loads the descriptor set before it forks the workers. These errors st
 
 ### The `[grpc.pool]` table {#grpc-pool}
 
-This table uses the [HTTP pool keys and defaults](#http-pool), with a required `entrypoint` and `mode = "dispatcher"`. Classic and Worker modes are rejected. Scaling, spare limits, recycling, and the process watchdog apply to this pool independently.
+This table uses the [HTTP pool keys and defaults](#http-pool), with a required `entrypoint` and `mode = "dispatcher"`. Classic and Worker modes are rejected. The worker count, recycling, and the process watchdog apply to this pool independently.
 
 HTTP and gRPC can run together. Each listener uses its own pool and entrypoint. Restart Rapira to load a changed descriptor set. A reload keeps the old set.
 

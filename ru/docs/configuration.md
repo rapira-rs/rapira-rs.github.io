@@ -19,9 +19,9 @@ rapira serve /etc/rapira/rapira.toml
 
 ## Полный rapira.toml
 
-Следующая конфигурация включает оба протокола и показывает поддерживаемые таблицы. Большинство отсутствующих ключей используют стандартное значение. Каждому пулу требуется `entrypoint`. Для динамического масштабирования требуются `min_spare` и `max_spare`. Таблица `[http.static]` требует `http.static.root`.
+Следующая конфигурация включает оба протокола и показывает поддерживаемые таблицы. Большинство отсутствующих ключей используют стандартное значение. Каждому пулу требуется `entrypoint`. Таблица `[http.static]` требует `http.static.root`.
 
-Некоторые ключи должны использоваться вместе. Таблица `[http.static]` требует элемент `"static"` в `middleware`, и этот элемент требует таблицу. Удаляйте `min_spare` и `max_spare`, если масштабирование не является `dynamic`. Rapira не принимает эти ключи с `static` и `ondemand`.
+Некоторые ключи должны использоваться вместе. Таблица `[http.static]` требует элемент `"static"` в `middleware`, и этот элемент требует таблицу.
 
 ```toml
 [http]
@@ -52,12 +52,8 @@ max_part_headers = 32                 # Optional. Limits fields in one part.
 [http.pool]                           # The worker pool behind the http listener.
 entrypoint = "index.php"              # Relative paths use this file's directory.
 mode = "dispatcher"                   # Use "classic", "worker", or "dispatcher". Default: "dispatcher".
-processes = 4                         # Sets the worker count and the scaling maximum.
-scaling = "dynamic"                   # Use "static", "dynamic", or "ondemand". Default: "static".
-min_spare = 1                         # For dynamic scaling. Sets the minimum idle worker count.
-max_spare = 3                         # For dynamic scaling. Sets the maximum idle worker count.
+processes = 4                         # Sets the fixed worker count.
 max_requests = 0                      # Replaces a worker after this request count. Zero disables the limit.
-process_idle_timeout_secs = 10        # For ondemand scaling. Removes workers after this idle time.
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
 
 [grpc]
@@ -72,9 +68,7 @@ max_timeout_secs = 60                 # Optional. Upper limit for a client timeo
 entrypoint = "grpc.php"
 mode = "dispatcher"                   # Required mode for gRPC.
 processes = 4
-scaling = "static"
 max_requests = 0
-process_idle_timeout_secs = 10
 request_terminate_timeout_secs = 0
 
 [supervisor]                          # Optional. Sets master process behavior.
@@ -157,17 +151,11 @@ Middleware `static` отвечает на запрос файлом с диск�
 | --- | --- | --- | --- |
 | `entrypoint` | строка | нет - ключ обязателен | PHP-скрипт, который выполняет каждый воркер. Относительный путь считается от каталога с файлом конфигурации. Значение должно быть задано, иначе сервер откажется стартовать. |
 | `mode` | `"classic"` \| `"worker"` \| `"dispatcher"` | `"dispatcher"` | Как воркер выполняет входной скрипт. `classic` выполняет скрипт с нуля на каждый запрос. `worker` оставляет скрипт резидентным и на каждый запрос заново заполняет суперглобальные переменные. `dispatcher` тоже оставляет скрипт резидентным и выдаёт ему объект диспетчера, из которого скрипт сам забирает очередной запрос. Смотрите [Режимы выполнения](/ru/docs/execution-modes). |
-| `processes` | целое | по одному на логическое ядро | Сколько рабочих процессов форкать. При масштабировании `dynamic` и `ondemand` это не количество, а потолок. Значение не меньше 1. |
-| `scaling` | `"static"` \| `"dynamic"` \| `"ondemand"` | `"static"` | Как пул подбирает себе размер. `static` всё время держит живыми `processes` воркеров; `dynamic` меняет их число между порогами свободных воркеров, не поднимаясь выше `processes`; `ondemand` форкает воркер только под работу и отпускает тех, кто простаивает. |
-| `min_spare` | целое | нет | Только при масштабировании `dynamic`, и там обязателен: держать наготове не меньше такого числа свободных воркеров. |
-| `max_spare` | целое | нет | Только при масштабировании `dynamic`, и там обязателен: сокращать число простаивающих воркеров до этого значения. Пара должна укладываться в `1 <= min_spare <= max_spare <= processes`, а при любом другом значении `scaling` каждый из этих ключей - ошибка. |
+| `processes` | целое | по одному на логическое ядро | Число воркеров. Мастер держит столько воркеров запущенными. Значение не меньше 1. |
 | `max_requests` | целое | `0` | Пересоздать воркер после того, как он обслужит столько запросов, плюс небольшой разброс, чтобы пул никогда не обновлялся весь разом. `0` - никогда. |
-| `process_idle_timeout_secs` | целое | `10` | При масштабировании `ondemand` мастер удаляет воркер после этого времени простоя. |
 | `request_terminate_timeout_secs` | целое | `0` | Сколько реального времени отводится на один запрос. Воркер, который к этому моменту всё ещё занят им, снимается и заменяется новым. `0` отключает проверку. |
 
-`mode` и `scaling` - две независимые оси: `mode` говорит, что воркер делает с входным скриптом, а `scaling` - сколько воркеров существует.
-
-Границы для свободных воркеров сверяются со значением `processes`.
+`mode` управляет выполнением входного скрипта. `processes` управляет числом воркеров.
 
 ## Секция `[grpc]` {#grpc}
 
@@ -186,7 +174,7 @@ Middleware `static` отвечает на запрос файлом с диск�
 
 ### Таблица `[grpc.pool]` {#grpc-pool}
 
-Эта таблица использует [ключи и значения по умолчанию пула HTTP](#http-pool), с обязательным `entrypoint` и `mode = "dispatcher"`. Режимы Classic и Worker отвергаются. Масштабирование, границы числа свободных воркеров, замена и контроль времени работы процессов применяются к этому пулу независимо.
+Эта таблица использует [ключи и значения по умолчанию пула HTTP](#http-pool), с обязательным `entrypoint` и `mode = "dispatcher"`. Режимы Classic и Worker отвергаются. Число воркеров, замена и контроль времени работы процессов применяются к этому пулу независимо.
 
 HTTP и gRPC могут работать вместе. Каждый слушатель использует собственный пул и входной скрипт. Перезапустите Rapira для загрузки изменённого набора дескрипторов. Перезагрузка сохраняет старый набор.
 

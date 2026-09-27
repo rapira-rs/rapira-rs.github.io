@@ -330,7 +330,7 @@ Jeden proces workera obsługuje każde połączenie. Klient gRPC zwykle wysyła 
 
 ## Wspólne uruchomienie HTTP i gRPC
 
-Jedna konfiguracja może zawierać `[http]` i `[grpc]`. Każda wtyczka ma własny nasłuch, skrypt wejściowy PHP i pulę workerów. Proces nadrzędny nadzoruje obie pule. Pula gRPC obsługuje te same ustawienia skalowania i wymiany workerów co pula HTTP, z `mode = "dispatcher"`.
+Jedna konfiguracja może zawierać `[http]` i `[grpc]`. Każda wtyczka ma własny nasłuch, skrypt wejściowy PHP i pulę workerów. Proces nadrzędny nadzoruje obie pule. Pula gRPC obsługuje te same ustawienia liczby workerów i wymiany workerów co pula HTTP, z `mode = "dispatcher"`.
 
 Wszystkie ustawienia gRPC opisuje [Konfiguracja](./configuration#grpc), a nadzór nad pulami opisuje [Model procesów](./process-model).
 

@@ -129,7 +129,7 @@ rapira serve rapira.toml
 相对 `http.pool.entrypoint` 以配置文件目录为基准。当前目录不会影响此路径。
 :::
 
-此文件还控制进程池伸缩、worker 替换、请求超时、日志和 pidfile。 未知键会阻止服务器启动。请参阅[配置](/zh/docs/configuration)和[命令行](/zh/docs/cli)。
+此文件还控制 worker 数量、worker 替换、请求超时、日志和 pidfile。 未知键会阻止服务器启动。请参阅[配置](/zh/docs/configuration)和[命令行](/zh/docs/cli)。
 
 ## 停止服务器
 

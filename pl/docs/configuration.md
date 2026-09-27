@@ -19,9 +19,9 @@ Każdy włączony nasłuch wymaga skryptu wejściowego PHP. Ustaw `http.pool.ent
 
 ## Kompletny rapira.toml
 
-Poniższa konfiguracja włącza oba protokoły i pokazuje obsługiwane tabele. Większość brakujących kluczy używa wartości domyślnej. Każda pula wymaga `entrypoint`. Skalowanie dynamiczne wymaga `min_spare` i `max_spare`. Tabela `[http.static]` wymaga `http.static.root`.
+Poniższa konfiguracja włącza oba protokoły i pokazuje obsługiwane tabele. Większość brakujących kluczy używa wartości domyślnej. Każda pula wymaga `entrypoint`. Tabela `[http.static]` wymaga `http.static.root`.
 
-Niektóre klucze muszą występować razem. Tabela `[http.static]` wymaga wpisu `"static"` w `middleware`, a wpis wymaga tabeli. Usuń `min_spare` i `max_spare`, gdy skalowanie nie jest `dynamic`. Rapira odrzuca te klucze ze skalowaniem `static` i `ondemand`.
+Niektóre klucze muszą występować razem. Tabela `[http.static]` wymaga wpisu `"static"` w `middleware`, a wpis wymaga tabeli.
 
 ```toml
 [http]
@@ -52,12 +52,8 @@ max_part_headers = 32                 # Optional. Limits fields in one part.
 [http.pool]                           # The worker pool behind the http listener.
 entrypoint = "index.php"              # Relative paths use this file's directory.
 mode = "dispatcher"                   # Use "classic", "worker", or "dispatcher". Default: "dispatcher".
-processes = 4                         # Sets the worker count and the scaling maximum.
-scaling = "dynamic"                   # Use "static", "dynamic", or "ondemand". Default: "static".
-min_spare = 1                         # For dynamic scaling. Sets the minimum idle worker count.
-max_spare = 3                         # For dynamic scaling. Sets the maximum idle worker count.
+processes = 4                         # Sets the fixed worker count.
 max_requests = 0                      # Replaces a worker after this request count. Zero disables the limit.
-process_idle_timeout_secs = 10        # For ondemand scaling. Removes workers after this idle time.
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
 
 [grpc]
@@ -72,9 +68,7 @@ max_timeout_secs = 60                 # Optional. Upper limit for a client timeo
 entrypoint = "grpc.php"
 mode = "dispatcher"                   # Required mode for gRPC.
 processes = 4
-scaling = "static"
 max_requests = 0
-process_idle_timeout_secs = 10
 request_terminate_timeout_secs = 0
 
 [supervisor]                          # Optional. Sets master process behavior.
@@ -157,17 +151,11 @@ Wtyczka `http` zarządza tą pulą workerów PHP. Nasłuch gRPC używa osobnej t
 | --- | --- | --- | --- |
 | `entrypoint` | tekst | brak - wymagane | Skrypt PHP, który wykonuje każdy worker. Ścieżkę względną Rapira liczy od katalogu z plikiem konfiguracyjnym. Musisz ustawić wartość. |
 | `mode` | `"classic"` \| `"worker"` \| `"dispatcher"` | `"dispatcher"` | Jak worker wykonuje skrypt wejściowy. `classic` uruchamia skrypt od zera przy każdym żądaniu. `worker` zostawia skrypt rezydentnym i wypełnia zmienne superglobalne na nowo przy każdym żądaniu. `dispatcher` zostawia skrypt rezydentnym i daje mu obiekt dyspozytora, z którego skrypt sam pobiera kolejne żądania. Zobacz [tryby wykonania](/pl/docs/execution-modes). |
-| `processes` | liczba całkowita | jeden na logiczny rdzeń CPU | Ile procesów workerów sforkować. Przy skalowaniu `dynamic` i `ondemand` to górny limit, a nie stała liczba. Minimum to 1. |
-| `scaling` | `"static"` \| `"dynamic"` \| `"ondemand"` | `"static"` | Jak pula dobiera swój rozmiar. `static` trzyma przy życiu `processes` workerów bez przerwy; `dynamic` skaluje się między progami zapasu, z sufitem na `processes`; `ondemand` forkuje dopiero wtedy, gdy jest praca, i pozwala bezczynnym workerom odejść. |
-| `min_spare` | liczba całkowita | brak | Tylko przy skalowaniu `dynamic` i tam wymagane: utrzymuj co najmniej tylu workerów bezczynnych i gotowych do pracy. |
-| `max_spare` | liczba całkowita | brak | Tylko przy skalowaniu `dynamic` i tam wymagane: przycinaj pulę do najwyżej tylu bezczynnych workerów. Para musi spełniać `1 <= min_spare <= max_spare <= processes`; ustawienie któregokolwiek z nich przy innym skalowaniu to błąd. |
+| `processes` | liczba całkowita | jeden na logiczny rdzeń CPU | Liczba workerów. Proces nadrzędny utrzymuje tyle działających workerów. Minimum to 1. |
 | `max_requests` | liczba całkowita | `0` | Wymień workera po obsłużeniu tylu żądań, z niewielkim rozrzutem, żeby cała pula nigdy nie wymieniała się naraz. `0` znaczy nigdy. |
-| `process_idle_timeout_secs` | liczba całkowita | `10` | Przy skalowaniu `ondemand` proces nadrzędny zwalnia workera po tym czasie bezczynności. |
 | `request_terminate_timeout_secs` | liczba całkowita | `0` | Budżet czasu rzeczywistego na pojedyncze żądanie. Worker, który po jego przekroczeniu wciąż nad nim pracuje, zostaje ubity i zastąpiony nowym. `0` wyłącza tę kontrolę. |
 
-`mode` i `scaling` to dwie osobne osie: `mode` mówi, co worker robi ze skryptem wejściowym, a `scaling` ilu jest workerów.
-
-Progi zapasu sprawdzane są względem wartości `processes`.
+`mode` określa wykonanie skryptu wejściowego. `processes` określa liczbę workerów.
 
 ## Sekcja `[grpc]` {#grpc}
 
@@ -186,7 +174,7 @@ Proces nadrzędny wczytuje zestaw deskryptorów przed forkowaniem workerów. Te 
 
 ### Tabela `[grpc.pool]` {#grpc-pool}
 
-Ta tabela używa [kluczy i wartości domyślnych puli HTTP](#http-pool), z wymaganym `entrypoint` i `mode = "dispatcher"`. Tryby Classic i Worker są odrzucane. Skalowanie, limity zapasu bezczynnych workerów, wymiana workerów i nadzór nad czasem działania procesów dotyczą tej puli niezależnie.
+Ta tabela używa [kluczy i wartości domyślnych puli HTTP](#http-pool), z wymaganym `entrypoint` i `mode = "dispatcher"`. Tryby Classic i Worker są odrzucane. Liczba workerów, wymiana workerów i nadzór nad czasem działania procesów dotyczą tej puli niezależnie.
 
 HTTP i gRPC mogą działać razem. Każdy nasłuch używa własnej puli i skryptu wejściowego. Uruchom ponownie Rapirę, aby wczytać zmieniony zestaw deskryptorów. Przeładowanie zachowuje stary zestaw.
 

@@ -19,9 +19,9 @@ Cada escucha activada requiere un script de entrada PHP. Define `http.pool.entry
 
 ## Un rapira.toml completo
 
-El siguiente archivo de configuración activa ambos protocolos y muestra las tablas admitidas. La mayoría de las claves ausentes usan su valor predeterminado. Cada pool requiere `entrypoint`. El escalado dinámico requiere `min_spare` y `max_spare`. La tabla `[http.static]` requiere `http.static.root`.
+El siguiente archivo de configuración activa ambos protocolos y muestra las tablas admitidas. La mayoría de las claves ausentes usan su valor predeterminado. Cada pool requiere `entrypoint`. La tabla `[http.static]` requiere `http.static.root`.
 
-Algunas claves deben aparecer juntas. La tabla `[http.static]` requiere la entrada `"static"` de `middleware`, y la entrada requiere la tabla. Elimina `min_spare` y `max_spare` cuando el escalado no sea `dynamic`. Rapira rechaza estas claves con `static` y `ondemand`.
+Algunas claves deben aparecer juntas. La tabla `[http.static]` requiere la entrada `"static"` de `middleware`, y la entrada requiere la tabla.
 
 ```toml
 [http]
@@ -52,12 +52,8 @@ max_part_headers = 32                 # Optional. Limits fields in one part.
 [http.pool]                           # The worker pool behind the http listener.
 entrypoint = "index.php"              # Relative paths use this file's directory.
 mode = "dispatcher"                   # Use "classic", "worker", or "dispatcher". Default: "dispatcher".
-processes = 4                         # Sets the worker count and the scaling maximum.
-scaling = "dynamic"                   # Use "static", "dynamic", or "ondemand". Default: "static".
-min_spare = 1                         # For dynamic scaling. Sets the minimum idle worker count.
-max_spare = 3                         # For dynamic scaling. Sets the maximum idle worker count.
+processes = 4                         # Sets the fixed worker count.
 max_requests = 0                      # Replaces a worker after this request count. Zero disables the limit.
-process_idle_timeout_secs = 10        # For ondemand scaling. Removes workers after this idle time.
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
 
 [grpc]
@@ -72,9 +68,7 @@ max_timeout_secs = 60                 # Optional. Upper limit for a client timeo
 entrypoint = "grpc.php"
 mode = "dispatcher"                   # Required mode for gRPC.
 processes = 4
-scaling = "static"
 max_requests = 0
-process_idle_timeout_secs = 10
 request_terminate_timeout_secs = 0
 
 [supervisor]                          # Optional. Sets master process behavior.
@@ -157,17 +151,11 @@ El plugin `http` es dueño de este pool de workers PHP. La escucha gRPC usa una 
 | --- | --- | --- | --- |
 | `entrypoint` | cadena | ninguno - obligatorio | El script PHP que ejecuta cada worker. Una ruta relativa se resuelve respecto al directorio donde está el archivo de configuración. Tienes que darle un valor. |
 | `mode` | `"classic"` \| `"worker"` \| `"dispatcher"` | `"dispatcher"` | Cómo ejecuta un worker el script de entrada. `classic` lo vuelve a ejecutar desde cero en cada petición. `worker` lo mantiene residente y rellena de nuevo las superglobales en cada petición. `dispatcher` lo mantiene residente y le da un objeto dispatcher del que el script va sacando cada petición. Consulta los [modos de ejecución](/es/docs/execution-modes). |
-| `processes` | entero | uno por CPU lógica | Cuántos procesos worker crear con fork. Con el escalado `dynamic` y con el `ondemand` esto es el techo, no la cantidad. Tiene que ser 1 como mínimo. |
-| `scaling` | `"static"` \| `"dynamic"` \| `"ondemand"` | `"static"` | Cómo se dimensiona el pool. `static` mantiene vivos `processes` workers todo el tiempo; `dynamic` escala entre los umbrales de reserva, con `processes` como techo; `ondemand` solo hace fork cuando hay trabajo y deja que se retiren los workers ociosos. |
-| `min_spare` | entero | ninguno | Solo con el escalado `dynamic`, y ahí obligatoria: mantén al menos este número de workers ociosos y listos. |
-| `max_spare` | entero | ninguno | Solo con el escalado `dynamic`, y ahí obligatoria: recorta hasta dejar como mucho este número de workers ociosos. El par tiene que cumplir `1 <= min_spare <= max_spare <= processes`; ponerlas con otro valor de escalado es un error. |
+| `processes` | entero | uno por CPU lógica | El número de workers. El maestro mantiene este número de workers en marcha. Tiene que ser 1 como mínimo. |
 | `max_requests` | entero | `0` | Recicla el worker cuando haya atendido este número de peticiones, más un pequeño margen aleatorio para que el pool entero no se renueve de golpe. `0` significa nunca. |
-| `process_idle_timeout_secs` | entero | `10` | Con el escalado `ondemand`, el maestro retira un worker después de este tiempo de inactividad. |
 | `request_terminate_timeout_secs` | entero | `0` | El tiempo real máximo para una sola petición. Al worker que siga con ella pasado ese límite se le mata y se le sustituye. Con `0` no se comprueba nada. |
 
-`mode` y `scaling` son dos ejes distintos: `mode` dice qué hace un worker con el script de entrada, y `scaling`, cuántos workers hay.
-
-Los umbrales de reserva se comprueban contra el valor de `processes`.
+`mode` dice qué hace un worker con el script de entrada. `processes` controla el número de workers.
 
 ## La sección `[grpc]` {#grpc}
 
@@ -186,7 +174,7 @@ El maestro carga el descriptor set antes de crear los workers con fork. Estos er
 
 ### La tabla `[grpc.pool]` {#grpc-pool}
 
-Esta tabla usa las [claves y los valores predeterminados del pool HTTP](#http-pool), con un `entrypoint` obligatorio y `mode = "dispatcher"`. Se rechazan los modos Classic y Worker. El escalado, los límites de reserva, el reciclaje y el mecanismo de vigilancia del proceso se aplican a este pool de forma independiente.
+Esta tabla usa las [claves y los valores predeterminados del pool HTTP](#http-pool), con un `entrypoint` obligatorio y `mode = "dispatcher"`. Se rechazan los modos Classic y Worker. El número de workers, el reciclaje y el mecanismo de vigilancia del proceso se aplican a este pool de forma independiente.
 
 HTTP y gRPC pueden ejecutarse juntos. Cada escucha usa su propio pool y script de entrada. Reinicia Rapira para cargar un descriptor set modificado. Una recarga conserva el conjunto anterior.
 

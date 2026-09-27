@@ -43,7 +43,7 @@ Estos son los targets bajo los que emite el propio Rapira:
 | Target   | Qué cubre                                                       |
 | -------- | --------------------------------------------------------------- |
 | `rapira` | el ciclo de vida del servidor: arranque, vida de los workers, apagado |
-| `master` | la supervisión: forks, recogida de procesos, reinicios, recargas, escalado del pool |
+| `master` | la supervisión: forks, recogida de procesos, reinicios, recargas |
 | `http`   | el frontal HTTP: los sockets de escucha, el tratamiento de los campos de petición y respuesta, el drenaje |
 | `grpc`   | las escuchas gRPC, los fallos de transporte, el apagado          |
 | `net`    | el bucle de aceptación de las escuchas HTTP y gRPC, los fallos de aceptación |
@@ -56,7 +56,7 @@ Rapira no escribe un registro de acceso por petición. Los registros del target 
 Una dependencia escribe trazas bajo su ruta de módulo. Se aplica el mismo filtro por prefijo. Cada registro contiene el nombre del target. Añade ese nombre a `[log.targets]` para reducir su salida.
 
 ::: tip
-El target `master` contiene sustituciones de workers, recargas y escalado. Consulta [Modelo de procesos](/es/docs/process-model) para ver estos eventos.
+El target `master` contiene sustituciones de workers y recargas. Consulta [Modelo de procesos](/es/docs/process-model) para ver estos eventos.
 :::
 
 ## Diagnósticos de PHP

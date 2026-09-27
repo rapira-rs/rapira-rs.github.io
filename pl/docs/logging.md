@@ -43,7 +43,7 @@ Cele, pod którymi loguje sama Rapira:
 | Cel      | Co obejmuje                                                                    |
 | -------- | ------------------------------------------------------------------------------ |
 | `rapira` | cykl życia serwera: start, cykl życia workerów, zamykanie                      |
-| `master` | nadzór: forki, zbieranie zakończonych procesów, podstawianie nowych workerów, przeładowania, skalowanie puli |
+| `master` | nadzór: forki, zbieranie zakończonych procesów, podstawianie nowych workerów, przeładowania |
 | `http`   | warstwa HTTP: nasłuchy, obsługa pól żądania i odpowiedzi, wygaszanie           |
 | `grpc`   | nasłuchy gRPC, błędy transportu, zatrzymywanie |
 | `net`    | pętla akceptowania połączeń nasłuchów HTTP i gRPC, błędy akceptowania |
@@ -56,7 +56,7 @@ Rapira nie zapisuje osobnej linii dostępu dla każdego żądania. Wpisy celu `h
 Zależność zapisuje ślady pod własną ścieżką modułu. Dotyczy ich ten sam filtr prefiksu. Każdy wpis zawiera nazwę celu. Dodaj ją do `[log.targets]`, aby zmniejszyć liczbę wpisów.
 
 ::: tip
-Cel `master` zawiera wymiany workerów, przeładowania i skalowanie. Te zdarzenia opisuje [Model procesów](/pl/docs/process-model).
+Cel `master` zawiera wymiany workerów i przeładowania. Te zdarzenia opisuje [Model procesów](/pl/docs/process-model).
 :::
 
 ## Diagnostyka PHP

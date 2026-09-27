@@ -330,7 +330,7 @@ Un único proceso worker atiende cada conexión. Un cliente gRPC suele enviar to
 
 ## HTTP y gRPC juntos
 
-Una configuración puede contener `[http]` y `[grpc]`. Cada plugin tiene su propia escucha, script de entrada PHP y pool de workers. El maestro supervisa los dos pools. El pool gRPC acepta los ajustes de escalado y reciclaje del pool HTTP, con `mode = "dispatcher"`.
+Una configuración puede contener `[http]` y `[grpc]`. Cada plugin tiene su propia escucha, script de entrada PHP y pool de workers. El maestro supervisa los dos pools. El pool gRPC acepta los ajustes de número de workers y reciclaje del pool HTTP, con `mode = "dispatcher"`.
 
 Consulta [Configuración](./configuration#grpc) para ver todos los ajustes gRPC y [Modelo de procesos](./process-model) para la supervisión de pools.
 

@@ -138,7 +138,7 @@ rapira serve rapira.toml
 A relative `http.pool.entrypoint` uses the configuration file directory as its base. The current directory does not affect it.
 :::
 
-The configuration file also controls pool scaling, worker replacement, request timeouts, logging, and the supervisor pidfile. An unknown key prevents server initialization. See [Configuration](/docs/configuration) for all configuration file settings and [CLI](/docs/cli) for the command.
+The configuration file also controls the worker count, worker replacement, request timeouts, logging, and the supervisor pidfile. An unknown key prevents server initialization. See [Configuration](/docs/configuration) for all configuration file settings and [CLI](/docs/cli) for the command.
 
 ## Stopping the server
 

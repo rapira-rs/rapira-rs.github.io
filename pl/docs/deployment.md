@@ -152,4 +152,4 @@ request_terminate_timeout_secs = 30
 
 `max_requests` zastępuje workera po określonej liczbie żądań. Rapira dodaje małą wartość losową, aby nie zastępować całej puli jednocześnie. To ustawienie ogranicza wpływ wycieku, ale go nie naprawia. `request_terminate_timeout_secs` ogranicza czas jednego żądania. Rapira zastępuje workera, który przekroczy tę wartość. Oba ustawienia są domyślnie wyłączone. Włącz je przed użyciem środowiska produkcyjnego.
 
-[Model procesów](/pl/docs/process-model) opisuje rozmiary puli dla trybów static, dynamic i ondemand, opóźnienia ponownego uruchamiania oraz awarie workerów.
+[Model procesów](/pl/docs/process-model) opisuje rozmiar puli, opóźnienia ponownego uruchamiania oraz awarie workerów.

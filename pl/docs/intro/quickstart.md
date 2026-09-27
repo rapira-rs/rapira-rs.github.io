@@ -129,7 +129,7 @@ rapira serve rapira.toml
 Względna wartość `http.pool.entrypoint` używa katalogu pliku konfiguracyjnego jako podstawy. Bieżący katalog jej nie zmienia.
 :::
 
-Plik kontroluje też skalowanie puli, wymianę workerów, limity czasu, logowanie i pidfile. Nieznany klucz uniemożliwia uruchomienie. Więcej informacji zawierają [Konfiguracja](/pl/docs/configuration) i [Wiersz poleceń](/pl/docs/cli) z opisem polecenia.
+Plik kontroluje też liczbę workerów, wymianę workerów, limity czasu, logowanie i pidfile. Nieznany klucz uniemożliwia uruchomienie. Więcej informacji zawierają [Konfiguracja](/pl/docs/configuration) i [Wiersz poleceń](/pl/docs/cli) z opisem polecenia.
 
 ## Zatrzymywanie serwera
 

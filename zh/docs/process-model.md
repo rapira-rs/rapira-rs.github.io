@@ -1,6 +1,6 @@
 ---
 title: 进程模型
-description: "Rapira 如何运行 PHP：单线程的 master 绑定套接字、只启动一次 PHP，然后 fork 出 worker。进程池伸缩、worker 回收、重载，以及完整的信号对照表。"
+description: "Rapira 如何运行 PHP：单线程的 master 绑定套接字、只启动一次 PHP，然后 fork 出 worker。进程池大小、worker 回收、重载，以及完整的信号对照表。"
 ---
 
 # 进程模型
@@ -37,7 +37,7 @@ flowchart TB
 
 图中展示一个进程池。每个 worker 运行一个 NTS PHP 解释器和一个异步 HTTP 或 gRPC 服务器。服务器使用 hyper，在具有两个线程的私有 tokio 运行时上运行。每个 worker 在继承的套接字上调用 `accept()`。操作系统将每个新连接分配给一个 worker。
 
-master 从不处理请求，它压根就没有 HTTP 栈--只是一个单线程，阻塞在 self-pipe 的 `poll(2)` 上，等信号、等子进程退出、等自己的定时器；在 `ondemand` 模式下还要等监听套接字变为可读。这个进程必须活下来，好把其他一切重新拉起，所以它自己要做的事越少越好。
+master 从不处理请求，它压根就没有 HTTP 栈--只是一个单线程，阻塞在 self-pipe 的 `poll(2)` 上，等信号、等子进程退出、等自己的定时器。这个进程必须活下来，好把其他一切重新拉起，所以它自己要做的事越少越好。
 
 ::: info
 master 还在整个生命周期里持有 PHP 模块，也只有它会去关闭这个模块。worker 退出时什么都不拆，所以某个 worker 崩溃或者被回收，都不会拆掉其他 worker 还在用的那份引擎映像。
@@ -48,7 +48,6 @@ master 还在整个生命周期里持有 PHP 模块，也只有它会去关闭�
 进程池初始化后，master 大约每秒执行一次维护。worker 退出时，master 也会立即处理。
 
 - **替换 worker。** worker 正常退出后，master 会立即替换它。
-- 使用 `ondemand` 时，master 会等待下一个连接，然后创建替换 worker。
 - 发生故障后，替换延迟从 100 ms 开始。每次连续故障后延迟翻倍，最大约为 25 秒。
 - worker 运行至少十秒会重置延迟。
 - **初始化故障。**如果所有初始 worker 都在进程池处理请求之前失败，master 会退出。
@@ -58,38 +57,18 @@ master 还在整个生命周期里持有 PHP 模块，也只有它会去关闭�
 - **请求超时。**使用 `http.pool.request_terminate_timeout_secs` 时，请求超过限制后，master 会发送 `SIGTERM`。
 - 如果 worker 在下一个维护周期后仍活动，master 会发送 `SIGKILL`。它会关闭排队连接并创建替换 worker。
 - master 不会在停止或重载期间应用此超时。
-- **伸缩。**使用 `dynamic` 时，维护过程可以创建 worker 或删除空闲 worker。
-- 使用 `ondemand` 时，维护过程会在空闲超时后删除 worker。新连接会触发创建 worker。
 - **master 监控。**每个 worker 从 master 保持打开的管道中读取。
 - 如果 master 退出，管道返回 EOF，每个 worker 都会停止接受工作。master 故障不会留下不受管理的 worker。
 
-## 进程池伸缩
+## 进程池大小
 
-以下设置使用 `[http.pool]`。相同的伸缩和回收设置也适用于 `[grpc.pool]`。
+以下设置使用 `[http.pool]`。相同的设置也适用于 `[grpc.pool]`。
 
-`http.pool.scaling` 选择进程池如何更改大小。它与 `http.pool.mode` 不同。 `http.pool.mode` 设置 worker 内的执行模式。使用 `static` 时，`http.pool.processes` 是准确数量。 使用 `dynamic` 和 `ondemand` 时，它是最大数量。默认值为每个逻辑 CPU 一个 worker。
+`http.pool.processes` 设置 worker 数量。master 在初始化期间创建这些 worker，并替换每个退出的 worker。默认值为每个逻辑 CPU 一个 worker。
 
-| 伸缩策略 | 有多少个 worker | 生效的键 |
-| --- | --- | --- |
-| `static`（默认） | 正好 `http.pool.processes` 个，启动时 fork 出来，之后一直维持这个数。 | `processes` |
-| `dynamic` | 需求要多少就多少，上限是 `http.pool.processes`；master 把*空闲*数量控制在备用区间之内。 | `min_spare`, `max_spare` |
-| `ondemand` | 启动时一个都不 fork；随流量到来而 fork，上限是 `http.pool.processes`。 | `process_idle_timeout_secs` |
+PHP 是同步的，因此每个 worker 一次处理一个请求。I/O 密集型应用可能需要比 CPU 核心更多的 worker。CPU 密集型应用通常不需要。
 
-**`static`** 适合大多数部署。它使用固定数量的 worker，并替换已退出的 worker。 PHP 是同步的，因此每个 worker 一次处理一个请求。I/O 密集型应用可能需要比 CPU 更多的 worker。 CPU 密集型应用通常不需要。
-
-**`dynamic`** 将空闲 worker 数量保持在两个限制之间。数量低于 `min_spare` 时，它会创建 worker。 连续维护周期的容量不足时，新 worker 数量会翻倍。数量超过 `max_spare` 时，它会删除最早的空闲 worker。 初始数量是两个限制的中间值。需求超过 `http.pool.processes` 时，Rapira 会记录一次警告。
-
-```toml
-[http.pool]
-scaling = "dynamic"
-processes = 8
-min_spare = 1
-max_spare = 3
-```
-
-这几个边界必须满足 `1 <= min_spare <= max_spare <= processes`；它们在 `dynamic` 下是必填的，在另外两种策略下则会被拒绝。写错地方是配置错误，而不是一个被悄悄忽略的键。
-
-**`ondemand`** 在启动时不创建 worker。master 监视监听套接字。 连接到达且没有空闲 worker 时，master 会创建一个。worker 空闲超过 `http.pool.process_idle_timeout_secs` 后会退出。 空进程池的第一个请求会等待创建 worker。将 `ondemand` 用于测试环境和低流量站点。 将其他策略用于稳定流量。
+服务器运行期间，worker 数量不会改变。要根据负载改变容量，请改变 Rapira 实例的数量，例如使用容器编排器。
 
 完整的键参考在[配置](/zh/docs/configuration)那一页。
 
@@ -131,7 +110,7 @@ kill -TERM $(cat /run/rapira.pid)   # Stop after current requests finish.
 
 master 启动一个新 worker，并等待它报告 `idle` 或 `active` 状态。 然后主进程停止一个旧 worker。该 worker 结束后，主进程在下一个位置启动新 worker。 每次停止都使用 `SIGQUIT` → `SIGTERM` → `SIGKILL`。相同的控制超时适用于每个 worker。 旧 worker 收到 `SIGQUIT` 后会关闭空闲 keep-alive 连接。当前请求可以在控制超时前完成。
 
-如果新 worker 在控制超时前未报告这两种状态，master 会记录警告。 然后，即使新 worker 尚未处理请求，master 也会停止下一个旧 worker。 在 `ondemand` 模式下，主进程逐个删除旧 worker。新连接会创建替代 worker。
+如果新 worker 在控制超时前未报告这两种状态，master 会记录警告。 然后，即使新 worker 尚未处理请求，master 也会停止下一个旧 worker。
 
 停止已经在进行时收到的重载会被忽略：停止永远优先。
 
@@ -151,5 +130,5 @@ master 启动一个新 worker，并等待它报告 `idle` 或 `active` 状态。
 master = "info"
 ```
 
-同一个目标上还跑着所有的监管事件：fork、子进程回收、补位、重载和进程池伸缩。其余内容见[日志](/zh/docs/logging)。
+同一个目标上还跑着所有的监管事件：fork、子进程回收、补位和重载。其余内容见[日志](/zh/docs/logging)。
 :::

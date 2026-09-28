@@ -160,5 +160,5 @@ The result has the same functions as a packaged server. See [Quickstart](/docs/i
 ## Working on Rapira itself
 
 `make test` runs the in-process and end-to-end test suites.
-`make stubs` creates the arginfo header from `crates/php_sys/rapira.stub.php`.
+`make stubs` regenerates the arginfo header next to every `*.stub.php` file under `crates/`.
 For each pull request, CI runs the build, `cargo fmt`, Clippy, and coverage.

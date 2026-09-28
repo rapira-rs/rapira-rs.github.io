@@ -210,7 +210,7 @@ A `[log.targets]` key uses letters, digits, `_`, `:`, `.`, or `-`. It must start
 
 ```toml
 [log.targets]
-"php_sys::callbacks" = "debug"
+"h2::codec" = "debug"
 ```
 
 `RUST_LOG` and `NO_COLOR` affect stderr output only. `RUST_LOG` replaces the complete stderr filter for one run. `NO_COLOR` disables plain output colors when its value is not empty.

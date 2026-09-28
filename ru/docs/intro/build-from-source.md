@@ -148,4 +148,4 @@ DYLD_LIBRARY_PATH="$HOME/.local/php-nts/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_P
 
 ## Разработка самой Rapira
 
-`make test` прогоняет оба набора тестов - внутрипроцессный и сквозной, который запускает настоящий бинарник; `make stubs` перегенерирует заголовок с arginfo из `crates/php_sys/rapira.stub.php`; а CI на каждый пул-реквест собирает проект и гоняет `cargo fmt`, clippy и покрытие.
+`make test` прогоняет оба набора тестов - внутрипроцессный и сквозной, который запускает настоящий бинарник; `make stubs` перегенерирует заголовок с arginfo рядом с каждым файлом `*.stub.php` в `crates/`; а CI на каждый пул-реквест собирает проект и гоняет `cargo fmt`, clippy и покрытие.

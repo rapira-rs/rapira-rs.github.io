@@ -36,7 +36,7 @@ php = "debug"
 http = "warn"
 ```
 
-Każdy klucz nazywa jeden cel. Pozostałe cele używają `level`. Klucz pasuje **po prefiksie**, więc `php` pasuje też do `php_sys` i `php_sys::callbacks`. Nie musisz wymieniać podmodułów.
+Każdy klucz nazywa jeden cel. Pozostałe cele używają `level`. Klucz pasuje **po prefiksie**, więc `h2` pasuje też do `h2::codec::framed_read`. Nie musisz wymieniać podmodułów.
 
 Cele, pod którymi loguje sama Rapira:
 
@@ -47,7 +47,6 @@ Cele, pod którymi loguje sama Rapira:
 | `http`   | warstwa HTTP: nasłuchy, obsługa pól żądania i odpowiedzi, wygaszanie           |
 | `grpc`   | nasłuchy gRPC, błędy transportu, zatrzymywanie |
 | `net`    | pętla akceptowania połączeń nasłuchów HTTP i gRPC, błędy akceptowania |
-| `ext`    | wyniki zadań rozszerzeń                                                        |
 | `php`    | wyjście i diagnostyka prosto z PHP                                             |
 | `app`    | wpisy zapisywane przez aplikację przez `\Rapira\log()`                        |
 

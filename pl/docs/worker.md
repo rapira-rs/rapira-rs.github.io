@@ -154,4 +154,4 @@ if (\Rapira\get_mode() === \Rapira\Mode::Worker) {
 
 ## Stuby dla IDE
 
-Rapira deklaruje funkcje i klasy PHP w plikach stubów katalogu `crates/php_sys`. API workera znajduje się w [`rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php). Klasy wyjątków znajdują się w [`rapira_exception.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira_exception.stub.php). Te pliki definiują sygnatury, typy właściwości i przeznaczenie klas. Służą też jako stuby IDE. Dodaj je do projektu, aby włączyć uzupełnianie API Rapiry.
+Rapira deklaruje funkcje i klasy PHP w plikach stubów w katalogu `crates/`. API workera znajduje się w [`rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/sapi/rapira.stub.php). Klasy wyjątków znajdują się w [`rapira_exception.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/sapi/rapira_exception.stub.php). Te pliki definiują sygnatury, typy właściwości i przeznaczenie klas. Służą też jako stuby IDE. Dodaj je do projektu, aby włączyć uzupełnianie API Rapiry.

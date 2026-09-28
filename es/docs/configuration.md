@@ -195,13 +195,13 @@ Esta sección controla el nivel y el formato de los registros de stderr. Consult
 | --- | --- | --- | --- |
 | `level` | `"error"` \| `"warn"` \| `"info"` \| `"debug"` \| `"trace"` | `"error"` | El nivel de detalle, aplicado a todos los targets a la vez. |
 | `format` | `"plain"` \| `"json"` | `"plain"` | La forma de cada entrada: líneas legibles para una persona (con color cuando stderr es un terminal), o un objeto JSON por línea para un recolector de registros. |
-| `[log.targets]` | tabla de target → nivel | vacía | Ajustes por target que se aplican encima de `level`. Cada clave nombra uno de los targets bajo los que Rapira emite: `php` lleva la salida del propio PHP. `http` y `grpc` contienen la salida de los servidores de protocolo. `net` contiene los registros del bucle de aceptación. La coincidencia es por prefijo, así que `php` cubre también `php_sys::callbacks` y todo lo que cuelgue de ahí. En [Registros](/es/docs/logging) están todos los targets. |
+| `[log.targets]` | tabla de target → nivel | vacía | Ajustes por target que se aplican encima de `level`. Cada clave nombra uno de los targets bajo los que Rapira emite: `php` lleva la salida del propio PHP. `http` y `grpc` contienen la salida de los servidores de protocolo. `net` contiene los registros del bucle de aceptación. La coincidencia es por prefijo, así que `h2` cubre también `h2::codec::framed_read` y todo lo que cuelgue de ahí. En [Registros](/es/docs/logging) están todos los targets. |
 
 Una clave de `[log.targets]` puede usar letras, dígitos, `_`, `:`, `.` y `-`. Debe empezar con una letra, un dígito o `_`. Rapira rechaza otros caracteres porque el filtro puede interpretarlos como sintaxis. Una clave de target que contiene `:` o `.` debe ir entre comillas porque TOML no permite estos caracteres en una clave simple sin comillas. Por ejemplo:
 
 ```toml
 [log.targets]
-"php_sys::callbacks" = "debug"
+"h2::codec" = "debug"
 ```
 
 `RUST_LOG` y `NO_COLOR` solo afectan a la salida de stderr. `RUST_LOG` sustituye el filtro completo de stderr durante una ejecución. Un valor no vacío de `NO_COLOR` desactiva los colores del formato `plain`.

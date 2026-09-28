@@ -154,4 +154,4 @@ if (\Rapira\get_mode() === \Rapira\Mode::Worker) {
 
 ## Стаб-файлы для IDE
 
-Rapira объявляет функции и классы PHP в стаб-файлах каталога `crates/php_sys`. API воркера находится в [`rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php). Классы исключений находятся в [`rapira_exception.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira_exception.stub.php). Эти файлы содержат основные объявления сигнатур, типов свойств и назначения классов. Они также служат стабами IDE. Добавьте их в проект для автодополнения API Rapira.
+Rapira объявляет функции и классы PHP в стаб-файлах в каталоге `crates/`. API воркера находится в [`rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/sapi/rapira.stub.php). Классы исключений находятся в [`rapira_exception.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/sapi/rapira_exception.stub.php). Эти файлы содержат основные объявления сигнатур, типов свойств и назначения классов. Они также служат стабами IDE. Добавьте их в проект для автодополнения API Rapira.

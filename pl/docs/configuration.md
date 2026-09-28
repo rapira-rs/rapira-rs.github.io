@@ -195,13 +195,13 @@ Ta sekcja steruje poziomem i formatem logów stderr. Cele, formaty i poziomy dia
 | --- | --- | --- | --- |
 | `level` | `"error"` \| `"warn"` \| `"info"` \| `"debug"` \| `"trace"` | `"error"` | Poziom szczegółowości, wspólny od razu dla wszystkich celów. |
 | `format` | `"plain"` \| `"json"` | `"plain"` | Kształt rekordu: czytelne dla człowieka linie (kolorowane, gdy stderr jest terminalem) albo jeden obiekt JSON na linię dla kolektora logów. |
-| `[log.targets]` | tabela cel → poziom | pusta | Nadpisania dla poszczególnych celów, nakładane na `level`. Każdy klucz nazywa jeden z celów, pod którymi Rapira pisze: `php` niesie wyjście samego PHP, a `http` i `grpc` wyjście serwerów odpowiednich protokołów. `net` zawiera wpisy pętli akceptowania połączeń. Klucz dopasowuje się po prefiksie, więc `php` obejmuje też `php_sys::callbacks` i wszystko poniżej. Pełną listę celów mają [Logi](/pl/docs/logging). |
+| `[log.targets]` | tabela cel → poziom | pusta | Nadpisania dla poszczególnych celów, nakładane na `level`. Każdy klucz nazywa jeden z celów, pod którymi Rapira pisze: `php` niesie wyjście samego PHP, a `http` i `grpc` wyjście serwerów odpowiednich protokołów. `net` zawiera wpisy pętli akceptowania połączeń. Klucz dopasowuje się po prefiksie, więc `h2` obejmuje też `h2::codec::framed_read` i wszystko poniżej. Pełną listę celów mają [Logi](/pl/docs/logging). |
 
 Klucz `[log.targets]` może zawierać litery, cyfry, `_`, `:`, `.` i `-`. Musi zaczynać się literą, cyfrą lub `_`. Rapira odrzuca inne znaki, ponieważ filtr może odczytać je jako składnię. Klucz celu zawierający `:` lub `.` musi być ujęty w cudzysłów, ponieważ TOML nie zezwala na te znaki w prostym kluczu bez cudzysłowu. Na przykład:
 
 ```toml
 [log.targets]
-"php_sys::callbacks" = "debug"
+"h2::codec" = "debug"
 ```
 
 `RUST_LOG` i `NO_COLOR` wpływają tylko na wyjście stderr. `RUST_LOG` zastępuje cały filtr stderr podczas jednego uruchomienia. Niepusta wartość `NO_COLOR` wyłącza kolory formatu `plain`.

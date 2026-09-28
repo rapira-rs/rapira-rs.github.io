@@ -36,7 +36,7 @@ php = "debug"
 http = "warn"
 ```
 
-Cada clave nombra un target. Los demás targets usan `level`. La clave coincide **por prefijo**, por lo que `php` también coincide con `php_sys` y `php_sys::callbacks`. No necesitas enumerar submódulos.
+Cada clave nombra un target. Los demás targets usan `level`. La clave coincide **por prefijo**, por lo que `h2` también coincide con `h2::codec::framed_read`. No necesitas enumerar submódulos.
 
 Estos son los targets bajo los que emite el propio Rapira:
 
@@ -47,7 +47,6 @@ Estos son los targets bajo los que emite el propio Rapira:
 | `http`   | el frontal HTTP: los sockets de escucha, el tratamiento de los campos de petición y respuesta, el drenaje |
 | `grpc`   | las escuchas gRPC, los fallos de transporte, el apagado          |
 | `net`    | el bucle de aceptación de las escuchas HTTP y gRPC, los fallos de aceptación |
-| `ext`    | cómo acaban las tareas de las extensiones                       |
 | `php`    | la salida y los diagnósticos que vienen del propio PHP          |
 | `app`    | las entradas que la aplicación escribe con `\Rapira\log()`      |
 

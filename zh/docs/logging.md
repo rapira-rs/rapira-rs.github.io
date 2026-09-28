@@ -36,7 +36,7 @@ php = "debug"
 http = "warn"
 ```
 
-每个键指定一个目标。其他目标使用 `level`。 键**按前缀**匹配，因此 `php` 也匹配 `php_sys` 和 `php_sys::callbacks`。无需列出子模块。
+每个键指定一个目标。其他目标使用 `level`。 键**按前缀**匹配，因此 `h2` 也匹配 `h2::codec::framed_read`。无需列出子模块。
 
 Rapira 自己用的目标有这些：
 
@@ -47,7 +47,6 @@ Rapira 自己用的目标有这些：
 | `http`   | HTTP 接入层：监听器、请求和响应的字段处理、排空      |
 | `grpc`   | gRPC 监听器、传输故障、关闭                          |
 | `net`    | HTTP 和 gRPC 监听器的接收循环、accept 失败           |
-| `ext`    | 扩展任务的执行结果                                   |
 | `php`    | 来自 PHP 本身的输出和诊断信息                        |
 | `app`    | 应用通过 `\Rapira\log()` 写入的记录                  |
 

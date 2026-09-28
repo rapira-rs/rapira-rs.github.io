@@ -148,4 +148,4 @@ DYLD_LIBRARY_PATH="$HOME/.local/php-nts/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_P
 
 ## 参与 Rapira 本身的开发
 
-`make test` 会把两套测试都跑一遍--进程内的那套，以及会拉起真实二进制的端到端那套；`make stubs` 从 `crates/php_sys/rapira.stub.php` 重新生成 arginfo 头文件；CI 则在每个 pull request 上跑构建、`cargo fmt`、clippy 和覆盖率。
+`make test` 会把两套测试都跑一遍--进程内的那套，以及会拉起真实二进制的端到端那套；`make stubs` 会在 `crates/` 下的每个 `*.stub.php` 文件旁重新生成 arginfo 头文件；CI 则在每个 pull request 上跑构建、`cargo fmt`、clippy 和覆盖率。

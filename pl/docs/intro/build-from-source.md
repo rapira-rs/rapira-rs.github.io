@@ -148,4 +148,4 @@ Wynik udostępnia te same funkcje co serwer z pakietu. Zobacz strony [Szybki sta
 
 ## Praca nad samą Rapirą
 
-`make test` uruchamia oba zestawy testów - ten działający w procesie i ten end-to-end, który odpala prawdziwą binarkę - `make stubs` regeneruje nagłówek arginfo z `crates/php_sys/rapira.stub.php`, a CI przy każdym pull requeście buduje projekt i przepuszcza go przez `cargo fmt`, clippy oraz pomiar pokrycia.
+`make test` uruchamia oba zestawy testów - ten działający w procesie i ten end-to-end, który odpala prawdziwą binarkę - `make stubs` regeneruje nagłówek arginfo obok każdego pliku `*.stub.php` w `crates/`, a CI przy każdym pull requeście buduje projekt i przepuszcza go przez `cargo fmt`, clippy oraz pomiar pokrycia.

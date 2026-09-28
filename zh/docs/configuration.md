@@ -195,13 +195,13 @@ master 进程的策略--监听 socket 归它掌管，worker 由它照看，你�
 | --- | --- | --- | --- |
 | `level` | `"error"` \| `"warn"` \| `"info"` \| `"debug"` \| `"trace"` | `"error"` | 详细程度，一次性作用于所有 target。 |
 | `format` | `"plain"` \| `"json"` | `"plain"` | 记录的形态：便于人读的文本行（stderr 是终端时带颜色），或者每行一个 JSON 对象，喂给日志收集器。 |
-| `[log.targets]` | target → 级别 的表 | 空 | 在 `level` 之上按 target 单独覆盖。每个键都对应 Rapira 实际会用到的一个 target：`php` 是 PHP 自己的输出。`http` 和 `grpc` 包含协议服务器的输出。`net` 包含接收循环（accept loop）的记录。键按前缀匹配，所以 `php` 也覆盖 `php_sys::callbacks` 和它下面的一切。全部 target 列在[日志](/zh/docs/logging)那一页。 |
+| `[log.targets]` | target → 级别 的表 | 空 | 在 `level` 之上按 target 单独覆盖。每个键都对应 Rapira 实际会用到的一个 target：`php` 是 PHP 自己的输出。`http` 和 `grpc` 包含协议服务器的输出。`net` 包含接收循环（accept loop）的记录。键按前缀匹配，所以 `h2` 也覆盖 `h2::codec::framed_read` 和它下面的一切。全部 target 列在[日志](/zh/docs/logging)那一页。 |
 
 `[log.targets]` 键可以使用字母、数字、`_`、`:`、`.` 和 `-`。第一个字符必须是字母、数字或 `_`。 Rapira 会拒绝其他字符，因为过滤器可能将其解释为语法。 包含 `:` 或 `.` 的目标键必须加引号，因为 TOML 的裸键不允许这些字符。例如：
 
 ```toml
 [log.targets]
-"php_sys::callbacks" = "debug"
+"h2::codec" = "debug"
 ```
 
 `RUST_LOG` 和 `NO_COLOR` 仅影响 stderr 输出。`RUST_LOG` 在一次运行中替换完整的 stderr 过滤器。非空的 `NO_COLOR` 值会禁用 `plain` 格式的颜色。

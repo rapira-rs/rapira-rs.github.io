@@ -43,7 +43,7 @@ worker 脚本和它的循环见 [Worker 模式](/zh/docs/worker)，回收阈值�
 脚本控制活动工作单元的数量。顺序循环每次处理一个单元。 它调用 `receive()`，响应请求，然后再次调用 `receive()`。 并发 HTTP 脚本为每个请求启动一个 [Fiber](https://www.php.net/manual/en/language.fibers.php)。存在活动 fiber 时，它调用 `tryReceive()`。 没有活动 fiber 时，循环在 `receive()` 中等待。此设计让多个请求在一个解释器中保持活动状态。 并发采用协作式调度。只有当前运行的代码挂起其 fiber 后，另一个请求才会继续执行。 如果库不支持 fiber，请一次处理一个单元。
 
 ::: info
-Dispatcher 是进程池的默认模式。[gRPC 指南](./grpc)包含完整的一元服务。 [`rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php) 说明 `Dispatcher` 和 `Work` 接口。 [`rapira_http.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira_http.stub.php) 说明 HTTP 类型。 [`examples/`](https://github.com/rapira-rs/rapira/tree/main/examples) 目录包含 `dispatcher-sync.php` 和 `dispatcher-async.php`。
+Dispatcher 是进程池的默认模式。[gRPC 指南](./grpc)包含完整的一元服务。 [`rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/sapi/rapira.stub.php) 说明 `Dispatcher` 和 `Work` 接口。 [`rapira_http.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/plugins/http/rapira_http.stub.php) 说明 HTTP 类型。 [`examples/`](https://github.com/rapira-rs/rapira/tree/main/examples) 目录包含 `dispatcher-sync.php` 和 `dispatcher-async.php`。
 :::
 
 ## 第一个请求之前的 `$_SERVER`

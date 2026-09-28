@@ -61,8 +61,8 @@ Concurrency is cooperative. Another request progresses only after the active cod
 
 ::: info
 Dispatcher is the default pool mode. The [gRPC guide](./grpc) contains a complete unary service.
-The [`rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php) IDE stub documents the `Dispatcher` and `Work` interfaces.
-The [`rapira_http.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira_http.stub.php) stub documents the HTTP types.
+The [`rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/sapi/rapira.stub.php) IDE stub documents the `Dispatcher` and `Work` interfaces.
+The [`rapira_http.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/plugins/http/rapira_http.stub.php) stub documents the HTTP types.
 The [`examples/`](https://github.com/rapira-rs/rapira/tree/main/examples) directory contains `dispatcher-sync.php` and `dispatcher-async.php`.
 :::
 

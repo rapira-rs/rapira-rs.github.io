@@ -38,7 +38,7 @@ http = "warn"
 ```
 
 Each key names one target. Other targets use `level`.
-A key matches **by prefix**, so `php` also matches `php_sys` and `php_sys::callbacks`. You do not need to list submodules.
+A key matches **by prefix**, so `h2` also matches `h2::codec::framed_read`. You do not need to list submodules.
 
 Rapira uses these targets:
 
@@ -49,7 +49,6 @@ Rapira uses these targets:
 | `http`   | HTTP listeners, request and response field processing, shutdown |
 | `grpc`   | gRPC listeners, transport failures, shutdown                    |
 | `net`    | the accept loop of the HTTP and gRPC listeners, accept failures |
-| `ext`    | extension task outcomes                                          |
 | `php`    | output and diagnostics from PHP itself                          |
 | `app`    | records the application writes with `\Rapira\log()`              |
 

@@ -154,4 +154,4 @@ if (\Rapira\get_mode() === \Rapira\Mode::Worker) {
 
 ## IDE 存根
 
-Rapira 在 `crates/php_sys` 的存根文件中声明 PHP 函数和类。worker API 位于 [`rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php)。 异常类位于 [`rapira_exception.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira_exception.stub.php)。这些文件定义签名、属性类型和类用途。 它们也可以用作 IDE 存根。将它们添加到项目以启用 Rapira API 补全。
+Rapira 在 `crates/` 下的存根文件中声明 PHP 函数和类。worker API 位于 [`rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/sapi/rapira.stub.php)。 异常类位于 [`rapira_exception.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/sapi/rapira_exception.stub.php)。这些文件定义签名、属性类型和类用途。 它们也可以用作 IDE 存根。将它们添加到项目以启用 Rapira API 补全。

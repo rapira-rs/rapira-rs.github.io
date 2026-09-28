@@ -148,4 +148,4 @@ El resultado es el mismo servidor que instalan los paquetes: [Inicio rápido](/e
 
 ## Trabajar en el propio Rapira
 
-`make test` ejecuta las dos suites -la que corre dentro del mismo proceso y la de extremo a extremo, que lanza el binario de verdad-, `make stubs` regenera la cabecera de arginfo a partir de `crates/php_sys/rapira.stub.php`, y CI ejecuta la compilación, `cargo fmt`, clippy y la cobertura en cada pull request.
+`make test` ejecuta las dos suites -la que corre dentro del mismo proceso y la de extremo a extremo, que lanza el binario de verdad-, `make stubs` regenera la cabecera de arginfo junto a cada archivo `*.stub.php` bajo `crates/`, y CI ejecuta la compilación, `cargo fmt`, clippy y la cobertura en cada pull request.

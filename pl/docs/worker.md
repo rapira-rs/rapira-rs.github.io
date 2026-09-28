@@ -69,6 +69,8 @@ Pozostałe klucze opisuje [Konfiguracja](/pl/docs/configuration).
 
 Żądanie w trybie Worker odpowiada jednej iteracji pętli `while`. Rapira wykonuje zamknięcie żądania wokół handlera. Uruchamia funkcje shutdown, opróżnia bufory, zamyka sesję i ponownie wypełnia zmienne superglobalne. Wartości spoza handlera pozostają w pamięci. Rapira nie uruchamia wszystkich destruktorów na końcu żądania. PHP niszczy obiekt po usunięciu jego ostatniej referencji.
 
+Przed pierwszym wywołaniem `handle_request()` `$_SERVER` zawiera środowisko procesu i ścieżkę skryptu wejściowego, tak jak pod PHP CLI. Pełną listę zawierają [Tryby wykonania](/pl/docs/execution-modes).
+
 ## Jeden handler na worker
 
 `handle_request()` wraca po każdym żądaniu. Skrypt workera musi zawierać pętlę, która utrzymuje aktywnego workera.

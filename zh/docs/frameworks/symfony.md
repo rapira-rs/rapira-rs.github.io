@@ -102,6 +102,8 @@ while (\Rapira\handle_request($handler)) {
 
 Rapira 会保留 `$_ENV`，直到 worker 重新运行脚本。它不会为每个请求重建此超全局变量。 `bootEnv()` 在循环前加载的值仍可用于后续请求。 此行为也适用于 `variables_order = "GPCS"` 和 `auto_globals_jit = On`。
 
+在第一个请求之前，`$_SERVER` 包含进程环境。Dotenv 不会替换 `$_SERVER` 或 `$_ENV` 中已有的变量。因此，环境变量优先于 `.env` 中的同名变量，在 `variables_order = "GPCS"` 下也是如此。
+
 例如，如果应用代码必须使用 `getenv()` 读取 Dotenv 值，请添加 `usePutenv()`：
 
 ```php

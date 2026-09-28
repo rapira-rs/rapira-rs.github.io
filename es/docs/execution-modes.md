@@ -46,6 +46,23 @@ El script controla el número de unidades de trabajo activas. Un bucle secuencia
 Dispatcher es el modo predeterminado del pool. La [guía de gRPC](./grpc) contiene un servicio unario completo. [`rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php) documenta las interfaces `Dispatcher` y `Work`. [`rapira_http.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira_http.stub.php) documenta los tipos HTTP. [`examples/`](https://github.com/rapira-rs/rapira/tree/main/examples) contiene `dispatcher-sync.php` y `dispatcher-async.php`.
 :::
 
+## `$_SERVER` antes de la primera petición
+
+En los modos Worker y Dispatcher, el script de entrada arranca antes de la primera petición. En ese momento, Rapira rellena `$_SERVER` igual que PHP CLI para `php entrypoint.php`.
+
+| Clave | Valor |
+| --- | --- |
+| Cada variable del entorno del proceso | El valor del entorno |
+| `PHP_SELF`, `SCRIPT_NAME`, `SCRIPT_FILENAME`, `PATH_TRANSLATED` | La ruta absoluta del script de entrada |
+| `DOCUMENT_ROOT` | Una cadena vacía |
+| `REQUEST_TIME`, `REQUEST_TIME_FLOAT` | La hora de inicio del script de entrada |
+| `argv` | Una lista que contiene la ruta absoluta del script de entrada |
+| `argc` | `1` |
+
+`$_SERVER` recibe las variables de entorno cuando `variables_order` contiene `S`. `$_ENV` las recibe solo cuando `variables_order` contiene `E`. El valor de producción `GPCS` no contiene `E`. La ruta del script de entrada sustituye a una variable de entorno con el mismo nombre, como `SCRIPT_FILENAME`. Las variables globales `$argv` y `$argc` contienen los mismos valores que `$_SERVER`.
+
+En modo Dispatcher, `$_SERVER` conserva estos valores durante toda la vida del proceso. Los datos de la petición están en el objeto de petición. En modo Worker, Rapira vuelve a rellenar `$_SERVER` con los datos de cada petición. Los valores de la petición no contienen las variables de entorno, y `SCRIPT_NAME` contiene el nombre del script de entrada con una barra inicial.
+
 ## Leer el modo en tiempo de ejecución
 
 `Rapira\get_mode()` devuelve el modo del proceso como un caso de `Rapira\Mode`. Los casos son `Classic`, `Worker` y `Dispatcher`. El caso coincide con el modo inicial del pool de ese worker y no cambia durante el proceso. Compara los casos con `===`. La función no recibe argumentos ni lanza excepciones. Un script de entrada puede usarla para admitir varios modos:

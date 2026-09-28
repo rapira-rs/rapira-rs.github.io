@@ -69,6 +69,8 @@ Consulta las demás claves en [Configuración](/es/docs/configuration).
 
 Una petición en modo Worker corresponde a una iteración del bucle `while`. Rapira completa el cierre de la petición alrededor del handler. Ejecuta las funciones de shutdown, vacía los búferes, cierra la sesión y vuelve a rellenar las superglobales. Los valores externos al handler permanecen en memoria. Rapira no ejecuta todos los destructores al final de una petición. PHP destruye un objeto cuando el código elimina su última referencia.
 
+Antes de la primera llamada a `handle_request()`, `$_SERVER` contiene el entorno del proceso y la ruta del script de entrada, igual que con PHP CLI. Consulta la lista completa en [Modos de ejecución](/es/docs/execution-modes).
+
 ## Un solo handler por worker
 
 `handle_request()` retorna después de cada petición. El script debe proporcionar el bucle que mantiene activo el worker.

@@ -74,6 +74,8 @@ See [Configuration](/docs/configuration) for the other keys.
 
 A request in Worker mode is one iteration of the `while` loop. Rapira completes request shutdown around the handler. It runs request shutdown functions, flushes output buffers, closes the session, and refills the superglobals. Values that the script holds outside the handler stay in memory. Rapira does not run a destructor pass at the end of a request. PHP destroys an object after code removes its last reference.
 
+Before the first `handle_request()` call, `$_SERVER` contains the process environment and the entry script path, as under the PHP CLI. See [Execution modes](/docs/execution-modes) for the complete list.
+
 ## Single handler per worker
 
 `handle_request()` returns after every request. The worker script must provide the loop that keeps the worker alive.

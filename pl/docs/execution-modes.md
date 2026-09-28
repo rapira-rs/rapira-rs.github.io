@@ -46,6 +46,23 @@ Skrypt kontroluje liczbę aktywnych jednostek pracy. Pętla sekwencyjna przetwar
 Dispatcher jest domyślnym trybem puli. [Przewodnik gRPC](./grpc) zawiera kompletną usługę unarną. Plik [`rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php) opisuje interfejsy `Dispatcher` i `Work`. Plik [`rapira_http.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira_http.stub.php) opisuje typy HTTP. Katalog [`examples/`](https://github.com/rapira-rs/rapira/tree/main/examples) zawiera `dispatcher-sync.php` i `dispatcher-async.php`.
 :::
 
+## `$_SERVER` przed pierwszym żądaniem
+
+W trybach Worker i Dispatcher skrypt wejściowy startuje przed pierwszym żądaniem. W tym momencie Rapira wypełnia `$_SERVER` tak jak PHP CLI dla `php entrypoint.php`.
+
+| Klucz | Wartość |
+| --- | --- |
+| Każda zmienna środowiskowa procesu | Wartość ze środowiska |
+| `PHP_SELF`, `SCRIPT_NAME`, `SCRIPT_FILENAME`, `PATH_TRANSLATED` | Bezwzględna ścieżka skryptu wejściowego |
+| `DOCUMENT_ROOT` | Pusty ciąg znaków |
+| `REQUEST_TIME`, `REQUEST_TIME_FLOAT` | Czas startu skryptu wejściowego |
+| `argv` | Lista, która zawiera bezwzględną ścieżkę skryptu wejściowego |
+| `argc` | `1` |
+
+`$_SERVER` otrzymuje zmienne środowiskowe, gdy `variables_order` zawiera `S`. `$_ENV` otrzymuje je tylko wtedy, gdy `variables_order` zawiera `E`. Wartość produkcyjna `GPCS` nie zawiera `E`. Ścieżka skryptu wejściowego zastępuje zmienną środowiskową o tej samej nazwie, na przykład `SCRIPT_FILENAME`. Zmienne globalne `$argv` i `$argc` zawierają te same wartości co `$_SERVER`.
+
+W trybie Dispatcher `$_SERVER` zachowuje te wartości przez cały czas działania procesu. Dane żądania znajdują się w obiekcie żądania. W trybie Worker Rapira ponownie wypełnia `$_SERVER` danymi żądania dla każdego żądania. Wartości żądania nie zawierają zmiennych środowiskowych, a `SCRIPT_NAME` zawiera nazwę skryptu wejściowego z początkowym ukośnikiem.
+
 ## Odczyt trybu w trakcie pracy
 
 `Rapira\get_mode()` zwraca tryb procesu jako przypadek `Rapira\Mode`. Przypadki to `Classic`, `Worker` i `Dispatcher`. Przypadek odpowiada początkowemu trybowi puli tego workera i nie zmienia się przez cały czas działania procesu. Porównuj przypadki przez `===`. Funkcja nie przyjmuje argumentów ani nie rzuca wyjątków. Skrypt wejściowy może jej użyć do obsługi wielu trybów.

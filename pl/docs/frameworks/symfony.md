@@ -102,6 +102,8 @@ Jeśli resetter nie wystarcza, użyj `$container->reset()` albo `$kernel->reboot
 
 Rapira zachowuje `$_ENV` do ponownego uruchomienia skryptu workera. Nie odtwarza tej zmiennej superglobalnej przy każdym żądaniu. Wartości wczytane przez `bootEnv()` przed pętlą pozostają dostępne podczas późniejszych żądań. To zachowanie działa także z `variables_order = "GPCS"` i `auto_globals_jit = On`.
 
+Przed pierwszym żądaniem `$_SERVER` zawiera środowisko procesu. Dotenv nie zastępuje zmiennej, którą `$_SERVER` lub `$_ENV` już zawiera. Dlatego zmienna środowiskowa ma pierwszeństwo przed tą samą zmienną w `.env`, także z `variables_order = "GPCS"`.
+
 Na przykład dodaj `usePutenv()`, jeśli kod aplikacji musi odczytać wartości Dotenv przez `getenv()`:
 
 ```php

@@ -124,6 +124,8 @@ Both options remove cached application state. Use them to find a memory leak, no
 
 Rapira keeps `$_ENV` until the worker script restarts. It does not rebuild this superglobal for each request. Values that `bootEnv()` loads before the loop remain available during later requests. This behavior also applies with `variables_order = "GPCS"` and `auto_globals_jit = On`.
 
+Before the first request, `$_SERVER` contains the process environment. Dotenv does not replace a variable that `$_SERVER` or `$_ENV` already contains. So an environment variable has priority over the same variable in `.env`, also with `variables_order = "GPCS"`.
+
 For example, add `usePutenv()` if application code must read Dotenv values with `getenv()`:
 
 ```php

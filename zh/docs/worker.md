@@ -69,6 +69,8 @@ rapira serve rapira.toml
 
 Worker 模式中的一个请求对应 `while` 循环的一次迭代。Rapira 在 handler 外完成请求关闭。 服务器运行请求的 shutdown 函数，刷新输出缓冲，关闭 session，然后重新填充超全局变量。 handler 外的值保留在内存中。Rapira 不会在请求结束时运行所有析构函数。 代码删除对象的最后一个引用后，PHP 才销毁该对象。
 
+在第一次调用 `handle_request()` 之前，`$_SERVER` 包含进程环境和入口脚本路径，与 PHP CLI 下相同。完整列表请参阅[执行模式](/zh/docs/execution-modes)。
+
 ## 每个 worker 只有一个 handler
 
 `handle_request()` 在每个请求后返回。worker 脚本必须提供使 worker 保持活动的循环。

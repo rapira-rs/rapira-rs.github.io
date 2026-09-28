@@ -46,6 +46,23 @@ worker 脚本和它的循环见 [Worker 模式](/zh/docs/worker)，回收阈值�
 Dispatcher 是进程池的默认模式。[gRPC 指南](./grpc)包含完整的一元服务。 [`rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php) 说明 `Dispatcher` 和 `Work` 接口。 [`rapira_http.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira_http.stub.php) 说明 HTTP 类型。 [`examples/`](https://github.com/rapira-rs/rapira/tree/main/examples) 目录包含 `dispatcher-sync.php` 和 `dispatcher-async.php`。
 :::
 
+## 第一个请求之前的 `$_SERVER`
+
+在 Worker 和 Dispatcher 模式下，入口脚本在第一个请求之前启动。此时，Rapira 按照 PHP CLI 执行 `php entrypoint.php` 时的方式填充 `$_SERVER`。
+
+| 键 | 值 |
+| --- | --- |
+| 每个进程环境变量 | 环境中的值 |
+| `PHP_SELF`、`SCRIPT_NAME`、`SCRIPT_FILENAME`、`PATH_TRANSLATED` | 入口脚本的绝对路径 |
+| `DOCUMENT_ROOT` | 空字符串 |
+| `REQUEST_TIME`、`REQUEST_TIME_FLOAT` | 入口脚本的启动时间 |
+| `argv` | 包含入口脚本绝对路径的列表 |
+| `argc` | `1` |
+
+当 `variables_order` 包含 `S` 时，`$_SERVER` 获得环境变量。只有当 `variables_order` 包含 `E` 时，`$_ENV` 才获得环境变量。生产值 `GPCS` 不包含 `E`。入口脚本路径会替换同名的环境变量，例如 `SCRIPT_FILENAME`。全局变量 `$argv` 和 `$argc` 包含与 `$_SERVER` 相同的值。
+
+在 Dispatcher 模式下，`$_SERVER` 在整个进程生命周期内保留这些值。请求数据在请求对象中。在 Worker 模式下，Rapira 为每个请求用请求数据重新填充 `$_SERVER`。请求值不包含环境变量，`SCRIPT_NAME` 包含带前导斜杠的入口脚本名称。
+
 ## 在运行时读出模式
 
 `Rapira\get_mode()` 将进程模式作为 `Rapira\Mode` case 返回。case 包括 `Classic`、`Worker` 和 `Dispatcher`。case 与该 worker 所属进程池的初始模式相同，并且在整个进程生命周期内不会更改。使用 `===` 比较 case。 此函数不接受参数，也不抛出异常。入口脚本可以使用它支持多个模式：

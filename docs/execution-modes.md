@@ -66,6 +66,23 @@ The [`rapira_http.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crate
 The [`examples/`](https://github.com/rapira-rs/rapira/tree/main/examples) directory contains `dispatcher-sync.php` and `dispatcher-async.php`.
 :::
 
+## `$_SERVER` before the first request
+
+In Worker and Dispatcher modes, the entry script starts before the first request. At that time, Rapira fills `$_SERVER` as the PHP CLI does for `php entrypoint.php`.
+
+| Key | Value |
+| --- | --- |
+| Each process environment variable | The value from the environment |
+| `PHP_SELF`, `SCRIPT_NAME`, `SCRIPT_FILENAME`, `PATH_TRANSLATED` | The absolute path of the entry script |
+| `DOCUMENT_ROOT` | An empty string |
+| `REQUEST_TIME`, `REQUEST_TIME_FLOAT` | The start time of the entry script |
+| `argv` | A list that contains the absolute path of the entry script |
+| `argc` | `1` |
+
+`$_SERVER` gets the environment variables when `variables_order` contains `S`. `$_ENV` gets them only when `variables_order` contains `E`. The production value `GPCS` does not contain `E`. The entry script path replaces an environment variable with the same name, such as `SCRIPT_FILENAME`. The `$argv` and `$argc` globals contain the same values as `$_SERVER`.
+
+In Dispatcher mode, `$_SERVER` keeps these values for the process lifetime. Request data is in the request object. In Worker mode, Rapira refills `$_SERVER` with request data for each request. The request values do not contain the environment variables, and `SCRIPT_NAME` contains the entry script name with a leading slash.
+
 ## Reading the mode at runtime
 
 `Rapira\get_mode()` returns the process mode as a `Rapira\Mode` enum case. The cases are `Classic`, `Worker`, and `Dispatcher`.

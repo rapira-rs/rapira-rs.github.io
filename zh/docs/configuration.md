@@ -21,7 +21,7 @@ rapira serve /etc/rapira/rapira.toml
 
 以下配置文件启用两种协议，并展示支持的表。大多数缺少的键使用默认值。每个进程池都需要 `entrypoint`。`[http.static]` 表需要 `http.static.root`。
 
-部分键必须一起出现。`[http.static]` 表需要 `middleware` 中的 `"static"`，该条目也需要此表。
+部分键必须一起出现。`[http.static]` 表需要 `middleware` 中的 `"static"`，该条目也需要此表。`[grpc.auth]` 表需要拦截器条目 `"auth"`，该条目也需要此表。
 
 ```toml
 [http]
@@ -63,6 +63,10 @@ services = ["example.v1.Echo"]        # Optional. Default: the services of the f
 reflection = false
 default_timeout_secs = 30             # Optional. Deadline of a call without a client timeout.
 max_timeout_secs = 60                 # Optional. Upper limit for a client timeout.
+interceptors = ["auth"]               # Optional. Checks each call before PHP.
+
+[grpc.auth]                           # Required when interceptors contains "auth".
+tokens_file = "grpc-tokens"           # Required. One bearer token per line.
 
 [grpc.pool]
 entrypoint = "grpc.php"
@@ -169,8 +173,17 @@ sendfile 根目录就是 `sendFile()` 能读取的那个目录。Rapira 会把�
 | `reflection` | 布尔值 | `false` | 启用 `grpc.reflection.v1` 和 `v1alpha` 服务。 |
 | `default_timeout_secs` | 整数 | 未设置 | 没有客户端超时的调用的截止时间。未设置时，此类调用没有截止时间。 |
 | `max_timeout_secs` | 整数 | 未设置 | 客户端超时的上限。未设置时，没有上限。 |
+| `interceptors` | 字符串列表 | 空 | 在 PHP 之前检查每个调用的拦截器，按列表顺序执行。只有 `"auth"` 可用。Rapira 拒绝重复的名称、没有配置表的名称以及未使用的拦截器表。 |
 
 master 在 fork 出 worker 前加载描述符集。以下错误会阻止初始化：Rapira 无法读取或解码的描述符集、不含其导入文件的描述符集，以及没有可提供服务的描述符集。不在描述符集中的 `services` 条目、重复的条目，以及指向健康检查服务或反射服务的条目也会阻止初始化。`default_timeout_secs` 不能大于 `max_timeout_secs`。
+
+### `[grpc.auth]` 表 {#grpc-auth}
+
+`auth` 拦截器只接受携带已配置 bearer 令牌的调用。请参阅[拦截器](./grpc#interceptors)。
+
+| 键 | 类型 | 默认值 | 含义 |
+| --- | --- | --- | --- |
+| `tokens_file` | 字符串 | 无，必填 | bearer 令牌文件，每行一个令牌。相对路径按配置文件所在的目录解析。Rapira 在启动时读取此文件。 |
 
 ### `[grpc.pool]` 表 {#grpc-pool}
 
@@ -218,7 +231,7 @@ Rapira 还会验证值。它拒绝不支持的值，不会使用默认值替换�
 
 ## 相对路径
 
-文件系统路径包括两个进程池的入口脚本、`grpc.descriptor_set`、`supervisor.pidfile`、`http.static.root`、`http.sendfile.root` 和 `http.uploads.dir`。每个相对路径都以配置文件目录为基准。相对的 `unix:` 监听路径也使用此目录。例如，`/etc/rapira/rapira.toml` 中的 `entrypoint = "app/worker.php"` 产生 `/etc/rapira/app/worker.php`。
+文件系统路径包括两个进程池的入口脚本、`grpc.descriptor_set`、`grpc.auth.tokens_file`、`supervisor.pidfile`、`http.static.root`、`http.sendfile.root` 和 `http.uploads.dir`。每个相对路径都以配置文件目录为基准。相对的 `unix:` 监听路径也使用此目录。例如，`/etc/rapira/rapira.toml` 中的 `entrypoint = "app/worker.php"` 产生 `/etc/rapira/app/worker.php`。
 
 ::: tip
 将 `rapira.toml` 保存在应用内。相对于此文件指定路径。 此结构允许移动应用目录而不更改路径。

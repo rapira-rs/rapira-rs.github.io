@@ -21,7 +21,7 @@ rapira serve /etc/rapira/rapira.toml
 
 Следующая конфигурация включает оба протокола и показывает поддерживаемые таблицы. Большинство отсутствующих ключей используют стандартное значение. Каждому пулу требуется `entrypoint`. Таблица `[http.static]` требует `http.static.root`.
 
-Некоторые ключи должны использоваться вместе. Таблица `[http.static]` требует элемент `"static"` в `middleware`, и этот элемент требует таблицу.
+Некоторые ключи должны использоваться вместе. Таблица `[http.static]` требует элемент `"static"` в `middleware`, и этот элемент требует таблицу. Таблица `[grpc.auth]` требует элемент интерцептора `"auth"`, и этот элемент требует таблицу.
 
 ```toml
 [http]
@@ -63,6 +63,10 @@ services = ["example.v1.Echo"]        # Optional. Default: the services of the f
 reflection = false
 default_timeout_secs = 30             # Optional. Deadline of a call without a client timeout.
 max_timeout_secs = 60                 # Optional. Upper limit for a client timeout.
+interceptors = ["auth"]               # Optional. Checks each call before PHP.
+
+[grpc.auth]                           # Required when interceptors contains "auth".
+tokens_file = "grpc-tokens"           # Required. One bearer token per line.
 
 [grpc.pool]
 entrypoint = "grpc.php"
@@ -169,8 +173,17 @@ Middleware `static` отвечает на запрос файлом с диск�
 | `reflection` | логическое | `false` | Включает сервисы `grpc.reflection.v1` и `v1alpha`. |
 | `default_timeout_secs` | целое | не задан | Предельный срок вызова, для которого клиент не задал таймаут. Если ключ не задан, у такого вызова нет предельного срока. |
 | `max_timeout_secs` | целое | не задан | Верхний предел для таймаута клиента. Если ключ не задан, предела нет. |
+| `interceptors` | список строк | пусто | Интерцепторы, которые проверяют каждый вызов до PHP, в порядке списка. Доступен только `"auth"`. Rapira отвергает повторяющиеся имена, имена без таблиц конфигурации и неиспользуемые таблицы интерцепторов. |
 
 Мастер загружает набор дескрипторов до создания воркеров через fork. Эти ошибки останавливают инициализацию: набор, который Rapira не может прочитать или декодировать, набор без импортируемых файлов и набор без сервисов для обслуживания. Элемент `services`, которого нет в наборе, повторяющийся элемент и элемент с именем сервиса проверки состояния или рефлексии также останавливают её. `default_timeout_secs` не должен быть больше `max_timeout_secs`.
+
+### Таблица `[grpc.auth]` {#grpc-auth}
+
+Интерцептор `auth` принимает вызов, только если вызов содержит настроенный Bearer-токен. См. раздел [Интерцепторы](./grpc#interceptors).
+
+| Ключ | Тип | По умолчанию | Что делает |
+| --- | --- | --- | --- |
+| `tokens_file` | строка | нет - ключ обязателен | Файл Bearer-токенов, по одному токену в строке. Относительный путь считается от каталога с файлом конфигурации. Rapira читает файл при запуске. |
 
 ### Таблица `[grpc.pool]` {#grpc-pool}
 
@@ -218,7 +231,7 @@ Rapira также проверяет значения. Он отвергает �
 
 ## Относительные пути
 
-Пути файловой системы включают входные скрипты обоих пулов, `grpc.descriptor_set`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root` и `http.uploads.dir`. Каждый относительный путь использует каталог файла конфигурации как базовый. Относительные пути слушателей `unix:` также используют этот каталог. Например, значение `entrypoint = "app/worker.php"` в `/etc/rapira/rapira.toml` даёт путь `/etc/rapira/app/worker.php`.
+Пути файловой системы включают входные скрипты обоих пулов, `grpc.descriptor_set`, `grpc.auth.tokens_file`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root` и `http.uploads.dir`. Каждый относительный путь использует каталог файла конфигурации как базовый. Относительные пути слушателей `unix:` также используют этот каталог. Например, значение `entrypoint = "app/worker.php"` в `/etc/rapira/rapira.toml` даёт путь `/etc/rapira/app/worker.php`.
 
 ::: tip
 Храните `rapira.toml` внутри приложения. Указывайте пути относительно файла. Такой способ позволяет перемещать каталог приложения без изменения путей.

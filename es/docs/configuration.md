@@ -21,7 +21,7 @@ Cada escucha activada requiere un script de entrada PHP. Define `http.pool.entry
 
 El siguiente archivo de configuración activa ambos protocolos y muestra las tablas admitidas. La mayoría de las claves ausentes usan su valor predeterminado. Cada pool requiere `entrypoint`. La tabla `[http.static]` requiere `http.static.root`.
 
-Algunas claves deben aparecer juntas. La tabla `[http.static]` requiere la entrada `"static"` de `middleware`, y la entrada requiere la tabla.
+Algunas claves deben aparecer juntas. La tabla `[http.static]` requiere la entrada `"static"` de `middleware`, y la entrada requiere la tabla. La tabla `[grpc.auth]` requiere la entrada de interceptor `"auth"`, y esa entrada requiere la tabla.
 
 ```toml
 [http]
@@ -63,6 +63,10 @@ services = ["example.v1.Echo"]        # Optional. Default: the services of the f
 reflection = false
 default_timeout_secs = 30             # Optional. Deadline of a call without a client timeout.
 max_timeout_secs = 60                 # Optional. Upper limit for a client timeout.
+interceptors = ["auth"]               # Optional. Checks each call before PHP.
+
+[grpc.auth]                           # Required when interceptors contains "auth".
+tokens_file = "grpc-tokens"           # Required. One bearer token per line.
 
 [grpc.pool]
 entrypoint = "grpc.php"
@@ -169,8 +173,17 @@ Esta sección activa llamadas unarias gRPC, gRPC-Web y Connect en una sola escuc
 | `reflection` | booleano | `false` | Activa los servicios `grpc.reflection.v1` y `v1alpha`. |
 | `default_timeout_secs` | entero | sin definir | Plazo de una llamada que no tiene tiempo de espera del cliente. Si no se define, esa llamada no tiene plazo. |
 | `max_timeout_secs` | entero | sin definir | Límite superior del tiempo de espera del cliente. Si no se define, no hay límite. |
+| `interceptors` | lista de cadenas | vacía | Interceptores que comprueban cada llamada antes que PHP, en el orden de la lista. Solo está disponible `"auth"`. Rapira rechaza los nombres duplicados, los nombres sin tabla de configuración y las tablas de interceptor sin usar. |
 
 El maestro carga el descriptor set antes de crear los workers con fork. Estos errores impiden la inicialización: un conjunto que Rapira no puede leer ni decodificar, un conjunto sin sus importaciones y un conjunto sin ningún servicio que atender. También la impiden una entrada de `services` que no está en el conjunto, una entrada duplicada y una entrada que nombra el servicio de salud o el de reflexión. `default_timeout_secs` no puede ser mayor que `max_timeout_secs`.
+
+### La tabla `[grpc.auth]` {#grpc-auth}
+
+El interceptor `auth` acepta una llamada solo con un token bearer configurado. Consulta [Interceptores](./grpc#interceptors).
+
+| Clave | Tipo | Por defecto | Significado |
+| --- | --- | --- | --- |
+| `tokens_file` | cadena | ninguna, obligatoria | El archivo de tokens bearer, un token por línea. Una ruta relativa se resuelve respecto al directorio donde está el archivo de configuración. Rapira lee el archivo al arrancar. |
 
 ### La tabla `[grpc.pool]` {#grpc-pool}
 
@@ -218,7 +231,7 @@ La validación ocurre antes de que arranque nada, así que una clave que no se r
 
 ## Rutas relativas
 
-Las rutas del sistema de archivos incluyen los scripts de entrada de ambos pools, `grpc.descriptor_set`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root` y `http.uploads.dir`. Cada ruta relativa usa como base el directorio del archivo de configuración. Las rutas relativas de escucha `unix:` también usan este directorio. Por ejemplo, `entrypoint = "app/worker.php"` en `/etc/rapira/rapira.toml` produce `/etc/rapira/app/worker.php`.
+Las rutas del sistema de archivos incluyen los scripts de entrada de ambos pools, `grpc.descriptor_set`, `grpc.auth.tokens_file`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root` y `http.uploads.dir`. Cada ruta relativa usa como base el directorio del archivo de configuración. Las rutas relativas de escucha `unix:` también usan este directorio. Por ejemplo, `entrypoint = "app/worker.php"` en `/etc/rapira/rapira.toml` produce `/etc/rapira/app/worker.php`.
 
 ::: tip
 Guarda `rapira.toml` dentro de la aplicación. Escribe sus rutas respecto al archivo. Este diseño permite mover el directorio de la aplicación sin cambiar las rutas.

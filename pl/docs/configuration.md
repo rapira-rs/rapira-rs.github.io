@@ -21,7 +21,7 @@ Każdy włączony nasłuch wymaga skryptu wejściowego PHP. Ustaw `http.pool.ent
 
 Poniższa konfiguracja włącza oba protokoły i pokazuje obsługiwane tabele. Większość brakujących kluczy używa wartości domyślnej. Każda pula wymaga `entrypoint`. Tabela `[http.static]` wymaga `http.static.root`.
 
-Niektóre klucze muszą występować razem. Tabela `[http.static]` wymaga wpisu `"static"` w `middleware`, a wpis wymaga tabeli.
+Niektóre klucze muszą występować razem. Tabela `[http.static]` wymaga wpisu `"static"` w `middleware`, a wpis wymaga tabeli. Tabela `[grpc.auth]` wymaga wpisu interceptora `"auth"`, a wpis wymaga tabeli.
 
 ```toml
 [http]
@@ -63,6 +63,10 @@ services = ["example.v1.Echo"]        # Optional. Default: the services of the f
 reflection = false
 default_timeout_secs = 30             # Optional. Deadline of a call without a client timeout.
 max_timeout_secs = 60                 # Optional. Upper limit for a client timeout.
+interceptors = ["auth"]               # Optional. Checks each call before PHP.
+
+[grpc.auth]                           # Required when interceptors contains "auth".
+tokens_file = "grpc-tokens"           # Required. One bearer token per line.
 
 [grpc.pool]
 entrypoint = "grpc.php"
@@ -169,8 +173,17 @@ Ta sekcja włącza unarne wywołania gRPC, gRPC-Web i Connect na jednym nasłuch
 | `reflection` | logiczny | `false` | Włącza usługi `grpc.reflection.v1` i `v1alpha`. |
 | `default_timeout_secs` | liczba całkowita | nieustawione | Termin zakończenia wywołania, dla którego klient nie podał limitu czasu. Gdy klucz nie jest ustawiony, takie wywołanie nie ma terminu zakończenia. |
 | `max_timeout_secs` | liczba całkowita | nieustawione | Górna granica limitu czasu klienta. Gdy klucz nie jest ustawiony, granica nie istnieje. |
+| `interceptors` | lista tekstów | pusta | Interceptory, które sprawdzają każde wywołanie przed PHP, w kolejności listy. Dostępny jest tylko `"auth"`. Rapira odrzuca powtórzone nazwy, nazwy bez tabel konfiguracji i nieużywane tabele interceptorów. |
 
 Proces nadrzędny wczytuje zestaw deskryptorów przed forkowaniem workerów. Te błędy zatrzymują inicjalizację: zestaw, którego Rapira nie może odczytać lub zdekodować, zestaw bez importowanych plików i zestaw bez usługi do obsługi. Zatrzymuje ją też wpis `services`, którego nie ma w zestawie, powtórzony wpis oraz wpis, który wskazuje usługę health lub refleksji. `default_timeout_secs` nie może być większe niż `max_timeout_secs`.
+
+### Tabela `[grpc.auth]` {#grpc-auth}
+
+Interceptor `auth` przyjmuje wywołanie tylko ze skonfigurowanym tokenem bearer. Zobacz [Interceptory](./grpc#interceptors).
+
+| Klucz | Typ | Domyślnie | Znaczenie |
+| --- | --- | --- | --- |
+| `tokens_file` | tekst | brak, wymagane | Plik tokenów bearer, po jednym tokenie w wierszu. Ścieżkę względną Rapira liczy od katalogu z plikiem konfiguracyjnym. Rapira wczytuje plik przy starcie. |
 
 ### Tabela `[grpc.pool]` {#grpc-pool}
 
@@ -218,7 +231,7 @@ Walidacja odbywa się, zanim cokolwiek wystartuje, więc nierozpoznany klucz prz
 
 ## Ścieżki względne
 
-Ścieżki systemu plików obejmują skrypty wejściowe obu pul, `grpc.descriptor_set`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root` i `http.uploads.dir`. Każda ścieżka względna używa katalogu pliku konfiguracyjnego jako podstawy. Względne ścieżki nasłuchów `unix:` także używają tego katalogu. Na przykład `entrypoint = "app/worker.php"` w `/etc/rapira/rapira.toml` daje `/etc/rapira/app/worker.php`.
+Ścieżki systemu plików obejmują skrypty wejściowe obu pul, `grpc.descriptor_set`, `grpc.auth.tokens_file`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root` i `http.uploads.dir`. Każda ścieżka względna używa katalogu pliku konfiguracyjnego jako podstawy. Względne ścieżki nasłuchów `unix:` także używają tego katalogu. Na przykład `entrypoint = "app/worker.php"` w `/etc/rapira/rapira.toml` daje `/etc/rapira/app/worker.php`.
 
 ::: tip
 Przechowuj `rapira.toml` w aplikacji. Zapisuj ścieżki względem tego pliku. Ten układ umożliwia przenoszenie katalogu aplikacji bez zmiany ścieżek.

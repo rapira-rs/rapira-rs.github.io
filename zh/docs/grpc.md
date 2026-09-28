@@ -247,7 +247,7 @@ $call->fail(new Rapira\Grpc\Status(
 
 Rapira 不捕获 `Rapira\Grpc\Exception\GrpcException`。请捕获它，并将其 `$status` 属性传给 `fail()`。
 
-Rapira 在 PHP 收到调用前拒绝该调用时，客户端收到 `UNAVAILABLE`。以下情况会发生这种拒绝：worker 队列持续满载 30 秒、进程池停止，或 worker 的 PHP 启动失败。
+Rapira 在 PHP 收到调用前拒绝该调用时，客户端收到 `UNAVAILABLE`。以下情况会发生这种拒绝：worker 队列持续满载 30 秒、进程池停止，或 worker 的 PHP 启动失败。拦截器也可以在 PHP 收到调用前拒绝该调用。请参阅[拦截器](#interceptors)。
 
 ## 元数据
 
@@ -270,6 +270,46 @@ $metadata->addTrailer('x-result', 'completed');
 按照 [gRPC 协议](https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md#requests)的规定，元数据名称只能包含 `0-9`、`a-z`、`_`、`-` 和 `.`。传输层名称、无效名称或无效值会抛出 `\ValueError`。重复的名称会添加一个值。
 
 `headers()` 和 `trailers()` 返回快照。对于 Connect，每个尾部字段都作为带 `trailer-` 前缀的头部发送。使用 grpcurl 的 `-H 'x-request-id: demo-1'` 选项传递请求元数据。
+
+## 拦截器 {#interceptors}
+
+拦截器在 PHP 收到调用前检查该调用。在 `grpc.interceptors` 中按链的顺序列出拦截器。每个拦截器都有自己的表。Rapira 提供一个拦截器：`auth`。
+
+### Bearer 令牌
+
+只有当调用携带已配置的 bearer 令牌时，`auth` 才接受该调用。将令牌写入一个文件，每行一个令牌：
+
+```text
+# rapira gRPC tokens
+2f1c9a7e4b0d4c8f9e3a
+ci.deploy-token
+```
+
+Rapira 忽略空行和以 `#` 开头的行。每个令牌由字符 `A-Z`、`a-z`、`0-9`、`-`、`.`、`_`、`~`、`+` 和 `/` 组成，末尾可以带 `=`。然后启用拦截器：
+
+```toml
+[grpc]
+descriptor_set = "api.binpb"
+interceptors = ["auth"]
+
+[grpc.auth]
+tokens_file = "grpc-tokens"
+```
+
+客户端在 `authorization` 元数据中发送令牌，格式为 `Bearer <token>`：
+
+```sh
+grpcurl -plaintext -H 'authorization: Bearer ci.deploy-token' 127.0.0.1:50051 list
+```
+
+没有有效令牌的调用收到 `UNAUTHENTICATED`。Connect 一元调用收到 HTTP 状态码 401 和 `WWW-Authenticate: Bearer` 头部。Rapira 不读取请求体，PHP 也不会收到该调用。
+
+- `grpc.health.v1.Health` 不需要令牌，因为 [Kubernetes gRPC 探针](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-a-grpc-liveness-probe)无法发送元数据。
+- 反射需要令牌。
+- 对未知方法发起的不带令牌的调用收到 `UNAUTHENTICATED`，而不是 `UNIMPLEMENTED`。
+- 对于通过检查的调用，PHP 仍会收到其 `authorization` 值。
+
+master 在启动时读取令牌文件。Rapira 无法读取的文件、不含令牌的文件和无效的令牌都会阻止启动。更改令牌文件后，请重启 Rapira 以加载新令牌。重载会保留旧的令牌。
 
 ## 截止时间和取消
 

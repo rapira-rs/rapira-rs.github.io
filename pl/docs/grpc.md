@@ -247,7 +247,7 @@ Opcjonalny trzeci argument `Status` to lista obiektów `Rapira\Grpc\ErrorDetail`
 
 Rapira nie przechwytuje `Rapira\Grpc\Exception\GrpcException`. Przechwyć go i przekaż jego właściwość `$status` do `fail()`.
 
-Klient otrzymuje `UNAVAILABLE`, gdy Rapira odrzuci wywołanie, zanim PHP je otrzyma. Dzieje się tak, gdy kolejka workerów pozostaje pełna przez 30 sekund, gdy pula się zatrzymuje lub gdy start PHP w workerze się nie powiódł.
+Klient otrzymuje `UNAVAILABLE`, gdy Rapira odrzuci wywołanie, zanim PHP je otrzyma. Dzieje się tak, gdy kolejka workerów pozostaje pełna przez 30 sekund, gdy pula się zatrzymuje lub gdy start PHP w workerze się nie powiódł. Interceptor także może odrzucić wywołanie, zanim PHP je otrzyma. Zobacz [Interceptory](#interceptors).
 
 ## Metadane
 
@@ -270,6 +270,46 @@ $metadata->addTrailer('x-result', 'completed');
 Nazwa metadanych może zawierać tylko `0-9`, `a-z`, `_`, `-` i `.`, zgodnie ze specyfikacją [protokołu gRPC](https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md#requests). Nazwa transportowa, nieprawidłowa nazwa lub nieprawidłowa wartość rzuca `\ValueError`. Powtórzona nazwa dodaje kolejną wartość.
 
 `headers()` i `trailers()` zwracają migawki. Dla Connect każdy nagłówek końcowy jest nagłówkiem z prefiksem `trailer-`. Przekaż metadane żądania opcją grpcurl `-H 'x-request-id: demo-1'`.
+
+## Interceptory {#interceptors}
+
+Interceptor sprawdza wywołanie, zanim PHP je otrzyma. Wymień interceptory w `grpc.interceptors` w kolejności łańcucha. Każdy interceptor ma własną tabelę. Rapira ma jeden interceptor: `auth`.
+
+### Tokeny bearer
+
+`auth` przyjmuje wywołanie tylko wtedy, gdy wywołanie zawiera skonfigurowany token bearer. Zapisz tokeny w pliku, po jednym tokenie w wierszu:
+
+```text
+# rapira gRPC tokens
+2f1c9a7e4b0d4c8f9e3a
+ci.deploy-token
+```
+
+Rapira pomija puste wiersze i wiersze zaczynające się od `#`. Każdy token składa się ze znaków `A-Z`, `a-z`, `0-9`, `-`, `.`, `_`, `~`, `+` i `/`, z opcjonalnym `=` na końcu. Następnie włącz interceptor:
+
+```toml
+[grpc]
+descriptor_set = "api.binpb"
+interceptors = ["auth"]
+
+[grpc.auth]
+tokens_file = "grpc-tokens"
+```
+
+Klient wysyła token w metadanych `authorization` jako `Bearer <token>`:
+
+```sh
+grpcurl -plaintext -H 'authorization: Bearer ci.deploy-token' 127.0.0.1:50051 list
+```
+
+Wywołanie bez prawidłowego tokena otrzymuje `UNAUTHENTICATED`. Unarne wywołanie Connect otrzymuje status HTTP 401 z nagłówkiem `WWW-Authenticate: Bearer`. Rapira nie czyta treści żądania, a PHP nie otrzymuje wywołania.
+
+- `grpc.health.v1.Health` nie wymaga tokena, ponieważ [sondy gRPC w Kubernetes](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-a-grpc-liveness-probe) nie mogą wysyłać metadanych.
+- Refleksja wymaga tokena.
+- Wywołanie nieznanej metody bez tokena otrzymuje `UNAUTHENTICATED`, a nie `UNIMPLEMENTED`.
+- PHP nadal otrzymuje wartość `authorization` wywołania, które przeszło kontrolę.
+
+Proces nadrzędny wczytuje plik tokenów przy starcie. Plik, którego Rapira nie może odczytać, plik bez tokenów i nieprawidłowy token zatrzymują start. Uruchom ponownie Rapirę, aby wczytać zmieniony plik tokenów. Przeładowanie zachowuje stare tokeny.
 
 ## Terminy zakończenia i anulowanie
 

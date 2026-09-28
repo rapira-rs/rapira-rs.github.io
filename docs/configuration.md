@@ -21,7 +21,7 @@ Each enabled listener requires a PHP entry script. Set `http.pool.entrypoint`, `
 
 The following configuration enables both protocols and shows the supported tables. Most keys use their default when they are absent. Each pool requires `entrypoint`. The `[http.static]` table requires `http.static.root`.
 
-Some keys must occur together. The `[http.static]` table requires a `"static"` middleware entry, and that entry requires the table.
+Some keys must occur together. The `[http.static]` table requires a `"static"` middleware entry, and that entry requires the table. The `[grpc.auth]` table requires an `"auth"` interceptor entry, and that entry requires the table.
 
 ```toml
 [http]
@@ -63,6 +63,10 @@ services = ["example.v1.Echo"]        # Optional. Default: the services of the f
 reflection = false
 default_timeout_secs = 30             # Optional. Deadline of a call without a client timeout.
 max_timeout_secs = 60                 # Optional. Upper limit for a client timeout.
+interceptors = ["auth"]               # Optional. Checks each call before PHP.
+
+[grpc.auth]                           # Required when interceptors contains "auth".
+tokens_file = "grpc-tokens"           # Required. One bearer token per line.
 
 [grpc.pool]
 entrypoint = "grpc.php"
@@ -177,8 +181,17 @@ This section enables unary gRPC, gRPC-Web, and Connect calls on one listener. Se
 | `reflection` | boolean | `false` | Enables the `grpc.reflection.v1` and `v1alpha` services. |
 | `default_timeout_secs` | integer | unset | Deadline of a call that has no client timeout. When unset, such a call has no deadline. |
 | `max_timeout_secs` | integer | unset | Upper limit for a client timeout. When unset, there is no limit. |
+| `interceptors` | list of strings | empty | Interceptors that check each call before PHP, in list order. Only `"auth"` is available. Rapira rejects duplicate names, names without configuration tables, and unused interceptor tables. |
 
 The master loads the descriptor set before it forks the workers. These errors stop initialization: a set that Rapira cannot read or decode, a set without its imports, and a set with no service to serve. A `services` entry that is not in the set, a duplicate entry, and an entry that names the health or reflection service also stop it. `default_timeout_secs` must not be larger than `max_timeout_secs`.
+
+### The `[grpc.auth]` table {#grpc-auth}
+
+The `auth` interceptor accepts a call only with a configured bearer token. See [Interceptors](./grpc#interceptors).
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `tokens_file` | string | none, required | The file of bearer tokens, one token per line. A relative path uses the configuration file directory as its base. Rapira reads the file at startup. |
 
 ### The `[grpc.pool]` table {#grpc-pool}
 
@@ -229,7 +242,7 @@ Rapira validates the configuration file before initialization. An unknown key st
 
 ## Relative paths
 
-File system paths include both pool entrypoints, `grpc.descriptor_set`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root`, and `http.uploads.dir`. Each relative path uses the configuration file directory as its base. Relative `unix:` listener paths also use this directory. For example, set `entrypoint = "app/worker.php"` in `/etc/rapira/rapira.toml`. Rapira then uses `/etc/rapira/app/worker.php`.
+File system paths include both pool entrypoints, `grpc.descriptor_set`, `grpc.auth.tokens_file`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root`, and `http.uploads.dir`. Each relative path uses the configuration file directory as its base. Relative `unix:` listener paths also use this directory. For example, set `entrypoint = "app/worker.php"` in `/etc/rapira/rapira.toml`. Rapira then uses `/etc/rapira/app/worker.php`.
 
 ::: tip
 Keep the `rapira.toml` configuration file inside the application. Write its paths relative to the configuration file. You can move the application directory. These paths do not change.

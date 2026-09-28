@@ -141,7 +141,7 @@ $mailer->sendConfirmation($order);
 $metrics->flush();
 ```
 
-La firma es `rapira_finish_request(): bool`. El archivo [`crates/php_sys/rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php) la declara junto con las demás API de PHP. Añade este archivo al IDE para obtener autocompletado e información de tipos.
+La firma es `rapira_finish_request(): bool`. El archivo [`crates/sapi/rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/sapi/rapira.stub.php) la declara junto con las demás API de PHP. Añade este archivo al IDE para obtener autocompletado e información de tipos.
 
 Rapira registra la función para todo el proceso. La función actúa sobre la petición actual. Por tanto, Classic también la admite. Consulta [Modos de ejecución](/es/docs/execution-modes).
 

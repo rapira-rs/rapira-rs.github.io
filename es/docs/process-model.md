@@ -1,13 +1,15 @@
 ---
 title: Modelo de procesos
-description: "Cómo ejecuta PHP Rapira: un maestro de un solo hilo abre el socket, arranca PHP una vez y hace fork de los workers. Escalado del pool, reciclaje, recargas y la tabla completa de señales."
+description: "Cómo ejecuta PHP Rapira: un maestro de un solo hilo abre el socket, arranca PHP una vez y hace fork de los workers. Tamaño del pool, reciclaje, recargas y la tabla completa de señales."
 ---
 
 # Modelo de procesos
 
-Rapira se ejecuta como un proceso maestro y un pool de workers. El maestro mantiene todo lo que tiene que existir exactamente una vez -el socket de escucha, la imagen del motor de PHP, el pidfile- y después hace fork; de las peticiones se encargan los workers. Ninguna petición pasa jamás de un proceso a otro: los workers *son* copias del maestro, hechas con fork cuando PHP ya estaba en marcha, y cada uno recoge sus conexiones directamente del socket.
+Rapira ejecuta un proceso maestro. Cada protocolo activado tiene su propio pool de workers. El maestro mantiene los sockets de escucha, el motor PHP inicializado y el pidfile. Después, crea los procesos worker. Cada worker hereda PHP y acepta conexiones desde el socket compartido de su pool. Rapira no pasa las peticiones entre procesos.
 
-El esquema es el mismo en los modos [Classic](/es/docs/classic), [Worker](/es/docs/worker) y Dispatcher. El modo de ejecución, que fija `pool.mode`, decide qué ocurre dentro de un worker con cada petición; no cambia cómo se construye el pool, ni cómo se supervisa, ni cómo se recarga. Consulta [Modos de ejecución](/es/docs/execution-modes) para más información.
+HTTP y [gRPC](./grpc) tienen escuchas, scripts de entrada y pools separados. `[http.pool]` y `[grpc.pool]` los configuran de forma independiente. El pool gRPC usa el modo Dispatcher y procesa una llamada activa por worker.
+
+El esquema es el mismo en los modos [Classic](/es/docs/classic), [Worker](/es/docs/worker) y Dispatcher. El modo de ejecución, que fija `http.pool.mode`, decide qué ocurre dentro de un worker con cada petición; no cambia cómo se construye el pool, ni cómo se supervisa, ni cómo se recarga. Consulta [Modos de ejecución](/es/docs/execution-modes) para más información.
 
 ## Maestro y workers
 
@@ -33,9 +35,9 @@ flowchart TB
   S -. accept .-> W3
 ```
 
-Cada worker ejecuta un intérprete de PHP NTS detrás de su propia pila HTTP asíncrona. Esa pila es hyper sobre un runtime de tokio propio, con dos hilos de ejecución. El worker acepta conexiones en el socket que ha heredado. Ningún proceso reparte las conexiones entre los workers: todos están aparcados en `accept()` sobre el mismo socket, y el kernel le entrega cada conexión entrante a uno solo de ellos.
+El diagrama muestra un pool. Cada worker ejecuta un intérprete PHP NTS y un servidor HTTP o gRPC asíncrono. El servidor usa hyper sobre un runtime de tokio propio, con dos hilos. Cada worker llama a `accept()` en el socket que ha heredado. El sistema operativo asigna cada conexión nueva a un worker.
 
-El maestro no atiende ni una petición. No tiene pila HTTP en absoluto: es un único hilo bloqueado en `poll(2)` sobre un self-pipe, esperando señales, muertes de sus hijos, sus propios temporizadores y, en modo `ondemand`, también a que el socket de escucha esté listo. El proceso que tiene que sobrevivir para reiniciar todo lo demás hace lo mínimo imprescindible.
+El maestro no atiende ni una petición. No tiene pila HTTP en absoluto: es un único hilo bloqueado en `poll(2)` sobre un self-pipe, esperando señales, muertes de sus hijos y sus propios temporizadores. El proceso que tiene que sobrevivir para reiniciar todo lo demás hace lo mínimo imprescindible.
 
 ::: info
 El maestro también mantiene cargado el módulo de PHP mientras vive y es el único proceso que lo cierra. Un worker sale sin desmontar nada, así que un worker que se cae o que se recicla nunca destruye la imagen del motor que siguen usando los demás workers.
@@ -46,46 +48,27 @@ El maestro también mantiene cargado el módulo de PHP mientras vive y es el ún
 Después de iniciar el pool, el maestro ejecuta el mantenimiento aproximadamente una vez por segundo. También procesa las salidas de los workers cuando ocurren.
 
 - **Sustitución de workers.** El maestro sustituye inmediatamente un worker después de una salida normal.
-- Con `ondemand`, espera a la siguiente conexión antes de crear la sustitución.
 - Después de un fallo, la espera empieza en 100 ms. Se duplica tras cada fallo consecutivo y deja de aumentar cerca de 25 segundos.
 - Una vida del worker de diez segundos reinicia la espera.
 - **Fallos de inicialización.** El maestro termina si todos los workers iniciales fallan antes de que el pool procese una petición.
 - Después de la primera petición, el maestro usa la espera normal. Un fallo de inicialización de un worker durante la recarga no hace que el maestro termine.
-- **Límites de peticiones.** Con `pool.max_requests`, un worker termina después de su límite. El maestro lo sustituye.
+- **Límites de peticiones.** Con `http.pool.max_requests`, un worker termina después de su límite. El maestro lo sustituye.
 - Rapira añade un valor aleatorio de hasta la mitad del límite. Esto evita la sustitución simultánea de workers.
-- **Tiempo límite de petición.** Con `pool.request_terminate_timeout_secs`, el maestro envía `SIGTERM` cuando una petición supera el límite.
+- **Tiempo límite de petición.** Con `http.pool.request_terminate_timeout_secs`, el maestro envía `SIGTERM` cuando una petición supera el límite.
 - Envía `SIGKILL` un ciclo después si el worker sigue activo. Cierra las conexiones en cola y crea una sustitución.
 - El maestro no aplica este límite durante una parada o recarga.
-- **Escalado.** Con `dynamic`, el mantenimiento puede crear workers o eliminar workers inactivos.
-- Con `ondemand`, elimina workers después del límite de inactividad. Una conexión nueva causa la creación de un worker.
 - **Control del maestro.** Cada worker lee de un pipe que el maestro mantiene abierto.
 - Si termina el maestro, el pipe devuelve EOF y cada worker deja de aceptar trabajo. Un fallo del maestro no deja workers sin control.
 
-## Escalado del pool
+## Tamaño del pool
 
-`pool.scaling` selecciona cómo cambia el tamaño del pool. Es independiente de `pool.mode`. La clave `pool.mode` establece el modo de ejecución de un worker. `pool.processes` es el número exacto con `static`. Es el número máximo con `dynamic` y `ondemand`. El valor predeterminado es un worker por CPU lógica.
+Los ajustes siguientes usan `[http.pool]`. Los mismos ajustes se aplican a `[grpc.pool]`.
 
-| Escalado | Cuántos workers | Claves que aplican |
-| --- | --- | --- |
-| `static` (por defecto) | Exactamente `pool.processes`, forkeados al arrancar y mantenidos en esa cifra. | `processes` |
-| `dynamic` | Los que pida la demanda, hasta `pool.processes`; el maestro mantiene la cifra de *ociosos* dentro de la banda de reserva. | `min_spare`, `max_spare` |
-| `ondemand` | Cero al arrancar; se forkean según llega el tráfico, hasta `pool.processes`. | `process_idle_timeout_secs` |
+`http.pool.processes` establece el número de workers. El maestro crea estos workers durante la inicialización y sustituye cada worker que termina. El valor predeterminado es un worker por CPU lógica.
 
-**`static`** es adecuado para la mayoría de los despliegues. Usa un número fijo de workers y sustituye los que terminan. PHP es síncrono, por lo que cada worker procesa una petición cada vez. Las aplicaciones con mucha E/S pueden requerir más workers que CPU. Las aplicaciones limitadas por CPU normalmente no los requieren.
+PHP es síncrono, por lo que cada worker procesa una petición cada vez. Las aplicaciones con mucha E/S pueden requerir más workers que CPU. Las aplicaciones limitadas por CPU normalmente no los requieren.
 
-**`dynamic`** mantiene los workers inactivos entre dos límites. Crea workers cuando la cantidad es menor que `min_spare`. El número de workers nuevos se duplica durante ciclos consecutivos sin capacidad suficiente. Elimina el worker inactivo más antiguo por encima de `max_spare`. El número inicial es el punto medio de los límites. Rapira registra un aviso cuando la demanda supera `pool.processes`.
-
-```toml
-[pool]
-scaling = "dynamic"
-processes = 8
-min_spare = 1
-max_spare = 3
-```
-
-Los límites tienen que cumplir `1 <= min_spare <= max_spare <= processes`; son obligatorios con `dynamic` y se rechazan con las demás políticas. Ponerlos donde no van es un error de configuración y no una clave que se ignora en silencio.
-
-**`ondemand`** no crea workers al iniciar. El maestro observa el socket de escucha. Cuando llega una conexión sin un worker inactivo, el maestro crea uno. Un worker termina después de `pool.process_idle_timeout_secs` de inactividad. La primera petición a un pool vacío espera la creación de un worker. Usa `ondemand` para pruebas y sitios con poco tráfico. Usa otra política para el tráfico constante.
+El número de workers no cambia mientras el servidor está en marcha. Para adaptar la capacidad a la carga, cambia el número de instancias de Rapira, por ejemplo con un orquestador de contenedores.
 
 La referencia completa de claves está en la página de [configuración](/es/docs/configuration).
 
@@ -127,7 +110,7 @@ En Classic, el script de entrada se ejecuta en una petición PHP nueva. El códi
 
 El maestro inicia un worker nuevo y espera hasta que informa del estado `idle` o `active`. Después detiene un worker antiguo. Cuando termina, el maestro inicia un worker nuevo en la siguiente posición. Cada parada usa la secuencia `SIGQUIT` → `SIGTERM` → `SIGKILL`. El mismo límite de control se aplica a cada worker. Un worker antiguo cierra las conexiones keep-alive inactivas después de recibir `SIGQUIT`. Las peticiones actuales pueden terminar antes del límite de control.
 
-Si el worker nuevo no informa de ninguno de estos estados antes del límite de control, el maestro registra una advertencia. Después, el maestro detiene el siguiente worker antiguo aunque el worker nuevo todavía no atienda peticiones. Con `ondemand`, el maestro elimina workers antiguos uno a uno. Las conexiones nuevas crean sustitutos.
+Si el worker nuevo no informa de ninguno de estos estados antes del límite de control, el maestro registra una advertencia. Después, el maestro detiene el siguiente worker antiguo aunque el worker nuevo todavía no atienda peticiones.
 
 Una recarga que llega con una parada ya en marcha se ignora: la parada tiene prioridad.
 
@@ -147,5 +130,5 @@ El volcado se escribe en `info` sobre el target `master`, y el nivel de registro
 master = "info"
 ```
 
-Por ese mismo target pasan todos los eventos de supervisión: forks, recogidas, reposiciones, recargas y escalado del pool. Lo demás está en [Registros](/es/docs/logging).
+Por ese mismo target pasan todos los eventos de supervisión: forks, recogidas, reposiciones y recargas. Lo demás está en [Registros](/es/docs/logging).
 :::

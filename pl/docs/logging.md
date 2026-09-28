@@ -5,13 +5,13 @@ description: "Jak Rapira loguje - poziomy, nadpisania dla poszczególnych celów
 
 # Logi
 
-Rapira zapisuje wszystkie wpisy do stderr. Obejmują zdarzenia serwera, decyzje procesu nadrzędnego, zdarzenia HTTP, diagnostykę PHP i komunikaty aplikacji. Rapira kieruje diagnostykę PHP do tego logu zamiast do osobnego miejsca `error_log`. Skonfigurowany filtr poziomu określa, które wpisy Rapira zapisuje.
+Rapira zapisuje przefiltrowane wpisy do stderr. Obejmują zdarzenia serwera, decyzje procesu nadrzędnego, zdarzenia HTTP i gRPC, diagnostykę PHP i komunikaty aplikacji. Rapira kieruje diagnostykę PHP do tego logu zamiast do osobnego miejsca `error_log`. Skonfigurowany filtr poziomu steruje wyjściem stderr.
 
-Domyślny poziom to `error`, więc serwer zapisuje tylko błędy. Zmień konfigurację lub ustaw `RUST_LOG`, aby wybrać inny poziom.
+Domyślny poziom stderr to `error`, więc stderr zawiera tylko błędy. Zmień konfigurację lub ustaw `RUST_LOG`, aby wybrać inny poziom.
 
 ## Poziomy i format
 
-Sekcja `[log]` pliku `rapira.toml` steruje logowaniem:
+Sekcja `[log]` pliku `rapira.toml` steruje logowaniem do stderr:
 
 ```toml
 [log]
@@ -36,16 +36,17 @@ php = "debug"
 http = "warn"
 ```
 
-Każdy klucz nazywa jeden cel. Pozostałe cele używają `level`. Klucz pasuje **po prefiksie**, więc `php` pasuje też do `php_sys` i `php_sys::callbacks`. Nie musisz wymieniać podmodułów.
+Każdy klucz nazywa jeden cel. Pozostałe cele używają `level`. Klucz pasuje **po prefiksie**, więc `h2` pasuje też do `h2::codec::framed_read`. Nie musisz wymieniać podmodułów.
 
 Cele, pod którymi loguje sama Rapira:
 
 | Cel      | Co obejmuje                                                                    |
 | -------- | ------------------------------------------------------------------------------ |
 | `rapira` | cykl życia serwera: start, cykl życia workerów, zamykanie                      |
-| `master` | nadzór: forki, zbieranie zakończonych procesów, podstawianie nowych workerów, przeładowania, skalowanie puli |
+| `master` | nadzór: forki, zbieranie zakończonych procesów, podstawianie nowych workerów, przeładowania |
 | `http`   | warstwa HTTP: nasłuchy, obsługa pól żądania i odpowiedzi, wygaszanie           |
-| `ext`    | wyniki zadań rozszerzeń                                                        |
+| `grpc`   | nasłuchy gRPC, błędy transportu, zatrzymywanie |
+| `net`    | pętla akceptowania połączeń nasłuchów HTTP i gRPC, błędy akceptowania |
 | `php`    | wyjście i diagnostyka prosto z PHP                                             |
 | `app`    | wpisy zapisywane przez aplikację przez `\Rapira\log()`                        |
 
@@ -54,7 +55,7 @@ Rapira nie zapisuje osobnej linii dostępu dla każdego żądania. Wpisy celu `h
 Zależność zapisuje ślady pod własną ścieżką modułu. Dotyczy ich ten sam filtr prefiksu. Każdy wpis zawiera nazwę celu. Dodaj ją do `[log.targets]`, aby zmniejszyć liczbę wpisów.
 
 ::: tip
-Cel `master` zawiera wymiany workerów, przeładowania i skalowanie. Te zdarzenia opisuje [Model procesów](/pl/docs/process-model).
+Cel `master` zawiera wymiany workerów i przeładowania. Te zdarzenia opisuje [Model procesów](/pl/docs/process-model).
 :::
 
 ## Diagnostyka PHP
@@ -105,7 +106,7 @@ Poziom to przypadek wyliczenia `\Rapira\LogLevel`, a każdy przypadek odpowiada 
 | `Debug`         | `debug`      |
 | `Trace`         | `trace`      |
 
-`\Rapira\log()` używa poziomu `Info`, gdy pominiesz `level`. Globalny filtr `error` odrzuca ten wpis, jeśli nie zmienisz filtra. `[log.targets]` i `RUST_LOG` tak samo filtrują wpisy aplikacji i serwera. Na przykład `app = "debug"` zmienia tylko cel aplikacji.
+`\Rapira\log()` używa poziomu `Info`, gdy pominiesz `level`. Globalny filtr `error` odrzuca ten wpis w stderr, jeśli nie zmienisz filtra. `[log.targets]` i `RUST_LOG` tak samo filtrują wpisy aplikacji i serwera w stderr. Na przykład `app = "debug"` zmienia tylko cel aplikacji.
 
 Rapira serializuje tablicę kontekstu do JSON-a i dodaje ją jako pole `context`. W JSON-ie to pole znajduje się w `fields`. Nazwy kluczy i struktura zagnieżdżonych tablic zostają zachowane:
 
@@ -132,13 +133,17 @@ try {
 
 `\Rapira\log()` nie rzuca wyjątków. Jeśli `jsonSerialize()` rzuci wyjątek, Rapira zapisze `null` dla tej wartości. Pozostałe klucze zostają zachowane.
 
-Rapira zastępuje wartości, których JSON nie może przedstawić. Należą do nich zasoby, domknięcia, `NAN`, `INF` i nieprawidłowe ciągi UTF-8. Pozostałe pola zostają zachowane. Rapira nie ogranicza rozmiaru kontekstu. Przekazuj identyfikatory zamiast dużych obiektów.
+::: question Jak Rapira serializuje duże konteksty logów?
+Rapira zastępuje wartości, których JSON nie może przedstawić. Należą do nich zasoby, domknięcia, `NAN`, `INF` i nieprawidłowe ciągi UTF-8. Pozostałe pola zostają zachowane.
+
+Serializacja kontekstu zachowuje kompletne tablice i ciągi znaków. Warstwa stderr stosuje skonfigurowany filtr do pełnego rekordu. Dla dużych obiektów przekazuj identyfikatory.
+:::
 
 ## Formaty
 
 Rapira zapisuje oba formaty do stderr. Duże wpisy z różnych procesów mogą się przeplatać, gdy te procesy zapisują do tego samego potoku stderr.
 
-Rapira nie zapisuje logów w innych miejscach. Przekieruj stderr, aby zapisać je do pliku. Menedżer usług może zbierać stderr. Zobacz [Wdrożenie produkcyjne](/pl/docs/deployment).
+Przekieruj stderr, aby zapisać logi do pliku. Menedżer usług może zbierać stderr. Zobacz [Wdrożenie produkcyjne](/pl/docs/deployment).
 
 **`plain`** służy do czytania w terminalu - znacznik czasu, poziom, cel, komunikat:
 
@@ -158,12 +163,12 @@ Rapira używa kolorów, gdy stderr jest terminalem. Nie używa ich, gdy stderr j
 
 ## `RUST_LOG`
 
-`RUST_LOG` ustawia filtr ze środowiska. Pozwala zmienić filtr bez edycji konfiguracji:
+`RUST_LOG` ustawia filtr logów stderr ze środowiska. Pozwala zmienić filtr bez edycji konfiguracji:
 
 ```sh
-RUST_LOG=info rapira serve --mode worker worker.php
-RUST_LOG=rapira=debug,php=info rapira serve --mode worker worker.php
-RUST_LOG=warn,rapira=trace rapira serve --mode worker worker.php
+RUST_LOG=info rapira serve rapira.toml
+RUST_LOG=rapira=debug,php=info rapira serve rapira.toml
+RUST_LOG=warn,rapira=trace rapira serve rapira.toml
 ```
 
 Pierwsze polecenie ustawia wszystkie cele na `info`. Drugie ustawia `rapira` na `debug` i `php` na `info`. Trzecie ustawia wszystkie cele na `warn`, a `rapira` na `trace`. Cel `rapira` zawiera wpisy inicjalizacji, workerów i zamykania. Gdy potrzebujesz wpisów procesu nadrzędnego, użyj `RUST_LOG=warn,rapira=trace,master=trace`.

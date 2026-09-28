@@ -17,12 +17,7 @@ Aplikacja inicjalizuje autoloader, konfigurację, kontener i trasy dla każdego 
 
 ## Konfiguracja trybu Classic
 
-Wybierz tryb na jeden z tych sposobów:
-
-- `--mode classic` w wierszu poleceń, obok skryptu wejściowego.
-- `mode = "classic"` w sekcji `[pool]` pliku `rapira.toml`.
-
-`--mode` zastępuje `pool.mode` z pliku. Inne argumenty CLI także zastępują odpowiednie wartości. Pełną listę kluczy zawiera [Konfiguracja](/pl/docs/configuration).
+Wybierz tryb Classic przez `mode = "classic"` w tabeli `[http.pool]` pliku `rapira.toml`. Pełną listę kluczy zawiera [Konfiguracja](/pl/docs/configuration).
 
 Klasyczny skrypt wejściowy to zwykły PHP:
 
@@ -34,23 +29,18 @@ echo "Hello, " . ($_GET['name'] ?? 'anonymous') . "!\n";
 echo "Method: {$_SERVER['REQUEST_METHOD']}\n";
 ```
 
-Wybierz tryb przez CLI lub plik:
+Plik `rapira.toml` dla tego skryptu:
 
-::: code-group
+```toml
+[http]
+listen = "127.0.0.1:8000"
 
-```bash [CLI]
-rapira serve --mode classic public/index.php
-```
-
-```toml [rapira.toml]
-[pool]
+[http.pool]
 entrypoint = "public/index.php"
 mode = "classic"
 ```
 
-:::
-
-Uruchom `rapira serve --config rapira.toml`, aby użyć pliku konfiguracyjnego. Względny `pool.entrypoint` używa katalogu pliku. Względna ścieżka CLI używa bieżącego katalogu. Pozostałe opcje opisuje [Wiersz poleceń](/pl/docs/cli).
+Uruchom Rapirę przez `rapira serve rapira.toml`. Względny `http.pool.entrypoint` używa katalogu pliku konfiguracyjnego jako podstawy. Polecenie opisuje [Wiersz poleceń](/pl/docs/cli).
 
 ## Skrypt wejściowy
 

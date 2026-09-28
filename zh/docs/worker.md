@@ -34,16 +34,22 @@ while (\Rapira\handle_request($handler)) {
 }
 ```
 
-Dispatcher 是默认模式。使用以下任一设置选择 Worker 模式：
+Dispatcher 是默认模式。在 `rapira.toml` 的 `[http.pool]` 表里写 `mode = "worker"` 来选择 Worker 模式：
 
-- 命令行上加 `--mode worker`，紧挨着入口脚本。
-- 在 `rapira.toml` 的 `[pool]` 段里写 `mode = "worker"`。
+```toml
+[http]
+listen = "127.0.0.1:8000"
 
-```bash
-rapira serve --mode worker app/worker.php
+[http.pool]
+entrypoint = "app/worker.php"
+mode = "worker"
 ```
 
-其余命令行参数见[命令行](/zh/docs/cli)，它们在 `rapira.toml` 里对应的写法见[配置](/zh/docs/configuration)。
+```bash
+rapira serve rapira.toml
+```
+
+其余的键见[配置](/zh/docs/configuration)。
 
 ## `handle_request()` 的契约
 
@@ -62,6 +68,8 @@ rapira serve --mode worker app/worker.php
 - **只能从脚本的顶层循环调用。**不要从 shutdown 函数或析构函数调用。
 
 Worker 模式中的一个请求对应 `while` 循环的一次迭代。Rapira 在 handler 外完成请求关闭。 服务器运行请求的 shutdown 函数，刷新输出缓冲，关闭 session，然后重新填充超全局变量。 handler 外的值保留在内存中。Rapira 不会在请求结束时运行所有析构函数。 代码删除对象的最后一个引用后，PHP 才销毁该对象。
+
+在第一次调用 `handle_request()` 之前，`$_SERVER` 包含进程环境和入口脚本路径，与 PHP CLI 下相同。完整列表请参阅[执行模式](/zh/docs/execution-modes)。
 
 ## 每个 worker 只有一个 handler
 
@@ -134,11 +142,11 @@ if (\Rapira\get_mode() === \Rapira\Mode::Worker) {
 
 ## 常见问题
 
-**请求之间保留的状态。**如果应用只在 Worker 模式下失败，请检查保留的请求状态。 例如不断增长的静态数组、单例中的请求对象或日志器中的旧用户数据。 在 handler 开始或结束时重置此状态。还要重置库中的请求状态。 `pool.max_requests` 在指定请求数后替换 worker。它限制内存泄漏的影响，但不会修复泄漏。
+**请求之间保留的状态。**如果应用只在 Worker 模式下失败，请检查保留的请求状态。 例如不断增长的静态数组、单例中的请求对象或日志器中的旧用户数据。 在 handler 开始或结束时重置此状态。还要重置库中的请求状态。 `http.pool.max_requests` 在指定请求数后替换 worker。它限制内存泄漏的影响，但不会修复泄漏。
 
 **未回收的循环引用。**PHP 引用计数会立即释放大多数值。只有循环回收器运行时，PHP 才会释放循环。 示例在请求之间调用 `gc_collect_cycles()`。此调用是可选的，但可以使回收时间可预测。
 
-**无法完成的请求。**当前请求运行时，worker 无法处理其他请求。 `pool.request_terminate_timeout_secs` 限制一个请求的运行时间。Rapira 会终止超过此值的 worker。 有关此设置和 `pool.max_requests`，请参阅[配置](/zh/docs/configuration)。有关终止处理，请参阅[进程模型](/zh/docs/process-model)。
+**无法完成的请求。**当前请求运行时，worker 无法处理其他请求。 `http.pool.request_terminate_timeout_secs` 限制一个请求的运行时间。当请求超过此值时，Rapira 会终止该 worker。 有关此设置和 `http.pool.max_requests`，请参阅[配置](/zh/docs/configuration)。有关终止处理，请参阅[进程模型](/zh/docs/process-model)。
 
 **未捕获的异常影响一个请求，不影响 worker。**如果 handler 尚未发送响应头，Rapira 会为未捕获的 handler 异常返回 `500`。 handler 发送响应头后，Rapira 无法更改状态。 循环继续，因此异常不会停止 worker。致命错误会结束常驻脚本。 然后，worker 重新运行脚本并初始化应用。
 
@@ -146,4 +154,4 @@ if (\Rapira\get_mode() === \Rapira\Mode::Worker) {
 
 ## IDE 存根
 
-Rapira 在 `crates/php_sys` 的存根文件中声明 PHP 函数和类。worker API 位于 [`rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php)。 异常类位于 [`rapira_exception.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira_exception.stub.php)。这些文件定义签名、属性类型和类用途。 它们也可以用作 IDE 存根。将它们添加到项目以启用 Rapira API 补全。
+Rapira 在 `crates/` 下的存根文件中声明 PHP 函数和类。worker API 位于 [`rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/sapi/rapira.stub.php)。 异常类位于 [`rapira_exception.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/sapi/rapira_exception.stub.php)。这些文件定义签名、属性类型和类用途。 它们也可以用作 IDE 存根。将它们添加到项目以启用 Rapira API 补全。

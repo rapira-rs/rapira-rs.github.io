@@ -9,7 +9,8 @@ Rapira is a PHP application server written in Rust.
 
 The RoadRunner maintainers design and implement Rapira. Rapira calls PHP directly in the server process.
 
-Rapira currently supports HTTP. The project plans to support more RoadRunner plugin functions.
+Rapira supports HTTP and [gRPC](../grpc). Each protocol has its own listener and PHP worker pool.
+
 The [blog](/blog/) contains project updates.
 
 ## HTTP
@@ -27,3 +28,9 @@ Rapira supports three PHP execution modes:
 ::: info
 See [Execution modes](/docs/execution-modes) for mode behavior and selection criteria.
 :::
+
+## gRPC
+
+Rapira serves unary gRPC, gRPC-Web, and Connect calls on one listener. The PHP application receives and returns binary protobuf messages through a dispatcher. The master loads the service schemas from a descriptor set before the workers start.
+
+The gRPC pool uses Dispatcher mode. HTTP and gRPC can run together with separate entrypoints. See [gRPC](../grpc) for a complete service, protobuf class generation, and client commands.

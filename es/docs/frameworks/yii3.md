@@ -121,7 +121,7 @@ while (\Rapira\handle_request($handler)) {
 
 El contenedor se reconstruye cada vez, así que hay menos piezas móviles, ningún reinicio que puedas hacer mal y ningún estado del contenedor que pase de una petición a la siguiente; las propiedades `static`, las variables globales y todo lo que dejara montado el arranque siguen residentes bajo cualquier worker y tiene que reiniciarlos tu propio código. Esta variante también pasó la batería completa.
 
-El contenedor se inicia para cada petición. Esto añade tiempo de inicio y crea objetos que PHP debe liberar. La memoria puede aumentar hasta que PHP libere varios contenedores antiguos. Este comportamiento cíclico no siempre es una fuga. Define `pool.max_requests` para sustituir los workers periódicamente. Consulta este comportamiento en la [guía general](/es/docs/frameworks/) y el ajuste en [Configuración](/es/docs/configuration).
+El contenedor se inicia para cada petición. Esto añade tiempo de inicio y crea objetos que PHP debe liberar. La memoria puede aumentar hasta que PHP libere varios contenedores antiguos. Este comportamiento cíclico no siempre es una fuga. Define `http.pool.max_requests` para sustituir los workers periódicamente. Consulta este comportamiento en la [guía general](/es/docs/frameworks/) y el ajuste en [Configuración](/es/docs/configuration).
 
 El autoloader y el arranque de la plantilla siguen siendo residentes y el bucle de peticiones sigue viviendo en el script de worker, así que esto sigue siendo un worker, uno que descarta su aplicación entre peticiones, no [modo Classic](/es/docs/classic).
 
@@ -129,19 +129,30 @@ Usa el runner persistente de forma predeterminada. Sigue el diseño del framewor
 
 ## Iniciar Rapira
 
-```bash
-rapira serve --mode worker worker.php
-```
-
-`--mode worker` elige el modo Worker. Las demás opciones están en [CLI](/es/docs/cli).
-
-Para producción, pásalo a un `rapira.toml`:
+Crea `rapira.toml` junto a `worker.php`:
 
 ```toml
 [http]
 listen = "127.0.0.1:8000"
 
-[pool]
+[http.pool]
+entrypoint = "worker.php"
+mode = "worker"
+```
+
+```bash
+rapira serve rapira.toml
+```
+
+`mode = "worker"` elige el modo Worker. El comando está en [CLI](/es/docs/cli).
+
+Para producción, usa un `rapira.toml` completo:
+
+```toml
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
 entrypoint = "/srv/app/worker.php"
 mode = "worker"
 processes = 8
@@ -154,7 +165,7 @@ format = "json"
 ```
 
 ```bash
-rapira serve --config rapira.toml
+rapira serve rapira.toml
 ```
 
 Cada clave, con su valor por defecto y sus límites, está en la página de [Configuración](/es/docs/configuration); la unidad de systemd y el proxy inverso que va delante están en [En producción](/es/docs/deployment).
@@ -179,10 +190,19 @@ La plantilla de la aplicación mete `CsrfTokenMiddleware` en su cadena de middle
 
 ## El modo Classic como alternativa
 
-Yii3 también funciona con un script de entrada normal:
+Yii3 también funciona con un script de entrada normal. Cambia `rapira.toml` al modo Classic:
+
+```toml
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
+entrypoint = "public/index.php"
+mode = "classic"
+```
 
 ```bash
-rapira serve --mode classic public/index.php
+rapira serve rapira.toml
 ```
 
 El mismo código, sin script de worker y con estado limpio en cada petición. Consulta [Modo Classic](/es/docs/classic) para más información.

@@ -23,27 +23,19 @@ Rapira запускает Laravel в режиме Classic со стандарт�
 
 ## Запуск Rapira
 
-Режим Classic включается явно, поэтому команда прямо его называет:
+Режим Classic включается явно в `rapira.toml`:
 
-::: code-group
+```toml
+[http]
+listen = "127.0.0.1:8000"
 
-```bash [CLI]
-rapira serve --mode classic public/index.php
-```
-
-```toml [rapira.toml]
-[pool]
+[http.pool]
 entrypoint = "public/index.php"
 mode = "classic"
 processes = 4
-
-[http]
-listen = "127.0.0.1:8000"
 ```
 
-:::
-
-Для файла конфигурации выполните `rapira serve --config rapira.toml`. Относительный `entrypoint` использует каталог файла конфигурации. Все ключи и значения по умолчанию см. в разделе [Конфигурация](/ru/docs/configuration).
+Для запуска сервера выполните `rapira serve rapira.toml`. Относительный `entrypoint` использует каталог файла конфигурации. Все ключи и значения по умолчанию см. в разделе [Конфигурация](/ru/docs/configuration).
 
 Rapira запускает новый запрос PHP для каждого HTTP-запроса. Поэтому жизненный цикл фреймворка совпадает с php-fpm. Постоянное состояние приложения отсутствует. PHP запускается в мастер-процессе до создания воркеров. OPcache предоставляет общий кеш скомпилированных скриптов приложения и `vendor/`. См. [Режим Classic](/ru/docs/classic).
 

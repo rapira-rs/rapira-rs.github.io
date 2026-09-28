@@ -40,16 +40,22 @@ while (\Rapira\handle_request($handler)) {
 }
 ```
 
-Dispatcher is the default mode. Select Worker mode with one of these settings:
+Dispatcher is the default mode. Select Worker mode with `mode = "worker"` in the `[http.pool]` table of a `rapira.toml`:
 
-- `--mode worker` on the command line, next to the entry script.
-- `mode = "worker"` in the `[pool]` section of a `rapira.toml`.
+```toml
+[http]
+listen = "127.0.0.1:8000"
 
-```bash
-rapira serve --mode worker app/worker.php
+[http.pool]
+entrypoint = "app/worker.php"
+mode = "worker"
 ```
 
-See [CLI](/docs/cli) for the rest of the flags, and [Configuration](/docs/configuration) for the `rapira.toml` equivalents.
+```bash
+rapira serve rapira.toml
+```
+
+See [Configuration](/docs/configuration) for the other keys.
 
 ## The `handle_request()` contract
 
@@ -67,6 +73,8 @@ See [CLI](/docs/cli) for the rest of the flags, and [Configuration](/docs/config
 - **Call it only from the top-level script loop.** Do not call it from a shutdown function or destructor.
 
 A request in Worker mode is one iteration of the `while` loop. Rapira completes request shutdown around the handler. It runs request shutdown functions, flushes output buffers, closes the session, and refills the superglobals. Values that the script holds outside the handler stay in memory. Rapira does not run a destructor pass at the end of a request. PHP destroys an object after code removes its last reference.
+
+Before the first `handle_request()` call, `$_SERVER` contains the process environment and the entry script path, as under the PHP CLI. See [Execution modes](/docs/execution-modes) for the complete list.
 
 ## Single handler per worker
 
@@ -149,14 +157,14 @@ if (\Rapira\get_mode() === \Rapira\Mode::Worker) {
 **Request state remains between requests.** Check for request state that remains when an application fails only in Worker mode. Examples include a static array that grows, a request object in a singleton, or old user data in a logger.
 
 Reset this state at the start or end of the handler. Also reset request state in libraries.
-`pool.max_requests` replaces a worker after a specified request count. This limits the effect of a memory leak but does not correct it.
+`http.pool.max_requests` replaces a worker after a specified request count. This limits the effect of a memory leak but does not correct it.
 
 **Uncollected reference cycles.** PHP reference counting immediately releases most values. It releases cycles only when the cycle collector runs.
 The example calls `gc_collect_cycles()` between requests. This call is optional, but it makes collection time predictable.
 
 **Requests that do not finish.** A worker cannot handle another request while its current request runs.
-`pool.request_terminate_timeout_secs` limits the elapsed time of one request. Rapira terminates a worker that exceeds it.
-See [Configuration](/docs/configuration) for this key and `pool.max_requests`. See [Process model](/docs/process-model) for worker termination processing.
+`http.pool.request_terminate_timeout_secs` limits the elapsed time of one request. Rapira terminates the worker when the request exceeds the limit.
+See [Configuration](/docs/configuration) for this key and `http.pool.max_requests`. See [Process model](/docs/process-model) for worker termination processing.
 
 **An uncaught exception affects one request, not the worker.** Rapira returns `500` for an uncaught handler exception unless the handler already sent the response head. Rapira cannot change the status after the handler sends the response head. The loop continues, so the exception does not stop the worker. A fatal error ends the persistent script. The worker then starts the script again and initializes the application.
 
@@ -165,4 +173,4 @@ See [HTTP](/docs/http) for more information.
 
 ## The IDE stubs
 
-Rapira declares its PHP functions and classes in stub files under `crates/php_sys`. The worker API is in [`rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php). The exception classes are in [`rapira_exception.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira_exception.stub.php). These files are the authoritative declarations for signatures, property types, and class purposes. They also act as IDE stubs. Add them to the project to enable completion for `\Rapira\handle_request()`, `\Rapira\get_mode()`, and the other APIs.
+Rapira declares its PHP functions and classes in stub files under `crates/`. The worker API is in [`rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/sapi/rapira.stub.php). The exception classes are in [`rapira_exception.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/sapi/rapira_exception.stub.php). These files are the authoritative declarations for signatures, property types, and class purposes. They also act as IDE stubs. Add them to the project to enable completion for `\Rapira\handle_request()`, `\Rapira\get_mode()`, and the other APIs.

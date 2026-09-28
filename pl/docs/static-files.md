@@ -23,7 +23,7 @@ forbid = [".php"]   # Optional. This list replaces the default.
 
 `middleware` trzyma łańcuch middleware w kolejności listy. `static` to na razie jedyna nazwa, jaką ten klucz przyjmuje.
 
-`root` określa katalog plików. Nie ma wartości domyślnej. Ścieżka względna używa katalogu pliku konfiguracyjnego. `pool.entrypoint` używa tej samej reguły.
+`root` określa katalog plików. Nie ma wartości domyślnej. Ścieżka względna używa katalogu pliku konfiguracyjnego. `http.pool.entrypoint` używa tej samej reguły.
 
 `forbid` zawiera przyrostki nazw plików, których middleware nie serwuje. Domyślna wartość to `[".php"]`. Jawna lista zastępuje tę wartość. Na przykład `forbid = [".php", ".env"]` blokuje oba przyrostki.
 

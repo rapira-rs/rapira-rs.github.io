@@ -141,7 +141,7 @@ $mailer->sendConfirmation($order);
 $metrics->flush();
 ```
 
-签名为 `rapira_finish_request(): bool`。 [`crates/php_sys/rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php) 文件声明此函数和其他 PHP API。 将此文件添加到 IDE 以获得补全和类型信息。
+签名为 `rapira_finish_request(): bool`。 [`crates/sapi/rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/sapi/rapira.stub.php) 文件声明此函数和其他 PHP API。 将此文件添加到 IDE 以获得补全和类型信息。
 
 Rapira 为整个进程注册此函数。此函数作用于当前请求。 因此，Classic 模式也支持此函数。请参阅[执行模式](/zh/docs/execution-modes)。
 

@@ -5,13 +5,13 @@ description: Rapira log levels, target overrides, PHP diagnostics, application r
 
 # Logging
 
-Rapira writes all log records to stderr. These records include server events, master decisions, HTTP events, PHP diagnostics, and application messages. Rapira sends PHP diagnostics to this log instead of a separate `error_log` destination. The configured level filter controls which records it writes.
+Rapira writes filtered log records to stderr. These records include server events, master decisions, HTTP and gRPC events, PHP diagnostics, and application messages. Rapira sends PHP diagnostics to this log instead of a separate `error_log` destination. The configured level filter controls stderr output.
 
-The default level is `error`, so the server writes only errors. Change the configuration or set `RUST_LOG` to select another level.
+The default stderr level is `error`, so stderr contains only errors. Change the configuration or set `RUST_LOG` to select another level.
 
 ## Levels and format
 
-The `[log]` section of `rapira.toml` controls logging:
+The `[log]` section of `rapira.toml` controls stderr logging:
 
 ```toml
 [log]
@@ -38,16 +38,17 @@ http = "warn"
 ```
 
 Each key names one target. Other targets use `level`.
-A key matches **by prefix**, so `php` also matches `php_sys` and `php_sys::callbacks`. You do not need to list submodules.
+A key matches **by prefix**, so `h2` also matches `h2::codec::framed_read`. You do not need to list submodules.
 
 Rapira uses these targets:
 
 | Target   | What it covers                                                  |
 | -------- | --------------------------------------------------------------- |
 | `rapira` | server initialization, worker lifecycle, shutdown              |
-| `master` | supervision: forks, reaps, respawns, reloads, pool scaling      |
+| `master` | supervision: forks, reaps, respawns, reloads                    |
 | `http`   | HTTP listeners, request and response field processing, shutdown |
-| `ext`    | extension task outcomes                                          |
+| `grpc`   | gRPC listeners, transport failures, shutdown                    |
+| `net`    | the accept loop of the HTTP and gRPC listeners, accept failures |
 | `php`    | output and diagnostics from PHP itself                          |
 | `app`    | records the application writes with `\Rapira\log()`              |
 
@@ -57,7 +58,7 @@ A dependency writes trace records under its module path. The same prefix filteri
 Each record contains its target name. Add that name to `[log.targets]` to reduce its output.
 
 ::: tip
-The `master` target contains worker replacement, reload, and pool scaling records. See [process model](/docs/process-model) for these events.
+The `master` target contains worker replacement and reload records. See [process model](/docs/process-model) for these events.
 :::
 
 ## PHP diagnostics
@@ -113,7 +114,7 @@ The level is a case of the `\Rapira\LogLevel` enum. Each case maps to a Rapira l
 | `Debug`         | `debug`      |
 | `Trace`         | `trace`      |
 
-`\Rapira\log()` uses `Info` when you omit `level`. The global `error` filter suppresses this record unless you change the filter. `[log.targets]` and `RUST_LOG` filter application and server records in the same way. For example, `app = "debug"` changes only the application target.
+`\Rapira\log()` uses `Info` when you omit `level`. The global `error` filter suppresses this record on stderr unless you change the filter. `[log.targets]` and `RUST_LOG` filter application and server stderr records in the same way. For example, `app = "debug"` changes only the application target.
 
 Rapira serializes the context array to JSON and adds it as a `context` field. In JSON output, `fields` contains this field. Rapira keeps key names and the nested array structure:
 
@@ -142,14 +143,17 @@ try {
 
 `\Rapira\log()` does not throw. If a context `jsonSerialize()` call throws, Rapira writes `null` for that value. It keeps the other keys.
 
-Rapira replaces values that JSON cannot represent with a placeholder. These values include resources, closures, `NAN`, `INF`, and invalid UTF-8 strings. Rapira keeps the other fields in the record. Rapira does not limit the context size. It serializes large arrays and strings completely. Pass identifiers instead of large objects.
+::: question How does Rapira serialize large log contexts?
+Rapira replaces values that JSON cannot represent with a placeholder. These values include resources, closures, `NAN`, `INF`, and invalid UTF-8 strings. Rapira keeps the other fields in the record.
+
+Context serialization preserves complete arrays and strings. The stderr layer applies its configured filter to the full record. Pass identifiers for large objects.
+:::
 
 ## Formats
 
 Rapira writes both formats to stderr. Large records from different processes can interleave when the processes write to the same stderr pipe.
 
-Rapira does not write logs to other destinations. Redirect stderr to write logs to a file.
-A service manager can collect stderr. See [deployment](/docs/deployment) for more information.
+Redirect stderr to write logs to a file. A service manager can collect stderr. See [deployment](/docs/deployment) for more information.
 
 **`plain`** is readable terminal output. It contains a timestamp, level, target, and message:
 
@@ -170,12 +174,12 @@ Set [`NO_COLOR`](https://no-color.org/) to any non-empty value to disable termin
 
 ## `RUST_LOG`
 
-`RUST_LOG` sets the log filter from the environment. The commands below change the filter and keep the configuration file unchanged:
+`RUST_LOG` sets the stderr log filter from the environment. The commands below change the filter and keep the configuration file unchanged:
 
 ```sh
-RUST_LOG=info rapira serve --mode worker worker.php
-RUST_LOG=rapira=debug,php=info rapira serve --mode worker worker.php
-RUST_LOG=warn,rapira=trace rapira serve --mode worker worker.php
+RUST_LOG=info rapira serve rapira.toml
+RUST_LOG=rapira=debug,php=info rapira serve rapira.toml
+RUST_LOG=warn,rapira=trace rapira serve rapira.toml
 ```
 
 The first command sets all targets to `info`. The second sets `rapira` to `debug` and `php` to `info`.

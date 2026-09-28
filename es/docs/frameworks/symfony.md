@@ -102,6 +102,8 @@ Si el resetter no es suficiente, usa `$container->reset()` o `$kernel->reboot(nu
 
 Rapira conserva `$_ENV` hasta que el worker vuelve a ejecutar el script. No reconstruye esta superglobal para cada petición. Los valores que `bootEnv()` carga antes del bucle permanecen disponibles durante las peticiones posteriores. Este comportamiento también se aplica con `variables_order = "GPCS"` y `auto_globals_jit = On`.
 
+Antes de la primera petición, `$_SERVER` contiene el entorno del proceso. Dotenv no sustituye una variable que ya existe en `$_SERVER` o en `$_ENV`. Por tanto, una variable de entorno tiene prioridad sobre la misma variable de `.env`, también con `variables_order = "GPCS"`.
+
 Por ejemplo, añade `usePutenv()` si el código de la aplicación debe leer valores de Dotenv con `getenv()`:
 
 ```php
@@ -114,13 +116,24 @@ En producción, define variables de entorno mediante systemd, el contenedor o el
 
 ## Iniciar Rapira
 
+Crea `rapira.toml` junto a `worker.php`:
+
+```toml
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
+entrypoint = "worker.php"
+mode = "worker"
+```
+
 Inicia Rapira:
 
 ```bash
-rapira serve --mode worker worker.php
+rapira serve rapira.toml
 ```
 
-`--mode worker` selecciona el modo Worker. `127.0.0.1:8000` es la dirección predeterminada. `rapira serve` permanece en primer plano.
+`mode = "worker"` selecciona el modo Worker. `rapira serve` permanece en primer plano.
 
 Abre otro terminal. Envía una petición:
 
@@ -149,7 +162,7 @@ Un `rapira.toml` pequeño para ejecutarlo:
 [http]
 listen = "127.0.0.1:8000"
 
-[pool]
+[http.pool]
 entrypoint = "worker.php"
 mode = "worker"
 processes = 4
@@ -157,7 +170,7 @@ max_requests = 500
 request_terminate_timeout_secs = 30
 ```
 
-`max_requests` sustituye un worker después del número especificado de peticiones. Limita una fuga de memoria, pero no la corrige. `request_terminate_timeout_secs` limita el tiempo de una petición. Inicia el servidor con `APP_ENV=prod rapira serve --config rapira.toml`. Un `entrypoint` relativo usa el directorio del archivo. Consulta todos los ajustes en [Configuración](/es/docs/configuration).
+`max_requests` sustituye un worker después del número especificado de peticiones. Limita una fuga de memoria, pero no la corrige. `request_terminate_timeout_secs` limita el tiempo de una petición. Inicia el servidor con `APP_ENV=prod rapira serve rapira.toml`. Un `entrypoint` relativo usa el directorio del archivo. Consulta todos los ajustes en [Configuración](/es/docs/configuration).
 
 ## Reinicio del estado entre peticiones
 
@@ -173,10 +186,19 @@ Llama a [`rapira_finish_request()`](/es/docs/http) entre `$response->send()` y `
 
 ## El bucle de desarrollo
 
-`rapira serve` se ejecuta en primer plano e inicia la aplicación una vez. Por tanto, **sustituye el worker para cargar el código PHP modificado**. Reinicia el servidor después de cada cambio durante el desarrollo. Como alternativa, usa el [modo Classic](/es/docs/classic):
+`rapira serve` se ejecuta en primer plano e inicia la aplicación una vez. Por tanto, **sustituye el worker para cargar el código PHP modificado**. Reinicia el servidor después de cada cambio durante el desarrollo. Como alternativa, usa el [modo Classic](/es/docs/classic). Cambia `rapira.toml` al modo Classic:
+
+```toml
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
+entrypoint = "public/index.php"
+mode = "classic"
+```
 
 ```bash
-rapira serve --mode classic public/index.php
+rapira serve rapira.toml
 ```
 
 Es la misma aplicación en modo Classic: arranca en cada petición, así que los cambios surten efecto al momento, a costa de un arranque completo por petición. En un servidor de producción ya en marcha, el código recién desplegado toma el relevo con una recarga progresiva (`SIGUSR2` al maestro). Las peticiones actuales pueden terminar, pero las conexiones keep-alive inactivas se cierran. Si usas `opcache.validate_timestamps = 0`, el segmento de OPcache del maestro sobrevive al pool y el despliegue necesita un reinicio completo. Mira [Modelo de procesos](/es/docs/process-model) y [cómo ejecutarlo en producción](/es/docs/deployment).

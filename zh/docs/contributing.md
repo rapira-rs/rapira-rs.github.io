@@ -143,7 +143,7 @@ while (\Rapira\handle_request($handler)) {
 <template #config>
 
 ```toml
-[pool]
+[http.pool]
 entrypoint = "worker.php"
 mode = "worker"
 processes = 4
@@ -200,7 +200,7 @@ while (\Rapira\handle_request($handler)) {
 <template #config>
 
 ```toml
-[pool]
+[http.pool]
 entrypoint = "worker.php"
 mode = "worker"
 processes = 4

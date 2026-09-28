@@ -163,7 +163,7 @@ $metrics->flush();
 ```
 
 The signature is `rapira_finish_request(): bool`.
-[`crates/php_sys/rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php) declares it and the other PHP APIs.
+[`crates/sapi/rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/sapi/rapira.stub.php) declares it and the other PHP APIs.
 Configure the IDE to use this file for completion and type information.
 
 Rapira registers the function for the complete process. The function acts on the current request. Thus, Classic mode also supports it. Resident and per-request scripts get the same behavior. See [execution modes](/docs/execution-modes) for more information about the differences between the modes.

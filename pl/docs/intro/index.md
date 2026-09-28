@@ -9,7 +9,8 @@ Rapira to serwer aplikacji PHP napisany w języku Rust.
 
 Opiekunowie projektu RoadRunner projektują i implementują Rapirę. Rapira wywołuje PHP bezpośrednio w procesie serwera.
 
-Rapira obsługuje obecnie HTTP. Projekt planuje obsługę większej liczby funkcji wtyczek RoadRunnera.
+Rapira obsługuje HTTP i [gRPC](../grpc). Każdy protokół ma własny nasłuch i pulę workerów PHP.
+
 Na [blogu](/pl/blog/) znajdują się aktualności projektu.
 
 ## HTTP
@@ -27,3 +28,9 @@ Rapira obsługuje trzy tryby wykonania PHP:
 ::: info
 Strona [Tryby wykonania](/pl/docs/execution-modes) opisuje działanie trybów i kryteria wyboru.
 :::
+
+## gRPC
+
+Rapira obsługuje unarne wywołania gRPC, gRPC-Web i Connect na jednym nasłuchu. Aplikacja PHP odbiera i zwraca binarne komunikaty protobuf przez dyspozytora. Proces nadrzędny wczytuje schematy usług z zestawu deskryptorów przed uruchomieniem workerów.
+
+Pula gRPC używa trybu Dispatcher. HTTP i gRPC mogą działać razem z osobnymi skryptami wejściowymi. Kompletną usługę, generowanie klas protobuf i polecenia klienta opisuje [gRPC](../grpc).

@@ -28,27 +28,19 @@ Alternatively, use `SESSION_DRIVER=file`, `CACHE_STORE=file`, and `QUEUE_CONNECT
 
 ## Server start
 
-Select Classic mode explicitly:
+Select Classic mode explicitly in `rapira.toml`:
 
-::: code-group
+```toml
+[http]
+listen = "127.0.0.1:8000"
 
-```bash [CLI]
-rapira serve --mode classic public/index.php
-```
-
-```toml [rapira.toml]
-[pool]
+[http.pool]
 entrypoint = "public/index.php"
 mode = "classic"
 processes = 4
-
-[http]
-listen = "127.0.0.1:8000"
 ```
 
-:::
-
-Run `rapira serve --config rapira.toml` to use the configuration file.
+Run `rapira serve rapira.toml` to start the server.
 A relative `entrypoint` uses the configuration file directory as its base. See [Configuration](/docs/configuration) for all keys and defaults.
 
 Rapira starts a new PHP request for each HTTP request. Thus, the framework has the same lifecycle as it has under php-fpm. It has no persistent application state to reset. PHP starts once in the master before the master creates workers. OPcache provides a shared compiled script cache for application and `vendor/` code. See [Classic mode](/docs/classic) for more information.

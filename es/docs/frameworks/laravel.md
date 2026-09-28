@@ -23,27 +23,19 @@ Comprueba las extensiones de base de datos antes del primer inicio. Un proyecto 
 
 ## Iniciar Rapira
 
-El modo Classic se activa expresamente, así que el comando lo nombra:
+El modo Classic se activa expresamente en `rapira.toml`:
 
-::: code-group
+```toml
+[http]
+listen = "127.0.0.1:8000"
 
-```bash [CLI]
-rapira serve --mode classic public/index.php
-```
-
-```toml [rapira.toml]
-[pool]
+[http.pool]
 entrypoint = "public/index.php"
 mode = "classic"
 processes = 4
-
-[http]
-listen = "127.0.0.1:8000"
 ```
 
-:::
-
-Ejecuta `rapira serve --config rapira.toml` para usar el archivo de configuración. Un `entrypoint` relativo usa el directorio del archivo. Consulta [Configuración](/es/docs/configuration) para ver todas las claves.
+Ejecuta `rapira serve rapira.toml` para iniciar el servidor. Un `entrypoint` relativo usa el directorio del archivo. Consulta [Configuración](/es/docs/configuration) para ver todas las claves.
 
 Rapira inicia una petición PHP nueva para cada petición HTTP. Por tanto, el ciclo de vida coincide con php-fpm. No hay estado persistente de la aplicación. PHP se inicia en el proceso maestro antes de crear workers. OPcache proporciona una caché compartida para el código de la aplicación y `vendor/`. Consulta [Modo Classic](/es/docs/classic).
 

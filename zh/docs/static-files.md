@@ -23,7 +23,7 @@ forbid = [".php"]   # Optional. This list replaces the default.
 
 `middleware` 按列表顺序放着整条中间件链，目前它只接受 `static` 这一个名字。
 
-`root` 指定文件目录。它没有默认值。 相对路径使用配置文件目录。`pool.entrypoint` 使用相同规则。
+`root` 指定文件目录。它没有默认值。 相对路径使用配置文件目录。`http.pool.entrypoint` 使用相同规则。
 
 `forbid` 包含中间件不提供的文件名后缀。默认值为 `[".php"]`。 显式列表会替换默认值。例如，`forbid = [".php", ".env"]` 会阻止两个后缀。
 

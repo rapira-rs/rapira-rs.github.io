@@ -124,6 +124,8 @@ Both options remove cached application state. Use them to find a memory leak, no
 
 Rapira keeps `$_ENV` until the worker script restarts. It does not rebuild this superglobal for each request. Values that `bootEnv()` loads before the loop remain available during later requests. This behavior also applies with `variables_order = "GPCS"` and `auto_globals_jit = On`.
 
+Before the first request, `$_SERVER` contains the process environment. Dotenv does not replace a variable that `$_SERVER` or `$_ENV` already contains. So an environment variable has priority over the same variable in `.env`, also with `variables_order = "GPCS"`.
+
 For example, add `usePutenv()` if application code must read Dotenv values with `getenv()`:
 
 ```php
@@ -136,13 +138,24 @@ In production, set environment variables through systemd, the container runtime,
 
 ## Starting Rapira
 
+Create `rapira.toml` next to `worker.php`:
+
+```toml
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
+entrypoint = "worker.php"
+mode = "worker"
+```
+
 Start Rapira:
 
 ```bash
-rapira serve --mode worker worker.php
+rapira serve rapira.toml
 ```
 
-`--mode worker` selects Worker mode. `127.0.0.1:8000` is the default listen address. `rapira serve` remains in the foreground.
+`mode = "worker"` selects Worker mode. `rapira serve` remains in the foreground.
 
 Open another terminal. Send a request:
 
@@ -177,7 +190,7 @@ Use this minimal `rapira.toml`:
 [http]
 listen = "127.0.0.1:8000"
 
-[pool]
+[http.pool]
 entrypoint = "worker.php"
 mode = "worker"
 processes = 4
@@ -185,7 +198,7 @@ max_requests = 500
 request_terminate_timeout_secs = 30
 ```
 
-`max_requests` replaces a worker after the specified request count. It limits the effect of a memory leak but does not correct it. `request_terminate_timeout_secs` limits the elapsed time of one request. Start the server with `APP_ENV=prod rapira serve --config rapira.toml`. A relative `entrypoint` uses the configuration file directory as its base. See [Configuration](/docs/configuration) for all settings.
+`max_requests` replaces a worker after the specified request count. It limits the effect of a memory leak but does not correct it. `request_terminate_timeout_secs` limits the elapsed time of one request. Start the server with `APP_ENV=prod rapira serve rapira.toml`. A relative `entrypoint` uses the configuration file directory as its base. See [Configuration](/docs/configuration) for all settings.
 
 ## What resets between requests
 
@@ -204,10 +217,19 @@ The worker continues to run `terminate()` until the handler returns. This can re
 
 ## Development
 
-`rapira serve` runs in the foreground and initializes the application once. Thus, **replace the worker to load changed PHP code**. Restart the server after each edit during development. Alternatively, use [Classic mode](/docs/classic). Classic mode reads the entry script for each request:
+`rapira serve` runs in the foreground and initializes the application once. Thus, **replace the worker to load changed PHP code**. Restart the server after each edit during development. Alternatively, use [Classic mode](/docs/classic). Classic mode reads the entry script for each request. Change `rapira.toml` to Classic mode:
+
+```toml
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
+entrypoint = "public/index.php"
+mode = "classic"
+```
 
 ```bash
-rapira serve --mode classic public/index.php
+rapira serve rapira.toml
 ```
 
 The same application initializes for each request in Classic mode. Thus, saved changes take effect immediately.

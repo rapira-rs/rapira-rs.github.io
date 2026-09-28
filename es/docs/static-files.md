@@ -23,7 +23,7 @@ forbid = [".php"]   # Optional. This list replaces the default.
 
 `middleware` guarda la cadena de middleware en el orden de la lista. Por ahora, `static` es el único nombre que admite.
 
-`root` define el directorio de archivos. No tiene valor predeterminado. Una ruta relativa usa el directorio del archivo de configuración. `pool.entrypoint` usa la misma regla.
+`root` define el directorio de archivos. No tiene valor predeterminado. Una ruta relativa usa el directorio del archivo de configuración. `http.pool.entrypoint` usa la misma regla.
 
 `forbid` contiene sufijos de nombres de archivo que el middleware no sirve. El valor predeterminado es `[".php"]`. Una lista explícita sustituye este valor. Por ejemplo, `forbid = [".php", ".env"]` bloquea ambos sufijos.
 

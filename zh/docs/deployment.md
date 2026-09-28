@@ -27,7 +27,7 @@ After=network.target
 [Service]
 Type=exec
 WorkingDirectory=/srv/app
-ExecStart=/usr/bin/rapira serve --config /etc/rapira/rapira.toml
+ExecStart=/usr/bin/rapira serve /etc/rapira/rapira.toml
 ExecReload=/bin/kill -USR2 $MAINPID
 KillMode=mixed
 Restart=on-failure
@@ -67,11 +67,11 @@ sudo systemctl enable --now rapira
 
 ## 配置路径
 
-本指南使用 `/etc/rapira/rapira.toml` 保存 Rapira 设置。它将 `php.ini` 保存在同一目录，并设置 `PHPRC=/etc/rapira`。 Rapira 二进制文件不包含这些路径。`--config` 选项接受任何路径。 PHP 使用 `PHPRC` 查找配置。系统需要其他路径时，请更改这些路径。
+本指南使用 `/etc/rapira/rapira.toml` 保存 Rapira 设置。它将 `php.ini` 保存在同一目录，并设置 `PHPRC=/etc/rapira`。 Rapira 二进制文件不包含这些路径。`CONFIG` 参数接受任何路径。 PHP 使用 `PHPRC` 查找配置。系统需要其他路径时，请更改这些路径。
 
 Rapira 可以在没有 `php.ini` 的情况下运行。默认值将 PHP 诊断信息写入日志，而不是 HTTP 响应。 创建 `/etc/rapira/php.ini` 以配置 OPcache、内存限制或时区。请参阅[日志](/zh/docs/logging)。
 
-相对 `pool.entrypoint` 以配置文件目录为基准。因此，此结构中的 `entrypoint = "index.php"` 表示 `/etc/rapira/index.php`。 在生产环境中使用入口脚本的绝对路径。`supervisor.pidfile` 使用相同规则。 位置参数 `SCRIPT` 和 PHP 文件操作使用工作目录。Rapira 不更改此目录。 Systemd 默认使用 `/`，所以 unit 设置 `WorkingDirectory=/srv/app`。PHP 也会在此目录中查找 ini 文件。 所有键见[配置](/zh/docs/configuration)。
+相对 `http.pool.entrypoint` 以配置文件目录为基准。因此，此结构中的 `entrypoint = "index.php"` 表示 `/etc/rapira/index.php`。 在生产环境中使用入口脚本的绝对路径。`supervisor.pidfile` 使用相同规则。 PHP 文件操作使用工作目录。Rapira 不更改此目录。 Systemd 默认使用 `/`，所以 unit 设置 `WorkingDirectory=/srv/app`。PHP 也会在此目录中查找 ini 文件。 所有键见[配置](/zh/docs/configuration)。
 
 ## 反向代理
 
@@ -124,7 +124,7 @@ kill -USR2 "$(cat /run/rapira/rapira.pid)"
 
 ## 日志
 
-Rapira 将每条日志记录写入 **stderr**。systemd unit 的 stderr 无需其他配置即可进入 journal。 生产环境请使用 JSON：
+Rapira 将过滤后的日志记录写入 **stderr**。systemd unit 的 stderr 无需其他配置即可进入 journal。生产环境请为 stderr 使用 JSON：
 
 ```toml
 [log]
@@ -145,7 +145,7 @@ journalctl -u rapira -f
 在 [Worker 模式](/zh/docs/execution-modes)下，进程在请求之间保留应用状态。因此，内存泄漏可能会随着时间增加进程内存。 请使用以下两个设置来限制其影响：
 
 ```toml
-[pool]
+[http.pool]
 max_requests = 500
 request_terminate_timeout_secs = 30
 ```

@@ -285,7 +285,7 @@ An interceptor checks a call before PHP gets it. List the interceptors in `grpc.
 ci.deploy-token
 ```
 
-Rapira ignores blank lines and lines that start with `#`. Each token uses the characters `A-Z`, `a-z`, `0-9`, `-`, `.`, `_`, `~`, `+`, and `/`, with optional `=` at the end. Then enable the interceptor:
+Rapira ignores blank lines and lines that start with `#`. Each token uses the characters `A-Z`, `a-z`, `0-9`, `-`, `.`, `_`, `~`, `+`, and `/`, with optional `=` characters at the end. Then enable the interceptor:
 
 ```toml
 [grpc]
@@ -301,6 +301,8 @@ A client sends the token in the `authorization` metadata, as `Bearer <token>`:
 ```sh
 grpcurl -plaintext -H 'authorization: Bearer ci.deploy-token' 127.0.0.1:50051 list
 ```
+
+The listener does not encrypt traffic, so the token crosses the network in clear text. Put a [TLS proxy](#protocols-and-limits) in front of the listener when clients connect over a network that you do not trust. See [RFC 6750 §5.3](https://www.rfc-editor.org/rfc/rfc6750#section-5.3).
 
 A call without a valid token gets `UNAUTHENTICATED`. A Connect unary call gets HTTP status 401 with `WWW-Authenticate: Bearer`. Rapira does not read the request body, and PHP does not get the call.
 

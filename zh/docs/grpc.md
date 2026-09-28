@@ -285,7 +285,7 @@ $metadata->addTrailer('x-result', 'completed');
 ci.deploy-token
 ```
 
-Rapira 忽略空行和以 `#` 开头的行。每个令牌由字符 `A-Z`、`a-z`、`0-9`、`-`、`.`、`_`、`~`、`+` 和 `/` 组成，末尾可以带 `=`。然后启用拦截器：
+Rapira 忽略空行和以 `#` 开头的行。每个令牌由字符 `A-Z`、`a-z`、`0-9`、`-`、`.`、`_`、`~`、`+` 和 `/` 组成，末尾可以带一个或多个 `=` 字符。然后启用拦截器：
 
 ```toml
 [grpc]
@@ -301,6 +301,8 @@ tokens_file = "grpc-tokens"
 ```sh
 grpcurl -plaintext -H 'authorization: Bearer ci.deploy-token' 127.0.0.1:50051 list
 ```
+
+监听器不加密流量，因此令牌以明文形式在网络中传输。客户端通过不受信任的网络连接时，请在监听器前放置 [TLS 代理](#协议和限制)。请参阅 [RFC 6750 §5.3](https://www.rfc-editor.org/rfc/rfc6750#section-5.3)。
 
 没有有效令牌的调用收到 `UNAUTHENTICATED`。Connect 一元调用收到 HTTP 状态码 401 和 `WWW-Authenticate: Bearer` 头部。Rapira 不读取请求体，PHP 也不会收到该调用。
 

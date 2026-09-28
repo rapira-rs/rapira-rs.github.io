@@ -285,7 +285,7 @@ Un interceptor comprueba una llamada antes de que PHP la reciba. Indica los inte
 ci.deploy-token
 ```
 
-Rapira ignora las líneas vacías y las líneas que empiezan por `#`. Cada token usa los caracteres `A-Z`, `a-z`, `0-9`, `-`, `.`, `_`, `~`, `+` y `/`, con `=` opcional al final. Después activa el interceptor:
+Rapira ignora las líneas vacías y las líneas que empiezan por `#`. Cada token usa los caracteres `A-Z`, `a-z`, `0-9`, `-`, `.`, `_`, `~`, `+` y `/`, con caracteres `=` opcionales al final. Después activa el interceptor:
 
 ```toml
 [grpc]
@@ -301,6 +301,8 @@ Un cliente envía el token en los metadatos `authorization`, como `Bearer <token
 ```sh
 grpcurl -plaintext -H 'authorization: Bearer ci.deploy-token' 127.0.0.1:50051 list
 ```
+
+La escucha no cifra el tráfico, así que el token cruza la red sin cifrar. Coloca un [proxy TLS](#protocolos-y-limites) delante de la escucha cuando los clientes se conecten a través de una red en la que no confíes. Consulta [RFC 6750 §5.3](https://www.rfc-editor.org/rfc/rfc6750#section-5.3).
 
 Una llamada sin un token válido recibe `UNAUTHENTICATED`. Una llamada unaria de Connect recibe el estado HTTP 401 con la cabecera `WWW-Authenticate: Bearer`. Rapira no lee el cuerpo de la petición, y PHP no recibe la llamada.
 

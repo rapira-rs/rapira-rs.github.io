@@ -285,7 +285,7 @@ Interceptor sprawdza wywołanie, zanim PHP je otrzyma. Wymień interceptory w `g
 ci.deploy-token
 ```
 
-Rapira pomija puste wiersze i wiersze zaczynające się od `#`. Każdy token składa się ze znaków `A-Z`, `a-z`, `0-9`, `-`, `.`, `_`, `~`, `+` i `/`, z opcjonalnym `=` na końcu. Następnie włącz interceptor:
+Rapira pomija puste wiersze i wiersze zaczynające się od `#`. Każdy token składa się ze znaków `A-Z`, `a-z`, `0-9`, `-`, `.`, `_`, `~`, `+` i `/`, z opcjonalnymi znakami `=` na końcu. Następnie włącz interceptor:
 
 ```toml
 [grpc]
@@ -301,6 +301,8 @@ Klient wysyła token w metadanych `authorization` jako `Bearer <token>`:
 ```sh
 grpcurl -plaintext -H 'authorization: Bearer ci.deploy-token' 127.0.0.1:50051 list
 ```
+
+Nasłuch nie szyfruje ruchu, więc token przechodzi przez sieć w postaci nieszyfrowanej. Umieść [proxy TLS](#protokoły-i-limity) przed nasłuchem, gdy klienci łączą się przez sieć, której nie ufasz. Zobacz [RFC 6750 §5.3](https://www.rfc-editor.org/rfc/rfc6750#section-5.3).
 
 Wywołanie bez prawidłowego tokena otrzymuje `UNAUTHENTICATED`. Unarne wywołanie Connect otrzymuje status HTTP 401 z nagłówkiem `WWW-Authenticate: Bearer`. Rapira nie czyta treści żądania, a PHP nie otrzymuje wywołania.
 

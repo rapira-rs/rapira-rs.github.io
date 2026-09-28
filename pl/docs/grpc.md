@@ -247,7 +247,7 @@ Opcjonalny trzeci argument `Status` to lista obiektów `Rapira\Grpc\ErrorDetail`
 
 Rapira nie przechwytuje `Rapira\Grpc\Exception\GrpcException`. Przechwyć go i przekaż jego właściwość `$status` do `fail()`.
 
-Klient otrzymuje `UNAVAILABLE`, gdy Rapira odrzuci wywołanie, zanim PHP je otrzyma. Dzieje się tak, gdy kolejka workerów pozostaje pełna przez 30 sekund, gdy pula się zatrzymuje lub gdy start PHP w workerze się nie powiódł. Interceptor także może odrzucić wywołanie, zanim PHP je otrzyma. Zobacz [Interceptory](#interceptors).
+Klient otrzymuje `UNAVAILABLE`, gdy Rapira odrzuci wywołanie, zanim PHP je otrzyma. Dzieje się tak, gdy kolejka workerów pozostaje pełna przez 30 sekund, gdy pula się zatrzymuje lub gdy start PHP w workerze się nie powiódł. Interceptor także może odrzucić wywołanie, zanim PHP je otrzyma. Interceptor ustawia status, na przykład `UNAUTHENTICATED`. Zobacz [Interceptory](#interceptors).
 
 ## Metadane
 
@@ -379,6 +379,7 @@ Wszystkie ustawienia gRPC opisuje [Konfiguracja](./configuration#grpc), a nadzó
 [Wersja dla Windows](https://github.com/rapira-rs/rapira-windows) obsługuje ten sam nasłuch gRPC i to samo API PHP. Obowiązują te różnice:
 
 - `grpc.listen` akceptuje tylko adres TCP.
+- `grpc.interceptors` i tabela `[grpc.auth]` nie są dostępne.
 - Pula gRPC to statyczna pula wątków interpretera PHP w jednym procesie. `grpc.pool.processes` ustawia liczbę wątków.
 - `getmypid()` zwraca ten sam identyfikator procesu w każdym interpreterze.
 - Błąd startu PHP w dowolnej puli zatrzymuje serwer z kodem wyjścia 70.

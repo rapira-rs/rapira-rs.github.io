@@ -247,7 +247,7 @@ $call->fail(new Rapira\Grpc\Status(
 
 Rapira 不捕获 `Rapira\Grpc\Exception\GrpcException`。请捕获它，并将其 `$status` 属性传给 `fail()`。
 
-Rapira 在 PHP 收到调用前拒绝该调用时，客户端收到 `UNAVAILABLE`。以下情况会发生这种拒绝：worker 队列持续满载 30 秒、进程池停止，或 worker 的 PHP 启动失败。拦截器也可以在 PHP 收到调用前拒绝该调用。请参阅[拦截器](#interceptors)。
+Rapira 在 PHP 收到调用前拒绝该调用时，客户端收到 `UNAVAILABLE`。以下情况会发生这种拒绝：worker 队列持续满载 30 秒、进程池停止，或 worker 的 PHP 启动失败。拦截器也可以在 PHP 收到调用前拒绝该调用。此时由拦截器设置状态，例如 `UNAUTHENTICATED`。请参阅[拦截器](#interceptors)。
 
 ## 元数据
 
@@ -379,6 +379,7 @@ curl -H 'Content-Type: application/json' -d '{}' http://127.0.0.1:50051/grpc.hea
 [Windows 版本](https://github.com/rapira-rs/rapira-windows)提供相同的 gRPC 监听器和 PHP API。存在以下差异：
 
 - `grpc.listen` 只接受 TCP 地址。
+- `grpc.interceptors` 和 `[grpc.auth]` 表不可用。
 - gRPC 进程池是一个进程内 PHP 解释器线程的静态池。`grpc.pool.processes` 设置线程数。
 - `getmypid()` 在每个解释器中返回相同的进程 ID。
 - 任一进程池的 PHP 启动失败都会使服务器以退出码 70 停止。

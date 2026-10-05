@@ -159,7 +159,7 @@ Rapira używa kolorów, gdy stderr jest terminalem. Nie używa ich, gdy stderr j
 {"timestamp":…,"level":"ERROR","fields":{"message":…},"target":…}
 ```
 
-`timestamp` używa RFC 3339, UTC i milisekund. Obiekt `fields` zawiera komunikat i inne pola. Rapira ekranuje znaki nowej linii. Dlatego każdy wpis zajmuje jedną linię. Wyjście JSON nie używa kolorów.
+`timestamp` używa RFC 3339, UTC i mikrosekund. Obiekt `fields` zawiera komunikat i inne pola. Rapira ekranuje znaki nowej linii. Dlatego każdy wpis zajmuje jedną linię. Wyjście JSON nie używa kolorów.
 
 ## `RUST_LOG`
 

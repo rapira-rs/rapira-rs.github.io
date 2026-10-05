@@ -170,7 +170,7 @@ Set [`NO_COLOR`](https://no-color.org/) to any non-empty value to disable termin
 {"timestamp":…,"level":"ERROR","fields":{"message":…},"target":…}
 ```
 
-`timestamp` uses RFC 3339 UTC with milliseconds. The `fields` object contains the message and other record fields. For example, it can contain the application `context` field. Rapira escapes newlines in messages, such as PHP stack traces. Thus, each record uses exactly one line. JSON output does not use colors.
+`timestamp` uses RFC 3339 UTC with microseconds. The `fields` object contains the message and other record fields. For example, it can contain the application `context` field. Rapira escapes newlines in messages, such as PHP stack traces. Thus, each record uses exactly one line. JSON output does not use colors.
 
 ## `RUST_LOG`
 

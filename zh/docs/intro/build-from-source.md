@@ -57,21 +57,13 @@ Homebrew 的 `php` formula 不包含 embed SAPI。请在 macOS 上从源代码�
 brew install autoconf bison re2c pkg-config openssl@3 curl oniguruma libxml2 sqlite libffi gettext icu4c libpq
 ```
 
-在 Rapira 源代码目录中，运行对应平台的目标：
+在 Rapira 源代码目录中，运行 `php` 目标：
 
-::: code-group
-
-```bash [Linux]
+```bash
 make php PHP_SRC=/path/to/php-src PHP_PREFIX="$HOME/.local/php-nts"
 ```
 
-```bash [macOS]
-make php-macos PHP_SRC=/path/to/php-src PHP_PREFIX="$HOME/.local/php-nts"
-```
-
-:::
-
-两个目标都会运行 `buildconf`、配置并编译 PHP，然后将其安装到 `PHP_PREFIX`。它们启用 `.github/php-configure-flags.txt` 中列出的 PHP 随附扩展。`php-macos` 目标还会设置 Homebrew 库路径和 iconv 的 SDK 路径。
+该目标会运行 `buildconf`、配置并编译 PHP，然后将其安装到 `PHP_PREFIX`。它启用 `.github/php-configure-flags.txt` 中列出的 PHP 随附扩展。在 macOS 上，该目标还会设置 Homebrew 库路径和 iconv 的 SDK 路径。
 
 如需自定义扩展集，请在 PHP 源代码目录中直接配置 PHP。将所需扩展选项追加到 `./configure`：
 
@@ -82,7 +74,7 @@ make -j"$(getconf _NPROCESSORS_ONLN)"
 make install
 ```
 
-在 macOS 上手动配置时，请使用 `php-macos` 目标中的库路径和配置选项。
+在 macOS 上手动配置时，请使用 `php` 目标中的库路径和配置选项。
 
 发布 CI 还将 `igbinary` 和 `redis` 编译进 `libphp`，并为 Redis 启用 igbinary 序列化。它们的源代码版本和校验和固定在[发布工作流](https://github.com/rapira-rs/rapira/blob/main/.github/workflows/build-binaries.yml)中。运行 `./buildconf --force` 前，请将它们的源代码解压到 PHP 的 `ext/igbinary` 和 `ext/redis` 目录。将 `--enable-igbinary --enable-redis --enable-redis-igbinary` 添加到 `./configure`。
 

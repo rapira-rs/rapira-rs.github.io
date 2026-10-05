@@ -159,7 +159,7 @@ stderr 是终端时，Rapira 使用颜色。stderr 是文件时，Rapira 不使�
 {"timestamp":…,"level":"ERROR","fields":{"message":…},"target":…}
 ```
 
-`timestamp` 使用带毫秒的 RFC 3339 UTC。`fields` 对象包含消息和其他记录字段。 Rapira 会转义消息中的换行符。因此，每条记录仅使用一行。 JSON 输出不使用颜色。
+`timestamp` 使用带微秒的 RFC 3339 UTC。`fields` 对象包含消息和其他记录字段。 Rapira 会转义消息中的换行符。因此，每条记录仅使用一行。 JSON 输出不使用颜色。
 
 ## `RUST_LOG`
 

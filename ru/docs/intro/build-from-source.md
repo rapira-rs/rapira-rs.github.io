@@ -57,21 +57,13 @@ sudo apk add php84-dev php84-embed            # Alpine
 brew install autoconf bison re2c pkg-config openssl@3 curl oniguruma libxml2 sqlite libffi gettext icu4c libpq
 ```
 
-В каталоге исходников Rapira запустите цель для своей платформы:
+В каталоге исходников Rapira запустите цель `php`:
 
-::: code-group
-
-```bash [Linux]
+```bash
 make php PHP_SRC=/path/to/php-src PHP_PREFIX="$HOME/.local/php-nts"
 ```
 
-```bash [macOS]
-make php-macos PHP_SRC=/path/to/php-src PHP_PREFIX="$HOME/.local/php-nts"
-```
-
-:::
-
-Обе цели запускают `buildconf`, настраивают PHP, компилируют его и устанавливают в `PHP_PREFIX`. Они включают расширения, поставляемые с PHP и перечисленные в `.github/php-configure-flags.txt`. Цель `php-macos` задаёт пути к библиотекам Homebrew и путь SDK для iconv.
+Цель запускает `buildconf`, настраивает PHP, компилирует его и устанавливает в `PHP_PREFIX`. Она включает расширения, поставляемые с PHP и перечисленные в `.github/php-configure-flags.txt`. В macOS цель также задаёт пути к библиотекам Homebrew и путь SDK для iconv.
 
 Для собственного набора расширений настройте PHP напрямую в каталоге его исходников. Добавьте параметры нужных расширений к `./configure`:
 
@@ -82,7 +74,7 @@ make -j"$(getconf _NPROCESSORS_ONLN)"
 make install
 ```
 
-При ручной настройке в macOS используйте пути к библиотекам и параметры конфигурации из цели `php-macos`.
+При ручной настройке в macOS используйте пути к библиотекам и параметры конфигурации из цели `php`.
 
 Релизный CI также собирает `igbinary` и `redis` в составе `libphp`, включая поддержку сериализации igbinary в Redis. Версии их исходников и контрольные суммы закреплены в [процессе сборки релизов](https://github.com/rapira-rs/rapira/blob/main/.github/workflows/build-binaries.yml). Распакуйте их исходники в каталоги PHP `ext/igbinary` и `ext/redis` перед запуском `./buildconf --force`. Добавьте `--enable-igbinary --enable-redis --enable-redis-igbinary` к `./configure`.
 

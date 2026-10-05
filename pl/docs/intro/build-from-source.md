@@ -57,21 +57,13 @@ Na macOS zainstaluj zależności potrzebne do budowania:
 brew install autoconf bison re2c pkg-config openssl@3 curl oniguruma libxml2 sqlite libffi gettext icu4c libpq
 ```
 
-W katalogu źródeł Rapiry uruchom cel dla swojej platformy:
+W katalogu źródeł Rapiry uruchom cel `php`:
 
-::: code-group
-
-```bash [Linux]
+```bash
 make php PHP_SRC=/path/to/php-src PHP_PREFIX="$HOME/.local/php-nts"
 ```
 
-```bash [macOS]
-make php-macos PHP_SRC=/path/to/php-src PHP_PREFIX="$HOME/.local/php-nts"
-```
-
-:::
-
-Oba cele uruchamiają `buildconf`, konfigurują PHP, kompilują je i instalują w `PHP_PREFIX`. Włączają rozszerzenia dostarczane z PHP, wymienione w `.github/php-configure-flags.txt`. Cel `php-macos` ustawia ścieżki bibliotek Homebrew i ścieżkę SDK dla iconv.
+Cel uruchamia `buildconf`, konfiguruje PHP, kompiluje je i instaluje w `PHP_PREFIX`. Włącza rozszerzenia dostarczane z PHP, wymienione w `.github/php-configure-flags.txt`. Na macOS cel ustawia również ścieżki bibliotek Homebrew i ścieżkę SDK dla iconv.
 
 Aby użyć własnego zestawu rozszerzeń, skonfiguruj PHP bezpośrednio w jego katalogu źródeł. Dodaj opcje wymaganych rozszerzeń do `./configure`:
 
@@ -82,7 +74,7 @@ make -j"$(getconf _NPROCESSORS_ONLN)"
 make install
 ```
 
-Przy ręcznej konfiguracji na macOS użyj ścieżek bibliotek i opcji konfiguracji z celu `php-macos`.
+Przy ręcznej konfiguracji na macOS użyj ścieżek bibliotek i opcji konfiguracji z celu `php`.
 
 CI dla wydań kompiluje również `igbinary` i `redis` do `libphp`, z włączoną serializacją igbinary dla Redis. Wersje ich źródeł i sumy kontrolne są ustalone w [przepływie budowania wydań](https://github.com/rapira-rs/rapira/blob/main/.github/workflows/build-binaries.yml). Przed uruchomieniem `./buildconf --force` rozpakuj ich źródła do katalogów PHP `ext/igbinary` i `ext/redis`. Dodaj `--enable-igbinary --enable-redis --enable-redis-igbinary` do `./configure`.
 

@@ -62,21 +62,13 @@ On macOS, install the build dependencies:
 brew install autoconf bison re2c pkg-config openssl@3 curl oniguruma libxml2 sqlite libffi gettext icu4c libpq
 ```
 
-From the Rapira source directory, run the target for your platform:
+From the Rapira source directory, run the `php` target:
 
-::: code-group
-
-```bash [Linux]
+```bash
 make php PHP_SRC=/path/to/php-src PHP_PREFIX="$HOME/.local/php-nts"
 ```
 
-```bash [macOS]
-make php-macos PHP_SRC=/path/to/php-src PHP_PREFIX="$HOME/.local/php-nts"
-```
-
-:::
-
-Both targets run `buildconf`, configure PHP, compile it, and install it under `PHP_PREFIX`. They enable the bundled PHP extensions from `.github/php-configure-flags.txt`. The `php-macos` target sets the Homebrew library paths and the SDK path for iconv.
+The target runs `buildconf`, configures PHP, compiles it, and installs it under `PHP_PREFIX`. It enables the bundled PHP extensions from `.github/php-configure-flags.txt`. On macOS, the target also sets the Homebrew library paths and the SDK path for iconv.
 
 For a custom extension set, configure PHP directly in its source directory. Append the required extension options to `./configure`:
 
@@ -87,7 +79,7 @@ make -j"$(getconf _NPROCESSORS_ONLN)"
 make install
 ```
 
-For manual configuration on macOS, use the library paths and configure options from the `php-macos` target.
+For manual configuration on macOS, use the library paths and configure options from the `php` target.
 
 Release CI also compiles `igbinary` and `redis` into `libphp`, with igbinary serialization enabled for Redis. Their source versions and checksums are pinned in [the release workflow](https://github.com/rapira-rs/rapira/blob/main/.github/workflows/build-binaries.yml). Extract their sources into PHP's `ext/igbinary` and `ext/redis` directories before running `./buildconf --force`. Add `--enable-igbinary --enable-redis --enable-redis-igbinary` to `./configure`.
 

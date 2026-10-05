@@ -57,21 +57,13 @@ En macOS, instala las dependencias de compilación:
 brew install autoconf bison re2c pkg-config openssl@3 curl oniguruma libxml2 sqlite libffi gettext icu4c libpq
 ```
 
-Desde el directorio de código fuente de Rapira, ejecuta el objetivo de tu plataforma:
+Desde el directorio de código fuente de Rapira, ejecuta el objetivo `php`:
 
-::: code-group
-
-```bash [Linux]
+```bash
 make php PHP_SRC=/path/to/php-src PHP_PREFIX="$HOME/.local/php-nts"
 ```
 
-```bash [macOS]
-make php-macos PHP_SRC=/path/to/php-src PHP_PREFIX="$HOME/.local/php-nts"
-```
-
-:::
-
-Ambos objetivos ejecutan `buildconf`, configuran PHP, lo compilan y lo instalan en `PHP_PREFIX`. Activan las extensiones distribuidas con PHP que figuran en `.github/php-configure-flags.txt`. El objetivo `php-macos` configura las rutas de las bibliotecas de Homebrew y la ruta del SDK para iconv.
+El objetivo ejecuta `buildconf`, configura PHP, lo compila y lo instala en `PHP_PREFIX`. Activa las extensiones distribuidas con PHP que figuran en `.github/php-configure-flags.txt`. En macOS, el objetivo también configura las rutas de las bibliotecas de Homebrew y la ruta del SDK para iconv.
 
 Para un conjunto personalizado de extensiones, configura PHP directamente en su directorio de código fuente. Añade las opciones de las extensiones necesarias a `./configure`:
 
@@ -82,7 +74,7 @@ make -j"$(getconf _NPROCESSORS_ONLN)"
 make install
 ```
 
-Para configurar PHP manualmente en macOS, usa las rutas de bibliotecas y las opciones de configuración del objetivo `php-macos`.
+Para configurar PHP manualmente en macOS, usa las rutas de bibliotecas y las opciones de configuración del objetivo `php`.
 
 El CI de publicación también compila `igbinary` y `redis` dentro de `libphp`, con serialización igbinary activada para Redis. Sus versiones de código fuente y sumas de verificación están fijadas en [el flujo de publicación](https://github.com/rapira-rs/rapira/blob/main/.github/workflows/build-binaries.yml). Extrae sus fuentes en los directorios `ext/igbinary` y `ext/redis` de PHP antes de ejecutar `./buildconf --force`. Añade `--enable-igbinary --enable-redis --enable-redis-igbinary` a `./configure`.
 

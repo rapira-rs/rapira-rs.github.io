@@ -152,21 +152,11 @@ curl -H 'Content-Type: application/json' -d '{"text":"hello"}' http://127.0.0.1:
 
 Wygeneruj klasy PHP, gdy handler musi odczytywać lub zmieniać pola komunikatu. Zainstaluj `protoc` i Composer na potrzeby tego etapu budowania.
 
-Zainstaluj bibliotekę wykonawczą protobuf dla PHP w `app/`:
+Uruchom te polecenia w `app/`:
 
 ```sh
 composer require google/protobuf
-```
-
-Utwórz katalog wynikowy:
-
-```sh
 mkdir -p generated
-```
-
-Wygeneruj klasy:
-
-```sh
 protoc --proto_path=proto --php_out=generated proto/echo.proto
 ```
 
@@ -335,7 +325,7 @@ Limit `receive()` określa, jak długo PHP czeka na nową pracę. Jest niezależ
 
 ## Usługi i refleksja
 
-Proces nadrzędny wczytuje zestaw deskryptorów przed forkowaniem workerów. Nieprawidłowy zestaw, zestaw bez importowanych plików lub nieznana usługa zatrzymuje start. Zmieniony zestaw wymaga zatrzymania i ponownego uruchomienia Rapiry. Przeładowanie zachowuje stary zestaw.
+Proces nadrzędny wczytuje zestaw deskryptorów przed forkowaniem workerów. Nieprawidłowy zestaw, brak importowanych plików lub nieznana usługa wskazana w konfiguracji uniemożliwiają uruchomienie. Uruchom ponownie Rapirę po zmianie zestawu deskryptorów. Przeładowanie zachowuje wczytany zestaw.
 
 Domyślnie pula obsługuje usługi z plików, których nie importuje żaden inny plik zestawu. Plik importowany przez inny plik jest zależnością, na przykład `google/longrunning/operations.proto`. Jego usługi nie są obsługiwane. Ustaw `grpc.services`, aby wskazać obsługiwane usługi, na przykład `["billing.v1.InvoiceService"]`. Użyj tego klucza, gdy kilka instancji Rapira współdzieli jeden zestaw, lub aby obsłużyć usługę z importowanego pliku.
 

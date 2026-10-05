@@ -12,7 +12,7 @@ Ta strona to przewodnik programisty dla dyspozytora HTTP. Porównanie trybów za
 
 ## Pętla odbioru
 
-Skrypt dyspozytora składa się z trzech części. Pierwsza część inicjalizuje aplikację. Druga część pobiera dyspozytora. Trzecia część odbiera żądania w pętli, dopóki Rapira nie zamknie dyspozytora.
+Skrypt inicjalizuje aplikację i pobiera dyspozytora. Następnie odbiera żądania w pętli, dopóki Rapira nie zamknie dyspozytora.
 
 ```php
 <?php

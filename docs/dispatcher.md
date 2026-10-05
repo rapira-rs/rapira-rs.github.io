@@ -12,7 +12,7 @@ This page is the programming guide for the HTTP dispatcher. See [Execution modes
 
 ## The receive loop
 
-A dispatcher script has three parts. The first part initializes the application. The second part gets the dispatcher. The third part receives requests in a loop until Rapira closes the dispatcher.
+The script initializes the application and gets the dispatcher. It then receives requests in a loop until Rapira closes the dispatcher.
 
 ```php
 <?php

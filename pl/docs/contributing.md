@@ -2,7 +2,7 @@
 
 Ta strona opisuje funkcje tworzenia dokumentacji.
 
-Używaj Node.js 24. Uruchom `npm ci`, aby zainstalować zablokowane zależności. Następnie uruchom `npm run dev`. Otwórz lokalny adres z danych wyjściowych polecenia. Katalogi tłumaczeń mają taką samą strukturę jak kanoniczne pliki angielskie.
+Używaj Node.js 24. Uruchom `npm ci`, aby zainstalować zależności w wersjach zapisanych w pliku blokady. Następnie uruchom `npm run dev`. Otwórz lokalny adres z danych wyjściowych polecenia. Katalogi tłumaczeń mają taką samą strukturę jak kanoniczne pliki angielskie.
 
 Uruchom `npm run build` przed zgłoszeniem zmiany. Polecenie generuje miniatury i sprawdza konfigurację VitePress, renderowanie Markdown oraz linki wewnętrzne.
 

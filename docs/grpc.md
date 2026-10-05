@@ -152,21 +152,11 @@ curl -H 'Content-Type: application/json' -d '{"text":"hello"}' http://127.0.0.1:
 
 Generate PHP classes when a handler must read or change message fields. Install `protoc` and Composer for this build step.
 
-Install the PHP protobuf runtime in `app/`:
+Run these commands from `app/`:
 
 ```sh
 composer require google/protobuf
-```
-
-Create the output directory:
-
-```sh
 mkdir -p generated
-```
-
-Generate the classes:
-
-```sh
 protoc --proto_path=proto --php_out=generated proto/echo.proto
 ```
 
@@ -335,7 +325,7 @@ The `receive()` timeout sets how long PHP waits for new work. It is not related 
 
 ## Services and reflection
 
-The master loads the descriptor set before it forks the workers. An invalid set, a set without its imports, or an unknown service stops the start. A changed set needs a stop and a start of Rapira. A reload keeps the old set.
+The master loads the descriptor set before it forks the workers. An invalid set, missing imports, or an unknown configured service prevents startup. Restart Rapira after you change the descriptor set. A reload keeps the loaded set.
 
 By default, the pool serves the services of the files that no other file in the set imports. A file that another file imports is a dependency, for example `google/longrunning/operations.proto`. Its services are not served. Set `grpc.services` to name the served services, for example `["billing.v1.InvoiceService"]`. Use this key when several Rapira instances share one set, or to serve a service of an imported file.
 

@@ -170,7 +170,7 @@ request_terminate_timeout_secs = 30
 
 Tabela `[grpc.pool]` przyjmuje te same klucze.
 
-`max_requests` zastępuje workera po określonej liczbie żądań. Dla każdego workera Rapira dodaje losową liczbę do połowy limitu, aby nie zastępować workerów jednocześnie. To ustawienie ogranicza wpływ wycieku pamięci, ale go nie naprawia.
+`max_requests` zastępuje workera po określonej liczbie żądań. Dla każdego workera Rapira zwiększa limit o losową liczbę żądań nie większą niż połowa limitu, aby nie zastępować workerów jednocześnie. To ustawienie ogranicza wpływ wycieku pamięci, ale go nie naprawia.
 
 `request_terminate_timeout_secs` ogranicza czas jednego żądania. Rapira kończy i zastępuje workera, który przekroczy limit. Domyślna wartość obu ustawień to zero, które je wyłącza. Włącz je w środowisku produkcyjnym.
 

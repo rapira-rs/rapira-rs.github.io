@@ -152,21 +152,11 @@ curl -H 'Content-Type: application/json' -d '{"text":"hello"}' http://127.0.0.1:
 
 当 handler 需要读取或修改消息字段时，请生成 PHP 类。安装 `protoc` 和 Composer 以完成此构建步骤。
 
-在 `app/` 中安装 PHP protobuf 运行时：
+在 `app/` 中运行以下命令：
 
 ```sh
 composer require google/protobuf
-```
-
-创建输出目录：
-
-```sh
 mkdir -p generated
-```
-
-生成类：
-
-```sh
 protoc --proto_path=proto --php_out=generated proto/echo.proto
 ```
 
@@ -335,7 +325,7 @@ grpcurl -plaintext -max-time 2 -d '{"text":"hello"}' 127.0.0.1:50051 example.v1.
 
 ## 服务和反射
 
-master 在 fork 出 worker 前加载描述符集。无效的描述符集、不含其导入文件的描述符集或未知服务会阻止启动。更改描述符集后，需要停止并重新启动 Rapira。重载会保留旧的描述符集。
+master 在 fork 出 worker 前加载描述符集。描述符集无效、缺少导入文件或配置了未知服务，都会阻止启动。更改描述符集后，请重启 Rapira。重载会保留已加载的描述符集。
 
 默认情况下，进程池提供集合中未被其他文件导入的文件里的服务。被其他文件导入的文件是依赖项，例如 `google/longrunning/operations.proto`。其中的服务不会被提供。设置 `grpc.services` 以指定所提供的服务，例如 `["billing.v1.InvoiceService"]`。当多个 Rapira 实例共用一个描述符集，或需要提供某个导入文件中的服务时，请使用此键。
 
@@ -383,7 +373,7 @@ JSON 转换解码每个 `google.protobuf.Any` 的内容时，为解码后的元�
 :::
 
 ::: warning 一个连接使用一个 worker
-一个 worker 进程服务每个连接。gRPC 客户端通常在一个 HTTP/2 连接上发送一个 channel 的所有调用。无论进程池大小如何，这样的客户端只能获得一个 worker 的吞吐量。要使用更多 worker，请打开多个连接，或使用能分发调用的 L7 负载均衡器。
+每个连接由一个 worker 进程处理。gRPC 客户端通常在一个 HTTP/2 连接上发送一个 channel 的所有调用。无论进程池大小如何，这样的客户端只能获得一个 worker 的吞吐量。要使用更多 worker，请打开多个连接，或使用能分发调用的 L7 负载均衡器。
 :::
 
 ## 同时运行 HTTP 和 gRPC

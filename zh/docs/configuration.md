@@ -104,7 +104,7 @@ http = "warn"
 
 | 键 | 类型 | 默认值 | 含义 |
 | --- | --- | --- | --- |
-| `listen` | 字符串 | `"127.0.0.1:8000"` | 绑定地址。带 IP 地址时使用 `host:port`，所有 IPv4 网卡使用 `:port`，Unix socket 使用 `unix:/run/rapira.sock`。所有 IPv6 网卡使用 `[::]:8080`。IPv6 字面量放在方括号里，例如 `[::1]:8000`。Rapira 拒绝主机名，也拒绝不带冒号的端口，例如 `8000`。 |
+| `listen` | 字符串 | `"127.0.0.1:8000"` | 绑定地址。带 IP 地址时使用 `host:port`，所有 IPv4 网络接口使用 `:port`，Unix socket 使用 `unix:/run/rapira.sock`。所有 IPv6 网络接口使用 `[::]:8080`。IPv6 字面量放在方括号里，例如 `[::1]:8000`。Rapira 拒绝主机名，也拒绝不带冒号的端口，例如 `8000`。 |
 | `server_name` | 字符串 | `"localhost"` | PHP 从 `$_SERVER['SERVER_NAME']` 读到的值。 |
 | `server_port` | 整数 | 监听端口，`unix:` 时为 `80` | `$_SERVER['SERVER_PORT']` 的值。代理端口与 Rapira 端口不同时，请设置它。 |
 | `max_body_size_mb` | 整数 | `8` | 最大请求体，单位 MiB。请求体更大时，Rapira 返回 `413`。最小值为 1。 |
@@ -219,7 +219,7 @@ HTTP 和 gRPC 可以同时运行。每个监听器使用自己的进程池和入
 | `pidfile` | 字符串 | 无 | 写入 master 进程标识符的文件。相对路径以配置文件目录为基准。请向此标识符发送进程信号。请参阅[进程模型](/zh/docs/process-model)。 |
 | `process_control_timeout_secs` | 整数 | `30` | master 在发送 `SIGQUIT` 后等待多久才发送 `SIGTERM`。master 在 `SIGTERM` 一秒后发送 `SIGKILL`。 |
 
-连接的排空时间更短：控制超时减去五秒和超时一半中的较小值。默认排空时间为 25 秒。此时间限制适用于停止和重载。
+连接的排空时间更短：先取五秒和控制超时一半中的较小值，再从控制超时中减去该值。默认排空时间为 25 秒。此时间限制适用于停止和重载。
 
 ## `[log]` 小节
 

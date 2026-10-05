@@ -15,7 +15,7 @@ Los objetos y los datos de una petición no pueden afectar a una petición poste
 
 La aplicación inicializa el autoloader, la configuración, el contenedor y las rutas en cada petición. Consulta [modos de ejecución](/es/docs/execution-modes) para más información.
 
-Cada worker usa el directorio del script de entrada como directorio de trabajo. Una llamada a `chdir()` en una petición sigue en efecto para las peticiones posteriores del mismo worker, hasta que el worker termina. Si una petición cambia el directorio de trabajo, restáuralo antes de que termine la petición.
+Cada worker usa el directorio del script de entrada como directorio de trabajo. El cambio que hace `chdir()` en una petición se mantiene para las peticiones posteriores del mismo worker, hasta que el worker termina. Si una petición cambia el directorio de trabajo, restáuralo antes de que termine la petición.
 
 Rapira no proporciona la función `fastcgi_finish_request()` de php-fpm. Usa `rapira_finish_request()` para enviar la respuesta antes de que termine el script. Consulta [HTTP](/es/docs/http) para más información.
 

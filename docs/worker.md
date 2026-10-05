@@ -14,7 +14,7 @@ Worker mode does not require a specific framework. It requires an application th
 
 ## The persistent loop
 
-A worker script has three parts. The first part initializes the application. The second part defines a handler for one request. The third part calls `\Rapira\handle_request()` in a loop until the worker stops.
+The script initializes the application and defines a handler for one request. It then calls `\Rapira\handle_request()` in a loop until the worker stops.
 
 ```php
 <?php
@@ -114,9 +114,9 @@ while (\Rapira\handle_request($handler)) {
 }
 ```
 
-At the end of the cycle, initialization registrations run first in registration order. A function registered after the loop runs after them.
+At the end of the cycle, PHP runs the shutdown functions registered during initialization in registration order. Functions registered after the loop run after them.
 
-Objects use a different rule. Rapira does not run all destructors at the end of a request. PHP destroys an object after code removes its last reference. Thus, PHP destroys a handler object when the handler returns. A global object created during initialization remains between requests. Its `__destruct()` method runs once when the cycle ends.
+Objects use a different rule. Rapira does not run all destructors at the end of a request. PHP destroys an object after code removes its last reference. After the handler returns, PHP destroys objects created in it only when no references remain. A global object created during initialization remains between requests. Its `__destruct()` method runs once when the cycle ends.
 
 ::: question Why does an initialization shutdown function not run after the first request?
 PHP stores shutdown functions in request state. Request shutdown calls the functions and then releases the list. At the first `handle_request()` call, Rapira removes and stores the initialization registrations, so each request has only its own registrations. At the end of the cycle, Rapira restores the stored list and adds the registrations from after the loop.

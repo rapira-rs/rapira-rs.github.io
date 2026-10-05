@@ -119,7 +119,7 @@ kill -USR2 "$(cat /run/rapira/rapira.pid)"
 
 `process_control_timeout_secs` 限制停止时的初始等待时间，以及每次等待替代 worker 就绪的时间。停止等待结束后，master 发送 `SIGTERM`。一秒后发送 `SIGKILL`。请将 systemd 的 `TimeoutStopSec` 设置为大于这一完整时间间隔的值。
 
-连接的排空时间更短：控制超时减去五秒和超时一半中的较小值。默认排空时间为 25 秒。停止或重载期间，超过此时间的响应可能被截断。
+连接的排空时间更短：先取五秒和控制超时一半中的较小值，再从控制超时中减去该值。默认排空时间为 25 秒。停止或重载期间，超过此时间的响应可能被截断。
 
 ::: warning 重载不会做的事
 重载替换 worker，但不替换 master。master 保留 Rapira 二进制文件以及 `rapira.toml` 和 `php.ini` 中的设置。它还保留 gRPC 描述符集、`[grpc.auth]` 令牌文件和 OPcache 共享内存。更改其中任一文件后，请重启 Rapira。当 `opcache.validate_timestamps = 0` 时，也请重启 Rapira。在此配置中，重载不会替换缓存的 opcode。

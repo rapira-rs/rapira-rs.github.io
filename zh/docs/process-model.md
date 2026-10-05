@@ -99,7 +99,7 @@ kill -TERM $(cat /run/rapira.pid)   # Stop after current requests finish.
 
 收到停止信号后，master 立即向每个 worker 发送 `SIGQUIT`。worker 停止接受新工作，并完成当前请求。经过 `supervisor.process_control_timeout_secs` 后，master 向剩余的 worker 发送 `SIGTERM`。默认限制为 30 秒。如果仍有 worker，master 在 `SIGTERM` 一秒后发送 `SIGKILL`。
 
-连接排空时间等于控制超时减去五秒和超时一半中的较小值。使用默认设置时，连接有 25 秒来完成。超过此时间的响应可能被截断。重载期间也使用相同的时间限制。
+计算连接排空时间时，先取五秒和控制超时一半中的较小值，再从控制超时中减去该值。使用默认设置时，连接有 25 秒来完成。超过此时间的响应可能被截断。重载期间也使用相同的时间限制。
 
 第二个 `SIGTERM` 或 `SIGINT` 会跳过等待，立即强制退出。master 的退出码见[退出码](/zh/docs/cli#退出码)。
 

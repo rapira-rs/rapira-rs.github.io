@@ -14,7 +14,7 @@ Tryb Worker nie wymaga określonego frameworka. Wymaga aplikacji, która może o
 
 ## Pętla rezydentna
 
-Skrypt workera składa się z trzech części. Pierwsza część inicjalizuje aplikację. Druga część definiuje handler jednego żądania. Trzecia część wywołuje `\Rapira\handle_request()` w pętli do zatrzymania workera.
+Skrypt inicjalizuje aplikację i definiuje handler jednego żądania. Następnie wywołuje `\Rapira\handle_request()` w pętli, dopóki worker się nie zatrzyma.
 
 ```php
 <?php
@@ -114,9 +114,9 @@ while (\Rapira\handle_request($handler)) {
 }
 ```
 
-Na końcu cyklu najpierw uruchamiają się rejestracje z inicjalizacji, w kolejności rejestrowania. Funkcja zarejestrowana po pętli uruchamia się po nich.
+Na końcu cyklu PHP najpierw wykonuje funkcje shutdown zarejestrowane podczas inicjalizacji, w kolejności rejestracji. Funkcje zarejestrowane po pętli wykonuje po nich.
 
-Obiekty używają innej reguły. Rapira nie uruchamia wszystkich destruktorów na końcu żądania. PHP niszczy obiekt po usunięciu ostatniej referencji. Dlatego PHP niszczy obiekt handlera po powrocie handlera. Obiekt globalny utworzony podczas inicjalizacji pozostaje między żądaniami. Jego metoda `__destruct()` uruchamia się raz na końcu cyklu.
+Obiekty używają innej reguły. Rapira nie uruchamia wszystkich destruktorów na końcu żądania. PHP niszczy obiekt po usunięciu ostatniej referencji. Po powrocie z handlera PHP niszczy utworzone w nim obiekty tylko wtedy, gdy nie ma już do nich żadnych referencji. Obiekt globalny utworzony podczas inicjalizacji pozostaje między żądaniami. Jego metoda `__destruct()` uruchamia się raz na końcu cyklu.
 
 ::: question Dlaczego funkcja shutdown z inicjalizacji nie uruchamia się po pierwszym żądaniu?
 PHP przechowuje funkcje shutdown w stanie żądania. Zamknięcie żądania wywołuje funkcje, a następnie zwalnia listę. Przy pierwszym wywołaniu `handle_request()` Rapira usuwa i zapisuje rejestracje inicjalizacji, więc każde żądanie ma tylko własne rejestracje. Na końcu cyklu Rapira przywraca zapisaną listę i dodaje rejestracje utworzone po pętli.

@@ -10,7 +10,7 @@ HTTP 进程池使用三种执行模式之一运行 PHP。[gRPC 进程池](./grpc
 
 | 模式 | 说明 |
 | --- | --- |
-| [Classic](/zh/docs/classic) | 每个请求都把入口脚本从头跑一遍，和在 php-fpm 下一样。 |
+| [Classic](/zh/docs/classic) | 入口脚本每次都在新的 PHP 请求中运行，与 php-fpm 相同。 |
 | [Worker](/zh/docs/worker) | 常驻脚本在循环里处理请求。Rapira 为每个请求重新填充超全局变量。 |
 | [Dispatcher](/zh/docs/dispatcher) | worker 通过 API 调用取得每个请求，并使用请求对象，而不是超全局变量。 |
 

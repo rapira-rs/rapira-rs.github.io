@@ -26,7 +26,7 @@ const labels = {
 
 [Страница релизов Rapira](https://github.com/rapira-rs/rapira/releases) содержит сборки для Linux и macOS. [Страница релизов Rapira для Windows](https://github.com/rapira-rs/rapira-windows/releases) содержит сборки для Windows. Выберите платформу. Кнопка скачивает последнюю стабильную версию.
 
-Последний стабильный релиз для Windows - v0.8.0. Он обслуживает только HTTP и использует собственную конфигурацию и набор расширений. Следуйте [инструкциям по установке для Windows](/ru/docs/intro/installation#windows). Функции исходников Windows v0.9 отсутствуют в этой загрузке.
+Последний стабильный релиз для Windows - v0.8.0. Он обслуживает только HTTP и использует собственную конфигурацию и набор расширений. Следуйте [инструкциям по установке для Windows](/ru/docs/intro/installation#windows). Функции, реализованные в исходном коде Windows v0.9, отсутствуют в этой сборке.
 
 <DownloadBuilds :labels="labels">
 <template #dev-note>

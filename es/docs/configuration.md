@@ -181,7 +181,7 @@ Esta sección activa llamadas unarias gRPC, gRPC-Web y Connect en una sola escuc
 | `keepalive_timeout_secs` | entero | `10` | El tiempo que Rapira espera la respuesta al PING. Si no llega ninguna respuesta en este tiempo, Rapira cierra la conexión. El rango es de 1 a `86400`. |
 | `interceptors` | lista de cadenas | vacía | Los interceptores que se ejecutan antes que PHP, en el orden de la lista. Solo `"auth"` está disponible. Rapira rechaza los nombres duplicados, los nombres desconocidos y los nombres sin tabla de configuración. También rechaza una tabla `[grpc.auth]` que la lista no nombra. |
 
-El maestro carga el descriptor set antes de crear los workers con fork. Estos errores impiden la inicialización: un conjunto que Rapira no puede leer ni decodificar, un conjunto sin sus importaciones y un conjunto sin ningún servicio que atender. También la impiden una entrada de `services` que no está en el conjunto, una entrada duplicada y una entrada que nombra el servicio de salud o el de reflexión. `default_timeout_secs` no puede ser mayor que `max_timeout_secs`.
+El maestro carga el descriptor set antes de crear los workers con fork. Estos errores impiden la inicialización: un conjunto que Rapira no puede leer o no puede decodificar, un conjunto sin sus importaciones y un conjunto sin ningún servicio que atender. También la impiden una entrada de `services` que no está en el conjunto, una entrada duplicada y una entrada que nombra el servicio de salud o el de reflexión. `default_timeout_secs` no puede ser mayor que `max_timeout_secs`.
 
 ### La tabla `[grpc.auth]` {#grpc-auth}
 

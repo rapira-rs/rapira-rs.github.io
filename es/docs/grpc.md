@@ -152,21 +152,11 @@ curl -H 'Content-Type: application/json' -d '{"text":"hello"}' http://127.0.0.1:
 
 Genera clases PHP cuando un handler deba leer o modificar campos de un mensaje. Instala `protoc` y Composer para este paso de compilación.
 
-Instala el runtime protobuf de PHP en `app/`:
+Ejecuta estos comandos desde `app/`:
 
 ```sh
 composer require google/protobuf
-```
-
-Crea el directorio de salida:
-
-```sh
 mkdir -p generated
-```
-
-Genera las clases:
-
-```sh
 protoc --proto_path=proto --php_out=generated proto/echo.proto
 ```
 
@@ -335,7 +325,7 @@ El tiempo de espera de `receive()` establece cuánto espera PHP por trabajo nuev
 
 ## Servicios y reflexión
 
-El maestro carga el descriptor set antes de crear los workers con fork. Un conjunto no válido, un conjunto sin sus importaciones o un servicio desconocido impide el arranque. Un conjunto modificado requiere detener y volver a iniciar Rapira. Una recarga conserva el conjunto anterior.
+El maestro carga el descriptor set antes de crear los workers con fork. Un conjunto no válido, la falta de importaciones o un servicio configurado desconocido impiden el arranque. Reinicia Rapira después de cambiar el descriptor set. Una recarga conserva el conjunto cargado.
 
 Por defecto, el pool atiende los servicios de los archivos que ningún otro archivo del conjunto importa. Un archivo que otro archivo importa es una dependencia, por ejemplo `google/longrunning/operations.proto`. Sus servicios no se atienden. Define `grpc.services` para nombrar los servicios atendidos, por ejemplo `["billing.v1.InvoiceService"]`. Usa esta clave cuando varias instancias de Rapira comparten un mismo conjunto, o para atender un servicio de un archivo importado.
 

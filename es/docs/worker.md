@@ -14,7 +14,7 @@ El modo Worker no requiere un framework específico. Requiere una aplicación qu
 
 ## El bucle residente
 
-Un script de worker tiene tres partes. La primera parte inicializa la aplicación. La segunda parte define un handler para una petición. La tercera parte llama a `\Rapira\handle_request()` en un bucle hasta que el worker se detiene.
+El script inicializa la aplicación y define un handler para una petición. Después llama a `\Rapira\handle_request()` en un bucle hasta que el worker se detiene.
 
 ```php
 <?php
@@ -114,9 +114,9 @@ while (\Rapira\handle_request($handler)) {
 }
 ```
 
-Al final del ciclo, los registros de la inicialización se ejecutan primero, en el orden de registro. Una función registrada después del bucle se ejecuta después de ellos.
+Al final del ciclo, las funciones registradas durante la inicialización se ejecutan primero, en el orden de registro. Una función registrada después del bucle se ejecuta después de ellas.
 
-Los objetos usan otra regla. Rapira no ejecuta todos los destructores al final de una petición. PHP destruye un objeto cuando el código elimina su última referencia. Por tanto, PHP destruye un objeto del handler cuando el handler retorna. Un objeto global creado durante la inicialización permanece entre peticiones. Su método `__destruct()` se ejecuta una vez cuando termina el ciclo.
+Los objetos usan otra regla. Rapira no ejecuta todos los destructores al final de una petición. PHP destruye un objeto cuando el código elimina su última referencia. Cuando el handler retorna, PHP destruye los objetos creados en él solo si ya no quedan referencias a ellos. Un objeto global creado durante la inicialización permanece entre peticiones. Su método `__destruct()` se ejecuta una vez cuando termina el ciclo.
 
 ::: question ¿Por qué una función de shutdown de la inicialización no se ejecuta después de la primera petición?
 PHP guarda las funciones de shutdown en el estado de la petición. El cierre de la petición llama a las funciones y libera la lista. En la primera llamada a `handle_request()`, Rapira elimina y guarda los registros de la inicialización, por lo que cada petición tiene solo sus propios registros. Al final del ciclo, Rapira restaura la lista guardada y añade los registros posteriores al bucle.

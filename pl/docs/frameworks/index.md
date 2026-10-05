@@ -104,13 +104,13 @@ Zmiana `$_ENV` nie zmienia środowiska procesu. Użyj `putenv()`, gdy `getenv()`
 
 Testy potwierdziły trzy rodzaje błędów z jednym workerem:
 
-- **`exit` albo `die` w handlerze** wysyła bieżący status i wyjście. Proces się nie zatrzymuje, a worker nadal przyjmuje żądania. Na przykład framework może użyć `exit` do odpowiedzi konserwacyjnej.
+- **`exit` albo `die` w handlerze** wysyła bieżący status i wyjście. Proces się nie zatrzymuje, a worker nadal przyjmuje żądania. Na przykład framework może użyć `exit`, aby zwrócić odpowiedź informującą o przerwie technicznej.
 - **Nieprzechwycony wyjątek** zwraca `500`, jeśli PHP nie wysłał wyjścia przed wyjątkiem. Po wysłaniu wyjścia pozostaje status, który PHP już wysłał. Handler wyjątków frameworka może zwrócić własną stronę błędu. Bez takiego handlera i z wyłączonym `display_errors` treść jest pusta. Worker nadal przyjmuje żądania.
 - **Nieprzechwycony `Error`** daje ten sam wynik. Dla obu rodzajów PHP zapisuje rekord logu `Uncaught`.
 
 Licznik `errors` workera zwiększa się, gdy żaden handler wyjątków nie przechwyci wyjątku lub `Error`. Żądanie z `exit` zwiększa tylko `handled`. We wszystkich trzech przypadkach `recycles` pozostaje zerowy.
 
-Błąd krytyczny klasy bailout kończy skrypt rezydentny. Worker ponownie uruchamia skrypt i inicjalizuje aplikację. To ponowne uruchomienie zwiększa `recycles`. Wyjście statusu opisane na stronie [model procesów](/pl/docs/process-model) pokazuje te liczniki.
+Błąd krytyczny klasy bailout kończy skrypt rezydentny. Worker ponownie uruchamia skrypt i inicjalizuje aplikację. To ponowne uruchomienie zwiększa `recycles`. Zapis stanu opisany na stronie [model procesów](/pl/docs/process-model) pokazuje te liczniki.
 
 ## Pliki statyczne
 

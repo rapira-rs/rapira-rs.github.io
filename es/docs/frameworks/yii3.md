@@ -88,7 +88,7 @@ La plantilla pasa `temporaryErrorHandler` con un logger `StreamTarget`. También
 :::
 
 ::: question ¿Lee un runner persistente la petición actual?
-Sí. `run()` no guarda una petición de la creación del runner. Cada llamada obtiene `RequestFactory` y crea un `ServerRequest` PSR-7 a partir de las superglobales y de `php://input`. Rapira rellena estos valores antes de cada llamada al handler. Cada llamada también registra el manejador de errores, llama a `runBootstrap()` y llama a `checkEvents()` cuando su opción es verdadera. Las pruebas confirmaron esta secuencia durante 200 llamadas. Consulta el contrato de los datos de petición en [Modo Worker](/es/docs/worker).
+Sí. `run()` no conserva una petición desde la creación del runner. Cada llamada obtiene `RequestFactory` y crea un `ServerRequest` PSR-7 a partir de las superglobales y de `php://input`. Rapira rellena estos valores antes de cada llamada al handler. Cada llamada también registra el manejador de errores, llama a `runBootstrap()` y llama a `checkEvents()` cuando su opción es verdadera. Las pruebas confirmaron esta secuencia durante 200 llamadas. Consulta el contrato de los datos de petición en [Modo Worker](/es/docs/worker).
 :::
 
 ## Un runner nuevo para cada petición

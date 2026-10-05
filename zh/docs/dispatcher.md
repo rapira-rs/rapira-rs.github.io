@@ -12,7 +12,7 @@ Dispatcher 模式与 [Worker 模式](/zh/docs/worker)一样，使 PHP 进程在�
 
 ## 接收循环
 
-dispatcher 脚本包含三个部分。第一部分初始化应用。第二部分取得 dispatcher。第三部分在循环中接收请求，直到 Rapira 关闭 dispatcher。
+脚本先初始化应用并取得 dispatcher，然后在循环中接收请求，直到 Rapira 关闭 dispatcher。
 
 ```php
 <?php

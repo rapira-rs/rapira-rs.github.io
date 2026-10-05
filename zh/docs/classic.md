@@ -70,7 +70,7 @@ Rapira 在 PHP 运行前对完整请求体应用 `http.max_body_size_mb`。默�
 
 ## 在 Classic 和 Worker 之间做选择
 
-如果应用无法在请求间安全保留状态，请使用 Classic 模式。例如，一些应用和第三方库在静态属性中存储请求数据。从 php-fpm 迁移时，Classic 模式还可以减少应用更改。如果应用支持持久进程，请使用 [Worker](/zh/docs/worker) 模式。Worker 模式删除每个请求中的应用初始化。所有三种模式请参阅[执行模式](/zh/docs/execution-modes)。
+如果应用无法在请求间安全保留状态，请使用 Classic 模式。例如，一些应用和第三方库在静态属性中存储请求数据。从 php-fpm 迁移时，Classic 模式还可以减少应用更改。如果应用支持持久进程，请使用 [Worker](/zh/docs/worker) 模式。Worker 模式无需为每个请求初始化应用。所有三种模式请参阅[执行模式](/zh/docs/execution-modes)。
 
 ::: info
 在 Classic 模式下，`Rapira\handle_request()` 抛出 `Rapira\Exception\NotInWorkerModeError`。Classic 脚本随其请求结束，无法运行请求循环。

@@ -99,7 +99,7 @@ rapira serve rapira.toml
 curl '127.0.0.1:8000/?name=world'
 ```
 
-多次运行 `curl` 命令。同一进程处理另一个请求时，该 worker 的计数器会增加。Rapira 默认为每个逻辑 CPU 创建一个 worker。操作系统为每个连接选择 worker。每个 worker 有独立的计数器。输出中的进程标识符显示返回响应的 worker。
+多次运行 `curl` 命令。同一进程处理另一个请求时，该 worker 的计数器会增加。Rapira 默认根据可用 CPU 设置 worker 数量。操作系统为每个连接选择 worker。每个 worker 有独立的计数器。输出中的进程标识符显示返回响应的 worker。
 
 在 `[http.pool]` 中设置 `processes = 1` 以创建一个 worker。进程池的监管请参阅[进程模型](/zh/docs/process-model)。
 
@@ -113,21 +113,7 @@ worker 脚本必须重置保留在内存中的请求状态。此状态包括静�
 
 ## 配置文件
 
-配置文件保存所有设置。`rapira serve` 命令只接受此文件的路径。将 worker 数量加入此文件：
-
-```toml
-[http]
-listen = "127.0.0.1:8000"
-
-[http.pool]
-entrypoint = "worker.php"
-mode = "worker"
-processes = 4
-```
-
-```bash
-rapira serve rapira.toml
-```
+配置文件保存所有设置。`rapira serve` 命令只接受此文件的路径。要使用四个 worker，请在已有的 `[http.pool]` 表中添加 `processes = 4`。
 
 ::: info
 相对 `http.pool.entrypoint` 以配置文件目录为基准。当前目录不会影响此路径。

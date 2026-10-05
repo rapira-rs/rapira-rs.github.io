@@ -12,7 +12,7 @@ Esta página es la guía de programación del dispatcher HTTP. Consulta [Modos d
 
 ## El bucle de recepción
 
-Un script de dispatcher tiene tres partes. La primera parte inicializa la aplicación. La segunda parte obtiene el dispatcher. La tercera parte recibe peticiones en un bucle hasta que Rapira cierra el dispatcher.
+El script inicializa la aplicación y obtiene el dispatcher. Después recibe peticiones en un bucle hasta que Rapira cierra el dispatcher.
 
 ```php
 <?php

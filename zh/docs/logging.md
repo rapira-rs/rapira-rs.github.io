@@ -184,7 +184,7 @@ RUST_LOG=warn,rapira=trace,master=trace rapira serve rapira.toml
 
 第一个命令将所有目标设置为 `info`。第二个命令将 `rapira` 设置为 `debug`，将 `php` 设置为 `info`，将所有其他目标设置为 `error`。第三个命令将所有目标设置为 `warn`，将 `rapira` 和 `master` 设置为 `trace`。
 
-值没有匹配的目标不写入任何记录。例如，`RUST_LOG=php=info` 隐藏 `master` 和 `http` 目标的所有错误。添加一个不带目标名称的级别（例如 `error`），以保留其他目标的记录。
+未被此值匹配的目标不写入任何记录。例如，`RUST_LOG=php=info` 隐藏 `master` 和 `http` 目标的所有错误。添加一个不带目标名称的级别（例如 `error`），以保留其他目标的记录。
 
 ::: warning
 非空 `RUST_LOG` 值会**替换** `level` 和 `[log.targets]`。Rapira 不合并环境过滤器和文件过滤器。删除此变量以使用配置文件设置。也可以将此变量设置为空值。`RUST_LOG` 不影响 `format`。

@@ -14,7 +14,7 @@ Worker 模式不要求特定框架。它要求应用能在一次初始化后处�
 
 ## 常驻循环
 
-worker 脚本包含三个部分。第一部分初始化应用。第二部分定义单个请求的 handler。第三部分在循环中调用 `\Rapira\handle_request()`，直到 worker 停止。
+脚本先初始化应用并定义单个请求的 handler，然后在循环中调用 `\Rapira\handle_request()`，直到 worker 停止。
 
 ```php
 <?php
@@ -114,12 +114,12 @@ while (\Rapira\handle_request($handler)) {
 }
 ```
 
-周期结束时，初始化注册先按注册顺序运行。循环之后注册的函数在它们之后运行。
+周期结束时，初始化期间注册的 shutdown 函数先按注册顺序运行。循环之后注册的函数在它们之后运行。
 
-对象使用不同的规则。Rapira 不会在请求结束时运行所有析构函数。代码删除对象的最后一个引用后，PHP 才销毁该对象。因此，handler 返回时 PHP 销毁 handler 中的对象。初始化期间创建的全局对象保留在请求之间。它的 `__destruct()` 方法在周期结束时运行一次。
+对象使用不同的规则。Rapira 不会在请求结束时运行所有析构函数。代码删除对象的最后一个引用后，PHP 才销毁该对象。handler 返回后，PHP 仅在不再有引用时销毁其中创建的对象。初始化期间创建的全局对象保留在请求之间。它的 `__destruct()` 方法在周期结束时运行一次。
 
 ::: question 为什么初始化注册的 shutdown 函数不在第一个请求后运行？
-PHP 将 shutdown 函数存储在请求状态中。请求关闭过程调用这些函数，然后释放列表。第一次调用 `handle_request()` 时，Rapira 移除并保存初始化注册，因此每个请求只有自己的注册。周期结束时，Rapira 恢复保存的列表，并添加循环之后的注册。
+PHP 将 shutdown 函数存储在请求状态中。请求关闭过程调用这些函数，然后释放列表。第一次调用 `handle_request()` 时，Rapira 移除并保存初始化期间注册的函数，因此每个请求只保留自己注册的函数。周期结束时，Rapira 恢复保存的列表，并添加循环之后注册的函数。
 :::
 
 ## 只在 Worker 模式下可用
@@ -143,7 +143,7 @@ if (\Rapira\get_mode() === \Rapira\Mode::Worker) {
 
 **未回收的循环引用。**PHP 引用计数会立即释放大多数值。只有循环回收器运行时，PHP 才会释放循环引用。示例在请求之间调用 `gc_collect_cycles()`。此调用是可选的，但可以使回收时间可预测。
 
-**无法完成的请求。**当前请求运行时，worker 无法处理其他请求。`http.pool.request_terminate_timeout_secs` 限制一个请求的经过时间。请求超过此限制时，Rapira 停止该 worker 并启动新的 worker。有关此键和 `http.pool.max_requests`，请参阅[配置](/zh/docs/configuration)。有关停止顺序，请参阅[进程模型](/zh/docs/process-model)。
+**无法完成的请求。**当前请求运行时，worker 无法处理其他请求。`http.pool.request_terminate_timeout_secs` 限制一个请求从开始到结束的总时间。请求超过此限制时，Rapira 停止该 worker 并启动新的 worker。有关此键和 `http.pool.max_requests`，请参阅[配置](/zh/docs/configuration)。有关停止顺序，请参阅[进程模型](/zh/docs/process-model)。
 
 **初始化失败。**worker 脚本必须调用 `handle_request()` 并收到请求。初始化期间未捕获的异常可能在此之前结束脚本。Rapira 将此计为一次启动失败。然后 worker 最多等待 5 秒接收请求，以 `503` 回答它，并再次运行脚本。
 

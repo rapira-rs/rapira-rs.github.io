@@ -99,7 +99,7 @@ rapira serve rapira.toml
 curl '127.0.0.1:8000/?name=world'
 ```
 
-Ejecuta el comando `curl` varias veces. El contador de un worker aumenta cuando ese proceso gestiona otra petición. Rapira crea un worker por CPU lógica de forma predeterminada. El sistema operativo selecciona un worker para cada conexión. Cada worker tiene su propio contador. El identificador del proceso en la salida muestra qué worker devolvió la respuesta.
+Ejecuta el comando `curl` varias veces. El contador de un worker aumenta cuando ese proceso gestiona otra petición. De forma predeterminada, Rapira determina el número de workers según las CPU disponibles. El sistema operativo selecciona un worker para cada conexión. Cada worker tiene su propio contador. El identificador del proceso en la salida muestra qué worker devolvió la respuesta.
 
 Establece `processes = 1` en `[http.pool]` para crear un solo worker. Consulta [Modelo de procesos](/es/docs/process-model) para la supervisión del pool.
 
@@ -113,21 +113,7 @@ El handler puede llamar a `rapira_finish_request()` para enviar la respuesta ant
 
 ## Archivo de configuración
 
-El archivo de configuración contiene todos los ajustes. El comando `rapira serve` acepta solo la ruta de este archivo. Añade el número de workers al archivo:
-
-```toml
-[http]
-listen = "127.0.0.1:8000"
-
-[http.pool]
-entrypoint = "worker.php"
-mode = "worker"
-processes = 4
-```
-
-```bash
-rapira serve rapira.toml
-```
+El archivo de configuración contiene todos los ajustes. El comando `rapira serve` acepta solo la ruta de este archivo. Para usar cuatro workers, añade `processes = 4` a la tabla `[http.pool]` existente.
 
 ::: info
 Un `http.pool.entrypoint` relativo usa como base el directorio del archivo de configuración. El directorio actual no lo afecta.

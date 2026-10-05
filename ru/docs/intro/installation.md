@@ -301,6 +301,6 @@ Windows v0.8.0 обслуживает только HTTP. Его конфигур
 
 Этот релиз не поддерживает конфигурацию быстрого старта v0.9 и gRPC. Его профиль PHP не содержит OpenSSL, cURL, SQLite, XML и iconv. Каждый релиз для Windows содержит один файл `rapira-v<VERSION>-windows-<x86_64|arm64>-SHA256SUMS.txt` для каждой архитектуры.
 
-[Текущие исходники для Windows](https://github.com/rapira-rs/rapira-windows/blob/main/README.md) реализуют конфигурацию плагинов v0.9 и gRPC. Они используют `rapira serve CONFIG` и отдельный пул потоков интерпретатора для каждого плагина. Они отклоняют `[observability]`, `grpc.interceptors` и `[grpc.auth]`. Эти функции исходников отсутствуют в стабильной загрузке v0.8.0.
+[Текущие исходники для Windows](https://github.com/rapira-rs/rapira-windows/blob/main/README.md) реализуют конфигурацию плагинов v0.9 и gRPC. Они используют `rapira serve CONFIG` и отдельный пул потоков интерпретатора для каждого плагина. Они отклоняют `[observability]`, `grpc.interceptors` и `[grpc.auth]`. Эти функции отсутствуют в стабильной сборке v0.8.0.
 
 [Быстрый старт](/ru/docs/intro/quickstart) описывает, как обработать первый запрос после установки бинарника.

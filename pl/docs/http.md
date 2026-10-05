@@ -20,7 +20,7 @@ Serwer HTTP sprawdza każde żądanie przed uruchomieniem PHP. Nie wywołuje PHP
 
 Rapira zwraca `501` dla żądania `CONNECT`. Serwer HTTP nie tworzy tuneli.
 
-Rapira przyjmuje cel żądania w formie bezwzględnej, na przykład `GET http://host.example/admin?x=1 HTTP/1.1`. Rapira usuwa dane użytkownika z autorytetu celu. Następnie autorytet zastępuje pole `Host`, więc `$_SERVER['HTTP_HOST']` i cel są zgodne. PHP otrzymuje ścieżkę i zapytanie w formie względnej w `$_SERVER['REQUEST_URI']`.
+Rapira przyjmuje cel żądania w formie bezwzględnej, na przykład `GET http://host.example/admin?x=1 HTTP/1.1`. Rapira usuwa dane użytkownika z części authority celu. Następnie ta część zastępuje pole `Host`, więc `$_SERVER['HTTP_HOST']` i cel są zgodne. PHP otrzymuje ścieżkę i zapytanie w formie origin-form w `$_SERVER['REQUEST_URI']`.
 
 `http.keepalive_timeout_secs` ogranicza każdy odczyt od klienta. Dotyczy bezczynnego połączenia i nagłówków żądania. Rapira zwraca `408`, jeśli nie otrzyma danych treści żądania przed upływem limitu. Następnie zamyka połączenie. Wartość domyślna to 60 sekund.
 

@@ -144,7 +144,7 @@ curl -i http://127.0.0.1:8000/
 
 Naciśnij `Ctrl-C` w pierwszym terminalu, aby zatrzymać Rapirę.
 
-Skryptem wejściowym jest `worker.php`, więc `$_SERVER['SCRIPT_NAME']` zawiera `/worker.php`. Symfony nie znajduje tej wartości na początku URI. Następnie ustawia bazowy URL na `""`. `getPathInfo()` zwraca ścieżkę żądania i routing działa poprawnie. `generateUrl()` tworzy ścieżki bez prefiksu `/worker.php`. Nie trzeba zmieniać `$_SERVER` ani używać `Request::setTrustedProxies()`.
+Skryptem wejściowym jest `worker.php`, więc `$_SERVER['SCRIPT_NAME']` zawiera `/worker.php`. Symfony nie znajduje tej wartości na początku URI. Następnie ustawia bazowy URL na `""`. `getPathInfo()` zwraca ścieżkę żądania i routing działa poprawnie. `generateUrl()` tworzy ścieżki bez prefiksu `/worker.php`. Aby uzyskać to zachowanie, nie trzeba zmieniać `$_SERVER` ani używać `Request::setTrustedProxies()`.
 
 ## Środowisko produkcyjne
 
@@ -155,7 +155,7 @@ composer install --no-dev --optimize-autoloader
 APP_ENV=prod php bin/console cache:warmup
 ```
 
-Sprawdź `DEFAULT_URI` podczas konfiguracji. Aplikacja bazowa ustawia `router.default_uri` na `%env(DEFAULT_URI)%` w każdym środowisku. Wartość domyślna to `http://localhost`. Polecenia konsoli i kod e-maili używają tej wartości, aby tworzyć URL-e poza żądaniem HTTP. Ustaw ją na adres źródłowy aplikacji.
+Sprawdź `DEFAULT_URI` podczas konfiguracji. Aplikacja bazowa ustawia `router.default_uri` na `%env(DEFAULT_URI)%` w każdym środowisku. Wartość domyślna to `http://localhost`. Polecenia konsoli i kod e-maili używają tej wartości, aby tworzyć URL-e poza żądaniem HTTP. Ustaw ją na adres bazowy aplikacji ze schematem, hostem i ewentualnym portem.
 
 Użyj tego minimalnego `rapira.toml`:
 

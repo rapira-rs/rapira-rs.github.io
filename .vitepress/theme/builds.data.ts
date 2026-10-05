@@ -3,7 +3,7 @@ import { defineLoader } from 'vitepress'
 /**
  * Creates download page data from the latest stable releases.
  * It parses each asset into operating system, architecture, PHP, and format.
- * It adds SHA-256 values from the release checksum file.
+ * It adds SHA-256 values from the release checksum files.
  *
  * It runs during each build and development server start.
  * The client does not make GitHub API requests.
@@ -41,8 +41,9 @@ export { data }
 // A new PHP version needs no change.
 // A new architecture needs a new pattern alternative here and an entry in DownloadBuilds.vue.
 function parseAsset(name: string): Pick<Build, 'os' | 'arch' | 'php' | 'format'> | null {
-  let m = name.match(/^rapira-v[\d.]+-php([\d.]+)-(linux|macos|windows)-(x86_64|aarch64)\.(tar\.gz|zip)$/)
-  if (m) return { php: m[1], os: m[2], arch: m[3], format: m[4] }
+  // Windows zips use `arm64` for the architecture that the other assets call `aarch64`.
+  let m = name.match(/^rapira-v[\d.]+-php([\d.]+)-(linux|macos|windows)-(x86_64|aarch64|arm64)\.(tar\.gz|zip)$/)
+  if (m) return { php: m[1], os: m[2], arch: m[3] === 'arm64' ? 'aarch64' : m[3], format: m[4] }
   m = name.match(/^rapira-php([\d.]+)_[\d.]+-\d+_(amd64|arm64)\.deb$/)
   if (m) return { php: m[1], os: 'linux', arch: m[2] === 'amd64' ? 'x86_64' : 'aarch64', format: 'deb' }
   m = name.match(/^rapira-php([\d.]+)-[\d.]+-\d+\.(x86_64|aarch64)\.rpm$/)
@@ -74,13 +75,13 @@ async function loadRepo(repo: string): Promise<Build[]> {
   const release = await res.json()
 
   const version = String(release.tag_name ?? '').replace(/^v/, '')
-  let sums = new Map<string, string>()
-  const sumsAsset = release.assets.find((a: any) => a.name.endsWith('SHA256SUMS.txt'))
-  if (sumsAsset) {
+  // Windows releases have one checksum file for each architecture.
+  const sums = new Map<string, string>()
+  for (const sumsAsset of release.assets.filter((a: any) => a.name.endsWith('SHA256SUMS.txt'))) {
     const sumsRes = await fetch(sumsAsset.browser_download_url, {
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     })
-    if (sumsRes.ok) sums = parseChecksums(await sumsRes.text())
+    if (sumsRes.ok) for (const [file, hash] of parseChecksums(await sumsRes.text())) sums.set(file, hash)
   }
 
   const builds: Build[] = []

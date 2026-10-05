@@ -20,13 +20,24 @@ echo "Hello, " . ($_GET['name'] ?? 'anonymous') . "!\n";
 echo "Method: {$_SERVER['REQUEST_METHOD']}\n";
 ```
 
-Start the server. The `--mode classic` flag selects the mode, and the positional argument is the entry script:
+Create `rapira.toml` next to the `public` directory. The `mode` key selects Classic mode, and `entrypoint` names the entry script:
 
-```bash
-rapira serve --mode classic public/index.php
+```toml
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
+entrypoint = "public/index.php"
+mode = "classic"
 ```
 
-Rapira binds `127.0.0.1:8000` by default. Send a request from another terminal:
+Start the server with the path to the file:
+
+```bash
+rapira serve rapira.toml
+```
+
+Rapira binds `127.0.0.1:8000`. Send a request from another terminal:
 
 ```bash
 curl '127.0.0.1:8000/?name=world'
@@ -37,14 +48,11 @@ Hello, world!
 Method: GET
 ```
 
-Worker processes remain active between requests. Rapira creates the workers once and keeps an initialized PHP interpreter in each worker.
-Classic mode removes script state after each request. This state includes variables, the autoloader, and framework objects.
+Worker processes stay active between requests. Rapira creates the workers once and keeps an initialized PHP interpreter in each worker. Classic mode removes the script state after each request. This state includes variables, the autoloader, and framework objects.
 
 ## Worker mode
 
-Worker mode keeps the script active. It initializes once and then waits for requests in a loop.
-Rapira refills the superglobals and calls the handler. PHP can still read `$_GET` and use `echo` for a response.
-Application initialization runs once for each process. See [Execution modes](/docs/execution-modes) for more information.
+Worker mode keeps the script active. The script initializes once and then waits for requests in a loop. For each request, Rapira fills the superglobals again and calls the handler. PHP can still read `$_GET` and use `echo` for a response. See [Execution modes](/docs/execution-modes) for more information.
 
 Create `worker.php` in the project root:
 
@@ -72,57 +80,50 @@ The handler reads superglobals and creates output with `echo` and `header()`. Ca
 
 The PHP module that Rapira registers provides `\Rapira\handle_request()`. Thus, the example needs no autoloader. An application with Composer dependencies must load `vendor/autoload.php` before the loop.
 
-Stop the Classic server with `Ctrl-C` because both servers bind `127.0.0.1:8000`. Dispatcher is the default mode. Use the `--mode worker` flag to select Worker mode:
+Stop the Classic server with `Ctrl-C` because both servers bind `127.0.0.1:8000`. Change `rapira.toml` to Worker mode:
+
+```toml
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
+entrypoint = "worker.php"
+mode = "worker"
+```
 
 ```bash
-rapira serve --mode worker worker.php
+rapira serve rapira.toml
 ```
 
 ```bash
 curl '127.0.0.1:8000/?name=world'
 ```
 
-Run the `curl` command several times. A worker's counter increases when that process handles another request. By default, Rapira creates one worker for each logical CPU. The operating system selects a worker for each connection. Each worker has a separate count. The output process identifier shows which worker returned the response.
+Run the `curl` command several times. A worker's counter increases when that process handles another request. By default, Rapira sets the worker count from the available CPUs. The operating system selects a worker for each connection. Each worker has a separate count. The output process identifier shows which worker returned the response.
 
-Use `rapira serve --mode worker --processes 1 worker.php` to create one worker. See [process model](/docs/process-model) for pool supervision.
+Set `processes = 1` in `[http.pool]` to create one worker. See [process model](/docs/process-model) for pool supervision.
 
 Objects created before the `while` loop remain in memory until the worker script restarts. Examples include the Composer autoloader, container, connections, routes, and templates. Rapira initializes this state once instead of for each request. Only request state is new in each iteration.
 
 ::: warning
-The worker script must reset request state that remains in memory.
-Examples include static properties, global values, and open transactions. See [Worker mode](/docs/worker) for more information.
+The worker script must reset request state that remains in memory. Examples include static properties, global values, and open transactions. See [Worker mode](/docs/worker) for more information.
 :::
 
-The handler can use `header()`, `http_response_code()`, and `echo`.
-It can use `rapira_finish_request()` to send the response before the handler ends. See [HTTP](/docs/http) for more information.
+The handler can call `rapira_finish_request()` to send the response before the handler ends. See [HTTP](/docs/http) for more information.
 
 ## Configuration file
 
-Store the settings in `rapira.toml` instead of the command line. Create this file next to the application:
-
-```toml
-[http]
-listen = "127.0.0.1:8000"
-
-[pool]
-entrypoint = "worker.php"
-mode = "worker"
-processes = 4
-```
-
-```bash
-rapira serve --config rapira.toml
-```
+The configuration file holds every setting. The `rapira serve` command accepts only the path to this file. To use four workers, add `processes = 4` to the existing `[http.pool]` table.
 
 ::: info
-A relative `pool.entrypoint` uses the configuration file directory as its base. The current directory does not affect it. CLI flags override configuration file values. For example, `--processes 1` changes only the worker count.
+A relative `http.pool.entrypoint` uses the configuration file directory as its base. The current directory does not affect it.
 :::
 
-The configuration file also controls pool scaling, worker replacement, request timeouts, logging, and the supervisor pidfile. An unknown key prevents server initialization. See [Configuration](/docs/configuration) for all configuration file settings and [CLI](/docs/cli) for flags.
+The file also controls worker replacement, request timeouts, logging, and the supervisor pidfile. The server does not start if the file contains an unknown key. See [Configuration](/docs/configuration) for all configuration file settings and [CLI](/docs/cli) for the command.
 
 ## Stopping the server
 
-Press `Ctrl-C` to start a controlled stop. Rapira does not accept new work, finishes current requests, shuts down extensions, and exits. Press `Ctrl-C` again to force an immediate exit. `SIGTERM` has the same behavior. See [Process model](/docs/process-model) for the complete signal table.
+Press `Ctrl-C` to stop the server. The terminal sends `SIGINT` to the master and to each worker, so current requests stop immediately. To let current requests finish, send `SIGTERM` only to the master process, for example `kill -TERM <master-pid>`. See [Process model](/docs/process-model) for the complete signal table.
 
 ## Next steps
 

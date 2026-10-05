@@ -9,10 +9,13 @@ features:
   - title: Direct Rust and PHP calls
     details: "There is no layer between Rust and PHP: no FastCGI, no sockets, no Goridge, no CGO, no serialization of any kind."
   - title: php-fpm compatible
-    details: "The Classic SAPI runs existing entry scripts without code changes. Rapira can replace php-fpm and reduce execution time."
+    details: "Classic mode runs an existing front controller, such as public/index.php, with new state for each request. Rapira can replace php-fpm."
   - title: Execution modes
     details: "Classic → Worker → Dispatcher<br>Which modes can your application use?"
     link: /docs/execution-modes
+  - title: gRPC server
+    details: "The gRPC plugin serves unary calls over gRPC, gRPC-Web, and Connect. PHP handles the calls in Dispatcher mode."
+    link: /docs/grpc
 ---
 
 <script setup>
@@ -55,11 +58,9 @@ Rapira includes an HTTP server that uses the Rust [hyper](https://hyper.rs) libr
 
 <RapiraSection title="Rust calls PHP directly" link="/docs/process-model" link-text="Process model">
 
-Rapira uses Rust, and PHP uses C. Rust calls C functions directly. Therefore, Rust can call a PHP function directly.
-Rapira embeds the interpreter in the server process. Direct bindings control interpreter initialization and request processing.
+Rapira uses Rust, and PHP uses C. Rust calls C functions directly. Therefore, Rust can call a PHP function directly. Rapira embeds the interpreter in the server process. Direct bindings control interpreter initialization and request processing.
 
-Rapira does not use FastCGI, Goridge, or CGO. It does not serialize requests or send them to another process.
-In Classic and Worker modes, Rapira fills the superglobals directly.
+Rapira does not use FastCGI, Goridge, or CGO. It does not serialize requests or send them to another process. In Classic and Worker modes, Rapira fills the superglobals directly.
 
 <template #aside>
 <TextTabs :tabs="interopTabs">

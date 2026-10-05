@@ -1,8 +1,10 @@
 # Contributing to the docs
 
-This page documents the authoring features of the documentation site. Each example renders from the displayed Markdown.
+This page documents the authoring features of the documentation site.
 
-Run `npm ci` to install the locked dependencies. Then run `npm run dev`. Open the local URL that the command prints. Translation directories have the same structure as the canonical English files.
+Use Node.js 24. Run `npm ci` to install the locked dependencies. Then run `npm run dev`. Open the local URL that the command prints. Translation directories have the same structure as the canonical English files.
+
+Run `npm run build` before you submit a change. It generates thumbnails and checks the VitePress configuration, Markdown rendering, and internal links.
 
 ## Callout blocks
 
@@ -39,7 +41,7 @@ A condition that requires attention.
 A condition that can cause damage.
 :::
 
-Add a specific heading after the type:
+Write a title after the type, for example `::: tip Specific title`:
 
 ::: tip Specific title
 Use a custom title when the default label is not specific.
@@ -55,7 +57,7 @@ fn main() {
 }
 ```
 
-Use inline markers to highlight exact lines, focus lines, or show changed lines:
+Add `{3}` after the language name to highlight line 3. Add a `// [!code focus]` comment at the end of a line to focus it. Add `// [!code --]` or `// [!code ++]` to mark a removed or an added line. The build removes these markers from the output:
 
 ```rust{3}
 fn main() {
@@ -78,7 +80,7 @@ fn setup() {
 }
 ```
 
-Group alternative snippets into tabs:
+Put alternative snippets in a `::: code-group` container. Write the tab label in square brackets after the language name, for example `bash [npm]`:
 
 ::: code-group
 
@@ -98,8 +100,7 @@ yarn
 
 ## File tabs
 
-A `<CodeTabs>` block shows one tab for each file. It shows the selected file below the tabs.
-List the tabs in a page `<script setup>` block. Put each example in a `<template>` that matches the tab `slot`.
+A `<CodeTabs>` block shows one tab for each file. It shows the selected file below the tabs. List the tabs in a page `<script setup>` block. Put each example in a `<template>` that matches the tab `slot`.
 
 ````md
 <script setup>
@@ -144,7 +145,7 @@ while (\Rapira\handle_request($handler)) {
 <template #config>
 
 ```toml
-[pool]
+[http.pool]
 entrypoint = "worker.php"
 mode = "worker"
 processes = 4
@@ -155,8 +156,7 @@ processes = 4
 </CodeTabs>
 ````
 
-The file name extension selects the tab icon. The component supports `.php`, `.rs`, `.toml`, `.yaml`, `.json`, and `.sh`.
-Other extensions use a generic file icon. Set `icon` to `php`, `rust`, `toml`, `yaml`, `json`, `shell`, or `file` to override it.
+The file name extension selects the tab icon. The component supports `.php`, `.rs`, `.toml`, `.yaml`, `.yml`, `.json`, `.sh`, and `.bash`. Other extensions use a generic file icon. To override the icon, set `icon` to `php`, `rust`, `toml`, `yaml`, `json`, `shell`, or `file`.
 
 The block renders as follows:
 
@@ -202,7 +202,7 @@ while (\Rapira\handle_request($handler)) {
 <template #config>
 
 ```toml
-[pool]
+[http.pool]
 entrypoint = "worker.php"
 mode = "worker"
 processes = 4
@@ -233,8 +233,34 @@ Standard Markdown creates tables:
 | Code groups  |    ✅    |
 | Mermaid      |    ✅    |
 
-Inline badges can show status labels:
-<Badge type="tip" text="new" /> <Badge type="warning" text="beta" /> <Badge type="danger" text="deprecated" />
+Use the `<Badge>` component to show a status label, for example `<Badge type="tip" text="new" />`. The `type` value can be `tip`, `warning`, `danger`, or `info`:
+
+<Badge type="tip" text="new" /> <Badge type="warning" text="beta" /> <Badge type="danger" text="deprecated" /> <Badge type="info" text="info" />
+
+## FAQ blocks
+
+Use a `::: question` block for an implementation detail that the main procedure does not need. Write the question after `question`:
+
+```md
+::: question Can I run the site if I install nothing globally?
+Run `npm ci` locally. Then run `npm run dev`.
+:::
+```
+
+The build collects the questions into a section of collapsible items. Set the position of the section with the `faqLevel` frontmatter key:
+
+```yaml
+faqLevel: 1       # After each h1 section (default).
+faqLevel: 2       # After each h2 section.
+faqLevel: 0       # At the end of the page.
+faqLevel: false   # Keep questions at their source positions.
+```
+
+This page uses the default level. Thus, the rendered example is at the end of the page.
+
+::: question Can I run the site if I install nothing globally?
+Run `npm ci` locally. Then run `npm run dev`.
+:::
 
 ## Page frontmatter
 
@@ -258,11 +284,10 @@ next:                      # Changes the label or target of a footer link.
 The **outline** controls the "On this page" table of contents on the right:
 
 ```yaml
-outline: [2, 3]   # Default. Shows H2 and H3.
+outline: 2        # Default. Shows only H2.
+outline: [2, 3]   # Shows H2 and H3.
 outline: deep     # Shows each level from H2 through H6.
-outline: 2        # Shows only H2.
 outline: false    # Hides the menu.
 ```
 
-Use `layout: home` for a home page. Use `layout: page` for a page without a sidebar or outline.
-Other pages use the default `doc` layout.
+Use `layout: home` for a home page. Use `layout: page` for a page without a sidebar or outline. Other pages use the default `doc` layout.

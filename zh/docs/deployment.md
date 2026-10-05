@@ -1,21 +1,21 @@
 ---
 title: 生产环境部署
-description: "生产环境的 systemd unit、配置结构、反向代理、重载过程、JSON 日志和 worker 替换。"
+description: "生产环境的 systemd unit、配置结构、反向代理、重载过程、JSON 日志、健康检查、指标和 worker 替换。"
 ---
 
 # 生产环境部署
 
-生产部署必须在重启后启动 Rapira，并在故障后恢复服务。 生产部署还必须在不丢失请求的情况下更新代码，并保存日志。本页介绍 systemd unit、反向代理和 worker 设置。
+生产部署必须在重启和代码更改后保持 Rapira 可用。它们在系统初始化期间启动 Rapira，并在故障后重启它。它们还在不丢失请求的情况下重新加载代码，并保存日志。本页介绍 systemd unit、反向代理、健康检查、指标和持久 worker 设置。
 
-Rapira 不定义部署结构。它不要求特定配置路径或进程监管器。 本页为其他文档定义一个约定。请先按照[安装](/zh/docs/intro/installation)安装二进制文件。
+Rapira 不定义部署结构。它不要求特定配置路径或进程监管器。本页为其他文档定义一个约定。请先按照[安装](/zh/docs/intro/installation)安装二进制文件。
 
-Rapira 也提供 `ghcr.io/rapira-rs/rapira` 容器镜像。使用 `COPY --from` 将其文件复制到应用镜像。 容器使用运行时的重启策略代替 systemd。其他配置设置不变。 请参阅 [Docker](/zh/docs/intro/installation#docker)。
+Rapira 也提供 `ghcr.io/rapira-rs/rapira` 容器镜像。使用 `COPY --from` 将其文件复制到应用镜像。容器使用其运行时的重启策略，而不是 systemd unit。其他配置设置不变。更多信息请参阅 [Docker](/zh/docs/intro/installation#docker)。
 
 ## 一份 systemd unit
 
-Rapira 可以替代 php-fpm。master 进程创建、监控、替换和删除 worker。它还会更改进程池大小。 Systemd 只需监控 master 进程。不需要单独的进程管理器。
+Rapira 可以替代 php-fpm。master 进程创建、监控和替换 worker。每个进程池运行固定数量的 worker，数量由 `processes` 设置。Systemd 只需监控 master 进程。不需要单独的进程管理器。
 
-`.deb` 和 `.rpm` 软件包安装二进制文件和嵌入式 PHP。它们不安装 service unit 或 `php.ini`。 这些文件包含站点特定设置。软件包更新不应替换这些文件。 已安装的文件见[安装](/zh/docs/intro/installation)。
+`.deb` 和 `.rpm` 软件包安装二进制文件和嵌入式 PHP。它们不安装 service unit 或 `php.ini`。这些文件包含站点特定设置。软件包更新不得替换这些文件。已安装的文件见[安装](/zh/docs/intro/installation)。
 
 创建 `/etc/systemd/system/rapira.service`：
 
@@ -27,7 +27,7 @@ After=network.target
 [Service]
 Type=exec
 WorkingDirectory=/srv/app
-ExecStart=/usr/bin/rapira serve --config /etc/rapira/rapira.toml
+ExecStart=/usr/bin/rapira serve /etc/rapira/rapira.toml
 ExecReload=/bin/kill -USR2 $MAINPID
 KillMode=mixed
 Restart=on-failure
@@ -60,25 +60,26 @@ sudo systemctl enable --now rapira
 - `Environment=PHPRC`：PHP 使用此目录查找 `php.ini`。
 
 ::: tip 以非 root 用户运行
-将 `User=` 和 `Group=` 添加到 `[Service]` 部分。Systemd 将 `RuntimeDirectory` 的所有权分配给该账户。 该账户可以在 `/run/rapira/` 中创建 pidfile 和 Unix socket。它通常不能直接在 `/run` 中创建文件。
+将 `User=` 和 `Group=` 添加到 `[Service]` 部分。Systemd 将 `RuntimeDirectory` 的所有权分配给该账户。然后该账户可以在 `/run/rapira/` 中创建 pidfile 和 Unix socket。它通常不能直接在 `/run` 中创建文件。
 :::
 
-同一主机上的两个应用需要不同的配置文件、unit 和监听地址。可以使用 `rapira@.service` 等 systemd 模板 unit 来定义它们。 每个实例初始化 PHP，并创建独立的 worker 池。
+同一主机上的两个应用需要不同的配置文件、unit 和监听地址。可以使用 `rapira@.service` 等 systemd 模板 unit 来定义它们。每个实例初始化 PHP，并创建独立的 worker 池。
 
 ## 配置路径
 
-本指南使用 `/etc/rapira/rapira.toml` 保存 Rapira 设置。它将 `php.ini` 保存在同一目录，并设置 `PHPRC=/etc/rapira`。 Rapira 二进制文件不包含这些路径。`--config` 选项接受任何路径。 PHP 使用 `PHPRC` 查找配置。系统需要其他路径时，请更改这些路径。
+本指南使用 `/etc/rapira/rapira.toml` 保存 Rapira 设置。它将 `php.ini` 保存在同一目录，并设置 `PHPRC=/etc/rapira`。Rapira 二进制文件不包含这些路径。`CONFIG` 参数接受任何文件路径。PHP 使用 `PHPRC` 查找配置。系统需要其他路径时，请更改这些路径。
 
-Rapira 可以在没有 `php.ini` 的情况下运行。默认值将 PHP 诊断信息写入日志，而不是 HTTP 响应。 创建 `/etc/rapira/php.ini` 以配置 OPcache、内存限制或时区。请参阅[日志](/zh/docs/logging)。
+Rapira 可以在没有 `php.ini` 的情况下运行。默认值将 PHP 诊断信息写入日志，而不是 HTTP 响应。创建 `/etc/rapira/php.ini` 以配置 OPcache、内存限制或时区。诊断设置见[日志](/zh/docs/logging)。
 
-相对 `pool.entrypoint` 以配置文件目录为基准。因此，此结构中的 `entrypoint = "index.php"` 表示 `/etc/rapira/index.php`。 在生产环境中使用入口脚本的绝对路径。`supervisor.pidfile` 使用相同规则。 位置参数 `SCRIPT` 和 PHP 文件操作使用工作目录。Rapira 不更改此目录。 Systemd 默认使用 `/`，所以 unit 设置 `WorkingDirectory=/srv/app`。PHP 也会在此目录中查找 ini 文件。 所有键见[配置](/zh/docs/configuration)。
+在 PHP 8.4 上，OPcache 是独立的 `opcache.so` 文件。请按照 [php.ini](/zh/docs/intro/installation#php-ini) 中的说明，在 `php.ini` 中用 `zend_extension` 行加载它。PHP 8.5 的 `libphp` 包含 OPcache。
+
+相对 `http.pool.entrypoint` 以**配置文件目录**为基准。在此结构中，`entrypoint = "index.php"` 表示 `/etc/rapira/index.php`。在生产环境中使用入口脚本的绝对路径。`supervisor.pidfile` 使用相同的解析规则。
+
+每个 worker 在运行 PHP 之前，将其工作目录更改为入口脚本所在的目录。使用相对路径的 PHP 文件操作使用该目录。PHP 不在工作目录中查找 `php.ini`，因此请设置 `PHPRC`。`WorkingDirectory=` 设置只作用于 master。master 将它用作相对 `CONFIG` 路径和相对 `unix:` 监听路径的基准。所有键和默认值见[配置](/zh/docs/configuration)。
 
 ## 反向代理
 
-Rapira 接受明文 HTTP，并且不提供 TLS 设置。
-[TLS 终止代理](https://en.wikipedia.org/wiki/TLS_termination_proxy)接受客户端的 HTTPS，解密连接，然后向 Rapira 发送明文 HTTP。
-使用 nginx、Caddy、HAProxy 或云负载均衡器来完成此任务。
-通过环回接口或 Unix socket 将代理连接到 Rapira。Rapira 的公共地址也使用明文 HTTP。
+Rapira 接受明文 HTTP，并且不提供 TLS 设置。[TLS 终止代理](https://en.wikipedia.org/wiki/TLS_termination_proxy)接受客户端的 HTTPS，解密连接，然后向 Rapira 发送明文 HTTP。使用 nginx、Caddy、HAProxy 或云负载均衡器来完成此任务。通过环回接口或 Unix socket 将代理连接到 Rapira。Rapira 的公共地址也使用明文 HTTP。
 
 ```toml
 [http]
@@ -86,11 +87,11 @@ listen = "127.0.0.1:8000"
 # listen = "unix:/run/rapira/rapira.sock"
 ```
 
-Rapira 使用 `0666` 模式创建 Unix socket。任何可以访问运行时目录的进程都可以连接到该 socket。 Rapira 不配置 socket 模式。请使用目录权限限制访问。 对于此 unit，请设置 `RuntimeDirectoryMode=0750`。将 `Group=` 设置为包含代理账户的组。
+Rapira 使用 `0666` 模式创建 Unix socket。任何可以访问运行时目录的进程都可以连接到该 socket。Rapira 不配置 socket 模式。请使用目录权限限制访问。对于此 unit，请设置 `RuntimeDirectoryMode=0750`。将 `Group=` 设置为包含代理账户的组。
 
-使用连字符转发字段，例如 `X-Forwarded-For`。不要使用 `X_Forwarded_For` 等名称。 带下划线或点的名称可能映射到同一个 `$_SERVER` 键。Rapira 会在 PHP 接收这些名称之前将其删除。 [HTTP 页面](/zh/docs/http)介绍了此映射和 `http.unsafe_field_names`。
+使用连字符转发字段，例如 `X-Forwarded-For`。不要使用 `X_Forwarded_For` 等名称。在 Classic 和 Worker 模式下，带 `_` 或 `.` 的名称可能与带连字符的名称映射到同一个 `$_SERVER` 键。在这些模式下，Rapira 默认删除包含 ASCII 字母、数字和连字符以外字符的每个名称。[HTTP 页面](/zh/docs/http)介绍了此映射和 `http.unsafe_field_names`。
 
-Rapira 可以使用[静态文件中间件](/zh/docs/static-files)提供静态资源。代理不需要文档根目录的第二个副本。 代理或 CDN 也可以提供这些资源。
+Rapira 可以使用[静态文件中间件](/zh/docs/static-files)提供静态资源。代理不需要文档根目录的第二个副本。代理或 CDN 也可以提供这些资源。
 
 ## 不中断服务的部署
 
@@ -100,9 +101,9 @@ Rapira 可以使用[静态文件中间件](/zh/docs/static-files)提供静态资
 sudo systemctl reload rapira
 ```
 
-此命令向 master 进程发送 `SIGUSR2`。master 每次替换一个 worker，并完成当前请求。 如果 worker 超过 `process_control_timeout_secs`，master 会发送 `SIGTERM`，然后发送 `SIGKILL`。这会终止当前请求。 替换顺序见[进程模型](/zh/docs/process-model)。
+此命令向 master 进程发送 `SIGUSR2`。master 每次替换一个 worker，并让当前请求完成。如果 worker 超过 `process_control_timeout_secs`，master 会发送 `SIGTERM`，然后发送 `SIGKILL`。这种终止会结束当前请求。worker 替换顺序见[进程模型](/zh/docs/process-model)。
 
-当 systemd 不管理进程时，直接向 master 进程发送信号。设置 `supervisor.pidfile` 以保存进程标识符。 启动 Rapira 前，创建 pidfile 目录。也可以选择现有目录。 如果 master 无法写入文件，它不会启动。
+当 systemd 不管理进程时，直接向 master 进程发送信号。设置 `supervisor.pidfile` 以保存 master 进程标识符。启动 Rapira 前，创建 pidfile 目录。也可以选择现有目录。如果 master 无法写入文件，它不会启动。
 
 ```toml
 [supervisor]
@@ -114,17 +115,19 @@ process_control_timeout_secs = 30
 kill -USR2 "$(cat /run/rapira/rapira.pid)"
 ```
 
-只有 master 写入 pidfile。它会在受控退出期间删除该文件。 残留的文件可能表示发生了 `SIGKILL`、进程故障或系统故障。
+只有 master 写入 pidfile。它会在受控退出期间删除该文件。残留的文件可能表示发生了 `SIGKILL`、进程故障或系统故障。
 
-`process_control_timeout_secs` 限制关停和重载期间每次等待 worker 的时间。超过此限制后，master 会发送下一个终止信号。 请将此值设置为低于 systemd 的 `TimeoutStopSec`。否则，systemd 可能会在序列完成前终止 master。 有关信号序列，请参阅[进程模型](/zh/docs/process-model)。
+`process_control_timeout_secs` 限制停止时的初始等待时间，以及每次等待替代 worker 就绪的时间。停止等待结束后，master 发送 `SIGTERM`。一秒后发送 `SIGKILL`。请将 systemd 的 `TimeoutStopSec` 设置为大于这一完整时间间隔的值。
+
+连接的排空时间更短：先取五秒和控制超时一半中的较小值，再从控制超时中减去该值。默认排空时间为 25 秒。停止或重载期间，超过此时间的响应可能被截断。
 
 ::: warning 重载不会做的事
-重载期间，master 保留其初始设置和 OPcache 共享内存。更改 `rapira.toml` 后，请重启 Rapira。 当 `opcache.validate_timestamps = 0` 时，也请重启 Rapira。在此配置中，重载不会替换缓存的 opcode。
+重载替换 worker，但不替换 master。master 保留 Rapira 二进制文件以及 `rapira.toml` 和 `php.ini` 中的设置。它还保留 gRPC 描述符集、`[grpc.auth]` 令牌文件和 OPcache 共享内存。更改其中任一文件后，请重启 Rapira。当 `opcache.validate_timestamps = 0` 时，也请重启 Rapira。在此配置中，重载不会替换缓存的 opcode。
 :::
 
 ## 日志
 
-Rapira 将每条日志记录写入 **stderr**。systemd unit 的 stderr 无需其他配置即可进入 journal。 生产环境请使用 JSON：
+Rapira 将过滤后的日志记录写入 **stderr**。systemd unit 的 stderr 无需其他配置即可进入 journal。生产环境请为 stderr 使用 JSON：
 
 ```toml
 [log]
@@ -132,24 +135,43 @@ level = "info"
 format = "json"
 ```
 
-每行包含一个对象，其中有 `timestamp`、`level`、`target` 和 `fields`。`fields` 对象包含 `message` 和其他事件字段。 时间戳使用 RFC 3339 UTC。 Rapira 会转义消息中的换行符。Journald 将对象原样发送到日志收集器。
+每行包含一个对象，其中有 `timestamp`、`level`、`target` 和 `fields`。`fields` 对象包含 `message` 和其他事件字段。时间戳使用 RFC 3339 UTC。Rapira 会转义消息中的换行符。Journald 将对象原样发送到日志收集器。
 
 ```bash
 journalctl -u rapira -f
 ```
 
-配置日志收集器以读取 unit journal。也可以将 Rapira 的 stderr 直接发送到收集器。 收集器可以将每条记录解析为 JSON，而不使用正则表达式。 有关 target 级别和 `RUST_LOG` 覆盖，请参阅[日志](/zh/docs/logging)。
+配置日志收集器以读取 unit journal。也可以将 Rapira 的 stderr 直接发送到收集器。收集器可以将每条记录解析为 JSON，而不使用正则表达式。有关 target 级别和 `RUST_LOG` 覆盖，请参阅[日志](/zh/docs/logging)。
+
+## 健康检查和指标
+
+添加 `[observability]` 表以提供健康探针和 Prometheus 指标。然后 Rapira 会再启动一个进程，此进程不运行 PHP。`GET /livez` 表示 master 正在运行。`GET /readyz` 表示每个 PHP 进程池都有空闲或活动的 worker。`GET /metrics` 以 Prometheus 文本格式返回指标。
+
+```toml
+[observability]
+listen = "127.0.0.1:9180"
+
+[observability.metrics]
+
+[observability.probes]
+```
+
+这些端点没有身份验证，也没有 TLS。请使用环回地址或 Unix socket。状态码、探针示例和指标参考见[指标与健康检查](/zh/docs/observability)。
 
 ## worker 回收与请求超时
 
-在 [Worker 模式](/zh/docs/execution-modes)下，进程在请求之间保留应用状态。因此，内存泄漏可能会随着时间增加进程内存。 请使用以下两个设置来限制其影响：
+在 [Worker 和 Dispatcher 模式](/zh/docs/execution-modes)下，worker 在请求之间保留应用状态。因此，内存泄漏可能会随着时间增加 worker 内存。请使用以下两个设置来限制其影响：
 
 ```toml
-[pool]
+[http.pool]
 max_requests = 500
 request_terminate_timeout_secs = 30
 ```
 
-`max_requests` 在达到指定请求数后替换 worker。Rapira 会添加一个小的随机值，以防止同时替换整个进程池。 此设置限制泄漏的影响，但不会修复泄漏。 `request_terminate_timeout_secs` 限制一个请求的运行时间。Rapira 会替换超过此值的 worker。 两个设置默认都关闭。用于生产环境前，请启用它们。
+`[grpc.pool]` 表接受相同的键。
+
+`max_requests` 在达到指定请求数后替换 worker。Rapira 为每个 worker 添加一个随机数，最大为此限制的一半，以防止同时替换 worker。此设置限制内存泄漏的影响，但不会修复泄漏。
+
+`request_terminate_timeout_secs` 限制一个请求的运行时间。Rapira 会终止并替换超过此限制的 worker。两个设置的默认值都是零，即禁用。请在生产环境中启用它们。
 
 有关进程池大小调整、替换延迟和 worker 故障处理，请参阅[进程模型](/zh/docs/process-model)。

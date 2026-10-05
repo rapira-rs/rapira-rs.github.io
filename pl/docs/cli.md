@@ -1,6 +1,6 @@
 ---
 title: Wiersz poleceń
-description: "Wszystkie opcje polecenia rapira serve, sposób nakładania się flag na plik konfiguracyjny i reguły rozwiązywania ścieżek skryptu wejściowego."
+description: "Polecenie rapira serve, jego argument z plikiem konfiguracyjnym, ścieżki względne, sygnały zatrzymania i kody wyjścia."
 ---
 
 # Wiersz poleceń
@@ -8,85 +8,64 @@ description: "Wszystkie opcje polecenia rapira serve, sposób nakładania się f
 Rapira to jeden plik binarny z jednym podpoleceniem:
 
 ```bash
-rapira serve [OPTIONS] [SCRIPT]
+rapira serve <CONFIG>
 ```
 
-Polecenie `serve` uruchamia PHP, rejestruje wbudowane rozszerzenia i przyjmuje żądania. Uruchom `rapira` bez argumentów, aby wyświetlić pomoc. Uruchom `rapira serve --help`, aby wyświetlić dostępne opcje. Uruchom `rapira --version`, aby wyświetlić zainstalowaną wersję.
+Polecenie `serve` uruchamia PHP, przygotowuje wtyczki i obsługuje żądania. `CONFIG` to ścieżka do pliku konfiguracyjnego i jest wymagana. Dowolna nazwa pliku działa, a ta dokumentacja używa `rapira.toml`.
 
-Plik konfiguracyjny jest opcjonalny. Polecenie ze ścieżką skryptu może uruchomić serwer z ustawieniami domyślnymi.
+Uruchom `rapira` bez argumentów, aby wyświetlić pomoc. Uruchom `rapira serve --help`, aby wyświetlić pomoc polecenia. Uruchom `rapira --version`, aby wyświetlić zainstalowaną wersję.
 
-## Priorytet ustawień
+Plik konfiguracyjny zawiera wszystkie ustawienia serwera. Wartość w pliku zastępuje wbudowaną wartość domyślną. `RUST_LOG` i `NO_COLOR` zmieniają tylko wyjście stderr. Wszystkie klucze i formaty adresu `listen` opisuje [Konfiguracja](/pl/docs/configuration).
 
-Rapira odczytuje ustawienia w następującej kolejności:
-
-**Flagi wiersza poleceń > plik konfiguracyjny > wbudowane wartości domyślne.**
-
-Tylko cztery flagi z tabeli i argument `SCRIPT` mają formę wiersza poleceń. Pozostałe ustawienia używają pliku lub wartości domyślnej.
-
-Flaga zastępuje odpowiednią wartość w `rapira.toml`. Wartość w `rapira.toml` zastępuje wartość domyślną. Ta kolejność umożliwia użycie wartości tymczasowej podczas jednego uruchomienia. Na przykład przetestuj inny port bez edycji pliku.
-
-Niezdefiniowane opcje używają wartości domyślnych z tabeli. Plik kontroluje skalowanie puli, logowanie i limity żądań. Wszystkie ustawienia pliku zawiera [Konfiguracja](/pl/docs/configuration).
-
-## Opcje
-
-| Opcja             | Domyślnie        | Co robi                                                                                          |
-| ----------------- | ---------------- | ------------------------------------------------------------------------------------------------ |
-| `--config <PATH>` | brak             | Wczytuje ustawienia z pliku `rapira.toml`.                                                       |
-| `--listen <ADDR>` | `127.0.0.1:8000` | Adres nasłuchu: `host:port`, `:port` (wszystkie interfejsy) albo `unix:<path>`.                  |
-| `--processes <N>` | liczba CPU       | Ile procesów workerów sforkować.                                                                 |
-| `--mode <MODE>`   | `dispatcher`     | Tryb pracy: `classic`, `worker` albo `dispatcher`. Nadpisuje `pool.mode` z pliku konfiguracyjnego. |
-| `SCRIPT`          | wymagany*        | Skrypt wejściowy PHP. Nadpisuje `pool.entrypoint` z pliku konfiguracyjnego.                      |
-
-\* Wymagany, o ile plik konfiguracyjny nie ustawia `pool.entrypoint`. Gdy nie ma ani jednego, ani drugiego, `serve` zgłasza błąd i nie startuje.
-
-**`--listen`** przyjmuje trzy formaty adresu. `127.0.0.1:8000` wiąże interfejs pętli zwrotnej. Systemy zdalne nie mogą połączyć się z tym adresem. `:8080` odpowiada `0.0.0.0:8080` i wiąże wszystkie interfejsy IPv4. Użyj `[::]:8080` dla wszystkich interfejsów IPv6. `unix:/run/rapira.sock` tworzy gniazdo uniksowe dla lokalnego reverse proxy. Literały IPv6 umieszczaj w nawiasach kwadratowych, na przykład `[::1]:8000`. Rapira odrzuca port bez adresu. Użyj `--listen :8080` albo `--listen 127.0.0.1:8080`. Rapira nie rozwiązuje nazw hostów w tej opcji. Użyj `127.0.0.1:8000` zamiast `localhost:8000`.
-
-**`--processes`** domyślnie przyjmuje liczbę logicznych CPU. Skalowanie statyczne używa jej jako dokładnej liczby workerów. Skalowanie dynamiczne i `ondemand` używają jej jako liczby maksymalnej. Więcej informacji zawiera [Model procesów](/pl/docs/process-model).
-
-**`--mode`** wybiera tryb wykonania. Wartością domyślną jest `dispatcher`. W tym trybie skrypt pobiera każde żądanie od hosta. W trybie `worker` skrypt wejściowy pozostaje aktywny i uruchamia handler dla każdego żądania. Tryb `classic` uruchamia nowe żądanie PHP dla każdego żądania HTTP. Flaga zastępuje tryb z pliku konfiguracyjnego. Więcej informacji zawierają strony [tryb Classic](/pl/docs/classic), [tryb Worker](/pl/docs/worker) i [Tryby wykonania](/pl/docs/execution-modes).
-
-::: info
-`pool.scaling` i `pool.mode` to dwa różne klucze. `pool.scaling` wybiera politykę, która dobiera rozmiar puli. `pool.processes` podaje liczbę workerów, do której ta polityka się stosuje, a `--processes` ją nadpisuje. `pool.mode` decyduje o tym, co worker robi z żądaniem. `pool.scaling` nie ma własnej flagi. Ustaw go w pliku konfiguracyjnym.
+::: question Czy mogę ustawić tryb albo adres nasłuchu w wierszu poleceń?
+Nie. `rapira serve` przyjmuje tylko plik konfiguracyjny. Ustaw `processes`, `mode` i `entrypoint` w `[http.pool]`. Ustaw `listen` w `[http]`.
 :::
 
-## Rozwiązywanie ścieżki skryptu wejściowego
+## Ścieżki względne
 
-Podaj skrypt przez argument `SCRIPT` lub parametr `pool.entrypoint`. Argument zastępuje `pool.entrypoint`, ale pozostałe ustawienia pliku konfiguracyjnego nadal obowiązują. Rapira przekształca ścieżkę skryptu na bezwzględną przed utworzeniem workerów. Dlatego późniejsze zmiany katalogu roboczego nie wpływają na ścieżkę.
+Ścieżka względna w pliku używa katalogu pliku konfiguracyjnego jako podstawy. Dotyczy to `http.pool.entrypoint`, `grpc.pool.entrypoint` i pozostałych kluczy ze ścieżkami. Na przykład `entrypoint = "public/index.php"` w `/etc/rapira/rapira.toml` wskazuje `/etc/rapira/public/index.php`. Bieżący katalog nie wpływa na te ścieżki. Względna ścieżka nasłuchu `unix:` działa inaczej: używa bieżącego katalogu polecenia `rapira serve`. Listę kluczy ze ścieżkami zawiera sekcja [Ścieżki względne](/pl/docs/configuration#sciezki-wzgledne).
 
-Dwie formy względne używają różnych katalogów bazowych:
+## Przykład
 
-- Względny `SCRIPT` z wiersza poleceń jest rozwiązywany względem **bieżącego katalogu**.
-- Względny `pool.entrypoint` jest rozwiązywany względem **katalogu pliku konfiguracyjnego**.
+Ten plik `rapira.toml` obsługuje HTTP w trybie Dispatcher, który jest trybem domyślnym:
 
 ```toml
-[pool]
-entrypoint = "public/index.php"
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
+entrypoint = "app/dispatcher.php"
 ```
 
-To ustawienie w `/etc/rapira/rapira.toml` wskazuje `/etc/rapira/public/index.php`. Bieżący katalog nie wpływa na wynik.
+Aby wybrać inny tryb, ustaw `mode = "worker"` albo `mode = "classic"` w `[http.pool]`. Tryby opisuje strona [Tryby wykonania](/pl/docs/execution-modes).
 
-## Przykłady
-
-Typowe wywołania:
+Uruchom serwer, podając ścieżkę do pliku:
 
 ```bash
-rapira serve app/dispatcher.php
-rapira serve --mode worker app/worker.php
-rapira serve --mode classic public/index.php
-rapira serve --listen :8080 --processes 8 app/dispatcher.php
-rapira serve --listen unix:/run/rapira.sock app/dispatcher.php
-rapira serve --config /etc/rapira/rapira.toml
-rapira serve --config /etc/rapira/rapira.toml --listen 127.0.0.1:9000
+rapira serve rapira.toml
+rapira serve /etc/rapira/rapira.toml
 ```
 
-Pierwsze polecenie nie ustawia `--listen`. Dlatego serwer używa adresu domyślnego. Wyślij żądanie tym poleceniem:
+Serwer nasłuchuje na `127.0.0.1:8000`. Wyślij żądanie tym poleceniem:
 
 ```bash
 curl http://127.0.0.1:8000/
 ```
 
-Skrypty wejściowe do poleceń `--mode classic` i `--mode worker` znajdziesz w [Szybkim starcie](/pl/docs/intro/quickstart). Skrypt wejściowy dla trybu Dispatcher weź z pliku `dispatcher-sync.php` albo `dispatcher-async.php` w katalogu [`examples/`](https://github.com/rapira-rs/rapira/tree/main/examples) w repozytorium.
+Skrypty wejściowe dla trybów Classic i Worker znajdziesz w [Szybkim starcie](/pl/docs/intro/quickstart). Skrypt wejściowy dla trybu Dispatcher weź z pliku `dispatcher-sync.php` w katalogu [`examples/`](https://github.com/rapira-rs/rapira/tree/main/examples) w repozytorium. Przewodnik programowania opisuje strona [Tryb Dispatcher](/pl/docs/dispatcher).
 
 ## Zatrzymywanie serwera
 
-Pierwszy `SIGINT` albo `SIGTERM` pozwala dokończyć bieżące żądania. Następnie serwer zamyka rozszerzenia i kończy pracę. Drugi sygnał kończy oczekiwanie i wymusza wyjście. Wysyłaj sygnały do procesu nadrzędnego. Pełną tabelę sygnałów zawiera [Model procesów](/pl/docs/process-model).
+Pierwszy `SIGTERM` albo `SIGINT` rozpoczyna kontrolowane zatrzymanie. Workery nie przyjmują nowej pracy i kończą bieżące żądania. Następnie proces nadrzędny zamyka PHP i kończy pracę. Drugi `SIGTERM` albo `SIGINT` kończy oczekiwanie i wymusza wyjście. Wysyłaj sygnały do procesu nadrzędnego. Pełną tabelę sygnałów zawiera [Model procesów](/pl/docs/process-model).
+
+Ctrl-C w terminalu wysyła `SIGINT` do procesu nadrzędnego i do każdego workera. Następnie proces nadrzędny wysyła `SIGQUIT` do każdego workera, więc każdy worker dostaje drugi sygnał i natychmiast kończy pracę z kodem `131`. Bieżące żądania nie kończą się. Aby wykonać kontrolowane zatrzymanie, wyślij `SIGTERM` tylko do procesu nadrzędnego, na przykład `kill -TERM <master-pid>`. systemd z `KillMode=mixed` i `docker stop` także wysyłają sygnał tylko do procesu nadrzędnego.
+
+## Kody wyjścia
+
+| Kod | Znaczenie |
+| --- | --- |
+| `0` | Serwer zatrzymał się i wszystkie workery zakończyły pracę. `--help`, `--version` i `rapira` bez argumentów także kończą się kodem `0`. |
+| `1` | Serwer nie uruchomił się. Na przykład konfiguracja jest nieprawidłowa, Rapira nie może odczytać pliku, nasłuch nie może się powiązać z adresem albo PHP nie może się uruchomić. Błąd jest na stderr. |
+| `2` | Wiersz poleceń jest nieprawidłowy, na przykład zawiera nieznaną opcję albo brakuje `CONFIG`. |
+| `70` | Proces nadrzędny uległ awarii po uruchomieniu. Na przykład łączna liczba workerów wszystkich pul przekracza 2048 albo proces nadrzędny nie może zapisać pliku pidfile. Ten kod powoduje też niezdrowy worker generacji zero, jeśli jego pula nie ma udanego żądania ani bezczynnego lub aktywnego workera. Generacja zero oznacza workery utworzone przed pierwszym przeładowaniem. Log zawiera wpis `master failed`. |
+| `130` | `SIGTERM` albo `SIGINT` dotarł podczas zatrzymywania i wymusił wyjście. |

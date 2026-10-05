@@ -1,6 +1,6 @@
 ---
 title: Línea de comandos
-description: "Opciones de rapira serve, prioridad de la configuración y resolución de la ruta del script de entrada."
+description: "El comando rapira serve, su argumento de archivo de configuración, las rutas relativas, las señales de parada y los códigos de salida."
 ---
 
 # Línea de comandos
@@ -8,85 +8,64 @@ description: "Opciones de rapira serve, prioridad de la configuración y resoluc
 Rapira es un único binario con un solo subcomando:
 
 ```bash
-rapira serve [OPTIONS] [SCRIPT]
+rapira serve <CONFIG>
 ```
 
-El comando `serve` inicia PHP, registra las extensiones incorporadas y acepta peticiones. Ejecuta `rapira` sin argumentos para mostrar la ayuda. Ejecuta `rapira serve --help` para mostrar las opciones disponibles. Ejecuta `rapira --version` para mostrar la versión instalada.
+El comando `serve` inicia PHP, prepara los plugins y atiende peticiones. `CONFIG` es la ruta del archivo de configuración y es obligatorio. Cualquier nombre de archivo es válido, y esta documentación usa `rapira.toml`.
 
-El archivo de configuración es opcional. Un comando con la ruta del script inicia el servidor con los ajustes predeterminados.
+Ejecuta `rapira` sin argumentos para mostrar la ayuda. Ejecuta `rapira serve --help` para mostrar la ayuda del comando. Ejecuta `rapira --version` para mostrar la versión instalada.
 
-## Prioridad de los ajustes
+El archivo de configuración contiene todos los ajustes del servidor. Un valor del archivo sustituye el valor predeterminado. `RUST_LOG` y `NO_COLOR` solo cambian la salida de stderr. Consulta [Configuración](/es/docs/configuration) para ver todas las claves y los formatos de dirección de `listen`.
 
-Rapira lee los ajustes en este orden:
-
-**Opciones de línea de comandos > archivo de configuración > valores por defecto.**
-
-Solo las cuatro opciones de la tabla y el argumento `SCRIPT` tienen formas de línea de comandos. Los demás ajustes usan el archivo o su valor predeterminado.
-
-Una opción sustituye el valor correspondiente de `rapira.toml`. Un valor de `rapira.toml` sustituye el valor predeterminado. Este orden permite usar un valor temporal durante una ejecución. Por ejemplo, prueba otro puerto sin editar el archivo.
-
-Las opciones sin definir usan los valores predeterminados de la tabla. El archivo controla el escalado del pool, los registros y los límites de petición. Consulta [Configuración](/es/docs/configuration) para ver todos los ajustes del archivo.
-
-## Opciones
-
-| Opción            | Por defecto      | Qué hace                                                                                         |
-| ----------------- | ---------------- | ------------------------------------------------------------------------------------------------ |
-| `--config <PATH>` | ninguno          | Carga los ajustes de un `rapira.toml`.                                                           |
-| `--listen <ADDR>` | `127.0.0.1:8000` | Dirección de escucha: `host:port`, `:port` (todas las interfaces) o `unix:<path>`.                |
-| `--processes <N>` | número de CPU    | Procesos worker que se crean con fork.                                                           |
-| `--mode <MODE>`   | `dispatcher`     | Modo de ejecución: `classic`, `worker` o `dispatcher`. Tiene prioridad sobre el `pool.mode` del archivo de configuración. |
-| `SCRIPT`          | obligatorio*     | El script PHP de entrada. Tiene prioridad sobre el `pool.entrypoint` del archivo de configuración. |
-
-\* Obligatorio salvo que el archivo de configuración defina `pool.entrypoint`. Si no hay ninguno de los dos, `serve` informa del error y no arranca.
-
-**`--listen`** acepta tres formatos. `127.0.0.1:8000` enlaza la interfaz de loopback. Los sistemas remotos no pueden conectarse a esta dirección. `:8080` equivale a `0.0.0.0:8080` y enlaza todas las interfaces IPv4. Usa `[::]:8080` para todas las interfaces IPv6. `unix:/run/rapira.sock` crea un socket Unix para un proxy inverso local. Escribe los literales IPv6 entre corchetes, como `[::1]:8000`. Rapira rechaza un puerto sin dirección. Usa `--listen :8080` o `--listen 127.0.0.1:8080`. Rapira no resuelve nombres de host en esta opción. Usa `127.0.0.1:8000` en lugar de `localhost:8000`.
-
-**`--processes`** usa de forma predeterminada el número de CPU lógicas. El escalado estático lo usa como número exacto de workers. El escalado dinámico y `ondemand` lo usan como número máximo. Consulta [Modelo de procesos](/es/docs/process-model).
-
-**`--mode`** selecciona el modo de ejecución. `dispatcher` es el valor predeterminado y obtiene cada petición del host. `worker` conserva el script de entrada y ejecuta un handler para cada petición. `classic` inicia una petición PHP nueva para cada petición HTTP. La opción sustituye el modo del archivo de configuración. Consulta [Modo Classic](/es/docs/classic), [Modo Worker](/es/docs/worker) y [Modos de ejecución](/es/docs/execution-modes).
-
-::: info
-`pool.scaling` y `pool.mode` son claves distintas. `pool.scaling` establece la política que dimensiona el pool. `pool.processes` establece el número de workers al que se aplica la política, y `--processes` lo sustituye. `pool.mode` establece qué hace un worker con una petición. `pool.scaling` no tiene una opción de línea de comandos. Establécelo en el archivo de configuración.
+::: question ¿Puedo definir el modo o la dirección de escucha en la línea de comandos?
+No. `rapira serve` solo acepta el archivo de configuración. Define `processes`, `mode` y `entrypoint` en `[http.pool]`. Define `listen` en `[http]`.
 :::
 
-## Resolución del script de entrada
+## Rutas relativas
 
-Especifica el script con el argumento `SCRIPT` o con `pool.entrypoint`. El argumento sustituye a `pool.entrypoint`, pero se aplican los demás ajustes del archivo de configuración. Rapira convierte la ruta del script en una ruta absoluta antes de crear los workers. Esto evita que los cambios posteriores del directorio de trabajo afecten a la ruta.
+Una ruta relativa del archivo usa como base el directorio del archivo de configuración. Esto se aplica a `http.pool.entrypoint`, `grpc.pool.entrypoint` y las demás claves de ruta. Por ejemplo, `entrypoint = "public/index.php"` en `/etc/rapira/rapira.toml` se resuelve como `/etc/rapira/public/index.php`. El directorio actual no afecta a estas rutas. Una ruta `unix:` relativa de `listen` es diferente: usa el directorio actual del comando `rapira serve`. Consulta [Rutas relativas](/es/docs/configuration#rutas-relativas) para ver la lista de claves de ruta.
 
-Las dos formas relativas se resuelven contra bases distintas:
+## Ejemplo
 
-- Un `SCRIPT` relativo en la línea de comandos se resuelve respecto al **directorio actual**.
-- Un `pool.entrypoint` relativo se resuelve respecto al **directorio del archivo de configuración**.
+Este `rapira.toml` atiende HTTP en modo Dispatcher, el modo predeterminado:
 
 ```toml
-[pool]
-entrypoint = "public/index.php"
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
+entrypoint = "app/dispatcher.php"
 ```
 
-Este ajuste en `/etc/rapira/rapira.toml` se resuelve como `/etc/rapira/public/index.php`. El directorio actual no afecta a la ruta.
+Para seleccionar otro modo, define `mode = "worker"` o `mode = "classic"` en `[http.pool]`. Consulta [Modos de ejecución](/es/docs/execution-modes).
 
-## Ejemplos
-
-Invocaciones habituales:
+Inicia el servidor con la ruta del archivo:
 
 ```bash
-rapira serve app/dispatcher.php
-rapira serve --mode worker app/worker.php
-rapira serve --mode classic public/index.php
-rapira serve --listen :8080 --processes 8 app/dispatcher.php
-rapira serve --listen unix:/run/rapira.sock app/dispatcher.php
-rapira serve --config /etc/rapira/rapira.toml
-rapira serve --config /etc/rapira/rapira.toml --listen 127.0.0.1:9000
+rapira serve rapira.toml
+rapira serve /etc/rapira/rapira.toml
 ```
 
-El primer comando no establece `--listen`. Por tanto, el servidor usa la dirección predeterminada. Envía una petición con este comando:
+El servidor escucha en `127.0.0.1:8000`. Envía una petición con este comando:
 
 ```bash
 curl http://127.0.0.1:8000/
 ```
 
-[Inicio rápido](/es/docs/intro/quickstart) contiene los scripts de entrada para `--mode classic` y `--mode worker`. Para Dispatcher, usa `dispatcher-sync.php` o `dispatcher-async.php` del directorio [`examples/`](https://github.com/rapira-rs/rapira/tree/main/examples).
+[Inicio rápido](/es/docs/intro/quickstart) contiene los scripts de entrada para los modos Classic y Worker. Para un script de entrada Dispatcher, usa `dispatcher-sync.php` del directorio [`examples/`](https://github.com/rapira-rs/rapira/tree/main/examples) del repositorio. Consulta [Modo Dispatcher](/es/docs/dispatcher) para ver la guía de programación.
 
 ## Parar el servidor
 
-El primer `SIGINT` o `SIGTERM` permite terminar las peticiones actuales. Después, el servidor cierra las extensiones y termina. Una segunda señal detiene la espera y fuerza la salida. Envía las señales al proceso maestro. Consulta la tabla completa en [Modelo de procesos](/es/docs/process-model).
+El primer `SIGTERM` o `SIGINT` inicia una parada ordenada. Los workers no aceptan trabajo nuevo y terminan las peticiones actuales. Después, el maestro cierra PHP y termina. Un segundo `SIGTERM` o `SIGINT` detiene la espera y fuerza la salida. Envía las señales al proceso maestro. Consulta la tabla completa de señales en [Modelo de procesos](/es/docs/process-model).
+
+Ctrl-C en un terminal envía `SIGINT` al maestro y a cada worker. Después, el maestro envía `SIGQUIT` a cada worker. Así, cada worker recibe una segunda señal y sale al instante con el código `131`. Las peticiones actuales no terminan. Para una parada ordenada, envía `SIGTERM` solo al maestro, por ejemplo `kill -TERM <master-pid>`. systemd con `KillMode=mixed` y `docker stop` también envían la señal solo al maestro.
+
+## Códigos de salida
+
+| Código | Significado |
+| --- | --- |
+| `0` | El servidor se paró y todos los workers salieron. `--help`, `--version` y `rapira` sin argumentos también salen con `0`. |
+| `1` | El servidor no se inició. Por ejemplo, la configuración no es válida, Rapira no puede leer un archivo, una escucha no puede enlazar la dirección o PHP no puede iniciarse. El error está en stderr. |
+| `2` | La línea de comandos no es válida, por ejemplo una opción desconocida o la falta de `CONFIG`. |
+| `70` | El maestro falló después de iniciarse. Por ejemplo, el total de workers de todos los pools es mayor que 2048, o el maestro no puede escribir el pidfile. Un worker unhealthy de la generación cero también causa esta salida si su pool no tiene ninguna petición correcta ni ningún worker idle o active. La generación cero identifica los workers creados antes de la primera recarga. El registro tiene una entrada `master failed`. |
+| `130` | Un `SIGTERM` o `SIGINT` llegó durante una parada y forzó la salida. |

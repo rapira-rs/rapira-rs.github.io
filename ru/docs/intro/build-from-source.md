@@ -1,33 +1,33 @@
 ---
 title: Сборка из исходников
-description: "Когда и как собрать Rapira самому: инструменты Rust и C, PHP в сборке NTS с embed SAPI и тонкости линковки на Linux и macOS."
+description: Требования и инструкции для компиляции Rapira на Linux и macOS.
 ---
 
 # Сборка из исходников
 
-Rapira собирается из исходников на Linux и macOS. Самостоятельная сборка закрывает те случаи, которые не покрывают готовые бинарники со страницы [Установка](/ru/docs/intro/installation), а единственное требование сверх обычных инструментов Rust и C - это PHP, который Rapira сможет встроить.
+Rapira компилируется из исходников на Linux и macOS. Сборка из исходников может поддерживать платформы и расширения PHP, которые не поддерживают готовые бинарники. Для сборки нужны Rust, инструменты C и встраиваемая библиотека PHP. Готовые бинарники описаны на странице [Установка](/ru/docs/intro/installation).
 
 ## Когда собирать из исходников
 
-- **Для вашей платформы нет готового бинарника** - необычная архитектура процессора или дистрибутив на musl вроде Alpine.
-- **Дистрибутив старше, чем поддерживают пакеты.** Релизы собраны под glibc 2.34, так что самые старые системы, куда они встанут, - это Debian 12, Ubuntu 22.04 и RHEL 9 (подробности на странице [Установка](/ru/docs/intro/installation)).
-- **Нужен другой набор расширений PHP.** В релизные сборки вложен PHP, собранный по списку флагов из [`.github/php-configure-flags.txt`](https://github.com/rapira-rs/rapira/blob/main/.github/php-configure-flags.txt), а список этот намеренно короткий: session, mbstring, OPcache, OpenSSL, curl, семейство XML, PDO с SQLite. Если приложению нужны `pdo_mysql`, `intl` или `gd`, соберите Rapira с тем PHP, где они есть.
-- **Вы дорабатываете саму Rapira** или хотите то, что ещё не попало в релиз.
+- **Нет готового бинарника для платформы.** Например, необычная архитектура процессора или дистрибутив на musl, такой как Alpine.
+- **Дистрибутив старше, чем поддерживают пакеты.** Релизным бинарникам нужна glibc 2.34 или новее. Самые старые поддерживаемые системы: Debian 12, Ubuntu 22.04 и RHEL 9.
+- **Приложению нужны другие расширения PHP.** Релизные сборки включают SQLite, PostgreSQL через `pdo_pgsql` и `pgsql`, `bcmath`, `intl`, `igbinary` и `redis`. Полный список расширений приведён на странице [Установка](/ru/docs/intro/installation). Соберите Rapira с другим PHP, если приложению нужны расширения вроде `pdo_mysql` или `gd`.
+- **Вы изменяете Rapira** или вам нужно изменение, которого нет в релизе.
 
 ## Инструменты сборки
 
 Для сборки нужны следующие инструменты:
 
-- **Rust, стабильный канал.** Файл `rust-toolchain.toml` выбирает версию через [rustup](https://rustup.rs/).
-- **Компилятор C и `pkg-config`.** Сборка компилирует небольшие прослойки C с заголовками PHP.
-- **libclang.** Bindgen использует его для создания привязок Zend API. Пакет называется `libclang-dev` в Debian и Ubuntu, `clang-devel` в Fedora и `clang` в Arch.
+- **Rust 1.99 или новее.** Установите Rust через [rustup](https://rustup.rs/). Файл `rust-toolchain.toml` в репозитории выбирает стабильный канал. Если установленная стабильная версия старше 1.99, выполните `rustup update stable`. Пакет Rust из дистрибутива может быть слишком старым.
+- **Компилятор C.** Сборка компилирует небольшие интерфейсные файлы C с заголовками PHP.
+- **libclang.** Bindgen использует его для создания привязок Zend API во время сборки. Пакет называется `libclang-dev` в Debian и Ubuntu, `clang-devel` в Fedora и `clang` в Arch.
 
 ## PHP с embed SAPI
 
-Rapira линкует интерпретатор в свой процесс и не использует сокет. PHP должен быть разделяемой библиотекой NTS версии 8.4 или 8.5. Настройте PHP с `--enable-embed=shared`. Эта опция создаёт `libphp.so` или `libphp.dylib` в macOS.
+Rapira компонует интерпретатор PHP в свой процесс и не использует сокет. PHP должен быть разделяемой библиотекой NTS версии 8.4 или 8.5. Настройте PHP с `--enable-embed=shared`. Эта опция создаёт `libphp.so` или `libphp.dylib` в macOS.
 
-::: warning Сборки ZTS отвергаются
-Потокобезопасный PHP вызывает ошибку сборки. Rapira требует NTS, потому что каждый процесс воркера запускает один интерпретатор. Если `PATH` выбирает сборку ZTS, установите PHP NTS. Задайте путь к `php-config` через `PHP_CONFIG`.
+::: warning Сборка отклоняет ZTS
+Потокобезопасный PHP вызывает ошибку сборки. Rapira требует NTS, потому что Rapira запускает один интерпретатор в каждом процессе воркера. Если `PATH` выбирает сборку ZTS, установите PHP NTS. Задайте в `PHP_CONFIG` путь к его `php-config`.
 :::
 
 В нескольких дистрибутивах embed SAPI уже лежит в пакетах:
@@ -47,15 +47,44 @@ sudo apk add php84-dev php84-embed            # Alpine
 
 Соберите PHP, если пакет embed недоступен. Также соберите PHP, если пакет не содержит нужные расширения.
 
-Файл `.github/php-configure-flags.txt` содержит параметры выпусков. Передайте его в `configure` в распакованном каталоге исходного кода PHP. Добавьте параметры нужных расширений в конец строки `./configure`:
+Файл `.github/php-configure-flags.txt` содержит параметры расширений, поставляемых с PHP. Среди них `bcmath`, `intl`, `pdo_pgsql` и `pgsql`.
+
+Для поддержки `intl` и PostgreSQL установите библиотеки разработки ICU и клиента PostgreSQL. Пакеты называются `libicu-dev` и `libpq-dev` в Debian или Ubuntu, а в Rocky Linux - `libicu-devel` и `libpq-devel`. Расширению `intl` также нужен компилятор C++.
+
+В Debian или Ubuntu установите зависимости для сборки:
 
 ```bash
+sudo apt-get update
+sudo apt-get install -y build-essential pkg-config curl git autoconf bison re2c libclang-dev llvm-dev libssl-dev libcurl4-openssl-dev libxml2-dev libonig-dev libsqlite3-dev zlib1g-dev libffi-dev libicu-dev libpq-dev
+```
+
+В macOS установите зависимости для сборки:
+
+```bash
+brew install autoconf bison re2c pkg-config openssl@3 curl oniguruma libxml2 sqlite libffi gettext icu4c libpq
+export PATH="$(brew --prefix bison)/bin:$PATH"
+```
+
+В каталоге исходников Rapira запустите цель `php`:
+
+```bash
+make php PHP_SRC=/path/to/php-src PHP_PREFIX="$HOME/.local/php-nts"
+```
+
+Цель запускает `buildconf`, настраивает PHP, компилирует его и устанавливает в `PHP_PREFIX`. Она включает поставляемые с PHP расширения из `.github/php-configure-flags.txt`. Она определяет macOS и задаёт пути к библиотекам Homebrew и путь SDK для iconv.
+
+Для собственного набора расширений настройте PHP напрямую в каталоге его исходников. Добавьте параметры нужных расширений к `./configure`:
+
+```bash
+./buildconf --force
 ./configure --prefix="$HOME/.local/php-nts" $(tr '\n' ' ' < /path/to/rapira/.github/php-configure-flags.txt)
 make -j"$(getconf _NPROCESSORS_ONLN)"
 make install
 ```
 
-В macOS установите зависимости командой `brew install pkg-config openssl@3 curl oniguruma libxml2 sqlite`. Добавьте их каталоги `lib/pkgconfig` в `PKG_CONFIG_PATH`. После параметров из файла добавьте `--with-iconv="$(xcrun --show-sdk-path)/usr"`. Этот путь позволяет `configure` найти libiconv в macOS. Autoconf использует последнее значение повторяющегося параметра.
+При ручной настройке в macOS используйте пути к библиотекам и параметры конфигурации из цели `php`.
+
+Цели `make` не добавляют `igbinary` и `redis`. Релизный CI компилирует оба расширения в `libphp` и включает сериализацию igbinary для Redis. [Процесс сборки релизов](https://github.com/rapira-rs/rapira/blob/main/.github/workflows/build-binaries.yml) закрепляет версии их исходников и контрольные суммы. Чтобы добавить их, распакуйте их исходники в каталоги PHP `ext/igbinary` и `ext/redis`. Сделайте это перед запуском `./buildconf --force`. Затем добавьте `--enable-igbinary --enable-redis --enable-redis-igbinary` к `./configure`.
 
 ### Простое имя `libphp.so`
 
@@ -66,7 +95,7 @@ sudo ln -sf /usr/lib/libphp8.4.so /usr/lib/libphp.so        # Debian/Ubuntu
 sudo ln -sf /usr/lib/php84/libphp.so /usr/lib/libphp.so     # Alpine
 ```
 
-Если прав root нет, сделайте симлинк в своём каталоге и покажите на него и линковщику, и загрузчику:
+Без прав root создайте ссылку в каталоге пользователя. Настройте компоновщик и загрузчик на использование этой ссылки:
 
 ```bash
 mkdir -p ~/.local/phplib
@@ -87,27 +116,49 @@ cargo build --release
 
 Сборка записывает бинарный файл в `target/release/rapira`.
 
-PHP находится через `php-config`. Если тот, что лежит в `PATH`, - не та сборка, которую вы хотите встроить, укажите нужную явно:
+Сборка находит PHP через `php-config`. Задайте `PHP_CONFIG`, если `PATH` не выбирает нужный PHP:
 
 ```bash
 PHP_CONFIG=$HOME/.local/php-nts/bin/php-config cargo build --release
 ```
 
 ::: tip
-`make test` прогоняет наборы тестов и сам определяет пути к библиотекам: находит embed-библиотеку внутри префикса `php-config` (`lib`, `lib64`, `lib/phpXX`, простое или версионное имя) и приводит её к простому имени, которого ждёт линковщик. Запустите `make test`, чтобы проверить окружение, прежде чем полагаться на собственную сборку.
+Запустите `make test`, чтобы проверить конфигурацию сборки. Команда находит библиотеку PHP в `lib`, `lib64` или `lib/phpXX` в префиксе PHP. Она принимает простое и версионное имя библиотеки и создаёт простое имя, которое нужно компоновщику.
 :::
 
 ## Запуск собранного бинарника
 
-Во время работы Rapira подгружает `libphp.so` (на macOS - `libphp.dylib`) динамически. Если библиотека лежит в стандартном месте, делать ничего не нужно; если нет - укажите загрузчику путь к ней:
+Rapira загружает `libphp.so` или `libphp.dylib` при запуске процесса. Библиотеке в стандартном системном каталоге не нужна дополнительная настройка. Для другого каталога настройте загрузчик. Загруженная библиотека должна иметь ту же минорную версию PHP, что и PHP, который `php-config` выбрал для сборки. Иначе Rapira останавливается при запуске с ошибкой.
+
+Возьмите `worker.php` из раздела [Быстрый старт](/ru/docs/intro/quickstart). Создайте `rapira.toml` рядом с ним:
+
+```toml
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
+entrypoint = "worker.php"
+mode = "worker"
+```
 
 ```bash
-LD_LIBRARY_PATH="$HOME/.local/php-nts/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ./target/release/rapira serve --mode worker worker.php         # Linux
-DYLD_LIBRARY_PATH="$HOME/.local/php-nts/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" ./target/release/rapira serve --mode worker worker.php   # macOS
+LD_LIBRARY_PATH="$HOME/.local/php-nts/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ./target/release/rapira serve /path/to/app/rapira.toml         # Linux
+DYLD_LIBRARY_PATH="$HOME/.local/php-nts/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" ./target/release/rapira serve /path/to/app/rapira.toml   # macOS
 ```
+
+::: tip OPcache в PHP 8.4
+PHP 8.4 собирает OPcache как отдельный файл `opcache.so`. Добавьте `zend_extension=opcache` в `php.ini`, чтобы загрузить его. PHP 8.5 включает OPcache в `libphp`.
+:::
 
 Результат предоставляет те же функции, что и сервер из пакета. См. разделы [Быстрый старт](/ru/docs/intro/quickstart), [Командная строка](/ru/docs/cli) и [Конфигурация](/ru/docs/configuration).
 
 ## Разработка самой Rapira
 
-`make test` прогоняет оба набора тестов - внутрипроцессный и сквозной, который запускает настоящий бинарник; `make stubs` перегенерирует заголовок с arginfo из `crates/php_sys/rapira.stub.php`; а CI на каждый пул-реквест собирает проект и гоняет `cargo fmt`, clippy и покрытие.
+`make test` запускает модульные и сквозные тесты. `make stubs` заново создаёт каждый заголовок `*_arginfo.h` из файла `*.stub.php` рядом с ним в `crates/`. Команда использует `gen_stub.php` из PHP. Задайте `GEN_STUB`, если `make` не находит этот файл. Для каждого пул-реквеста CI запускает сборку, тесты, `cargo fmt`, Clippy и покрытие.
+
+- `make test_nts` запускает модульные тесты рабочего пространства.
+- `make test_e2e` собирает сервер и запускает сквозные тесты на его бинарном файле. Запускайте эту цель отдельно от `test_nts`. `make test` запускает обе цели последовательно.
+- `make coverage` записывает покрытие модульных и сквозных тестов в `lcov.info`. Нужны `cargo-llvm-cov` и компонент Rust `llvm-tools-preview`.
+- `make grpc_fixtures` создаёт тестовые дескрипторы gRPC заново. По умолчанию цель использует Go. Задайте `BUF=/path/to/buf`, чтобы использовать установленную программу Buf.
+
+[Руководство для участников разработки ядра](https://github.com/rapira-rs/rapira/blob/main/CONTRIBUTING.md) описывает размещение тестов, команды линтера и фаззинга. Процесс фаззинга запускает каждую цель на 60 секунд для пул-реквестов и на 30 минут дважды в неделю.

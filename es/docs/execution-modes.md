@@ -1,52 +1,67 @@
 ---
 title: Modos de ejecución
-description: "Los tres modos de ejecución de Rapira: qué hacen Classic, Worker y Dispatcher, cómo se selecciona uno y cómo leer desde PHP el modo actual."
+description: "Comportamiento, selección e identificación en tiempo de ejecución de los modos Classic, Worker y Dispatcher."
 faqLevel: 2
 ---
 
 # Modos de ejecución
 
-Rapira ejecuta PHP en uno de sus tres modos de ejecución. Los tres modos están disponibles.
+El pool HTTP ejecuta PHP en uno de tres modos de ejecución. El [pool gRPC](./grpc) usa el modo Dispatcher.
 
-| Modo | Estado | Descripción |
-| --- | --- | --- |
-| [Classic](/es/docs/classic) | Disponible | El script de entrada se ejecuta desde cero en cada petición, igual que con php-fpm. |
-| [Worker](/es/docs/worker) | Disponible | Un script residente arranca una vez y atiende las peticiones en un bucle; las superglobales se vuelven a rellenar en cada petición. |
-| Dispatcher | Disponible | El worker pide cada petición mediante una llamada a la API y trabaja con ella como un valor, no a través de las superglobales. |
+| Modo | Descripción |
+| --- | --- |
+| [Classic](/es/docs/classic) | El script de entrada se ejecuta cada vez en una petición PHP nueva, como en php-fpm. |
+| [Worker](/es/docs/worker) | Un script persistente atiende las peticiones en un bucle. Rapira vuelve a rellenar las superglobales en cada petición. |
+| [Dispatcher](/es/docs/dispatcher) | El worker recibe cada petición mediante una llamada a la API y usa un objeto de petición en lugar de las superglobales. |
 
-Los nombres de los modos son los valores de `pool.mode` y los casos del enum `Rapira\Mode`. Classic descarta el estado que crea el script durante una petición. Worker y Dispatcher mantienen viva una misma aplicación durante muchas peticiones. El estado y las dependencias de la aplicación determinan qué modos puede usar.
+Los nombres de los modos son los valores de `http.pool.mode` y los casos del enum `Rapira\Mode`. Classic elimina el estado de petición de la aplicación después de cada petición. Worker y Dispatcher mantienen una misma aplicación inicializada durante muchas peticiones. El estado y las dependencias de la API de la aplicación determinan qué modos puede usar.
 
-## Classic <Badge type="tip" text="disponible" />
+## Classic
 
-El script de entrada se ejecuta en una petición PHP nueva, como en php-fpm. Rapira rellena las superglobales y ejecuta el script. Después, Rapira envía la respuesta y elimina el estado de la petición. Las conexiones persistentes y el estado de las extensiones permanecen en el proceso worker.
+El script de entrada se ejecuta cada vez en una petición PHP nueva, como en php-fpm. Rapira rellena las superglobales, ejecuta el script, envía la respuesta y después elimina el estado de la petición. Las conexiones persistentes y el estado de las extensiones permanecen, porque existen en el proceso worker.
 
-Una aplicación existente puede funcionar sin cambios en el código. Rapira integra PHP en el proceso del servidor y no usa FastCGI.
+Una aplicación existente puede funcionar sin cambios en el código cuando Rapira sustituye a php-fpm. Rapira integra PHP en el proceso del servidor y no usa FastCGI.
 
 Consulta [Modo Classic](/es/docs/classic) para más información.
 
-## Worker <Badge type="tip" text="disponible" />
+## Worker
 
-Worker usa las mismas interfaces de petición y respuesta que Classic. La aplicación lee las superglobales y puede usar `echo`. El worker permanece activo después de una petición. Inicializa el script una vez y después entra en un bucle. Para cada petición, Rapira rellena las superglobales y ejecuta el handler. Los objetos externos al bucle permanecen disponibles.
+El modo Worker usa las mismas interfaces de petición y respuesta que Classic. La aplicación lee las superglobales y puede usar `echo` para la respuesta. El script del worker inicializa la aplicación una vez y después entra en un bucle. Para cada petición, Rapira vuelve a rellenar las superglobales y ejecuta el handler. Los objetos que el script crea fuera del bucle permanecen disponibles.
 
-La aplicación se inicializa una vez por worker y no una vez por petición. Esto puede reducir el tiempo de ejecución. Las propiedades estáticas, los singletons y el estado global permanecen para la siguiente petición. Rapira puede sustituir un worker después de un número determinado de peticiones. Esta sustitución limita el efecto de una fuga de memoria.
+La inicialización se ejecuta una vez por worker, no una vez por petición. Esto puede reducir el tiempo de la petición. Sin embargo, las propiedades estáticas, los singletons y el estado global permanecen para la siguiente petición. Establece [`http.pool.max_requests`](/es/docs/configuration) para sustituir un worker después de un número de peticiones. Esto limita el efecto de una fuga de memoria.
 
-En [Modo Worker](/es/docs/worker) está el script del worker y su bucle; en [Configuración](/es/docs/configuration), el límite de reciclado; y en [HTTP](/es/docs/http), cómo se manejan las peticiones y las respuestas.
+Consulta [Modo Worker](/es/docs/worker) para ver el script del worker y su bucle. Consulta [HTTP](/es/docs/http) para ver cómo Rapira maneja las peticiones y las respuestas.
 
-## Dispatcher <Badge type="tip" text="disponible" />
+## Dispatcher
 
-En Dispatcher, el script del worker solicita cada unidad mediante una llamada a la API. `Rapira\get_dispatcher()` devuelve el dispatcher del pool. `receive(int $timeout = -1)` espera la siguiente unidad. El límite usa microsegundos y `-1` lo desactiva. Un límite agotado lanza `Rapira\Exception\TimeoutException`. `tryReceive()` devuelve una unidad o `null` sin esperar. Con el plugin HTTP, cada unidad es un `Rapira\Http\Exchange`. Su método `getRequest()` devuelve un `Rapira\Http\Request` con el método, objetivo, cabeceras, cuerpo y direcciones. Los métodos `writeHead()`, `writeBody()` y `sendFile()` escriben la respuesta.
+En modo Dispatcher, el script del worker recibe cada unidad de trabajo mediante una llamada a la API. `Rapira\get_dispatcher()` devuelve el dispatcher del pool, y su método `receive()` espera la siguiente unidad. Con el plugin HTTP, cada unidad es un `Rapira\Http\Exchange`. El exchange da un objeto `Rapira\Http\Request` y tiene métodos que escriben la respuesta. Con el plugin gRPC, cada unidad es una `Rapira\Grpc\UnaryCall`.
 
-La aplicación puede pasar el objeto de petición a funciones o middleware. Rapira no rellena las superglobales en este modo. Una aplicación que usa superglobales necesita Worker. También puede usar un adaptador para copiar los datos. Selecciona el modo con `pool.mode` o `--mode`.
+La aplicación puede pasar el objeto de petición a funciones o middleware. Rapira no rellena las superglobales en este modo. Una aplicación que lee superglobales necesita el modo Worker, o un adaptador que copie los datos de la petición a estas variables. `echo` y otras salidas de PHP no van al cliente. Rapira escribe esta salida en el log con el target `php` y el nivel `info`.
 
-El script controla el número de unidades de trabajo activas. Un bucle secuencial procesa una unidad cada vez. Llama a `receive()`, responde a la petición y vuelve a llamar a `receive()`. Un script concurrente inicia una [fibra](https://www.php.net/manual/en/language.fibers.php) por petición. Llama a `tryReceive()` mientras haya fibras activas. Cuando no hay fibras activas, el bucle espera en `receive()`. Este diseño mantiene varias peticiones activas en un mismo intérprete. La concurrencia es cooperativa. Otra petición solo progresa cuando el código en ejecución suspende su fibra. Procesa una unidad cada vez si una biblioteca no admite fibras.
+Cada worker procesa una unidad de trabajo cada vez. Finaliza la unidad actual antes de volver a llamar a `receive()`. Para procesar más peticiones al mismo tiempo, aumenta `http.pool.processes`.
 
-::: info
-Dispatcher es el valor predeterminado de `pool.mode`. Todavía no tiene una guía propia. [`rapira.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira.stub.php) documenta las interfaces `Dispatcher` y `Work`. [`rapira_http.stub.php`](https://github.com/rapira-rs/rapira/blob/main/crates/php_sys/rapira_http.stub.php) documenta los tipos HTTP. [`examples/`](https://github.com/rapira-rs/rapira/tree/main/examples) contiene `dispatcher-sync.php` y `dispatcher-async.php`.
-:::
+Consulta [Modo Dispatcher](/es/docs/dispatcher) para ver el bucle, la API de petición y respuesta y las excepciones. Consulta [gRPC](/es/docs/grpc) para ver la API de llamadas gRPC.
+
+## `$_SERVER` antes de la primera petición
+
+En los modos Worker y Dispatcher, el script de entrada arranca antes de la primera petición. En ese momento, Rapira rellena `$_SERVER` igual que PHP CLI para `php entrypoint.php`.
+
+| Clave | Valor |
+| --- | --- |
+| Cada variable del entorno del proceso | El valor del entorno |
+| `PHP_SELF`, `SCRIPT_NAME`, `SCRIPT_FILENAME`, `PATH_TRANSLATED` | La ruta absoluta del script de entrada |
+| `DOCUMENT_ROOT` | Una cadena vacía |
+| `REQUEST_TIME`, `REQUEST_TIME_FLOAT` | La hora de inicio del script de entrada |
+| `argv` | Una lista que contiene la ruta absoluta del script de entrada |
+| `argc` | `1` |
+
+`$_SERVER` recibe las variables de entorno cuando `variables_order` contiene `S`. `$_ENV` las recibe solo cuando `variables_order` contiene `E`. El valor de producción `GPCS` no contiene `E`. La ruta del script de entrada sustituye a una variable de entorno con el mismo nombre, como `SCRIPT_FILENAME`. Las variables globales `$argv` y `$argc` contienen los mismos valores que `$_SERVER`.
+
+En modo Dispatcher, `$_SERVER` conserva estos valores hasta que el script de entrada arranca de nuevo. Los datos de la petición están en el objeto de petición. En modo Worker, Rapira vuelve a rellenar `$_SERVER` con los datos de cada petición. Los valores de la petición no contienen las variables de entorno, y `SCRIPT_NAME` contiene el nombre del script de entrada con una barra inicial.
 
 ## Leer el modo en tiempo de ejecución
 
-`Rapira\get_mode()` devuelve el modo del proceso como un caso de `Rapira\Mode`. Los casos son `Classic`, `Worker` y `Dispatcher`. El caso coincide con el `pool.mode` inicial y no cambia durante el proceso. Compara los casos con `===`. La función no recibe argumentos ni lanza excepciones. Un script de entrada puede usarla para admitir varios modos:
+`Rapira\get_mode()` devuelve el modo del proceso como un caso del enum `Rapira\Mode`. Los casos son `Classic`, `Worker` y `Dispatcher`. El caso es el modo del pool del worker y no cambia mientras el proceso está en marcha. La función no recibe argumentos y no lanza excepciones. Un script de entrada puede usarla para admitir más de un modo.
 
 ```php
 <?php
@@ -64,29 +79,34 @@ match (\Rapira\get_mode()) {
 ```
 
 ::: question ¿Por qué el modo no cambia nunca mientras el proceso está en marcha?
-El host lee `pool.mode` y fija el modo antes de iniciar el intérprete. Todas las peticiones del worker devuelven el mismo caso. Reinicia el servidor para cambiar el modo.
+Rapira lee el modo del pool antes de iniciar el intérprete. Todas las peticiones de ese worker devuelven el mismo caso. Una recarga no vuelve a leer `rapira.toml`. Para cambiar el modo, reinicia Rapira.
 :::
 
 ## Selección del modo
 
-El valor por defecto de `pool.mode` es `dispatcher`. Fija el modo de forma explícita en `rapira.toml`, o con `--mode` en la línea de comandos.
+La clave `mode` de la tabla del pool selecciona el modo. El valor por defecto es `dispatcher`. Establece el modo de forma explícita en `rapira.toml`.
 
 ```toml
-[pool]
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
 entrypoint = "public/index.php"
 mode = "classic"                      # Use "classic", "worker", or "dispatcher". Default: "dispatcher".
 ```
 
 ```sh
-rapira serve --mode classic public/index.php
+rapira serve rapira.toml
 ```
 
-Rapira ofrece los tres modos a cada aplicación. El código y las dependencias de la aplicación pueden limitar la selección. Usa Classic si el estado global no puede permanecer entre peticiones. El código que usa superglobales necesita un adaptador para Dispatcher. Algunas integraciones de frameworks admiten Worker. Consulta [Frameworks](/es/docs/frameworks/).
+El pool HTTP admite los tres modos. El pool gRPC admite solo `dispatcher`. Otro valor de `grpc.pool.mode` detiene Rapira en el arranque con un error.
 
-El modo se aplica a toda la instancia, no a rutas individuales. Una instancia no puede usar distintos modos. Ejecuta las rutas incompatibles en otra instancia Classic.
+En los modos Worker y Dispatcher, el script de entrada debe recibir las peticiones en un bucle. Si el script termina antes de recibir una petición, el arranque falla. Un script de entrada normal de php-fpm falla de esta forma con el modo por defecto. Consulta [Modelo de procesos](/es/docs/process-model) para ver qué hace Rapira después de un arranque fallido.
 
-Worker y Dispatcher necesitan un script de entrada persistente. Classic no lo necesita. Para seleccionar Classic, establece `mode = "classic"` o pasa `--mode classic`. Después especifica el script normal. El servidor, el binario y el [modelo de procesos](/es/docs/process-model) no cambian. Consulta [Configuración](/es/docs/configuration) y la [referencia CLI](/es/docs/cli).
+El código y las dependencias de la aplicación pueden limitar la selección. Usa Classic si el estado global no puede permanecer entre peticiones. El código que lee superglobales no puede usar Dispatcher sin un adaptador. Algunas integraciones de frameworks admiten el modo Worker. Consulta [Frameworks](/es/docs/frameworks/) para ver las integraciones documentadas.
+
+El modo se aplica a un pool completo, así que todas las rutas de ese pool usan el mismo modo. Los pools HTTP y gRPC pueden usar modos distintos en un mismo servidor. Ejecuta las rutas HTTP incompatibles en otra instancia de Rapira en modo Classic. Consulta [Configuración](/es/docs/configuration) y la [referencia CLI](/es/docs/cli) para más información.
 
 ::: tip
-Empieza con Classic cuando sustituyas php-fpm. Comprueba el funcionamiento de la aplicación. Selecciona Worker después de confirmar que la aplicación se inicializa correctamente y no conserva estado de la petición.
+Empieza con Classic cuando sustituyas php-fpm. Comprueba que la aplicación funciona correctamente. Selecciona Worker después de confirmar que la aplicación se inicializa correctamente y no conserva estado de la petición.
 :::

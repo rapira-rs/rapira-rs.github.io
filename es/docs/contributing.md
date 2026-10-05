@@ -1,53 +1,55 @@
 # Contribuir a la documentación
 
-Esta página documenta las funciones de autoría del sitio. Cada ejemplo se genera a partir del Markdown mostrado.
+Esta página documenta las funciones de autoría del sitio de documentación.
 
-Ejecuta `npm ci` para instalar las dependencias bloqueadas. Después, ejecuta `npm run dev`. Abre la URL local que muestra el comando. Los directorios de traducción tienen la misma estructura que los archivos canónicos en inglés.
+Usa Node.js 24. Ejecuta `npm ci` para instalar las dependencias bloqueadas. Después, ejecuta `npm run dev`. Abre la URL local que muestra el comando. Los directorios de traducción tienen la misma estructura que los archivos canónicos en inglés.
+
+Ejecuta `npm run build` antes de enviar un cambio. Genera miniaturas y comprueba la configuración de VitePress, el renderizado de Markdown y los enlaces internos.
 
 ## Bloques de aviso
 
-Envuelve el texto en un contenedor `:::` para obtener un aviso con color e icono:
+Pon el texto en un contenedor `:::` para crear un aviso con color e icono:
 
 ```md
 ::: tip
-Un consejo útil que conviene destacar.
+Un consejo útil.
 :::
 ::: info
-Información contextual y neutral.
+Información neutral y de contexto.
 :::
 ::: warning
-Algo con lo que hay que tener cuidado.
+Una condición que requiere atención.
 :::
 ::: danger
-Un riesgo real: procede con cuidado.
+Una condición que puede causar daños.
 :::
 ```
 
 ::: tip
-Un consejo útil que conviene destacar.
+Un consejo útil.
 :::
 
 ::: info
-Información contextual y neutral.
+Información neutral y de contexto.
 :::
 
 ::: warning
-Algo con lo que hay que tener cuidado.
+Una condición que requiere atención.
 :::
 
 ::: danger
-Un riesgo real: procede con cuidado.
+Una condición que puede causar daños.
 :::
 
-Añade un título específico después del tipo:
+Escribe un título después del tipo, por ejemplo `::: tip Título específico`:
 
-::: tip Consejo
-Ponle un título propio al bloque cuando la etiqueta por defecto se quede corta.
+::: tip Título específico
+Usa un título propio cuando la etiqueta por defecto no es específica.
 :::
 
 ## Bloques de código
 
-El código en un bloque cercado recibe resaltado de sintaxis, una etiqueta de lenguaje y un botón de copiar:
+El código en un bloque delimitado recibe resaltado de sintaxis, una etiqueta de lenguaje y un botón de copiar:
 
 ```rust
 fn main() {
@@ -55,12 +57,12 @@ fn main() {
 }
 ```
 
-Dirige la atención del lector a líneas concretas: resáltalas, enfócalas o muestra los cambios:
+Añade `{3}` después del nombre del lenguaje para resaltar la línea 3. Añade un comentario `// [!code focus]` al final de una línea para enfocarla. Añade `// [!code --]` o `// [!code ++]` para marcar una línea eliminada o añadida. La compilación elimina estos marcadores de la salida:
 
 ```rust{3}
 fn main() {
     let answer = 42;
-    println!("The answer is {answer}"); // esta línea está resaltada
+    println!("The answer is {answer}"); // VitePress resalta esta línea.
 }
 ```
 
@@ -78,7 +80,7 @@ fn setup() {
 }
 ```
 
-Agrupa variantes de un comando en pestañas:
+Pon los fragmentos alternativos en un contenedor `::: code-group`. Escribe la etiqueta de la pestaña entre corchetes después del nombre del lenguaje, por ejemplo `bash [npm]`:
 
 ::: code-group
 
@@ -98,7 +100,7 @@ yarn
 
 ## Pestañas de archivos
 
-Un bloque `<CodeTabs>` muestra varios archivos como lo haría un editor: una pestaña por archivo y, debajo, el código de la pestaña abierta. Declara la lista de pestañas en un bloque `<script setup>` de la página y coloca cada fragmento en un `<template>` cuyo nombre coincida con el `slot` de la pestaña:
+Un bloque `<CodeTabs>` muestra una pestaña para cada archivo. Muestra el archivo seleccionado debajo de las pestañas. Declara las pestañas en un bloque `<script setup>` de la página. Pon cada ejemplo en un `<template>` que coincida con el `slot` de la pestaña.
 
 ````md
 <script setup>
@@ -128,7 +130,7 @@ echo (new App())->handle($_SERVER['REQUEST_URI']);
 <?php
 require __DIR__ . '/vendor/autoload.php';
 
-$app = new App(); // se arranca una vez y se reutiliza en cada petición
+$app = new App(); // El worker crea este objeto una vez y lo reutiliza.
 
 $handler = static function () use ($app): void {
     echo $app->handle($_SERVER['REQUEST_URI']);
@@ -143,7 +145,7 @@ while (\Rapira\handle_request($handler)) {
 <template #config>
 
 ```toml
-[pool]
+[http.pool]
 entrypoint = "worker.php"
 mode = "worker"
 processes = 4
@@ -154,9 +156,9 @@ processes = 4
 </CodeTabs>
 ````
 
-El icono de cada pestaña sale de la extensión de su nombre: `.php`, `.rs`, `.toml`, `.yaml`, `.json` y `.sh` tienen el suyo, y el resto recibe un icono de archivo genérico. Añade `icon` a una pestaña para elegirlo tú: `php`, `rust`, `toml`, `yaml`, `json`, `shell` o `file`.
+La extensión del nombre de archivo selecciona el icono de la pestaña. El componente admite `.php`, `.rs`, `.toml`, `.yaml`, `.yml`, `.json`, `.sh` y `.bash`. Las demás extensiones usan un icono de archivo genérico. Para cambiar el icono, define `icon` como `php`, `rust`, `toml`, `yaml`, `json`, `shell` o `file`.
 
-Así se ve ese bloque en la página:
+El bloque se muestra así:
 
 <script setup>
 const appTabs = [
@@ -185,7 +187,7 @@ echo (new App())->handle($_SERVER['REQUEST_URI']);
 <?php
 require __DIR__ . '/vendor/autoload.php';
 
-$app = new App(); // se arranca una vez y se reutiliza en cada petición
+$app = new App(); // El worker crea este objeto una vez y lo reutiliza.
 
 $handler = static function () use ($app): void {
     echo $app->handle($_SERVER['REQUEST_URI']);
@@ -200,7 +202,7 @@ while (\Rapira\handle_request($handler)) {
 <template #config>
 
 ```toml
-[pool]
+[http.pool]
 entrypoint = "worker.php"
 mode = "worker"
 processes = 4
@@ -212,7 +214,7 @@ processes = 4
 
 ## Diagramas
 
-Un bloque `mermaid` se convierte en un diagrama:
+Un bloque delimitado `mermaid` se muestra como un diagrama:
 
 ```mermaid
 flowchart LR
@@ -225,14 +227,40 @@ flowchart LR
 
 Markdown estándar crea tablas:
 
-| Función         | Incluida |
-| --------------- | :------: |
-| Avisos          |    ✅    |
-| Grupos de código|    ✅    |
-| Mermaid         |    ✅    |
+| Función          | Incluida |
+| ---------------- | :------: |
+| Avisos           |    ✅    |
+| Grupos de código |    ✅    |
+| Mermaid          |    ✅    |
 
-Las etiquetas en línea pueden mostrar estados:
-<Badge type="tip" text="nuevo" /> <Badge type="warning" text="beta" /> <Badge type="danger" text="obsoleto" />
+Usa el componente `<Badge>` para mostrar una etiqueta de estado, por ejemplo `<Badge type="tip" text="new" />`. El valor de `type` puede ser `tip`, `warning`, `danger` o `info`:
+
+<Badge type="tip" text="nuevo" /> <Badge type="warning" text="beta" /> <Badge type="danger" text="obsoleto" /> <Badge type="info" text="info" />
+
+## Bloques de preguntas frecuentes
+
+Usa un bloque `::: question` para un detalle de implementación que el procedimiento principal no necesita. Escribe la pregunta después de `question`:
+
+```md
+::: question ¿Puedo ejecutar el sitio sin instalar nada de forma global?
+Ejecuta `npm ci` en local. Después, ejecuta `npm run dev`.
+:::
+```
+
+La compilación reúne las preguntas en una sección de elementos desplegables. Define la posición de la sección con la clave de frontmatter `faqLevel`:
+
+```yaml
+faqLevel: 1       # Después de cada sección h1 (por defecto).
+faqLevel: 2       # Después de cada sección h2.
+faqLevel: 0       # Al final de la página.
+faqLevel: false   # Mantiene las preguntas en su posición original.
+```
+
+Esta página usa el nivel por defecto. Por tanto, el ejemplo generado está al final de la página.
+
+::: question ¿Puedo ejecutar el sitio sin instalar nada de forma global?
+Ejecuta `npm ci` en local. Después, ejecuta `npm run dev`.
+:::
 
 ## Frontmatter de la página
 
@@ -240,14 +268,14 @@ Define las opciones de la página en un bloque YAML al principio del archivo:
 
 ```yaml
 ---
-title: Título propio      # reemplaza el H1 en <title> / og:title
-description: Resumen breve # meta description y og:description
-outline: [2, 3]           # el menú «En esta página» - ver abajo
-aside: false              # ocultar por completo la columna derecha
-lastUpdated: false        # ocultar la marca «Actualizado» en esta página
-editLink: false           # ocultar el enlace «Editar esta página»
-prev: false               # ocultar el enlace «Anterior» del pie
-next:                     # o renombrar / redirigir un enlace del pie
+title: Título propio       # Reemplaza el H1 en <title> y og:title.
+description: Resumen breve # Define la meta description y og:description.
+outline: [2, 3]            # Define el menú «En esta página». Consulta las opciones abajo.
+aside: false               # Oculta la columna derecha.
+lastUpdated: false         # Oculta la hora «Actualizado» en esta página.
+editLink: false            # Oculta el enlace «Editar esta página».
+prev: false                # Oculta el enlace «anterior» del pie.
+next:                      # Cambia la etiqueta o el destino de un enlace del pie.
   text: Blog
   link: /es/blog/
 ---
@@ -256,10 +284,10 @@ next:                     # o renombrar / redirigir un enlace del pie
 El **outline** controla el índice «En esta página» de la derecha:
 
 ```yaml
-outline: [2, 3]   # por defecto - H2 y H3
-outline: deep     # todos los niveles, H2–H6
-outline: 2        # solo H2
-outline: false    # ocultarlo
+outline: 2        # Por defecto. Muestra solo H2.
+outline: [2, 3]   # Muestra H2 y H3.
+outline: deep     # Muestra cada nivel de H2 a H6.
+outline: false    # Oculta el menú.
 ```
 
-Usa `layout: home` para una portada o `layout: page` para una página sin barra lateral ni índice; las páginas normales usan el layout `doc` por defecto.
+Usa `layout: home` para una página de inicio. Usa `layout: page` para una página sin barra lateral ni índice. Las demás páginas usan el layout `doc` por defecto.

@@ -1,30 +1,32 @@
 # Współtworzenie dokumentacji
 
-Ta strona opisuje funkcje tworzenia dokumentacji. Każdy przykład powstaje z przedstawionego kodu Markdown.
+Ta strona opisuje funkcje tworzenia dokumentacji.
 
-Uruchom `npm ci`, aby zainstalować zablokowane zależności. Następnie uruchom `npm run dev`. Otwórz lokalny adres z danych wyjściowych polecenia. Katalogi tłumaczeń mają taką samą strukturę jak kanoniczne pliki angielskie.
+Używaj Node.js 24. Uruchom `npm ci`, aby zainstalować zależności w wersjach zapisanych w pliku blokady. Następnie uruchom `npm run dev`. Otwórz lokalny adres z danych wyjściowych polecenia. Katalogi tłumaczeń mają taką samą strukturę jak kanoniczne pliki angielskie.
+
+Uruchom `npm run build` przed zgłoszeniem zmiany. Polecenie generuje miniatury i sprawdza konfigurację VitePress, renderowanie Markdown oraz linki wewnętrzne.
 
 ## Bloki z wyróżnieniem
 
-Otocz tekst kontenerem `:::`, aby uzyskać kolorowe wyróżnienie z ikoną:
+Umieść tekst w kontenerze `:::`, aby utworzyć wyróżnienie z kolorem i ikoną:
 
 ```md
 ::: tip
-Przydatna rada, którą warto podkreślić.
+Przydatna rada.
 :::
 ::: info
 Neutralna informacja kontekstowa.
 :::
 ::: warning
-Coś, na co trzeba uważać.
+Stan, który wymaga uwagi.
 :::
 ::: danger
-Realne ryzyko - działaj ostrożnie.
+Stan, który może spowodować szkodę.
 :::
 ```
 
 ::: tip
-Przydatna rada, którą warto podkreślić.
+Przydatna rada.
 :::
 
 ::: info
@@ -32,22 +34,22 @@ Neutralna informacja kontekstowa.
 :::
 
 ::: warning
-Coś, na co trzeba uważać.
+Stan, który wymaga uwagi.
 :::
 
 ::: danger
-Realne ryzyko - działaj ostrożnie.
+Stan, który może spowodować szkodę.
 :::
 
-Dodaj konkretny tytuł po typie:
+Napisz tytuł po typie, na przykład `::: tip Konkretny tytuł`:
 
-::: tip Wskazówka
-Nadaj blokowi własny tytuł, gdy domyślna etykieta nie wystarcza.
+::: tip Konkretny tytuł
+Użyj własnego tytułu, gdy domyślna etykieta nie jest konkretna.
 :::
 
 ## Bloki kodu
 
-Kod w bloku otrzymuje podświetlanie składni, etykietę języka i przycisk kopiowania:
+Blok kodu otrzymuje podświetlanie składni, etykietę języka i przycisk kopiowania:
 
 ```rust
 fn main() {
@@ -55,12 +57,12 @@ fn main() {
 }
 ```
 
-Skieruj uwagę czytelnika na konkretne wiersze - podświetl je, ustaw fokus albo pokaż zmiany:
+Dodaj `{3}` po nazwie języka, aby podświetlić wiersz 3. Dodaj komentarz `// [!code focus]` na końcu wiersza, aby ustawić na nim fokus. Dodaj `// [!code --]` lub `// [!code ++]`, aby oznaczyć wiersz usunięty lub dodany. Budowanie usuwa te znaczniki z wyniku:
 
 ```rust{3}
 fn main() {
     let answer = 42;
-    println!("The answer is {answer}"); // ten wiersz jest podświetlony
+    println!("The answer is {answer}"); // VitePress podświetla ten wiersz.
 }
 ```
 
@@ -78,7 +80,7 @@ fn setup() {
 }
 ```
 
-Zbierz warianty tego samego polecenia w zakładki:
+Umieść alternatywne fragmenty w kontenerze `::: code-group`. Napisz etykietę karty w nawiasach kwadratowych po nazwie języka, na przykład `bash [npm]`:
 
 ::: code-group
 
@@ -98,7 +100,7 @@ yarn
 
 ## Karty plików
 
-Blok `<CodeTabs>` pokazuje kilka plików tak, jak robi to edytor: u góry karta na każdy plik, pod nimi kod otwartej karty. Wypisz karty w bloku `<script setup>` na stronie, a każdy fragment umieść w `<template>` o nazwie zgodnej ze `slot` danej karty:
+Blok `<CodeTabs>` pokazuje jedną kartę dla każdego pliku. Pod kartami pokazuje wybrany plik. Wypisz karty w bloku `<script setup>` strony. Umieść każdy przykład w `<template>`, który pasuje do `slot` karty.
 
 ````md
 <script setup>
@@ -128,7 +130,7 @@ echo (new App())->handle($_SERVER['REQUEST_URI']);
 <?php
 require __DIR__ . '/vendor/autoload.php';
 
-$app = new App(); // uruchamiany raz, obsługuje kolejne żądania
+$app = new App(); // Worker tworzy ten obiekt raz i używa go ponownie.
 
 $handler = static function () use ($app): void {
     echo $app->handle($_SERVER['REQUEST_URI']);
@@ -143,7 +145,7 @@ while (\Rapira\handle_request($handler)) {
 <template #config>
 
 ```toml
-[pool]
+[http.pool]
 entrypoint = "worker.php"
 mode = "worker"
 processes = 4
@@ -154,9 +156,9 @@ processes = 4
 </CodeTabs>
 ````
 
-Ikonę karty wyznacza rozszerzenie w jej nazwie: `.php`, `.rs`, `.toml`, `.yaml`, `.json` i `.sh` mają własne, pozostałe dostają zwykły znaczek pliku. Aby wybrać ikonę samodzielnie, dodaj karcie pole `icon` o wartości `php`, `rust`, `toml`, `yaml`, `json`, `shell` lub `file`.
+Rozszerzenie nazwy pliku wybiera ikonę karty. Komponent obsługuje `.php`, `.rs`, `.toml`, `.yaml`, `.yml`, `.json`, `.sh` i `.bash`. Inne rozszerzenia używają ogólnej ikony pliku. Aby nadpisać ikonę, ustaw `icon` na `php`, `rust`, `toml`, `yaml`, `json`, `shell` lub `file`.
 
-Tak ten blok wygląda na stronie:
+Blok renderuje się tak:
 
 <script setup>
 const appTabs = [
@@ -185,7 +187,7 @@ echo (new App())->handle($_SERVER['REQUEST_URI']);
 <?php
 require __DIR__ . '/vendor/autoload.php';
 
-$app = new App(); // uruchamiany raz, obsługuje kolejne żądania
+$app = new App(); // Worker tworzy ten obiekt raz i używa go ponownie.
 
 $handler = static function () use ($app): void {
     echo $app->handle($_SERVER['REQUEST_URI']);
@@ -200,7 +202,7 @@ while (\Rapira\handle_request($handler)) {
 <template #config>
 
 ```toml
-[pool]
+[http.pool]
 entrypoint = "worker.php"
 mode = "worker"
 processes = 4
@@ -212,11 +214,11 @@ processes = 4
 
 ## Diagramy
 
-Blok `mermaid` renderuje się jako diagram:
+Blok kodu `mermaid` renderuje się jako diagram:
 
 ```mermaid
 flowchart LR
-  A[Piszesz Markdown] --> B{Budowanie}
+  A[Napisz Markdown] --> B{Budowanie}
   B --> C[Statyczna strona]
   B --> D[Kanał RSS]
 ```
@@ -231,35 +233,61 @@ Standardowy Markdown tworzy tabele:
 | Grupy kodu       |     ✅     |
 | Mermaid          |     ✅     |
 
-Plakietki w tekście mogą przedstawiać status:
-<Badge type="tip" text="nowość" /> <Badge type="warning" text="beta" /> <Badge type="danger" text="wycofane" />
+Użyj komponentu `<Badge>`, aby pokazać etykietę statusu, na przykład `<Badge type="tip" text="new" />`. Wartość `type` może być `tip`, `warning`, `danger` lub `info`:
+
+<Badge type="tip" text="nowość" /> <Badge type="warning" text="beta" /> <Badge type="danger" text="wycofane" /> <Badge type="info" text="informacja" />
+
+## Bloki FAQ
+
+Użyj bloku `::: question` dla szczegółu implementacji, którego główna procedura nie potrzebuje. Napisz pytanie po `question`:
+
+```md
+::: question Czy mogę uruchomić stronę, jeśli nic nie instaluję globalnie?
+Uruchom lokalnie `npm ci`. Następnie uruchom `npm run dev`.
+:::
+```
+
+Budowanie zbiera pytania w sekcję elementów do rozwinięcia. Ustaw położenie sekcji kluczem frontmatter `faqLevel`:
+
+```yaml
+faqLevel: 1       # Po każdej sekcji h1 (domyślnie).
+faqLevel: 2       # Po każdej sekcji h2.
+faqLevel: 0       # Na końcu strony.
+faqLevel: false   # Pytania zostają na swoich miejscach w źródle.
+```
+
+Ta strona używa domyślnego poziomu. Dlatego wyrenderowany przykład jest na końcu strony.
+
+::: question Czy mogę uruchomić stronę, jeśli nic nie instaluję globalnie?
+Uruchom lokalnie `npm ci`. Następnie uruchom `npm run dev`.
+:::
 
 ## Frontmatter strony
 
-Opcje strony ustawiasz w bloku YAML na samej górze pliku:
+Ustaw opcje strony w bloku YAML na samej górze pliku:
 
 ```yaml
 ---
-title: Własny tytuł       # nadpisuje H1 w <title> / og:title
-description: Krótkie streszczenie # meta description i og:description
-outline: [2, 3]           # menu „Na tej stronie” - patrz niżej
-aside: false              # całkowicie ukryj prawą kolumnę
-lastUpdated: false        # ukryj znacznik „Zaktualizowano” na tej stronie
-editLink: false           # ukryj link „Edytuj tę stronę”
-prev: false               # ukryj stopkowy link „Poprzednia”
-next:                     # albo zmień nazwę / cel linku w stopce
+title: Własny tytuł        # Zastępuje H1 w <title> i og:title.
+description: Krótki opis   # Ustawia meta description i og:description.
+outline: [2, 3]            # Ustawia menu „Na tej stronie”. Opcje są niżej.
+aside: false               # Ukrywa prawą kolumnę.
+lastUpdated: false         # Ukrywa czas „Zaktualizowano” na tej stronie.
+editLink: false            # Ukrywa link „Edytuj tę stronę”.
+prev: false                # Ukrywa link „Poprzednia” w stopce.
+next:                      # Zmienia etykietę lub cel linku w stopce.
   text: Blog
   link: /pl/blog/
 ---
 ```
 
-**outline** steruje spisem „Na tej stronie” po prawej:
+Klucz **outline** steruje spisem treści „Na tej stronie” po prawej:
 
 ```yaml
-outline: [2, 3]   # domyślnie - H2 i H3
-outline: deep     # wszystkie poziomy, H2–H6
-outline: 2        # tylko H2
-outline: false    # ukryj
+outline: 2        # Domyślnie. Pokazuje tylko H2.
+outline: [2, 3]   # Pokazuje H2 i H3.
+outline: deep     # Pokazuje każdy poziom od H2 do H6.
+outline: false    # Ukrywa menu.
 ```
 
-Użyj `layout: home` dla strony startowej lub `layout: page` dla pustej strony bez paska bocznego i spisu; zwykłe strony korzystają z domyślnego układu `doc`.
+Użyj `layout: home` dla strony głównej. Użyj `layout: page` dla strony bez paska bocznego i spisu treści. Inne strony używają domyślnego układu `doc`.

@@ -1,32 +1,32 @@
 ---
 title: Compilar desde el código
-description: "Cuándo y cómo compilar Rapira tú mismo - las herramientas de Rust y C, un PHP NTS con el SAPI embed y los detalles del enlazado en Linux y macOS."
+description: Requisitos e instrucciones para compilar Rapira en Linux y macOS.
 ---
 
 # Compilar desde el código
 
-Rapira se compila desde el código en Linux y macOS. Compilarlo tú mismo resuelve los casos que no cubren los binarios ya compilados de la página [Instalación](/es/docs/intro/installation), y el único requisito más allá de las herramientas habituales de Rust y C es un PHP que Rapira pueda incrustar.
+Rapira se compila desde el código en Linux y macOS. Una compilación desde el código puede admitir plataformas y extensiones de PHP que los binarios precompilados no admiten. La compilación requiere Rust, herramientas de C y una biblioteca de PHP que se pueda incrustar. Consulta [Instalación](/es/docs/intro/installation) para los binarios precompilados.
 
 ## Cuándo compilar desde el código
 
-- **No hay binario para tu plataforma**: una arquitectura de CPU poco habitual, o una distro basada en musl como Alpine.
-- **Tu distribución es más antigua de lo que admiten los paquetes.** Las releases se compilan contra glibc 2.34, así que Debian 12, Ubuntu 22.04 y RHEL 9 son las versiones más antiguas donde llegan a instalarse (lo tienes en [Instalación](/es/docs/intro/installation)).
-- **Necesitas otro conjunto de extensiones de PHP.** Las compilaciones de release incluyen un PHP construido con la lista de flags de [`.github/php-configure-flags.txt`](https://github.com/rapira-rs/rapira/blob/main/.github/php-configure-flags.txt), que es corta a propósito: session, mbstring, OPcache, OpenSSL, curl, la familia XML y PDO con SQLite. Si tu aplicación necesita `pdo_mysql`, `intl` o `gd`, compila Rapira contra un PHP que las traiga.
-- **Estás trabajando en el propio Rapira**, o quieres algo que todavía no se ha publicado.
+- **Ningún binario precompilado admite la plataforma.** Por ejemplo, una arquitectura de CPU poco habitual y una distribución basada en musl como Alpine.
+- **La distribución es más antigua que los requisitos de los paquetes.** Los binarios publicados requieren glibc 2.34 o posterior. Los sistemas compatibles más antiguos son Debian 12, Ubuntu 22.04 y RHEL 9.
+- **La aplicación necesita otras extensiones de PHP.** Las compilaciones publicadas incluyen SQLite, PostgreSQL mediante `pdo_pgsql` y `pgsql`, `bcmath`, `intl`, `igbinary` y `redis`. Consulta [Instalación](/es/docs/intro/installation) para ver la lista completa. Compila con otro PHP cuando la aplicación necesite extensiones como `pdo_mysql` o `gd`.
+- **Modificas Rapira** o necesitas un cambio que no está en una versión publicada.
 
 ## Las herramientas
 
 La compilación requiere estas herramientas:
 
-- **Rust, canal estable.** El archivo `rust-toolchain.toml` selecciona la versión mediante [rustup](https://rustup.rs/).
-- **Un compilador de C y `pkg-config`.** La compilación crea pequeños adaptadores de C con las cabeceras de PHP.
-- **libclang.** Bindgen lo usa para crear los enlaces de la API de Zend. El paquete se llama `libclang-dev` en Debian y Ubuntu, `clang-devel` en Fedora y `clang` en Arch.
+- **Rust 1.99 o posterior.** Instala Rust mediante [rustup](https://rustup.rs/). El archivo `rust-toolchain.toml` del repositorio selecciona el canal estable. Si la versión estable instalada es anterior a 1.99, ejecuta `rustup update stable`. Un paquete de Rust de la distribución puede ser demasiado antiguo.
+- **Un compilador de C.** La compilación compila pequeños archivos de interfaz de C con las cabeceras de PHP.
+- **libclang.** Bindgen lo usa para crear los enlaces de la API de Zend durante la compilación. El paquete se llama `libclang-dev` en Debian y Ubuntu, `clang-devel` en Fedora y `clang` en Arch.
 
 ## PHP con el SAPI embed
 
-Rapira enlaza el intérprete en su proceso y no usa un socket. PHP debe ser una biblioteca compartida NTS, versión 8.4 u 8.5. Configura PHP con `--enable-embed=shared`. Esta opción crea `libphp.so`, o `libphp.dylib` en macOS.
+Rapira enlaza el intérprete de PHP en su proceso y no usa un socket. PHP debe ser una biblioteca compartida NTS, versión 8.4 u 8.5. Configura PHP con `--enable-embed=shared`. Esta opción crea `libphp.so`, o `libphp.dylib` en macOS.
 
-::: warning Las compilaciones ZTS se rechazan
+::: warning La compilación rechaza ZTS
 Un PHP con seguridad de hilos causa un error de compilación. Rapira requiere NTS porque ejecuta un intérprete en cada proceso worker. Si `PATH` selecciona una compilación ZTS, instala PHP NTS. Define `PHP_CONFIG` con la ruta de su `php-config`.
 :::
 
@@ -47,26 +47,55 @@ La fórmula `php` de Homebrew no incluye el SAPI embed. Compila PHP desde el có
 
 Compila PHP cuando no haya un paquete embed. Compílalo también cuando el paquete no incluya las extensiones necesarias.
 
-El archivo `.github/php-configure-flags.txt` contiene las opciones de las compilaciones publicadas. Pásalo a `configure` dentro del código fuente de PHP extraído. Añade las opciones de las extensiones necesarias al final de la línea de `./configure`:
+El archivo `.github/php-configure-flags.txt` contiene las opciones de las extensiones distribuidas con PHP. Entre ellas están `bcmath`, `intl`, `pdo_pgsql` y `pgsql`.
+
+Instala las bibliotecas de desarrollo de ICU y del cliente PostgreSQL para habilitar `intl` y PostgreSQL. Los paquetes se llaman `libicu-dev` y `libpq-dev` en Debian o Ubuntu, y `libicu-devel` y `libpq-devel` en Rocky Linux. La extensión `intl` también requiere un compilador de C++.
+
+En Debian o Ubuntu, instala las dependencias de compilación:
 
 ```bash
+sudo apt-get update
+sudo apt-get install -y build-essential pkg-config curl git autoconf bison re2c libclang-dev llvm-dev libssl-dev libcurl4-openssl-dev libxml2-dev libonig-dev libsqlite3-dev zlib1g-dev libffi-dev libicu-dev libpq-dev
+```
+
+En macOS, instala las dependencias de compilación:
+
+```bash
+brew install autoconf bison re2c pkg-config openssl@3 curl oniguruma libxml2 sqlite libffi gettext icu4c libpq
+export PATH="$(brew --prefix bison)/bin:$PATH"
+```
+
+Desde el directorio de código fuente de Rapira, ejecuta el objetivo `php`:
+
+```bash
+make php PHP_SRC=/path/to/php-src PHP_PREFIX="$HOME/.local/php-nts"
+```
+
+El objetivo ejecuta `buildconf`, configura PHP, lo compila y lo instala en `PHP_PREFIX`. Activa las extensiones distribuidas con PHP que figuran en `.github/php-configure-flags.txt`. Detecta macOS y configura las rutas de las bibliotecas de Homebrew y la ruta del SDK para iconv.
+
+Para un conjunto personalizado de extensiones, configura PHP directamente en su directorio de código fuente. Añade las opciones de las extensiones necesarias a `./configure`:
+
+```bash
+./buildconf --force
 ./configure --prefix="$HOME/.local/php-nts" $(tr '\n' ' ' < /path/to/rapira/.github/php-configure-flags.txt)
 make -j"$(getconf _NPROCESSORS_ONLN)"
 make install
 ```
 
-En macOS, instala antes las dependencias (`brew install pkg-config openssl@3 curl oniguruma libxml2 sqlite`), mete sus directorios `lib/pkgconfig` en `PKG_CONFIG_PATH` y añade `--with-iconv="$(xcrun --show-sdk-path)/usr"` después del archivo de flags: un `--with-iconv` a secas no encuentra ahí libiconv, y en autoconf gana la última forma.
+Para configurar PHP manualmente en macOS, usa las rutas de bibliotecas y las opciones de configuración del objetivo `php`.
+
+Los objetivos de `make` no añaden `igbinary` ni `redis`. El CI de publicación compila ambos dentro de `libphp` y activa la serialización igbinary para Redis. [El flujo de publicación](https://github.com/rapira-rs/rapira/blob/main/.github/workflows/build-binaries.yml) fija sus versiones de código fuente y sus sumas de verificación. Para añadirlos, extrae sus fuentes en los directorios `ext/igbinary` y `ext/redis` de PHP. Haz esto antes de ejecutar `./buildconf --force`. Después añade `--enable-igbinary --enable-redis --enable-redis-igbinary` a `./configure`.
 
 ### El nombre `libphp.so` a secas
 
-La compilación enlaza con `-lphp` y solo busca en `lib` y `lib64` dentro del prefijo de PHP, así que en uno de esos dos directorios tiene que haber un archivo llamado exactamente `libphp.so` (o `libphp.dylib`). Debian y Ubuntu traen únicamente el nombre con versión, `libphp8.4.so`; la copia de Alpine sí lleva el nombre a secas, pero vive en `lib/phpXX`, que no se busca. En ambos casos el enlazado falla hasta que pongas un symlink con el nombre a secas en el `lib` o `lib64` del prefijo:
+La compilación enlaza con `-lphp`. Solo busca en `lib` y `lib64` dentro del prefijo de PHP. Uno de estos directorios debe contener `libphp.so`, o `libphp.dylib` en macOS. Debian y Ubuntu solo incluyen el nombre con versión `libphp8.4.so`. Alpine pone `libphp.so` en `lib/phpXX`, donde la compilación no busca. Crea un enlace con el nombre necesario en el directorio `lib` o `lib64` del prefijo:
 
 ```bash
 sudo ln -sf /usr/lib/libphp8.4.so /usr/lib/libphp.so        # Debian/Ubuntu
 sudo ln -sf /usr/lib/php84/libphp.so /usr/lib/libphp.so     # Alpine
 ```
 
-Si no tienes root, crea el symlink en un directorio tuyo y apunta hacia él tanto el enlazador como el cargador:
+Sin acceso root, pon el enlace en un directorio del usuario. Configura el enlazador y el cargador para que lo usen:
 
 ```bash
 mkdir -p ~/.local/phplib
@@ -77,7 +106,7 @@ export LD_LIBRARY_PATH="$HOME/.local/phplib:/usr/lib"
 
 ## Compilar Rapira
 
-Con PHP ya en su sitio, compilar es un `cargo build` de lo más normal:
+Después de instalar PHP, compila Rapira con Cargo:
 
 ```bash
 git clone https://github.com/rapira-rs/rapira.git
@@ -85,29 +114,51 @@ cd rapira
 cargo build --release
 ```
 
-El binario aparece en `target/release/rapira`.
+La compilación escribe el binario en `target/release/rapira`.
 
-PHP se descubre a través de `php-config`. Si el que hay en el `PATH` no es la compilación que quieres que Rapira incruste, indícala de forma explícita:
+La compilación encuentra PHP mediante `php-config`. Define `PHP_CONFIG` cuando `PATH` no selecciona el PHP necesario:
 
 ```bash
 PHP_CONFIG=$HOME/.local/php-nts/bin/php-config cargo build --release
 ```
 
 ::: tip
-`make test` ejecuta las suites de tests y resuelve por ti las rutas de las bibliotecas: busca la biblioteca embed bajo el prefijo de `php-config` (`lib`, `lib64`, `lib/phpXX`, con el nombre a secas o con versión) y la normaliza al nombre a secas que quiere el enlazador. Ejecútalo para comprobar el montaje antes de fiarte de tu propia compilación.
+Ejecuta `make test` para validar la configuración de la compilación. Busca la biblioteca de PHP en `lib`, `lib64` o `lib/phpXX` dentro del prefijo de PHP. Acepta los nombres de biblioteca a secas y con versión, y crea el nombre a secas que necesita el enlazador.
 :::
 
 ## Ejecutar el binario que has compilado
 
-En tiempo de ejecución, Rapira carga `libphp.so` (`libphp.dylib` en macOS) de forma dinámica. Si está en una ruta estándar no hay nada que hacer; si no, apunta el cargador hacia ella:
+Rapira carga `libphp.so`, o `libphp.dylib`, cuando el proceso se inicia. Una biblioteca en un directorio estándar del sistema no necesita configuración adicional. Para otro directorio, configura el cargador. La biblioteca cargada debe tener la misma versión menor de PHP que el PHP que `php-config` seleccionó para la compilación. Si no, Rapira se detiene en el arranque con un error.
 
-```bash
-LD_LIBRARY_PATH="$HOME/.local/php-nts/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ./target/release/rapira serve --mode worker worker.php         # Linux
-DYLD_LIBRARY_PATH="$HOME/.local/php-nts/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" ./target/release/rapira serve --mode worker worker.php   # macOS
+Usa el `worker.php` de [Inicio rápido](/es/docs/intro/quickstart). Crea `rapira.toml` junto a él:
+
+```toml
+[http]
+listen = "127.0.0.1:8000"
+
+[http.pool]
+entrypoint = "worker.php"
+mode = "worker"
 ```
 
-El resultado es el mismo servidor que instalan los paquetes: [Inicio rápido](/es/docs/intro/quickstart) te guía por un primer script, [CLI](/es/docs/cli) enumera lo que acepta `serve` y [Configuración](/es/docs/configuration) cubre `rapira.toml`.
+```bash
+LD_LIBRARY_PATH="$HOME/.local/php-nts/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ./target/release/rapira serve /path/to/app/rapira.toml         # Linux
+DYLD_LIBRARY_PATH="$HOME/.local/php-nts/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" ./target/release/rapira serve /path/to/app/rapira.toml   # macOS
+```
+
+::: tip OPcache en PHP 8.4
+PHP 8.4 compila OPcache como un archivo `opcache.so` separado. Añade `zend_extension=opcache` a `php.ini` para cargarlo. PHP 8.5 incluye OPcache en `libphp`.
+:::
+
+El resultado tiene las mismas funciones que un servidor empaquetado. Consulta [Inicio rápido](/es/docs/intro/quickstart), [CLI](/es/docs/cli) y [Configuración](/es/docs/configuration).
 
 ## Trabajar en el propio Rapira
 
-`make test` ejecuta las dos suites -la que corre dentro del mismo proceso y la de extremo a extremo, que lanza el binario de verdad-, `make stubs` regenera la cabecera de arginfo a partir de `crates/php_sys/rapira.stub.php`, y CI ejecuta la compilación, `cargo fmt`, clippy y la cobertura en cada pull request.
+`make test` ejecuta los tests unitarios y los tests de extremo a extremo. `make stubs` regenera cada cabecera `*_arginfo.h` a partir del archivo `*.stub.php` que está junto a ella en `crates/`. Usa el `gen_stub.php` de PHP. Define `GEN_STUB` cuando `make` no encuentra ese archivo. En cada pull request, CI ejecuta la compilación, los tests, `cargo fmt`, Clippy y la cobertura.
+
+- `make test_nts` ejecuta los tests unitarios del workspace.
+- `make test_e2e` compila el servidor y ejecuta los tests de extremo a extremo sobre el binario. Ejecútalo por separado de `test_nts`. `make test` ejecuta ambos en secuencia.
+- `make coverage` escribe la cobertura unitaria y de extremo a extremo en `lcov.info`. Requiere `cargo-llvm-cov` y el componente de Rust `llvm-tools-preview`.
+- `make grpc_fixtures` regenera los descriptores de prueba de gRPC. Usa Go por defecto. Define `BUF=/path/to/buf` para usar un ejecutable Buf instalado.
+
+Consulta la [guía de contribución del núcleo](https://github.com/rapira-rs/rapira/blob/main/CONTRIBUTING.md) para conocer la ubicación de los tests y los comandos de lint y fuzzing. El flujo de fuzzing ejecuta cada objetivo durante 60 segundos en los pull requests y durante 30 minutos dos veces por semana.

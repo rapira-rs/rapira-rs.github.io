@@ -19,16 +19,27 @@ const labels = {
   download: '下载 Rapira',
   error: '此站点构建不包含发布数据。',
   releases: '打开 releases 页面',
+  nightly: 'Nightly',
+  nightlyPage: '打开 nightly 发布页',
 }
 </script>
 
 # 下载 Rapira
 
-[Rapira 发布页](https://github.com/rapira-rs/rapira/releases)提供 Linux 和 macOS 版本。[Rapira Windows 发布页](https://github.com/rapira-rs/rapira-windows/releases)提供 Windows 版本。请选择平台。按钮会下载最新的稳定版。
+<DownloadCard>
 
-Windows 的最新稳定发布是 v0.8.0。它仅提供 HTTP 服务，并使用自己的配置和扩展集。请遵循 [Windows 安装说明](/zh/docs/intro/installation#windows)。此下载不包含 Windows v0.9 源码中的功能。
+## 二进制文件 {#binaries}
+
+每个构建都包含 `rapira` 二进制文件和所选 PHP 版本的 `libphp`，无需另外安装 PHP。
 
 <DownloadBuilds :labels="labels">
+<template #windows-note>
+
+::: warning
+此版本仅用于本地开发。Windows 版本来自单独的仓库，可能落后于 Linux 和 macOS 的发布。
+:::
+
+</template>
 <template #dev-note>
 
 ::: warning
@@ -38,8 +49,26 @@ Windows 的最新稳定发布是 v0.8.0。它仅提供 HTTP 服务，并使用�
 </template>
 </DownloadBuilds>
 
-选择器不显示 nightly 构建或容器镜像。[nightly 预发布](https://github.com/rapira-rs/rapira/releases/tag/nightly)包含压缩包和一个校验和文件。它不包含 `.deb` 或 `.rpm` 软件包。
+</DownloadCard>
 
-容器镜像位于 `ghcr.io/rapira-rs/rapira`。`nightly-php8.4` 和 `nightly-php8.5` 标签指向最新的 nightly 镜像。所有镜像标签请参阅 [Docker](/zh/docs/intro/installation#docker)。
+<DownloadCard>
+
+## Docker {#docker}
+
+镜像 `ghcr.io/rapira-rs/rapira` 只包含 Rapira 和 `libphp.so`。把它的文件复制到你的应用镜像中：
+
+```dockerfile
+FROM php:8.5-cli-trixie
+COPY --from=ghcr.io/rapira-rs/rapira:php8.5 / /
+RUN apt-get update \
+    && xargs -r apt-get install -y --no-install-recommends < /usr/local/share/rapira/debian-packages.txt \
+    && rm -rf /var/lib/apt/lists/*
+COPY . /app
+CMD ["rapira", "serve", "/app/rapira.toml"]
+```
+
+每个标签都标明 PHP 版本，例如 `php8.4`、`php8.5` 或 `nightly-php8.5`。全部标签见 [Docker](/zh/docs/intro/installation#docker)。
+
+</DownloadCard>
 
 你也可以[从源码构建 Rapira](/zh/docs/intro/build-from-source)。

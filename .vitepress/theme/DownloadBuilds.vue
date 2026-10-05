@@ -9,19 +9,24 @@ import { data } from './builds.data'
  *
  * The `labels` property supplies all translated UI text.
  * Each locale defines the text in its `download.md`.
- * The `dev-note` slot appears when the selected system is not Linux.
+ * The `windows-note` slot appears when the selected system is Windows.
+ * The `dev-note` slot appears for other systems except Linux.
  */
 interface Labels {
   os: string
   arch: string
   php: string
   format: string
-  /** Download button text. The component adds the version number. */
+  /** Download button text. The component adds a version badge. */
   download: string
   /** Message shown when no build data is available. */
   error: string
   /** Releases page link text for the error state. */
   releases: string
+  /** Nightly download button text. */
+  nightly: string
+  /** Accessible name of the nightly release page link. */
+  nightlyPage: string
 }
 
 defineProps<{ labels: Labels }>()
@@ -64,7 +69,20 @@ const build = computed(() => builds.find(
   b => b.os === os.value && b.arch === arch.value && b.php === php.value && b.format === format.value,
 ))
 
-const sizeLabel = computed(() => build.value ? `${(build.value.size / 1048576).toFixed(1)} MB` : '')
+const nightlyPageUrl = computed(() => os.value === 'windows'
+  ? 'https://github.com/rapira-rs/rapira-windows/releases/tag/nightly'
+  : 'https://github.com/rapira-rs/rapira/releases/tag/nightly')
+
+// The nightly prerelease has archives only. A `.deb` or `.rpm` selection uses the archive of the same platform.
+const nightlyBuild = computed(() => {
+  const candidates = data.nightly.filter(b => b.os === os.value && b.arch === arch.value && b.php === php.value)
+  return candidates.find(b => b.format === format.value) ?? candidates[0]
+})
+
+// The badge omits the `-nightly.<commit>` suffix. The button title contains the full file name.
+const nightlyVersion = computed(() => nightlyBuild.value?.version.replace(/-nightly\..*$/, '') ?? '')
+
+const sizeLabel =computed(() => build.value ? `${(build.value.size / 1048576).toFixed(1)} MB` : '')
 
 onMounted(() => {
   // Select the client operating system after hydration.
@@ -135,15 +153,42 @@ onMounted(() => {
         </div>
       </div>
 
-      <slot v-if="os !== 'linux'" name="dev-note" />
+      <slot v-if="os === 'windows'" name="windows-note" />
+      <slot v-else-if="os !== 'linux'" name="dev-note" />
 
       <div v-if="build" class="db-result">
-        <a class="db-button" :href="build.url">
-          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-            <path d="M8 1.5v9m0 0 3.5-3.5M8 10.5 4.5 7M2.5 13h11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
-          {{ labels.download }} {{ build.version }}
-        </a>
+        <div class="db-actions">
+          <a class="db-button" :href="build.url">
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+              <path d="M8 1.5v9m0 0 3.5-3.5M8 10.5 4.5 7M2.5 13h11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            {{ labels.download }}
+            <span class="db-version">{{ build.version }}</span>
+          </a>
+          <div class="db-split">
+            <a
+              v-if="nightlyBuild"
+              class="db-nightly"
+              :href="nightlyBuild.url"
+              :title="nightlyBuild.name"
+            >{{ labels.nightly }} <span class="db-version">{{ nightlyVersion }}</span></a>
+            <!-- Without nightly build data, this link is the only part of the button. -->
+            <a
+              class="db-nightly"
+              :class="{ 'db-nightly-page': nightlyBuild }"
+              :href="nightlyPageUrl"
+              target="_blank"
+              rel="noopener"
+              :aria-label="nightlyBuild ? labels.nightlyPage : undefined"
+              :title="labels.nightlyPage"
+            >
+              <template v-if="!nightlyBuild">{{ labels.nightly }}</template>
+              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                <path d="M9.5 2.5h4v4M13.5 2.5 7 9M11.5 9.5v3a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </a>
+          </div>
+        </div>
         <p class="db-file">
           <span>{{ build.name }}</span>
           <span>·</span>
@@ -230,6 +275,62 @@ onMounted(() => {
 
 .db-button:hover {
   background: var(--vp-button-brand-hover-bg);
+}
+
+.db-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+
+/* The split button has a download part and a release page part. */
+.db-split {
+  display: inline-flex;
+  border: 1px solid var(--vp-button-alt-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.db-nightly.db-nightly-page {
+  padding-inline: 12px;
+  border-left: 1px solid var(--vp-button-alt-border);
+}
+
+.db-nightly {
+  display: inline-flex;
+  align-items: center;
+  padding: 9px 20px;
+  background: var(--vp-button-alt-bg);
+  color: var(--vp-button-alt-text) !important;
+  font-size: 14px;
+  font-weight: var(--rapira-fw-ui-title);
+  text-decoration: none !important;
+  transition: color 0.2s, border-color 0.2s, background-color 0.2s;
+}
+
+/* The version badge takes its colors from the button text, so it fits the brand background in both themes. */
+.db-version {
+  padding: 0 7px;
+  border-radius: 10px;
+  background: color-mix(in srgb, currentColor 20%, transparent);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.db-nightly .db-version {
+  margin-left: 8px;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.db-nightly:not(.db-nightly-page) svg {
+  margin-left: 8px;
+}
+
+.db-nightly:hover {
+  background: var(--vp-button-alt-hover-bg);
+  color: var(--vp-button-alt-hover-text) !important;
 }
 
 .db-file {

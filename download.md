@@ -19,16 +19,27 @@ const labels = {
   download: 'Download Rapira',
   error: 'This site build does not contain release data.',
   releases: 'Open the releases',
+  nightly: 'Nightly',
+  nightlyPage: 'Open the nightly release page',
 }
 </script>
 
 # Download Rapira
 
-The [Rapira releases page](https://github.com/rapira-rs/rapira/releases) contains Linux and macOS builds. The [Rapira Windows releases page](https://github.com/rapira-rs/rapira-windows/releases) contains Windows builds. Select a platform. The button downloads the latest stable version.
+<DownloadCard>
 
-The latest stable Windows release is v0.8.0. It serves HTTP only and uses its own configuration and extension set. Follow the [Windows installation instructions](/docs/intro/installation#windows). The v0.9 Windows source features are not in this download.
+## Binaries {#binaries}
+
+Each build contains the `rapira` binary and `libphp` for the selected PHP version. You do not need to install PHP.
 
 <DownloadBuilds :labels="labels">
+<template #windows-note>
+
+::: warning
+Use this build only for local development. Windows builds come from a separate repository and can be behind the Linux and macOS releases.
+:::
+
+</template>
 <template #dev-note>
 
 ::: warning
@@ -38,8 +49,26 @@ Use this build only for local development. Use Linux for production.
 </template>
 </DownloadBuilds>
 
-The selector does not show nightly builds or container images. The [nightly prerelease](https://github.com/rapira-rs/rapira/releases/tag/nightly) contains tarballs and a checksum file. It does not contain `.deb` or `.rpm` packages.
+</DownloadCard>
 
-Container images are at `ghcr.io/rapira-rs/rapira`. The `nightly-php8.4` and `nightly-php8.5` tags point to the newest nightly image. See [Docker](/docs/intro/installation#docker) for all image tags.
+<DownloadCard>
+
+## Docker {#docker}
+
+The `ghcr.io/rapira-rs/rapira` image contains only Rapira and `libphp.so`. Copy its files into your application image:
+
+```dockerfile
+FROM php:8.5-cli-trixie
+COPY --from=ghcr.io/rapira-rs/rapira:php8.5 / /
+RUN apt-get update \
+    && xargs -r apt-get install -y --no-install-recommends < /usr/local/share/rapira/debian-packages.txt \
+    && rm -rf /var/lib/apt/lists/*
+COPY . /app
+CMD ["rapira", "serve", "/app/rapira.toml"]
+```
+
+Each tag names its PHP version, for example `php8.4`, `php8.5`, or `nightly-php8.5`. See [Docker](/docs/intro/installation#docker) for all tags.
+
+</DownloadCard>
 
 You can also [build Rapira from source](/docs/intro/build-from-source).

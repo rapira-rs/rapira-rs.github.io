@@ -2,22 +2,25 @@
 layout: home
 title: Rapira
 description: Rapira to serwer aplikacji PHP napisany w Ruście.
-tagline: Serwer aplikacji PHP, napisany w Ruście.
-pitch: Przemyślana architektura i starannie napisany kod, za którymi stoją lata pracy nad RoadRunnerem.
+tagline: Serwer aplikacji PHP napisany w Ruście.
+pitch: Opiekunowie RoadRunnera projektują i rozwijają Rapirę.
 
 features:
-  - title: Zero interopu
-    details: "Między Rustem a PHP nie ma żadnej warstwy pośredniej: ani FastCGI, ani socketów, ani Goridge, ani CGO, ani jakiejkolwiek serializacji."
+  - title: Bezpośrednie wywołania między Rustem a PHP
+    details: "Między Rustem a PHP nie ma żadnej warstwy: nie ma FastCGI, gniazd, Goridge, CGO ani żadnej serializacji."
   - title: Zgodność z php-fpm
-    details: "Obsługa klasycznego SAPI: Rapira wchodzi na miejsce php-fpm bez zmian w kodzie, ale działa szybciej."
+    details: "Tryb Classic uruchamia istniejący skrypt wejściowy, na przykład public/index.php, z nowym stanem dla każdego żądania. Rapira może zastąpić php-fpm."
   - title: Tryby pracy
-    details: "Classic → Worker → Dispatcher<br>Z których trybów może korzystać twoja aplikacja?"
+    details: "Classic → Worker → Dispatcher<br>Których trybów może używać twoja aplikacja?"
     link: /pl/docs/execution-modes
+  - title: Serwer gRPC
+    details: "Wtyczka gRPC obsługuje wywołania unarne przez gRPC, gRPC-Web i Connect. PHP obsługuje te wywołania w trybie Dispatcher."
+    link: /pl/docs/grpc
 ---
 
 <script setup>
-// Co niesie warstwa HTTP: `ready: false` oznacza to, czego Rapira jeszcze nie
-// obsługuje - takie etykiety są wyszarzone.
+// `ready: false` oznacza funkcje, których Rapira nie obsługuje.
+// Komponent pokazuje te etykiety w przyciemnionym stylu.
 const httpFeatures = [
   { label: 'HTTP/1.1' },
   { label: 'Keep-alive' },
@@ -31,8 +34,8 @@ const httpFeatures = [
   { label: 'Trailers', ready: false },
 ]
 
-// Cztery sposoby połączenia serwera z PHP - po zakładce na każdy.
-// Teksty zakładek leżą w slotach <TextTabs> poniżej.
+// Każda zakładka opisuje jedno połączenie między serwerem a PHP.
+// Sloty <TextTabs> poniżej zawierają opisy.
 const interopTabs = [
   { name: 'FastCGI', slot: 'fastcgi', users: ['php-fpm', 'nginx', 'Angie'] },
   { name: 'Goridge', slot: 'goridge', users: ['RoadRunner'] },
@@ -41,11 +44,11 @@ const interopTabs = [
 ]
 </script>
 
-<RapiraSection title="Wbudowany serwer HTTP oparty na hyperze" link="/pl/docs/http" link-text="Żądania i odpowiedzi HTTP">
+<RapiraSection title="Wbudowany serwer HTTP oparty na hyper" link="/pl/docs/http" link-text="Żądania i odpowiedzi HTTP">
 
-Paradoksalnie, PHP nie ma własnego serwera HTTP gotowego do produkcji: wbudowany to wyłącznie narzędzie deweloperskie, a php-fpm nie działa bez zewnętrznego serwera WWW takiego jak nginx.
+PHP nie zawiera produkcyjnego serwera HTTP. Jego wbudowany serwer to narzędzie deweloperskie. php-fpm wymaga osobnego serwera WWW, na przykład nginx.
 
-Rapira dostarcza taki serwer: własny front HTTP napisany w Ruście na bibliotece [hyper](https://hyper.rs). Hyper to niskopoziomowa implementacja HTTP dla Rusta. Czyta każde żądanie z połączenia i odsyła z powrotem odpowiedź, którą przygotowała Rapira.
+Rapira zawiera serwer HTTP, który używa biblioteki Rusta [hyper](https://hyper.rs). Hyper czyta każde żądanie i zapisuje odpowiedź od Rapiry.
 
 <template #footer>
 <FeatureTags :items="httpFeatures" />
@@ -53,32 +56,32 @@ Rapira dostarcza taki serwer: własny front HTTP napisany w Ruście na bibliotec
 
 </RapiraSection>
 
-<RapiraSection title="Zero interopu: Rust wywołuje PHP bezpośrednio" link="/pl/docs/process-model" link-text="Model procesów">
+<RapiraSection title="Rust wywołuje PHP bezpośrednio" link="/pl/docs/process-model" link-text="Model procesów">
 
-Rapira jest napisana w Ruście, a PHP - w C. Rust wywołuje funkcje C natywnie. Wywołanie funkcji PHP z Rusta jest więc bezpośrednim wywołaniem funkcji. Interpreter jest wbudowany w proces serwera. Rapira steruje nim przez bezpośrednie bindingi, od startu silnika po obsługę każdego żądania.
+Rapira używa Rusta, a PHP używa C. Rust wywołuje funkcje C bezpośrednio. Dlatego Rust może bezpośrednio wywołać funkcję PHP. Rapira osadza interpreter w procesie serwera. Bezpośrednie wiązania sterują inicjalizacją interpretera i obsługą żądań.
 
-Nie ma tu ani FastCGI, ani Goridge, ani CGO: żądanie nigdzie nie jest serializowane i nie opuszcza procesu. W trybie Classic i w trybie Worker Rapira wypełnia zmienne superglobalne bezpośrednio.
+Rapira nie używa FastCGI, Goridge ani CGO. Nie serializuje żądań i nie wysyła ich do innego procesu. W trybach Classic i Worker Rapira wypełnia zmienne superglobalne bezpośrednio.
 
 <template #aside>
 <TextTabs :tabs="interopTabs">
 <template #fastcgi>
 
-PHP działa w osobnych procesach, a serwer WWW komunikuje się z nimi przez socket binarnym protokołem: każde żądanie jest pakowane w rekordy FastCGI, przesyłane i rozpakowywane po drugiej stronie, a odpowiedź pokonuje tę samą drogę z powrotem.
+PHP działa w osobnych procesach. Serwer WWW wysyła rekordy FastCGI przez gniazdo. Proces PHP parsuje każde żądanie i zwraca zserializowaną odpowiedź.
 
 </template>
 <template #goridge>
 
-Workery PHP to osobne procesy, które odbierają żądania od serwera przez potoki lub sockety. Goridge to protokół tej wymiany: każde żądanie i odpowiedź są serializowane po jednej stronie i odczytywane po drugiej.
+Workery PHP to osobne procesy. Odbierają zserializowane żądania od serwera przez potoki lub gniazda. Goridge definiuje format tych danych.
 
 </template>
 <template #cgo>
 
-Interpreter PHP jest wbudowany w proces serwera, ale host jest napisany w Go, a Go nie potrafi wywoływać kodu C bezpośrednio. Każde wywołanie przechodzi przez CGO - warstwę, która dokłada narzut przy każdym przekroczeniu granicy języków.
+Proces serwera zawiera interpreter PHP. Jednak jego host w Go nie może bezpośrednio wywoływać kodu C. CGO obsługuje każde wywołanie między tymi dwoma językami.
 
 </template>
 <template #cabi>
 
-ABI to binarny kontrakt między językami kompilowanymi. Rust obsługuje C ABI natywnie: wywołanie funkcji C z Rusta kompiluje się do tego samego kodu maszynowego co wywołanie z samego C.
+ABI określa, jak języki kompilowane wywołują się nawzajem. Rust obsługuje C ABI bezpośrednio. Rust i C używają tych samych instrukcji maszynowych dla tych wywołań.
 
 </template>
 </TextTabs>

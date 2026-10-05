@@ -3,27 +3,25 @@ title: Czym jest Rapira?
 description: Rapira to serwer aplikacji PHP napisany w języku Rust. Obsługuje tryby Classic, Worker i Dispatcher.
 ---
 
-# Czym jest Rapira
+# Czym jest Rapira?
 
 Rapira to serwer aplikacji PHP napisany w języku Rust.
 
 Opiekunowie projektu RoadRunner projektują i implementują Rapirę. Rapira wywołuje PHP bezpośrednio w procesie serwera.
 
-Rapira obsługuje HTTP i [gRPC](../grpc). Każdy protokół ma własny nasłuch i pulę workerów PHP.
+Rapira obsługuje HTTP i [gRPC](/pl/docs/grpc). Każdy protokół ma własny nasłuch i pulę workerów PHP.
 
 Na [blogu](/pl/blog/) znajdują się aktualności projektu.
 
 ## HTTP
 
-Rapira zawiera serwer HTTP, który używa biblioteki [hyper](https://hyper.rs). Serwer przyjmuje bezpośrednio nieszyfrowane połączenia HTTP.
-Serwer nie kończy TLS. [Proxy kończące TLS](https://en.wikipedia.org/wiki/TLS_termination_proxy) przyjmuje HTTPS od klienta, odszyfrowuje połączenie i wysyła nieszyfrowany HTTP do Rapiry.
-Konfigurację proxy opisuje [Wdrożenie produkcyjne](/pl/docs/deployment).
+Rapira zawiera serwer HTTP, który używa biblioteki [hyper](https://hyper.rs). Przyjmuje nieszyfrowane połączenia HTTP/1.1 i HTTP/1.0. Rapira nie kończy TLS. [Proxy kończące TLS](https://en.wikipedia.org/wiki/TLS_termination_proxy) przyjmuje HTTPS od klienta, odszyfrowuje połączenie i wysyła nieszyfrowany HTTP do Rapiry. Konfigurację proxy opisuje [Wdrożenie produkcyjne](/pl/docs/deployment).
 
 Rapira obsługuje trzy tryby wykonania PHP:
 
 - Classic: Rapira inicjalizuje aplikację dla każdego żądania, tak jak php-fpm.
 - Worker: Rapira inicjalizuje aplikację raz. Pętla obsługuje żądania, a Rapira ponownie wypełnia superglobale PHP dla każdego żądania.
-- Dispatcher: Rapira inicjalizuje aplikację raz. Skrypt pobiera obiekty żądań przez wywołanie API. Może przetwarzać żądania kolejno lub współbieżnie za pomocą [włókien](https://www.php.net/manual/en/language.fibers.php).
+- Dispatcher: Rapira inicjalizuje aplikację raz. Skrypt pobiera obiekty żądań przez wywołanie API. Każdy worker obsługuje jedno żądanie naraz.
 
 ::: info
 Strona [Tryby wykonania](/pl/docs/execution-modes) opisuje działanie trybów i kryteria wyboru.
@@ -33,4 +31,8 @@ Strona [Tryby wykonania](/pl/docs/execution-modes) opisuje działanie trybów i 
 
 Rapira obsługuje unarne wywołania gRPC, gRPC-Web i Connect na jednym nasłuchu. Aplikacja PHP odbiera i zwraca binarne komunikaty protobuf przez dyspozytora. Proces nadrzędny wczytuje schematy usług z zestawu deskryptorów przed uruchomieniem workerów.
 
-Pula gRPC używa trybu Dispatcher. HTTP i gRPC mogą działać razem z osobnymi skryptami wejściowymi. Kompletną usługę, generowanie klas protobuf i polecenia klienta opisuje [gRPC](../grpc).
+Pula gRPC używa trybu Dispatcher. HTTP i gRPC mogą działać razem z osobnymi skryptami wejściowymi. Kompletną usługę, generowanie klas protobuf i polecenia klienta opisuje [gRPC](/pl/docs/grpc).
+
+## Metryki i kontrole stanu
+
+Opcjonalna tabela `[observability]` uruchamia jeszcze jeden proces, który nie wykonuje PHP. Podtabela `[observability.metrics]` włącza metryki Prometheus pod adresem `/metrics`. Podtabela `[observability.probes]` włącza sondy `/livez` i `/readyz`. Konfigurację i punkty końcowe opisuje [Metryki i kontrole stanu](/pl/docs/observability).

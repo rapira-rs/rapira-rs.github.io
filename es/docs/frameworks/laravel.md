@@ -5,25 +5,27 @@ description: "Ejecutar Laravel sobre Rapira en modo Classic y el estado actual d
 
 # Laravel
 
-Rapira ejecuta Laravel en modo Classic con el script estándar `public/index.php`. Inicia una nueva petición PHP cada vez, como php-fpm. La aplicación no requiere cambios. El modo Worker para Laravel está en desarrollo. Consulta [Modo Worker](#modo-worker).
+Rapira ejecuta Laravel en modo Classic con el script de entrada estándar `public/index.php`. Cada petición HTTP se ejecuta en una nueva petición PHP, como con php-fpm. La aplicación no requiere cambios. Rapira todavía no admite Laravel en [modo Worker](#modo-worker).
 
 ::: info Verificado con
-- **PHP 8.5.8** - NTS, SAPI embed
+- **PHP 8.5.8**: NTS, SAPI embed
 - **Rapira 0.8.0**
 - Aplicación base **laravel/laravel** con **laravel/framework v13.23.0**
 
-Las pruebas utilizaron una aplicación base `laravel/laravel` con varias rutas adicionales, en modo Classic y con un solo proceso worker: enrutado, sesiones, subidas de archivos, cuerpos JSON y de formulario, configuración y rutas cacheadas, respuestas de error y 50 peticiones seguidas.
+Las pruebas usaron una aplicación base `laravel/laravel` en modo Classic con un worker y rutas adicionales. Cubrieron el enrutado, las sesiones, las subidas de archivos, los cuerpos de petición, la configuración cacheada, las rutas cacheadas, los errores y 50 peticiones seguidas. Los ejemplos de esta página usan el formato de configuración de v0.9.
 :::
 
 ## Requisitos previos
 
-Instala Rapira como se describe en [Instalación](/es/docs/intro/installation). También necesitas una aplicación Laravel funcional. Instala PHP CLI para Composer y `artisan`. Rapira proporciona PHP como biblioteca, no como comando `php`. Composer y `artisan` usan el PHP CLI del sistema. Rapira no usa ni modifica este CLI.
+Instala Rapira como se describe en [Instalación](/es/docs/intro/installation). Rapira proporciona PHP como biblioteca, no como comando `php`. Instala un PHP CLI para Composer y `artisan`. Rapira no usa ni modifica este CLI.
 
-Comprueba las extensiones de base de datos antes del primer inicio. Un proyecto `laravel/laravel` nuevo usa SQLite para la base, sesiones, caché y colas. Por tanto, requiere `pdo_sqlite`. Las compilaciones de Rapira incluyen PDO, `pdo_sqlite` y `sqlite3`. Consulta [Instalación](/es/docs/intro/installation) para ver la lista completa. Incluye estas extensiones al compilar PHP. Consulta [Compilar desde el código](/es/docs/intro/build-from-source). También puedes establecer `SESSION_DRIVER=file`, `CACHE_STORE=file` y `QUEUE_CONNECTION=sync`. Las pruebas de esta página usaron estos ajustes.
+Un proyecto `laravel/laravel` nuevo usa SQLite y drivers de sesión, caché y colas basados en la base de datos, por lo que requiere `pdo_sqlite`. Las compilaciones de las releases de Rapira incluyen `pdo_sqlite`. Consulta [Instalación](/es/docs/intro/installation) para ver la lista completa de extensiones. Si compilas PHP, activa las extensiones que necesitan tus drivers. Consulta [Compilar desde el código](/es/docs/intro/build-from-source).
+
+También puedes establecer `SESSION_DRIVER=file`, `CACHE_STORE=file` y `QUEUE_CONNECTION=sync`. Las pruebas de esta página usaron estos ajustes.
 
 ## Iniciar Rapira
 
-El modo Classic se activa expresamente en `rapira.toml`:
+El modo por defecto es `dispatcher`, pero el `public/index.php` de Laravel no tiene un bucle dispatcher. Establece `mode = "classic"` en `rapira.toml`:
 
 ```toml
 [http]
@@ -35,11 +37,11 @@ mode = "classic"
 processes = 4
 ```
 
-Ejecuta `rapira serve rapira.toml` para iniciar el servidor. Un `entrypoint` relativo usa el directorio del archivo. Consulta [Configuración](/es/docs/configuration) para ver todas las claves.
+Ejecuta `rapira serve rapira.toml` para iniciar el servidor. Un `entrypoint` relativo usa como base el directorio del archivo de configuración. Consulta [Configuración](/es/docs/configuration) para ver todas las claves y sus valores por defecto.
 
-Rapira inicia una petición PHP nueva para cada petición HTTP. Por tanto, el ciclo de vida coincide con php-fpm. No hay estado persistente de la aplicación. PHP se inicia en el proceso maestro antes de crear workers. OPcache proporciona una caché compartida para el código de la aplicación y `vendor/`. Consulta [Modo Classic](/es/docs/classic).
+La aplicación no tiene estado persistente que restablecer entre peticiones. PHP se inicia una vez en el proceso maestro, antes de que el maestro cree los workers. Por tanto, todos los workers comparten un OPcache para el código de la aplicación y de `vendor/`. En PHP 8.4, OPcache es un `opcache.so` separado que necesita una línea `zend_extension` en [php.ini](/es/docs/intro/installation#php-ini). Consulta [Modo Classic](/es/docs/classic) para más información.
 
-Crea las cachés del framework antes de iniciar producción. Ambos comandos se verificaron en modo Classic:
+Crea las cachés del framework antes de iniciar producción. Las pruebas confirmaron ambas cachés en modo Classic:
 
 ```bash
 php artisan config:cache
@@ -48,20 +50,38 @@ php artisan route:cache
 
 ## Rutas y URLs
 
-Rapira no asigna las URL a scripts PHP. Cada petición ejecuta el script de entrada. `$_SERVER['REQUEST_URI']` contiene la ruta que usa Laravel. El [middleware de archivos estáticos](/es/docs/static-files) responde a las peticiones de archivos. Las demás peticiones ejecutan el script de entrada. Las pruebas incluyeron rutas, la página 404 y la generación con `url()`. Las URL son absolutas y no contienen `index.php`. No necesitas cambiar `$_SERVER` ni la configuración de URL.
+Rapira no asigna las URL a scripts PHP. Cada petición ejecuta `public/index.php`, y Laravel enruta la ruta de `$_SERVER['REQUEST_URI']`. Las pruebas cubrieron el enrutado, la página 404 de Laravel y la generación con `url()`. Las URL generadas son absolutas y no contienen `index.php`. No necesitan cambios en `$_SERVER` ni en la configuración de rutas o URL.
 
-La ruta `/up` devuelve `200`. Un balanceador o contenedor puede usarla para comprobar el estado. Para los archivos estáticos, añade `"static"` a `http.middleware`. Establece `[http.static].root` en el directorio `public/`. Rapira requiere ambos ajustes. También puedes usar una CDN o un proxy inverso. Rapira acepta HTTP sin cifrar y deja `$_SERVER['HTTPS']` vacío, sin depender de `X-Forwarded-Proto`. Cuando un [proxy termina TLS](/es/docs/deployment), configura los [proxies de confianza](https://laravel.com/docs/requests#configuring-trusted-proxies). Sin esta configuración, `url()` genera enlaces `http://`.
+Para servir los recursos de `public/`, activa el [middleware de archivos estáticos](/es/docs/static-files). Añade `middleware` a la tabla `[http]` existente y añade la tabla `[http.static]`. Rapira necesita ambos ajustes:
+
+```toml
+[http]
+middleware = ["static"]
+
+[http.static]
+root = "public"
+```
+
+El middleware responde a las peticiones que coinciden con archivos de `public/`. Las demás peticiones van a Laravel. También puedes usar una CDN o un proxy inverso para servir los recursos.
+
+La ruta integrada `/up` devuelve `200`. Un balanceador de carga o un contenedor puede usarla para las comprobaciones de estado. Rapira también puede servir `/livez` y `/readyz` en una dirección separada. Consulta [Métricas y comprobaciones de estado](/es/docs/observability).
+
+Rapira acepta solo HTTP sin cifrar y deja `$_SERVER['HTTPS']` vacío, también cuando una petición tiene `X-Forwarded-Proto`. Cuando un [proxy termina TLS](/es/docs/deployment), configura los [proxies de confianza](https://laravel.com/docs/requests#configuring-trusted-proxies) de Laravel. Sin esta configuración, `url()` genera enlaces `http://`.
 
 ## Sesiones, CSRF y formularios
 
-Las pruebas usaron el driver de sesiones de archivos. Cada cliente recibió una sesión independiente y envió la cookie de sesión con la siguiente petición. CSRF no requiere ajustes de Rapira porque el token está en la sesión. Classic usa el ciclo de vida de php-fpm. Las pruebas también incluyeron formularios, cuerpos JSON y archivos. Laravel devolvió su respuesta `500` normal para una excepción. Laravel procesó la siguiente petición con normalidad.
+Las pruebas usaron el driver de sesiones de archivos. Cada cliente recibió una sesión independiente y envió la cookie de sesión con la siguiente petición. CSRF no requiere ajustes de Rapira porque el token está en la sesión.
+
+Las pruebas también cubrieron datos de formulario, cuerpos JSON y subidas de archivos. `http.max_body_size_mb` limita el cuerpo de la petición antes de que PHP se ejecute. El valor por defecto es 8 MiB. Rapira devuelve `413` para un cuerpo más grande, y Laravel no recibe la petición. Para aceptar subidas más grandes, aumenta este valor. Aumenta también `post_max_size` y `upload_max_filesize` en php.ini. Consulta [Cuerpos de petición](/es/docs/http#cuerpos-de-peticion).
+
+Laravel devolvió su respuesta `500` normal para una excepción en una ruta. La siguiente petición se ejecutó con normalidad y no repitió la excepción.
 
 ## Modo Worker
 
-El modo Worker para Laravel está en desarrollo y todavía no se admite. Ejecuta Laravel en modo Classic. No hay una fecha de publicación para el soporte de Worker.
+Rapira todavía no admite Laravel en modo Worker. Ejecuta Laravel en modo Classic.
 
-El ciclo de vida del framework requiere una integración específica. Laravel resuelve bindings, almacena peticiones en singletons y cambia el estado estático durante el procesamiento de peticiones. Este estado debe restablecerse antes de la siguiente petición. [Octane](https://laravel.com/docs/octane) realiza el restablecimiento para servidores compatibles. Rapira todavía no tiene un driver de Octane.
+Laravel guarda el estado de la petición en el contenedor, en los singletons resueltos y en propiedades estáticas. Un worker debe restablecer este estado antes de la siguiente petición. [Octane](https://laravel.com/docs/octane) hace este restablecimiento para los servidores que admite, pero Rapira no tiene un driver de Octane. Las aplicaciones [Symfony](/es/docs/frameworks/symfony) y [Yii3](/es/docs/frameworks/yii3) pueden ejecutarse en modo Worker.
 
-[Symfony](/es/docs/frameworks/symfony) y [Yii3](/es/docs/frameworks/yii3) admiten aplicaciones persistentes. Laravel requiere su propio proceso para restablecer el estado.
-
-Un worker propio de Laravel debe implementar todo el restablecimiento de estado de Octane. El estado de la petición existe en el contenedor, los singletons resueltos, los servicios de petición, los servicios de sesión, los servicios de autenticación y las propiedades estáticas. Un restablecimiento incompleto puede exponer datos antiguos de una petición o sesión a cualquier petición posterior, incluso a otra petición del mismo usuario. No uses ese worker sin pruebas completas de aislamiento del estado.
+::: warning
+Un worker propio de Laravel sin un restablecimiento completo del estado puede enviar datos de petición, sesión o autenticación de una petición a una petición posterior. No uses un worker propio sin pruebas completas de aislamiento del estado.
+:::

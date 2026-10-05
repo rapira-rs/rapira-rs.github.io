@@ -214,6 +214,8 @@ $call->respond($message->serializeToString());
 
 | API | 行为 |
 | --- | --- |
+| `name()` | 返回 `"grpc"`。 |
+| `getInfo(): GrpcDispatcherInfo` | 返回此 worker 的计数器快照。`pendingCount()` 统计等待中的调用。`activeCount()` 为 `0` 或 `1`。 |
 | `receive(int $timeout = -1)` | 返回下一个 `UnaryCall`。等待时限以微秒为单位。`-1` 表示无限等待。超时后抛出 `Rapira\Exception\TimeoutException`。 |
 | `tryReceive()` | 返回 `UnaryCall`；没有等待中的调用时返回 `null`。它不等待。 |
 | `getServices()` | 列出所提供的服务及其方法、输入类型、输出类型和方法种类。列表包含流式方法。首次调用前即可使用。 |
@@ -241,7 +243,7 @@ $call->fail(new Rapira\Grpc\Status(
 ));
 ```
 
-`StatusCode` 包含 gRPC 状态码。成功的 `respond()` 发送 `OK` 状态。`fail()` 是发送错误状态的唯一方式。
+`StatusCode` 包含 16 个 gRPC 错误码，没有 `Ok` 枚举项。成功的 `respond()` 发送 `OK` 状态。`fail()` 是发送错误状态的唯一方式。
 
 `Status` 的第三个参数可选，是一个 `Rapira\Grpc\ErrorDetail` 对象列表。每个对象保存一个 protobuf 类型 URL 和序列化的消息字节。对于 gRPC 和 gRPC-Web，Rapira 在 `grpc-status-details-bin` 中发送这些详细信息。对于 Connect，Rapira 在 JSON 错误体中发送它们。
 
@@ -267,7 +269,7 @@ $metadata->addTrailer('x-result', 'completed');
 
 `addHeader()` 和 `addTrailer()` 接受可打印的 ASCII 值。允许空值。Rapira 在发送文本值时删除其开头和结尾的空格。二进制值使用 `addBinaryHeader()` 或 `addBinaryTrailer()`。二进制值的名称必须以 `-bin` 结尾。
 
-按照 [gRPC 协议](https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md#requests)的规定，元数据名称只能包含 `0-9`、`a-z`、`_`、`-` 和 `.`。传输层名称、无效名称或无效值会抛出 `\ValueError`。重复的名称会添加一个值。
+Rapira 将响应元数据名称转换为小写。转换后，按照 [gRPC 协议](https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md#requests)的规定，名称只能包含 `0-9`、`a-z`、`_`、`-` 和 `.`。传输层名称、无效名称或无效值会抛出 `\ValueError`。文本方法拒绝以 `-bin` 结尾的名称。重复的名称会添加一个值。
 
 `headers()` 和 `trailers()` 返回快照。对于 Connect，每个尾部字段都作为带 `trailer-` 前缀的头部发送。使用 grpcurl 的 `-H 'x-request-id: demo-1'` 选项传递请求元数据。
 
@@ -275,7 +277,7 @@ $metadata->addTrailer('x-result', 'completed');
 
 拦截器在 PHP 收到调用前检查该调用。在 `grpc.interceptors` 中按链的顺序列出拦截器。每个拦截器都有自己的表。Rapira 提供一个拦截器：`auth`。
 
-### Bearer 令牌
+### 身份验证 {#身份验证}
 
 只有当调用携带已配置的 bearer 令牌时，`auth` 才接受该调用。将令牌写入一个文件，每行一个令牌：
 
@@ -296,7 +298,9 @@ interceptors = ["auth"]
 tokens_file = "grpc-tokens"
 ```
 
-客户端在 `authorization` 元数据中发送令牌，格式为 `Bearer <token>`：
+令牌文件路径以配置文件所在目录为基准。键的规则请参阅[配置](./configuration#grpc-auth)。
+
+客户端必须正好发送一个 `authorization` 元数据值，格式为 `Bearer <token>`：
 
 ```sh
 grpcurl -plaintext -H 'authorization: Bearer ci.deploy-token' 127.0.0.1:50051 list
@@ -315,7 +319,7 @@ master 在启动时读取令牌文件。Rapira 无法读取的文件、不含令
 
 ## 截止时间和取消
 
-客户端通过 `grpc-timeout`（gRPC 和 gRPC-Web）或 `connect-timeout-ms`（Connect）设置超时。`grpc.default_timeout_secs` 设置没有客户端超时的调用的超时。`grpc.max_timeout_secs` 将更长的客户端超时缩短为其值。两个键默认均未设置，因此没有客户端超时的调用没有截止时间。
+客户端通过 `grpc-timeout`（gRPC 和 gRPC-Web）或 `connect-timeout-ms`（Connect）设置超时。`grpc.default_timeout_secs` 设置没有客户端超时的调用的超时。`grpc.max_timeout_secs` 将更长的客户端超时缩短为其值。两个键默认均未设置，因此没有客户端超时的调用没有截止时间。这样的调用在读取请求消息时也没有时间限制。客户端不受信任时，请设置这两个键。
 
 `$call->getContext()->deadline` 是以秒为单位的 Unix 时间戳形式的截止时间，或为 `null`。`receivedAt` 是 Rapira 读完整个请求消息的时间。
 
@@ -337,7 +341,7 @@ master 在 fork 出 worker 前加载描述符集。无效的描述符集、不�
 
 流式方法、进程池未提供的服务中的方法以及未知方法都返回 `UNIMPLEMENTED`。启动时，Rapira 为所提供服务中的每个流式方法记录一条警告。
 
-反射默认禁用。设置 `reflection = true` 时，Rust 提供 `grpc.reflection.v1` 和 `grpc.reflection.v1alpha`。`ListServices` 返回所提供的服务。描述符集中的所有文件和符号都可获取，因此每个客户端都可以读取完整的描述符集。
+反射默认禁用。设置 `reflection = true` 时，Rapira 提供 `grpc.reflection.v1` 和 `grpc.reflection.v1alpha`。`ListServices` 返回所提供的服务。描述符集中的所有文件和符号都可获取，因此每个客户端都可以读取完整的描述符集。
 
 设置 `reflection = false` 时，请向客户端提供模式定义：
 
@@ -347,7 +351,7 @@ grpcurl -plaintext -import-path proto -proto echo.proto -d '{"text":"hello"}' 12
 
 ## 健康检查
 
-Rust 在每个 worker 中提供 [gRPC 健康检查协议](https://github.com/grpc/grpc/blob/master/doc/health-checking.md)（`grpc.health.v1.Health`）。对于空名称 `""` 和每个所提供的服务，`Check` 和 `Watch` 报告 `SERVING`。关闭期间，它们报告 `NOT_SERVING`。
+Rapira 在每个 worker 中提供 [gRPC 健康检查协议](https://github.com/grpc/grpc/blob/master/doc/health-checking.md)（`grpc.health.v1.Health`）。对于空名称 `""` 和每个所提供的服务，`Check` 和 `Watch` 报告 `SERVING`。关闭期间，它们报告 `NOT_SERVING`。
 
 健康检查服务不检查 PHP。PHP 启动失败的 worker 报告 `SERVING`，而它的调用收到 `UNAVAILABLE`。`grpc.services` 不能指定健康检查服务或反射服务，因为 Rapira 自己提供这些服务。
 
@@ -359,12 +363,24 @@ curl -H 'Content-Type: application/json' -d '{}' http://127.0.0.1:50051/grpc.hea
 
 ## 协议和限制
 
+- 请使用二进制 gRPC-Web（`application/grpc-web+proto`）。不支持 gRPC-Web 文本模式，该模式返回 `UNIMPLEMENTED`。
+- 对于跨源浏览器客户端，请在代理上配置 CORS。Rapira 不提供 CORS 预检请求处理。
 - 无法解码的 Connect JSON 请求返回 `INVALID_ARGUMENT`，PHP 不会收到该调用。JSON 解码器忽略未知字段。它不忽略描述符集未声明的枚举值名称。
 - 带有 `option idempotency_level = NO_SIDE_EFFECTS;` 的方法也接受 Connect GET 请求。
 - 消息可以使用 gzip 压缩。使用其他消息编码的请求返回 `UNIMPLEMENTED`。
-- 消息大小限制为 4 MiB。更大的请求返回 `RESOURCE_EXHAUSTED`。
+- PHP 服务请求的请求体限制为 4 MiB，解压后消息另有 4 MiB 限制。更大的请求返回 `RESOURCE_EXHAUSTED`。没有 TOML 键可更改这些限制。
+- 无法转换为 Connect JSON 的 PHP 响应返回 `INTERNAL`，并记录警告。二进制 protobuf 响应不使用此转换。
+- JSON 解码器不限制请求中各元素占用的内存。一个包含大量小元素的 4 MiB Connect JSON 请求，可能使 worker 为 repeated 或 map 字段占用数百 MiB 内存。对于 `google.protobuf.Struct` 或 `ListValue` 字段，worker 可能占用超过 1 GiB 内存。4 MiB 限制在解压后应用。客户端不受信任时，请在监听器前放置一个限制解压后请求大小的代理。
 - `$call->getContext()->tls` 始终为 `null`。客户端需要 TLS 时，请在监听器前放置 TLS 代理。对于原生 gRPC，代理与 Rapira 之间的连接必须使用 HTTP/2。
-- Rapira 每 10 秒向空闲连接发送一次 HTTP/2 keepalive PING。连接在 10 秒内没有响应时，Rapira 关闭该连接。
+- 连接空闲时间达到 `grpc.keepalive_interval_secs` 时，Rapira 向该连接发送 HTTP/2 keepalive PING。PING 在 `grpc.keepalive_timeout_secs` 内没有收到应答时，Rapira 关闭该连接。两个键默认均为 10 秒。HTTP/1.1 没有 PING，因此这两个键不适用于使用 HTTP/1.1 的 gRPC-Web 或 Connect 客户端。
+
+::: question 如何应用入站大小限制？
+请求体限制包括带帧的一元请求的五字节封装头。健康检查和反射将每条请求消息限制为 16 KiB。这些入站限制不设置响应大小限制。
+:::
+
+::: question JSON 响应中的 Any 内容有哪些限制？
+JSON 转换解码每个 `google.protobuf.Any` 的内容时，为解码后的元素使用 32 MiB 内存预算。内容超出此预算时返回 `INTERNAL`，并记录警告。二进制 protobuf 客户端不使用此转换。
+:::
 
 ::: warning 一个连接使用一个 worker
 一个 worker 进程服务每个连接。gRPC 客户端通常在一个 HTTP/2 连接上发送一个 channel 的所有调用。无论进程池大小如何，这样的客户端只能获得一个 worker 的吞吐量。要使用更多 worker，请打开多个连接，或使用能分发调用的 L7 负载均衡器。

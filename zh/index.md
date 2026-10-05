@@ -3,21 +3,24 @@ layout: home
 title: Rapira
 description: Rapira 是用 Rust 编写的 PHP 应用服务器。
 tagline: 用 Rust 编写的 PHP 应用服务器。
-pitch: 深思熟虑的架构，逐行斟酌的代码，背后是多年打造 RoadRunner 的积累。
+pitch: RoadRunner 的维护者设计并实现 Rapira。
 
 features:
-  - title: 零中间层
-    details: "Rust 与 PHP 之间没有任何中间层：不用 FastCGI，不走 socket，没有 Goridge，也没有 CGO，更不需要任何序列化。"
+  - title: Rust 与 PHP 直接调用
+    details: "Rust 与 PHP 之间没有中间层：没有 FastCGI，没有 socket，没有 Goridge，没有 CGO，也没有任何序列化。"
   - title: 兼容 php-fpm
-    details: "支持经典 SAPI：Rapira 直接顶替 php-fpm，代码不用改，但跑得更快。"
-  - title: 运行模式
+    details: "Classic 模式运行现有的前端控制器（例如 public/index.php），每次请求都使用新的状态。Rapira 可以替换 php-fpm。"
+  - title: 执行模式
     details: "Classic → Worker → Dispatcher<br>你的应用可以使用哪些模式？"
     link: /zh/docs/execution-modes
+  - title: gRPC 服务器
+    details: "gRPC 插件通过 gRPC、gRPC-Web 和 Connect 提供一元调用。PHP 在 Dispatcher 模式下处理这些调用。"
+    link: /zh/docs/grpc
 ---
 
 <script setup>
-// HTTP 接入层提供的能力：`ready: false` 表示 Rapira 尚未提供，
-// 这些标签会显示为灰色。
+// `ready: false` 标识 Rapira 不支持的功能。
+// 组件以暗淡样式显示这些标签。
 const httpFeatures = [
   { label: 'HTTP/1.1' },
   { label: 'Keep-alive' },
@@ -31,8 +34,8 @@ const httpFeatures = [
   { label: 'Trailers', ready: false },
 ]
 
-// 服务器与 PHP 之间的四种衔接方式--一种一个标签页，
-// 各标签页的文字放在下面 <TextTabs> 的插槽里。
+// 每个标签页描述服务器与 PHP 之间的一种连接方式。
+// 下面的 <TextTabs> 插槽包含这些描述。
 const interopTabs = [
   { name: 'FastCGI', slot: 'fastcgi', users: ['php-fpm', 'nginx', 'Angie'] },
   { name: 'Goridge', slot: 'goridge', users: ['RoadRunner'] },
@@ -41,11 +44,11 @@ const interopTabs = [
 ]
 </script>
 
-<RapiraSection title="内置 HTTP 服务器，由 hyper 驱动" link="/zh/docs/http" link-text="HTTP 请求与响应">
+<RapiraSection title="使用 hyper 的内置 HTTP 服务器" link="/zh/docs/http" link-text="HTTP 请求与响应">
 
-说来矛盾，PHP 一直没有一个生产可用的自带 HTTP 服务器：内置的那个只是开发工具，php-fpm 又离不开 nginx 这样的外部 Web 服务器。
+PHP 不包含用于生产环境的 HTTP 服务器。它的内置服务器是开发工具。php-fpm 需要单独的 Web 服务器，例如 nginx。
 
-Rapira 把这个服务器补上了：它自带一个 HTTP 接入层，用 Rust 基于 [hyper](https://hyper.rs) 写成。hyper 是 Rust 的底层 HTTP 实现，它从连接上读出每个请求，再把 Rapira 产出的响应写回去。
+Rapira 包含一个 HTTP 服务器，它使用 Rust 的 [hyper](https://hyper.rs) 库。hyper 读取每个请求，并写入 Rapira 生成的响应。
 
 <template #footer>
 <FeatureTags :items="httpFeatures" />
@@ -53,33 +56,32 @@ Rapira 把这个服务器补上了：它自带一个 HTTP 接入层，用 Rust �
 
 </RapiraSection>
 
-<RapiraSection title="零中间层：Rust 直接调用 PHP" link="/zh/docs/process-model" link-text="进程模型">
+<RapiraSection title="Rust 直接调用 PHP" link="/zh/docs/process-model" link-text="进程模型">
 
-Rapira 用 Rust 编写，PHP 用 C 编写。Rust 直接调用 C 函数。因此，Rust 可以直接调用 PHP 函数。
-Rapira 把解释器内嵌在服务器进程中。直接绑定控制解释器的初始化和请求处理。
+Rapira 用 Rust 编写，PHP 用 C 编写。Rust 直接调用 C 函数。因此，Rust 可以直接调用 PHP 函数。Rapira 把解释器内嵌在服务器进程中。直接绑定控制解释器的初始化和请求处理。
 
-这里没有 FastCGI，没有 Goridge，也没有 CGO：请求从不序列化，也从不离开进程。在 Classic 模式和 Worker 模式下，Rapira 直接写入超全局变量。
+Rapira 不使用 FastCGI、Goridge 或 CGO。它不序列化请求，也不把请求发送到其他进程。在 Classic 模式和 Worker 模式下，Rapira 直接填充超全局变量。
 
 <template #aside>
 <TextTabs :tabs="interopTabs">
 <template #fastcgi>
 
-PHP 运行在独立进程中，Web 服务器通过 socket 上的二进制协议与之通信：每个请求被打包成 FastCGI 记录，发送过去，在另一端解包，响应再原路返回。
+PHP 运行在独立进程中。Web 服务器通过 socket 发送 FastCGI 记录。PHP 进程解析每个请求，并返回序列化的响应。
 
 </template>
 <template #goridge>
 
-PHP worker 是独立进程，通过管道或 socket 从服务器接收请求。Goridge 就是这套交换的协议：每个请求和响应都要在一端序列化、在另一端解析。
+PHP worker 是独立进程。它们通过管道或 socket 从服务器接收序列化的请求。Goridge 定义这些数据的格式。
 
 </template>
 <template #cgo>
 
-PHP 解释器内嵌在服务器进程里，但宿主是用 Go 写的，而 Go 无法直接调用 C 代码。每次调用都要经过 CGO，这个中间层在每次跨越语言边界时都会带来开销。
+服务器进程包含 PHP 解释器。但是，它的 Go 宿主不能直接调用 C 代码。CGO 处理两种语言之间的每次调用。
 
 </template>
 <template #cabi>
 
-ABI 是编译型语言之间的二进制契约。Rust 原生支持 C ABI：从 Rust 调用 C 函数，编译出的机器码与 C 自己的调用完全相同。
+ABI 定义编译型语言之间如何互相调用。Rust 直接支持 C ABI。对于这些调用，Rust 和 C 使用相同的机器指令。
 
 </template>
 </TextTabs>

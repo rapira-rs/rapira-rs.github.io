@@ -1,79 +1,81 @@
 ---
 title: 安装
-description: "通过 deb、rpm 或压缩包安装 Rapira，校验下载的文件，并了解每个发布产物里带的是哪个 libphp 构建。"
+description: "通过 deb、RPM 或压缩包安装 Rapira。校验文件的校验和。确认随附的 libphp 构建。"
 faqLevel: 2
 ---
 
 # 安装
 
-每个 Rapira 软件包或压缩包都包含 `rapira` 二进制文件及其解释器库 `libphp`。服务器将此库加载到自己的进程中。软件包和压缩包不包含 `php` 命令、php-fpm 或 ini 目录。Rapira 不需要系统安装 PHP。
+每个 Linux 或 macOS 软件包或压缩包都包含 `rapira` 二进制文件及其解释器库 `libphp`。服务器将此库加载到自己的进程中。这些软件包和压缩包不包含 `php` 命令、php-fpm 或 ini 目录。Rapira 不需要系统安装 PHP。Windows ZIP 文件请参阅 [Windows](#windows)。
 
-::: question `libphp` 是什么，为什么它不等于「PHP」？
-同一份 PHP 源码可以编译出好几种通往引擎的接口，它们叫 SAPI。引擎始终是同一个--Zend 加上各种扩展；不同的只是外面那层包装，以及由谁来掌控程序的走向：
+::: question `libphp` 是什么，它与 PHP 命令有什么不同？
+PHP 为其引擎构建多种接口。这些接口叫服务器应用程序编程接口，即 SAPI。每种 SAPI 都使用 Zend 引擎和扩展，但程序接口不同：
 
-| SAPI | 编译出什么 | 谁说了算 |
+| SAPI | 产出什么 | 由谁控制 |
 | --- | --- | --- |
-| CLI | `php` 命令 | PHP：启动、执行脚本、退出。 |
-| FPM | `php-fpm` | PHP：自己监听 socket，自己维护 worker 池。 |
-| embed | `libphp.so` | 宿主程序：像调用普通库一样调用解释器。 |
+| CLI | `php` 命令 | PHP：它启动、运行脚本、退出。 |
+| FPM | `php-fpm` | PHP：它监听 socket 并维护 worker 池。 |
+| embed | `libphp.so` | 宿主程序：它像调用其他库一样调用解释器。 |
 
-Rapira 带的是 embed 构建，因为掌控请求流程的是服务器而不是 PHP。`php` 命令属于另一个 SAPI、另一件事，所以产物里不会有它。
+Rapira 包含 embed SAPI，因为请求由服务器控制。`php` 命令使用另一种 SAPI，所以产物不包含它。
 :::
 
-::: question 为什么 `libphp` 不从系统里取？
-它必须是用 `--enable-embed=shared` 编译出来的 PHP--只有这样编译才会产出 `libphp.so`。发行版很少打这个包，即使有--Fedora 和 RHEL 的 `php-embedded`、Arch 的 `php-embed`、Debian 与 Ubuntu 上来自 deb.sury.org 的 `libphpX.Y-embed`--次版本号和扩展集也只能照单全收；而 Homebrew 的 `php` 根本没有 embed SAPI。所以 Rapira 每次发版都从 PHP 官方源码包编译出 `libphp`，放在二进制文件旁边。
+::: question 为什么 Rapira 包含自己的 `libphp`？
+PHP 必须使用 `--enable-embed=shared` 才能生成 `libphp.so`。很少有发行版提供这种构建。Fedora 和 RHEL 提供 `php-embedded`，Arch 提供 `php-embed`。deb.sury.org 为 Debian 和 Ubuntu 提供 `libphpX.Y-embed`。
+
+这些软件包的 PHP 版本和扩展集是固定的。Homebrew PHP 不包含 embed SAPI。因此，每个 Rapira 发布都从 PHP 官方源码包构建 `libphp`，并将它与二进制文件一起提供。
 :::
 
-::: question 「PHP 跑在 Rapira 进程内」是什么意思？
-初始化期间，`rapira` 进程将 `libphp` 加载到其地址空间。Rapira 在同一进程中调用 PHP 函数。 它不使用 socket、FastCGI 或请求序列化。此库仍是二进制文件旁的独立文件。 因此，不要只移动二进制文件。请参阅 [Linux 与 macOS 压缩包](#linux-与-macos-压缩包)。
+::: question 「PHP 在 Rapira 进程内运行」是什么意思？
+初始化期间，`rapira` 进程将 `libphp` 加载到其地址空间。Rapira 在同一进程中调用 PHP 函数。它不使用 socket、FastCGI 或请求序列化。此库仍是二进制文件旁的独立文件。因此，不要只移动二进制文件而不移动此库。请参阅 [Linux 与 macOS 压缩包](#linux-与-macos-压缩包)。
 :::
 
 ## 选择 PHP 版本
 
-每个下载文件的名字里都带着 `php8.4` 或 `php8.5`--那是编译出包内 `libphp` 所用的 PHP 版本。挑你的应用能跑的那个次版本；除非技术栈里有什么东西必须用 8.4，否则就选 8.5。
+每个下载文件名都包含 `php8.4` 或 `php8.5`。此文本表示其 `libphp` 的 PHP 次版本。请选择 8.5，除非应用的某个依赖项需要 8.4。
 
-机器上已经装着的 PHP--系统的 `php`、php-fpm 进程池、Homebrew 编译的那份--Rapira 既不使用也不改动。任何产物里都没有 `php` 命令，所以 Composer、`bin/console` 和 `artisan` 照旧使用你自己的 PHP CLI。
+Rapira 不使用也不更改已有的系统 PHP、php-fpm 池或 Homebrew PHP。Composer、`bin/console` 和 `artisan` 继续使用系统的 PHP CLI。
 
-::: question 为什么每个 PHP 版本都要有自己的 Rapira 构建？
-产物里的 `libphp` 不是可替换的依赖，而是构建的一部分：`rapira` 二进制文件链接的是某一份具体的库，而这个库的 ABI 在 PHP 次版本之间会变。因此一个 Rapira 构建只对应一条 PHP 分支，版本号就写在文件名里。作为交换，这里没有「先装 PHP」这一步，没有需要指向的 `php-config`，也没有需要同步维护的版本。
+::: question 为什么每个 PHP 版本都有自己的 Rapira 构建？
+产物中的 `libphp` 是构建的一部分，不能替换。`rapira` 二进制文件链接到一个特定的库。PHP ABI 在次版本之间会变化。因此，一个 Rapira 构建只支持一个 PHP 次版本。文件名标明此版本。你不需要安装 PHP，也不需要配置 `php-config`。
 :::
 
-::: question 怎么从 8.4 切到 8.5？
-装另一个版本的软件包，替换由包管理器完成。`rapira-php8.4` 和 `rapira-php8.5` 占用的路径完全相同，所以两者都对虚拟包 `rapira` 声明了 `provides`、`conflicts` 和 `replaces`（rpm 里是 `obsoletes`）：它们不会并存，后装的会顶掉先装的。压缩包之间没有这种排斥--各自解压到各自的目录，8.4 和 8.5 的目录树可以并排放着，从不同路径分别启动。
+::: question 如何从 8.4 切换到 8.5？
+安装另一个 PHP 版本的软件包。包管理器会替换已安装的 Rapira 软件包。两个软件包使用相同的路径。它们声明 `provides`、`conflicts` 和 `replaces`，RPM 中为 `obsoletes`。压缩包安装使用不同的目录，可以同时存在。从各自的路径启动每个版本。
 :::
 
 ## 发布产物
 
-Linux 和 macOS 文件位于 [Rapira 发布页](https://github.com/rapira-rs/rapira/releases)。Windows 文件位于 [Rapira Windows 发布页](https://github.com/rapira-rs/rapira-windows/releases)。[下载页](/zh/download)会按你的平台--系统、架构、PHP 版本、包格式--挑好产物，并显示它的 SHA-256；每个 `php8.5` 产物都有一个对应的 `php8.4`。
+[Rapira 发布页](https://github.com/rapira-rs/rapira/releases)包含 Linux 和 macOS 发布文件。[Rapira Windows 发布页](https://github.com/rapira-rs/rapira-windows/releases)包含 Windows 发布文件。使用[下载页](/zh/download)选择操作系统、架构、PHP 版本和包格式。下载页还显示 SHA-256 值。每个 `php8.5` 产物都有一个对应的 `php8.4` 产物。
 
-在 Linux 上，软件包使用标准文件路径并自动安装库依赖项。 压缩包适用于单目录、容器镜像、部署产物或无 root 权限的安装。 Linux 压缩包还需要系统库。请参阅 [Linux 与 macOS 压缩包](#linux-与-macos-压缩包)。
+在 Linux 上，如需标准文件路径和自动安装库依赖项，请使用软件包。如需单个目录、容器镜像、部署产物或无 root 权限的安装，请使用压缩包。Linux 压缩包还需要系统库。库列表请参阅 [Linux 与 macOS 压缩包](#linux-与-macos-压缩包)。
 
-两种情况都请在安装前用 `rapira-v0.8.0-SHA256SUMS.txt` 核对一遍，命令见[验证校验和](#验证校验和)。
+安装前，请用 `rapira-v0.9.0-SHA256SUMS.txt` 检查文件。请参阅[验证校验和](#验证校验和)。
 
-::: question 为什么要在安装前核对校验和？
-`.deb` 和 `.rpm` 会以 root 身份执行自己的安装脚本，也就是说被人动过手脚的文件在你启动服务器之前就已经拿到了 root。核对只要一条命令，这个风险就没了。
+::: question 为什么必须在安装前验证校验和？
+`.deb` 和 `.rpm` 软件包以 root 身份运行安装脚本。被更改的软件包可能以 root 权限执行不需要的代码。校验和验证可以在安装前发现被更改的软件包。
 :::
 
 ## Debian 与 Ubuntu
 
-下载 `.deb`，用 `apt` 按路径安装：
+下载 `.deb` 文件。使用 `apt` 按路径安装：
 
 ```bash
-curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.8.0/rapira-php8.5_0.8.0-1_amd64.deb
-sudo apt install ./rapira-php8.5_0.8.0-1_amd64.deb
+curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.9.0/rapira-php8.5_0.9.0-1_amd64.deb
+sudo apt install ./rapira-php8.5_0.9.0-1_amd64.deb
 rapira --version
 ```
 
-软件包只装服务器本身：既不会加 systemd 服务单元，也不会加配置文件或 ini 目录。让 Rapira 跑在 systemd 下是单独的一步，见[生产环境部署](/zh/docs/deployment)。
+软件包安装服务器，但不安装服务单元、配置文件或 ini 目录。如需配置 systemd，请参阅[生产环境部署](/zh/docs/deployment)。
 
-软件包基于 glibc 2.34 构建，因此能装上的最老系统是 **Debian 12 和 Ubuntu 22.04**，更新的都没问题。
+软件包需要 glibc 2.34 或更新版本。最低支持版本是 **Debian 12 和 Ubuntu 22.04**。
 
-::: question 文件名前面的 `./` 是干什么的？
-正是开头这个 `./` 告诉 apt：这是一个本地文件，不是要去仓库里查的包名。
+::: question 为什么文件路径以 `./` 开头？
+开头的 `./` 告诉 apt 使用本地文件，而不是仓库中的软件包名。
 :::
 
-::: question 系统里会多出哪些文件？
-软件包安装 `/usr/bin/rapira`、`/usr/lib/rapira/libphp.so`，并将 ICU 库安装到 `/usr/lib/rapira/`。许可证和 README 安装在 `/usr/share/doc/rapira/` 中。
+::: question 软件包安装哪些文件？
+软件包安装 `/usr/bin/rapira`、`/usr/lib/rapira/libphp.so`，并将 ICU 库安装到 `/usr/lib/rapira/`。在 PHP 8.4 上，它还安装 `/usr/lib/rapira/opcache.so`。许可证和 README 安装在 `/usr/share/doc/rapira/` 中。
 :::
 
 ## RHEL、Rocky 与 Fedora
@@ -81,19 +83,19 @@ rapira --version
 使用 `dnf` 安装 RPM：
 
 ```bash
-curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.8.0/rapira-php8.5-0.8.0-1.x86_64.rpm
-sudo dnf install ./rapira-php8.5-0.8.0-1.x86_64.rpm
+curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.9.0/rapira-php8.5-0.9.0-1.x86_64.rpm
+sudo dnf install ./rapira-php8.5-0.9.0-1.x86_64.rpm
 rapira --version
 ```
 
-同样的 glibc 2.34 下限决定了最低要求：**RHEL 9** 及其重构版--Rocky 9、AlmaLinux 9--再加上任何当前的 Fedora。
+RPM 需要 glibc 2.34 或更新版本。**RHEL 9**、Rocky 9、AlmaLinux 9 和当前的 Fedora 版本满足此要求。
 
 ## Linux 与 macOS 压缩包
 
-压缩包解压出来是一个目录，整台服务器都在里面：
+压缩包解压为一个目录，此目录包含整个服务器：
 
 ```text
-rapira-v0.8.0-php8.5-linux-x86_64/
+rapira-v0.9.0-php8.5-linux-x86_64/
 ├── bin/rapira
 ├── lib/rapira/
 ├── share/php/PHP_VERSION.txt
@@ -101,24 +103,24 @@ rapira-v0.8.0-php8.5-linux-x86_64/
 └── LICENSE
 ```
 
-在 Linux 上，`lib/rapira` 包含 `libphp.so` 和所需的 ICU 库。
+在 Linux 上，`lib/rapira` 包含 `libphp.so` 和所需的 ICU 库。在 PHP 8.4 上，Linux 和 macOS 的 `lib/rapira` 还包含 `opcache.so`。
 
-把目录挪到它长期存放的位置，再用符号链接把二进制文件放进 `PATH`：
+将目录移到其长期位置。在 `PATH` 中为二进制文件添加符号链接：
 
 ::: code-group
 
 ```bash [Linux]
-curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.8.0/rapira-v0.8.0-php8.5-linux-x86_64.tar.gz
-tar xzf rapira-v0.8.0-php8.5-linux-x86_64.tar.gz
-sudo mv rapira-v0.8.0-php8.5-linux-x86_64 /opt/rapira
+curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.9.0/rapira-v0.9.0-php8.5-linux-x86_64.tar.gz
+tar xzf rapira-v0.9.0-php8.5-linux-x86_64.tar.gz
+sudo mv rapira-v0.9.0-php8.5-linux-x86_64 /opt/rapira
 sudo ln -s /opt/rapira/bin/rapira /usr/local/bin/rapira
 rapira --version
 ```
 
 ```bash [macOS]
-curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.8.0/rapira-v0.8.0-php8.5-macos-aarch64.tar.gz
-tar xzf rapira-v0.8.0-php8.5-macos-aarch64.tar.gz
-sudo mv rapira-v0.8.0-php8.5-macos-aarch64 /opt/rapira
+curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.9.0/rapira-v0.9.0-php8.5-macos-aarch64.tar.gz
+tar xzf rapira-v0.9.0-php8.5-macos-aarch64.tar.gz
+sudo mv rapira-v0.9.0-php8.5-macos-aarch64 /opt/rapira
 sudo ln -s /opt/rapira/bin/rapira /usr/local/bin/rapira
 rapira --version
 ```
@@ -131,7 +133,7 @@ rapira --version
 
 ```bash
 mkdir -p "$HOME/.local/opt" "$HOME/.local/bin"
-mv rapira-v0.8.0-php8.5-linux-x86_64 "$HOME/.local/opt/rapira"
+mv rapira-v0.9.0-php8.5-linux-x86_64 "$HOME/.local/opt/rapira"
 ln -s "$HOME/.local/opt/rapira/bin/rapira" "$HOME/.local/bin/rapira"
 "$HOME/.local/bin/rapira" --version
 ```
@@ -139,40 +141,40 @@ ln -s "$HOME/.local/opt/rapira/bin/rapira" "$HOME/.local/bin/rapira"
 在 macOS 上，请把源目录名换成解压后的 macOS 目录名。如果 shell 尚未包含此目录，请将 `$HOME/.local/bin` 添加到 `PATH`。
 
 ::: warning
-二进制文件是在自己旁边找解释器的，所以目录只能整个搬：`cp bin/rapira /usr/local/bin/` 会让它起不来。要进 `PATH`，请照上面的命令做符号链接。
+二进制文件使用相对路径查找其解释器。请整体移动完整的目录。不要只把 `bin/rapira` 复制到 `/usr/local/bin/`。请按上面的示例使用符号链接。
 :::
 
 ::: question 为什么符号链接可以，复制二进制文件却不行？
-解释器的路径是以**相对 rpath** 的形式写进二进制文件的--Linux 上是 `$ORIGIN/../lib/rapira`，macOS 上是 `@loader_path/../lib/rapira`--而基准点是二进制文件真正所在的位置。`/usr/local/bin` 旁边并没有 `lib/rapira`，所以复制过去的那份找不到解释器。符号链接则会先被加载器解析，然后才展开 rpath，因此链接放在哪里都行，真正的目录树保持完整。
+二进制文件包含指向解释器的**相对 rpath**。Linux 使用 `$ORIGIN/../lib/rapira`，macOS 使用 `@loader_path/../lib/rapira`。加载器先解析符号链接，再解析 rpath。因此，rpath 从二进制文件的实际位置开始。`/usr/local/bin` 中的副本旁边没有 `lib/rapira` 目录，所以找不到解释器。
 :::
 
-::: question 压缩包需要系统提供哪些库？
+::: question 压缩包需要哪些系统库？
 在 macOS 上，`lib/rapira` 包含 `libphp.dylib` 和所有必需的非系统库。该目录包含完整的运行依赖。
 
-在 Linux 上，`lib/rapira` 包含 `libphp.so` 和所需的 ICU 库。每个产物都包含构建其解释器时使用的 ICU 版本。系统必须提供 OpenSSL 3、libcurl、libxml2、SQLite、Oniguruma、zlib、libpq 和 libstdc++。deb 和 RPM 软件包将这些库、glibc 和 libgcc 声明为依赖项。
+在 Linux 上，`lib/rapira` 包含 `libphp.so` 和其构建所用的 ICU 库。系统必须提供 OpenSSL 3、libcurl、libxml2、SQLite、Oniguruma、zlib、libpq 和 libstdc++。deb 和 RPM 软件包将这些库、glibc 和 libgcc 声明为依赖项。
 :::
 
 ## 验证校验和
 
-每个发行版本只有一个校验和文件，覆盖它的全部产物，所以校验时得挑出你真正下载的那些。在 Linux 上用 `--ignore-missing` 参数；在 macOS 上用 `grep` 把需要的那一行交给 `shasum`：
+每个 Linux 和 macOS 发布都有一个校验和文件，覆盖所有发布文件。只验证已下载的文件。在 Linux 上，使用 `--ignore-missing`。在 macOS 上，使用 `grep` 将所选的行传给 `shasum`：
 
 ::: code-group
 
 ```bash [Linux]
-curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.8.0/rapira-v0.8.0-SHA256SUMS.txt
-sha256sum -c --ignore-missing rapira-v0.8.0-SHA256SUMS.txt
+curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.9.0/rapira-v0.9.0-SHA256SUMS.txt
+sha256sum -c --ignore-missing rapira-v0.9.0-SHA256SUMS.txt
 ```
 
 ```bash [macOS]
-curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.8.0/rapira-v0.8.0-SHA256SUMS.txt
-grep rapira-v0.8.0-php8.5-macos-aarch64.tar.gz rapira-v0.8.0-SHA256SUMS.txt | shasum -a 256 -c
+curl -LO https://github.com/rapira-rs/rapira/releases/download/v0.9.0/rapira-v0.9.0-SHA256SUMS.txt
+grep rapira-v0.9.0-php8.5-macos-aarch64.tar.gz rapira-v0.9.0-SHA256SUMS.txt | shasum -a 256 -c
 ```
 
 :::
 
 ## Docker
 
-`ghcr.io/rapira-rs/rapira` 是一个容器镜像，里面装着 `rapira` 二进制文件，以及它编译时链接的那份 `libphp.so`。镜像用 `FROM scratch` 构建：没有基础系统，没有 shell，也没有 entrypoint，所以它自己跑不起来。把它的内容拷进你自己的镜像里：
+`ghcr.io/rapira-rs/rapira` 容器镜像包含 `rapira` 二进制文件及其 `libphp.so`。镜像使用 `FROM scratch`，没有基础系统、shell 或 entrypoint。它不能单独运行。请将它的文件复制到应用镜像中：
 
 ```dockerfile
 FROM php:8.5-cli-trixie
@@ -184,7 +186,7 @@ COPY . /app
 CMD ["rapira", "serve", "/app/rapira.toml"]
 ```
 
-应用目录里放着一份 `rapira.toml`：
+应用目录包含一个 `rapira.toml`：
 
 ```toml
 [http]
@@ -203,33 +205,33 @@ mode = "classic"
 
 镜像构建使用 `php:8.4-cli-trixie` 或 `php:8.5-cli-trixie` 中的 `libphp.so`，并添加上述六个共享扩展。请在应用的基础镜像中添加其他扩展。在 PHP 基础镜像中，`docker-php-ext-install` 会针对同一份 `libphp.so` 编译扩展。
 
-::: question 镜像为什么用 `FROM scratch` 构建？
-scratch 镜像里除了构建时拷进去的东西什么都没有，所以 `COPY --from=ghcr.io/rapira-rs/rapira:php8.5 / /` 只会取走这份内容，别的一概不带。基础镜像仍然由你自己挑，这次拷贝也不会在它上面再压一个发行版。
+::: question 为什么镜像使用 `FROM scratch` 构建？
+scratch 镜像只包含构建复制到其中的文件。因此，`COPY --from=ghcr.io/rapira-rs/rapira:php8.5 / /` 只复制 Rapira 文件。应用的基础镜像由你选择。
 :::
 
-每个标签都写明了自己的 PHP 次版本。下面这些标签都是多架构的，每一个都同时覆盖 amd64 和 arm64。
+每个标签都标明其 PHP 次版本。这些标签支持 amd64 和 arm64：
 
 | 标签 | 指向什么 |
 | --- | --- |
-| `X.Y.Z-php8.4`、`X.Y.Z-php8.5` | 某一次发布构建。这个标签永不移动。 |
-| `X.Y-php8.4`、`X.Y-php8.5` | `X.Y` 这条线上最新的稳定发布。 |
+| `X.Y.Z-php8.4`、`X.Y.Z-php8.5` | 一个发布构建。此标签永不移动。 |
+| `X.Y-php8.4`、`X.Y-php8.5` | 该 `X.Y` 版本的最新稳定发布。 |
 | `php8.4`、`php8.5` | 最新的稳定发布。 |
 | `nightly-php8.4`、`nightly-php8.5` | 最新的 nightly 构建。 |
 
-registry 里还有构建过程中先产出的那些单架构标签，比如 `X.Y.Z-php8.5-amd64` 和 `X.Y.Z-php8.5-arm64`。
+registry 还包含特定架构的标签，例如 `X.Y.Z-php8.5-amd64` 和 `X.Y.Z-php8.5-arm64`。
 
-这里没有 `latest` 标签。Rapira 在构建时就把 Zend 的结构体绑死了，碰上别的 PHP 次版本的 `libphp.so` 会拒绝启动，所以每个标签都必须写明自己带的是哪个次版本。
+没有 `latest` 标签。每个 Rapira 构建使用一个 PHP 次版本的头文件。Rapira 不会使用其他 PHP 次版本的 `libphp.so` 启动。因此，每个标签都标明其包含的 PHP 次版本。
 
 ::: question nightly 标签指向什么？
-`main` 上每一次通过的 CI 运行，都会用那个提交重新构建镜像。构建会拿到一个不可变的标签 `X.Y.Z-nightly.<short-sha>-php8.5`：`X.Y.Z` 是仓库当前的版本号，`<short-sha>` 是提交号的前七位。会移动的 `nightly-php8.5` 标签随后指向这次构建。registry 只保留最近十次 nightly 构建，更早的会被删掉。
+`main` 上每次成功的 CI 运行都会从该提交构建镜像。此构建获得一个不可变的标签 `X.Y.Z-nightly.<short-sha>-php8.5`。`X.Y.Z` 是仓库版本。`<short-sha>` 是提交标识符的前七个字符。`nightly-php8.5` 标签指向此构建。registry 保留最新的十个 nightly 构建。
 :::
 
 ## libphp 构建
 
-发布的软件包和压缩包使用以 `--disable-all` 构建的 `libphp`，并启用以下固定扩展：
+Linux 和 macOS 发布的软件包和压缩包使用以 `--disable-all` 构建的 `libphp`，并启用以下固定扩展：
 
 - **运行时基础**：session、filter、mbstring、iconv、ctype、tokenizer、fileinfo、phar、posix。
-- **OPcache**，以及开启了 JIT 的 PCRE。
+- **OPcache**，以及启用了 JIT 的 PCRE。在 PHP 8.4 上，OPcache 是独立的 `opcache.so` 文件。请参阅 [php.ini](#php-ini)。
 - **网络与压缩**：openssl、curl、zlib、sockets、ftp。
 - **XML**：libxml、dom、xml、simplexml、xmlreader、xmlwriter。
 - **数据库**：带 `pdo_sqlite` 和 `pdo_pgsql` 的 PDO，以及 `sqlite3` 和 `pgsql`。
@@ -242,34 +244,63 @@ registry 里还有构建过程中先产出的那些单架构标签，比如 `X.Y
 
 如需 `pdo_mysql`、APCu 或 Imagick 等其他扩展，请用所需选项构建 `libphp`。然后使用该库编译 Rapira。请参阅[从源码构建](/zh/docs/intro/build-from-source)。
 
-每个版本使用其 PHP 分支中可用的最新补丁版本。压缩包的 `share/php/PHP_VERSION.txt` 包含确切版本。 在运行的服务器上，`PHP_VERSION` 和 `phpinfo()` 会报告此版本。
+每个产物使用其 PHP 8.4 或 PHP 8.5 系列中最新可用的补丁版本。压缩包的 `share/php/PHP_VERSION.txt` 包含确切版本。在运行的服务器上，`PHP_VERSION` 和 `phpinfo()` 会报告此版本。设置 `[observability.metrics]` 后，`rapira_build_info` 指标的 `php_version` 标签也会报告此版本。请参阅[指标与健康检查](/zh/docs/observability)。`rapira --version` 只显示 Rapira 版本。
 
 ::: question 为什么在 PHP 8.4 上 `PHP_SAPI` 返回 `fastcgi`？
-在 PHP 8.4 上，OPcache 只对固定的一批 SAPI 名字启动，名字不在名单里就意味着压根没有共享 opcode 缓存--所以在那里 SAPI 注册成了 `fastcgi`。PHP 8.5 去掉了这份名单，于是 `PHP_SAPI` 和 `php_sapi_name()` 返回 `rapira`。而 `phpinfo()` 里的 *Server API* 一行两种情况下都显示 `Rapira`。按 `PHP_SAPI` 分支的代码要能认得这两个值。
+在 PHP 8.4 上，OPcache 只对固定列表中的 SAPI 名称启动。Rapira 将 SAPI 注册为 `fastcgi` 以启用 OPcache。PHP 8.5 删除了此列表，所以 `PHP_SAPI` 和 `php_sapi_name()` 返回 `rapira`。在两个版本中，`phpinfo()` 的 *Server API* 行都显示 `Rapira`。检查 `PHP_SAPI` 的代码必须接受这两个值。
 :::
 
 ## php.ini
 
-软件包和压缩包里都没有 `php.ini`，Rapira 也不会生成一个，所以原封不动的安装跑的是 PHP 的内置默认值。用 `PHPRC` 指向真正的文件，或者指向存放它的目录：
+Linux 和 macOS 软件包和压缩包不包含 `php.ini`，Rapira 也不会创建此文件。没有此文件时，PHP 使用其内置默认值。Rapira 更改其中两个值：它设置 `display_errors=0` 和 `log_errors=1`。`php.ini` 中的值会覆盖这两个设置。请参阅[日志](/zh/docs/logging)。将 `PHPRC` 设置为一个文件或搜索目录：
 
 ```bash
 PHPRC=/etc/rapira/php.ini rapira serve /etc/rapira/rapira.toml
 ```
 
-::: question PHP 自己会去哪里找 `php.ini`？
-按它一贯的顺序：先看 `PHPRC`，再看当前工作目录，最后是编译时写死的路径--那个路径指向编译 PHP 时所在的目录，在你的机器上哪儿也到不了。
+在 PHP 8.4 上，OPcache 是 `lib/rapira` 中独立的 `opcache.so` 文件。PHP 不会自动加载此文件。请将其绝对路径添加到 `php.ini`：
+
+```ini
+; deb 或 RPM 软件包
+zend_extension=/usr/lib/rapira/opcache.so
+; 位于 /opt/rapira 的压缩包
+;zend_extension=/opt/rapira/lib/rapira/opcache.so
+```
+
+在 PHP 8.5 上，OPcache 是 `libphp` 的一部分。不需要此行。
+
+::: question PHP 自己会在哪里查找 `php.ini`？
+PHP 先检查 `PHPRC`。然后检查 PHP 构建时设置的默认路径。此构建路径通常在目标系统上不存在。Rapira 不从当前目录读取 `php.ini`。
 :::
 
 ::: question 为什么文件叫 `php.ini`，而不是 `php-rapira.ini`？
-PHP 会先找 `php-<sapi-name>.ini`，找不到才用普通的 `php.ini`，而 SAPI 名字随版本而变--8.4 上是 `fastcgi`，8.5 上是 `rapira`。普通的 `php.ini` 两边都适用。
+PHP 先检查 `php-<sapi-name>.ini`，然后检查 `php.ini`。SAPI 名称在 8.4 上是 `fastcgi`，在 8.5 上是 `rapira`。普通的 `php.ini` 支持这两个版本。
 :::
 
 ## 分发
 
-构建发布在两个地方：GitHub Releases 上是压缩包、软件包和一个校验和文件，`ghcr.io/rapira-rs/rapira` 上是容器镜像。目前还没有 apt 或 yum 仓库，所以升级就是下载新产物、覆盖旧的装上去，而不是执行 `apt upgrade`。软件包会就地替换已安装的版本；用压缩包的话，把新目录解压到旧目录旁边，再把符号链接切过去：原来的目录树还在，回滚只要一条命令。
+GitHub Releases 包含压缩包、软件包和校验和文件。`ghcr.io/rapira-rs/rapira` 包含容器镜像。目前还没有 apt 或 yum 仓库。要更新软件包，请下载并安装新版本。包管理器会替换已安装的版本。
 
-发布之外还并行着一条 nightly 通道。`main` 上每一次通过的 CI 运行都会发布 nightly 容器标签，同一次运行还会把压缩包传到 GitHub Releases 上那个滚动的 `nightly` 预发布里。发布提交上会跳过这次上传，因为发布构建本身已经把这些压缩包挂在正式发布上了。这个预发布只带压缩包和它们的校验和文件，既没有 `.deb`，也没有 `.rpm`。nightly 构建是 `main` 的构建，不是一次发布。
+要更新压缩包，请将新目录解压到旧目录旁边。然后更改符号链接。如果可能需要恢复，请保留之前的目录。
 
-macOS 版本**只支持 Apple Silicon**，面向 **macOS 14 及以上**，并且只做了 ad-hoc 签名：没有 Developer ID，也没有公证，所以首次运行时 macOS 可能会要你确认。没有 Intel 版本。Windows 版本单独发布在 [rapira-rs/rapira-windows](https://github.com/rapira-rs/rapira-windows)，只用于本地开发--生产环境请在 Linux 或 macOS 上运行 Rapira。
+`main` 上每次成功的 CI 运行都会将压缩包和一个校验和文件上传到 GitHub Releases 上的 `nightly` 预发布，但发布提交除外。此预发布不包含 `.deb` 或 `.rpm` 软件包。nightly 构建不是发布。nightly 容器标签请参阅 [Docker](#docker)。
 
-二进制文件就位之后，怎么处理第一个请求，见[快速开始](/zh/docs/intro/quickstart)。
+macOS 版本支持 **Apple Silicon** 和 **macOS 14 或更新版本**。它使用 ad hoc 签名，没有 Developer ID，也没有公证。首次运行前，macOS 可能会请求确认。没有 Intel 版本。
+
+## Windows {#windows}
+
+[rapira-rs/rapira-windows](https://github.com/rapira-rs/rapira-windows) 提供用于本地开发的 Windows 版本。生产环境请使用 Linux 或 macOS。Windows 的最新稳定发布是 v0.8.0。其配置和扩展集请参阅[发布 README](https://github.com/rapira-rs/rapira-windows/blob/v0.8.0/README.md)。
+
+x64 构建支持 Windows 10、Windows 11 和 Windows Server。ARM64 构建支持 Windows 11。请安装对应架构的 [Microsoft Visual C++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist)。将完整 ZIP 解压到一个目录中。将 `rapira.exe`、匹配的 ZTS PHP 运行时、扩展 DLL 和 `php.ini` 保留在一起。
+
+Windows v0.8.0 仅提供 HTTP 服务。其配置使用顶层 `[pool]` 表。请从解压目录运行：
+
+```powershell
+.\rapira.exe serve --config C:\app\rapira.toml
+```
+
+此发布不支持 v0.9 快速开始配置或 gRPC。其 PHP 配置不包含 OpenSSL、cURL、SQLite、XML 和 iconv。每个 Windows 发布为每种架构提供一个 `rapira-v<VERSION>-windows-<x86_64|arm64>-SHA256SUMS.txt` 文件。
+
+[当前 Windows 源码](https://github.com/rapira-rs/rapira-windows/blob/main/README.md)实现了 v0.9 插件配置和 gRPC。它使用 `rapira serve CONFIG`，并为每个插件提供独立的解释器线程池。它拒绝 `[observability]`、`grpc.interceptors` 和 `[grpc.auth]`。这些源码功能不包含在稳定版 v0.8.0 下载中。
+
+安装二进制文件后，[快速开始](/zh/docs/intro/quickstart)说明如何处理第一个请求。

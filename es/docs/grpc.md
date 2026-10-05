@@ -214,6 +214,8 @@ La [guía de código PHP generado](https://protobuf.dev/reference/php/php-genera
 
 | API | Comportamiento |
 | --- | --- |
+| `name()` | Devuelve `"grpc"`. |
+| `getInfo(): GrpcDispatcherInfo` | Devuelve una instantánea de este worker. `pendingCount()` cuenta las llamadas en espera. `activeCount()` es `0` o `1`. |
 | `receive(int $timeout = -1)` | Devuelve la siguiente `UnaryCall`. El tiempo de espera se expresa en microsegundos. `-1` espera sin límite. Al alcanzar el límite, lanza `Rapira\Exception\TimeoutException`. |
 | `tryReceive()` | Devuelve una `UnaryCall`, o `null` cuando no hay ninguna llamada en espera. No espera. |
 | `getServices()` | Enumera los servicios atendidos con sus métodos, tipos de entrada, tipos de salida y clases de método. La lista incluye los métodos en streaming. Está disponible antes de la primera llamada. |
@@ -241,7 +243,7 @@ $call->fail(new Rapira\Grpc\Status(
 ));
 ```
 
-`StatusCode` contiene los códigos de estado gRPC. Un `respond()` correcto envía el estado `OK`. `fail()` es la única forma de enviar un estado de error.
+`StatusCode` contiene los 16 códigos de error gRPC. No tiene un caso `Ok`. Un `respond()` correcto envía el estado `OK`. `fail()` es la única forma de enviar un estado de error.
 
 El tercer argumento opcional de `Status` es una lista de objetos `Rapira\Grpc\ErrorDetail`. Cada objeto contiene una URL de tipo protobuf y los bytes del mensaje serializado. En gRPC y gRPC-Web, Rapira envía los detalles en `grpc-status-details-bin`. En Connect, los envía en el cuerpo JSON del error.
 
@@ -267,7 +269,7 @@ $metadata->addTrailer('x-result', 'completed');
 
 `addHeader()` y `addTrailer()` aceptan valores ASCII imprimibles. Se permite un valor vacío. Rapira elimina los espacios iniciales y finales de un valor de texto cuando lo envía. Usa `addBinaryHeader()` o `addBinaryTrailer()` para valores binarios. El nombre de un valor binario debe terminar en `-bin`.
 
-Un nombre de metadatos solo puede contener `0-9`, `a-z`, `_`, `-` y `.`, como especifica el [protocolo gRPC](https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md#requests). Un nombre de transporte, un nombre no válido o un valor no válido lanza `\ValueError`. Un nombre repetido añade un valor.
+Rapira convierte los nombres de metadatos de respuesta a minúsculas. Después, un nombre solo puede contener `0-9`, `a-z`, `_`, `-` y `.`, como especifica el [protocolo gRPC](https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md#requests). Un nombre de transporte, un nombre no válido o un valor no válido lanza `\ValueError`. Los métodos de texto rechazan los nombres que terminan en `-bin`. Un nombre repetido añade un valor.
 
 `headers()` y `trailers()` devuelven instantáneas. En Connect, cada trailer es una cabecera con el prefijo `trailer-`. Envía metadatos de petición con la opción `-H 'x-request-id: demo-1'` de grpcurl.
 
@@ -275,7 +277,7 @@ Un nombre de metadatos solo puede contener `0-9`, `a-z`, `_`, `-` y `.`, como es
 
 Un interceptor comprueba una llamada antes de que PHP la reciba. Indica los interceptores en `grpc.interceptors`, en el orden de la cadena. Cada interceptor tiene su propia tabla. Rapira tiene un interceptor: `auth`.
 
-### Tokens bearer
+### Autenticación {#authentication}
 
 `auth` acepta una llamada solo cuando la llamada lleva un token bearer configurado. Guarda los tokens en un archivo, un token por línea:
 
@@ -296,7 +298,9 @@ interceptors = ["auth"]
 tokens_file = "grpc-tokens"
 ```
 
-Un cliente envía el token en los metadatos `authorization`, como `Bearer <token>`:
+La ruta del archivo de tokens usa como base el directorio del archivo de configuración. Consulta [Configuración](./configuration#grpc-auth) para ver las reglas de las claves.
+
+Un cliente envía exactamente un valor de metadatos `authorization`, como `Bearer <token>`:
 
 ```sh
 grpcurl -plaintext -H 'authorization: Bearer ci.deploy-token' 127.0.0.1:50051 list
@@ -315,7 +319,7 @@ El maestro lee el archivo de tokens al arrancar. Un archivo que Rapira no puede 
 
 ## Plazos y cancelación
 
-Un cliente establece un tiempo de espera con `grpc-timeout` (gRPC y gRPC-Web) o `connect-timeout-ms` (Connect). `grpc.default_timeout_secs` establece el tiempo de espera de una llamada que no tiene tiempo de espera del cliente. `grpc.max_timeout_secs` reduce a su valor un tiempo de espera del cliente más largo. Ambas claves están sin definir por defecto, por lo que una llamada sin tiempo de espera del cliente no tiene plazo.
+Un cliente establece un tiempo de espera con `grpc-timeout` (gRPC y gRPC-Web) o `connect-timeout-ms` (Connect). `grpc.default_timeout_secs` establece el tiempo de espera de una llamada que no tiene tiempo de espera del cliente. `grpc.max_timeout_secs` reduce a su valor un tiempo de espera del cliente más largo. Ambas claves están sin definir por defecto, por lo que una llamada sin tiempo de espera del cliente no tiene plazo. Esa llamada también lee su mensaje de petición sin límite de tiempo. Define las dos claves cuando los clientes no son de confianza.
 
 `$call->getContext()->deadline` es el plazo como marca de tiempo Unix en segundos, o `null`. `receivedAt` es el momento en que Rapira ha leído el mensaje de petición completo.
 
@@ -337,7 +341,7 @@ Por defecto, el pool atiende los servicios de los archivos que ningún otro arch
 
 Un método en streaming, un método de un servicio que el pool no atiende y un método desconocido devuelven `UNIMPLEMENTED`. Al arrancar, Rapira registra una advertencia por cada método en streaming de un servicio atendido.
 
-La reflexión está desactivada por defecto. Con `reflection = true`, Rust atiende `grpc.reflection.v1` y `grpc.reflection.v1alpha`. `ListServices` devuelve los servicios atendidos. Todos los archivos y símbolos del descriptor set están disponibles, así que cualquier cliente puede leer el conjunto completo.
+La reflexión está desactivada por defecto. Con `reflection = true`, Rapira atiende `grpc.reflection.v1` y `grpc.reflection.v1alpha`. `ListServices` devuelve los servicios atendidos. Todos los archivos y símbolos del descriptor set están disponibles, así que cualquier cliente puede leer el conjunto completo.
 
 Con `reflection = false`, proporciona el esquema al cliente:
 
@@ -347,7 +351,7 @@ grpcurl -plaintext -import-path proto -proto echo.proto -d '{"text":"hello"}' 12
 
 ## Comprobaciones de salud
 
-Rust atiende el [protocolo de comprobación de salud de gRPC](https://github.com/grpc/grpc/blob/master/doc/health-checking.md) (`grpc.health.v1.Health`) en cada worker. `Check` y `Watch` informan `SERVING` para el nombre vacío `""` y para cada servicio atendido. Durante el apagado, informan `NOT_SERVING`.
+Rapira atiende el [protocolo de comprobación de salud de gRPC](https://github.com/grpc/grpc/blob/master/doc/health-checking.md) (`grpc.health.v1.Health`) en cada worker. `Check` y `Watch` informan `SERVING` para el nombre vacío `""` y para cada servicio atendido. Durante el apagado, informan `NOT_SERVING`.
 
 El servicio de salud no comprueba PHP. Un worker cuyo arranque PHP ha fallado informa `SERVING`, y sus llamadas reciben `UNAVAILABLE`. `grpc.services` no puede nombrar los servicios de salud ni de reflexión, porque Rapira los atiende por sí mismo.
 
@@ -359,12 +363,24 @@ curl -H 'Content-Type: application/json' -d '{}' http://127.0.0.1:50051/grpc.hea
 
 ## Protocolos y límites
 
+- Usa gRPC-Web binario (`application/grpc-web+proto`). El modo de texto gRPC-Web no se admite y devuelve `UNIMPLEMENTED`.
+- Para clientes de navegador de otro origen, configura CORS en el proxy. Rapira no atiende las peticiones de comprobación previa de CORS.
 - Una petición JSON de Connect que no se puede decodificar devuelve `INVALID_ARGUMENT`, y PHP no recibe la llamada. El decodificador JSON ignora los campos desconocidos. No ignora un nombre de valor enum que el descriptor set no declara.
 - Un método con `option idempotency_level = NO_SIDE_EFFECTS;` también acepta una petición GET de Connect.
 - Los mensajes pueden usar compresión gzip. Una petición con otra codificación de mensajes devuelve `UNIMPLEMENTED`.
-- El límite de tamaño de mensaje es 4 MiB. Una petición más grande devuelve `RESOURCE_EXHAUSTED`.
+- Las peticiones a servicios PHP tienen un límite de cuerpo de 4 MiB y otro límite de mensaje descomprimido de 4 MiB. Una petición más grande devuelve `RESOURCE_EXHAUSTED`. Ninguna clave TOML cambia estos límites.
+- Una respuesta PHP que no se puede convertir a Connect JSON devuelve `INTERNAL` y registra una advertencia. Las respuestas protobuf binarias no usan esta conversión.
+- El decodificador JSON no limita la memoria que usan los elementos de una petición. Una petición JSON de Connect de 4 MiB con muchos elementos pequeños puede hacer que un worker use varios cientos de MiB para campos repeated o map. Para campos `google.protobuf.Struct` o `ListValue`, el worker puede usar más de 1 GiB. El límite de 4 MiB se aplica después de la descompresión. Cuando los clientes no son de confianza, coloca delante de la escucha un proxy que limite el tamaño de la petición descomprimida.
 - `$call->getContext()->tls` siempre es `null`. Coloca un proxy TLS delante de la escucha cuando los clientes necesiten TLS. Para gRPC nativo, el proxy debe usar HTTP/2 en su conexión con Rapira.
-- Rapira envía un PING keepalive de HTTP/2 a una conexión inactiva cada 10 segundos. Cierra una conexión que no responde en 10 segundos.
+- Rapira envía un PING keepalive de HTTP/2 a una conexión que permanece inactiva durante `grpc.keepalive_interval_secs`. Cierra la conexión cuando el PING no recibe respuesta en `grpc.keepalive_timeout_secs`. Las dos claves valen 10 segundos por defecto. HTTP/1.1 no tiene PING, así que estas claves no se aplican a los clientes gRPC-Web o Connect sobre HTTP/1.1.
+
+::: question ¿Cómo se aplican los límites de tamaño de entrada?
+El límite del cuerpo incluye la envoltura de cinco bytes de una petición unaria con tramas. Salud y reflexión limitan cada mensaje de petición a 16 KiB. Estos límites de entrada no establecen un límite de tamaño de respuesta.
+:::
+
+::: question ¿Qué límites se aplican al contenido de Any en respuestas JSON?
+La conversión JSON decodifica el contenido de cada `google.protobuf.Any` con un presupuesto de 32 MiB para los elementos decodificados. Un contenido que supera este presupuesto devuelve `INTERNAL` y registra una advertencia. Los clientes protobuf binarios no usan esta conversión.
+:::
 
 ::: warning Una conexión usa un worker
 Un único proceso worker atiende cada conexión. Un cliente gRPC suele enviar todas las llamadas de un canal por una sola conexión HTTP/2. Ese cliente obtiene el rendimiento de un worker, sea cual sea el tamaño del pool. Para usar más workers, abre varias conexiones o usa un balanceador de carga L7 que reparta las llamadas.

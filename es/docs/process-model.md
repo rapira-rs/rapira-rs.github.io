@@ -1,23 +1,25 @@
 ---
 title: Modelo de procesos
-description: "Cómo ejecuta PHP Rapira: un maestro de un solo hilo abre el socket, arranca PHP una vez y hace fork de los workers. Tamaño del pool, reciclaje, recargas y la tabla completa de señales."
+description: El maestro de Rapira, la inicialización de PHP, los procesos worker, el tamaño del pool, la sustitución de workers y las señales.
 ---
 
 # Modelo de procesos
 
-Rapira ejecuta un proceso maestro. Cada protocolo activado tiene su propio pool de workers. El maestro mantiene los sockets de escucha, el motor PHP inicializado y el pidfile. Después, crea los procesos worker. Cada worker hereda PHP y acepta conexiones desde el socket compartido de su pool. Rapira no pasa las peticiones entre procesos.
+Rapira ejecuta un proceso maestro y un pool de workers para cada protocolo activado. El maestro mantiene los sockets de escucha, el motor PHP inicializado y el pidfile. Después, el maestro crea los procesos worker. Cada worker hereda PHP y acepta conexiones desde el socket compartido de su pool. Rapira no pasa una petición entre procesos.
 
 HTTP y [gRPC](./grpc) tienen escuchas, scripts de entrada y pools separados. `[http.pool]` y `[grpc.pool]` los configuran de forma independiente. El pool gRPC usa el modo Dispatcher y procesa una llamada activa por worker.
 
-El esquema es el mismo en los modos [Classic](/es/docs/classic), [Worker](/es/docs/worker) y Dispatcher. El modo de ejecución, que fija `http.pool.mode`, decide qué ocurre dentro de un worker con cada petición; no cambia cómo se construye el pool, ni cómo se supervisa, ni cómo se recarga. Consulta [Modos de ejecución](/es/docs/execution-modes) para más información.
+Cuando la configuración tiene una tabla `[observability]`, el maestro también inicia un proceso para las métricas y las comprobaciones de salud. Este proceso no ejecuta código PHP. En Linux, su nombre de proceso es `rapira-obs`, y los workers PHP tienen el nombre `rapira-worker`. El maestro supervisa, recarga y detiene este proceso junto con los workers PHP. Consulta [Métricas y comprobaciones de salud](/es/docs/observability) para más información.
+
+Este modelo de procesos es el mismo en los modos [Classic](/es/docs/classic), [Worker](/es/docs/worker) y [Dispatcher](/es/docs/dispatcher). `http.pool.mode` controla el procesamiento de las peticiones dentro de un worker. Este ajuste no cambia la creación del pool, la supervisión ni las recargas. Consulta [Modos de ejecución](/es/docs/execution-modes) para más información.
 
 ## Maestro y workers
 
-El arranque sigue un orden fijo:
+La inicialización sigue este orden:
 
-1. **Abrir los sockets de escucha.** El maestro los reserva antes que nada, así que un puerto que ya esté ocupado tumba el arranque al momento, antes siquiera de poner PHP en marcha.
-2. **Arrancar PHP una sola vez.** El motor pasa por `MINIT` dentro del maestro, que todavía es de un único hilo. Aquí se crea la memoria compartida de OPcache, y por eso todos los workers que se forkeen después heredan ese mismo segmento SHM: el primer worker que compile un archivo llena la caché para todos los demás, en lugar de que cada proceso compile su propia copia.
-3. **Hacer fork de los workers.** Cada hijo hereda el socket ya abierto y el motor ya inicializado.
+1. **Enlazar el socket o los sockets de escucha.** Un conflicto de puerto detiene la inicialización antes de que PHP se inicie.
+2. **Iniciar PHP una vez.** El maestro ejecuta `MINIT` en su único hilo. OPcache crea su memoria compartida en este momento, y cada worker la hereda. Cuando un worker compila un archivo, los otros workers usan el resultado en caché.
+3. **Hacer fork de los workers.** Cada hijo hereda el socket enlazado y el motor inicializado.
 
 ```mermaid
 flowchart TB
@@ -37,98 +39,121 @@ flowchart TB
 
 El diagrama muestra un pool. Cada worker ejecuta un intérprete PHP NTS y un servidor HTTP o gRPC asíncrono. El servidor usa hyper sobre un runtime de tokio propio, con dos hilos. Cada worker llama a `accept()` en el socket que ha heredado. El sistema operativo asigna cada conexión nueva a un worker.
 
-El maestro no atiende ni una petición. No tiene pila HTTP en absoluto: es un único hilo bloqueado en `poll(2)` sobre un self-pipe, esperando señales, muertes de sus hijos y sus propios temporizadores. El proceso que tiene que sobrevivir para reiniciar todo lo demás hace lo mínimo imprescindible.
+El maestro no atiende peticiones. Su único hilo espera señales, salidas de workers y temporizadores.
 
 ::: info
-El maestro también mantiene cargado el módulo de PHP mientras vive y es el único proceso que lo cierra. Un worker sale sin desmontar nada, así que un worker que se cae o que se recicla nunca destruye la imagen del motor que siguen usando los demás workers.
+El maestro mantiene el módulo PHP durante toda su vida. Solo el maestro cierra el módulo. Un worker termina, pero no cierra este estado compartido del motor.
 :::
 
 ## Supervisión
 
-Después de iniciar el pool, el maestro ejecuta el mantenimiento aproximadamente una vez por segundo. También procesa las salidas de los workers cuando ocurren.
+El maestro ejecuta el mantenimiento una vez por segundo. También procesa cada salida de un worker cuando ocurre.
 
-- **Sustitución de workers.** El maestro sustituye inmediatamente un worker después de una salida normal.
-- Después de un fallo, la espera empieza en 100 ms. Se duplica tras cada fallo consecutivo y deja de aumentar cerca de 25 segundos.
-- Una vida del worker de diez segundos reinicia la espera.
-- **Fallos de inicialización.** El maestro termina si todos los workers iniciales fallan antes de que el pool procese una petición.
-- Después de la primera petición, el maestro usa la espera normal. Un fallo de inicialización de un worker durante la recarga no hace que el maestro termine.
-- **Límites de peticiones.** Con `http.pool.max_requests`, un worker termina después de su límite. El maestro lo sustituye.
-- Rapira añade un valor aleatorio de hasta la mitad del límite. Esto evita la sustitución simultánea de workers.
-- **Tiempo límite de petición.** Con `http.pool.request_terminate_timeout_secs`, el maestro envía `SIGTERM` cuando una petición supera el límite.
-- Envía `SIGKILL` un ciclo después si el worker sigue activo. Cierra las conexiones en cola y crea una sustitución.
-- El maestro no aplica este límite durante una parada o recarga.
-- **Control del maestro.** Cada worker lee de un pipe que el maestro mantiene abierto.
-- Si termina el maestro, el pipe devuelve EOF y cada worker deja de aceptar trabajo. Un fallo del maestro no deja workers sin control.
+- **Sustitución de workers.** Después de una salida normal, el maestro sustituye el worker inmediatamente. Después de un fallo o de una salida unhealthy, la espera de sustitución empieza en 100 ms. La espera se duplica tras cada fallo consecutivo y se detiene en 25,6 segundos. Un worker que funciona al menos 10 segundos reinicia la espera.
+- **Arranques fallidos.** En los modos Worker y Dispatcher, un arranque falla cuando el script de entrada termina antes de recibir una petición. Después, el worker espera hasta 5 segundos y vuelve a ejecutar el script de entrada. Responde a una petición que llega durante la espera con HTTP `503` o gRPC `UNAVAILABLE`. Después de cinco arranques fallidos consecutivos, el worker termina como unhealthy.
+- **Parada del maestro por arranque fallido.** El maestro se detiene con el código de salida 70 cuando termina un worker unhealthy de la generación cero. Esta regla solo se aplica cuando el pool no tiene ninguna petición correcta ni ningún worker idle o active. La generación cero identifica los workers creados antes de la primera recarga. En todos los demás casos, el maestro sustituye el worker después de la espera de sustitución. Un fallo de un worker nunca detiene el maestro.
+- **Límites de peticiones.** Con `http.pool.max_requests`, un worker termina después de un número aleatorio de peticiones entre `max_requests + 1` y aproximadamente `1.5 × max_requests`. El maestro lo sustituye inmediatamente. El rango aleatorio evita la sustitución simultánea de workers.
+- **Tiempo límite de petición.** Con `http.pool.request_terminate_timeout_secs`, el maestro envía `SIGTERM` a un worker cuando su petición actual supera el límite. Si el worker sigue activo en el siguiente mantenimiento, el maestro envía `SIGKILL`. Después, el maestro sustituye el worker inmediatamente. El maestro aplica este límite durante una recarga, pero no durante una parada.
+- **Control del maestro.** Cada worker lee de un pipe que el maestro mantiene abierto. Si el maestro termina, cada worker deja de aceptar trabajo nuevo, termina sus peticiones actuales y sale.
 
 ## Tamaño del pool
 
 Los ajustes siguientes usan `[http.pool]`. Los mismos ajustes se aplican a `[grpc.pool]`.
 
-`http.pool.processes` establece el número de workers. El maestro crea estos workers durante la inicialización y sustituye cada worker que termina. El valor predeterminado es un worker por CPU lógica.
+`http.pool.processes` establece el número de workers. El maestro crea estos workers durante la inicialización y sustituye cada worker que termina. El valor predeterminado es un worker por cada CPU que el proceso puede usar. Si un contenedor tiene un límite de CPU, el valor predeterminado sigue ese límite.
 
-PHP es síncrono, por lo que cada worker procesa una petición cada vez. Las aplicaciones con mucha E/S pueden requerir más workers que CPU. Las aplicaciones limitadas por CPU normalmente no los requieren.
+El total de workers de todos los pools debe ser 2048 o menos. Cuando la observabilidad está activada, su proceso cuenta como un worker. Un total mayor detiene Rapira con el código de salida 70.
+
+PHP es síncrono, por lo que cada worker procesa una petición cada vez. Las aplicaciones con mucha E/S pueden requerir más workers que núcleos de CPU. Las aplicaciones limitadas por CPU normalmente no los requieren.
 
 El número de workers no cambia mientras el servidor está en marcha. Para adaptar la capacidad a la carga, cambia el número de instancias de Rapira, por ejemplo con un orquestador de contenedores.
 
-La referencia completa de claves está en la página de [configuración](/es/docs/configuration).
+Consulta la [configuración](/es/docs/configuration) para ver la referencia completa de claves.
 
 ## Señales
 
-Las señales paran un servidor en marcha, lo recargan y le hacen informar de su estado. Todas van al **maestro**.
+Las señales detienen un servidor en marcha, lo recargan y le hacen informar de su estado. Todas van al **maestro**.
 
 | Señal | Qué hace el maestro |
 | --- | --- |
-| `SIGTERM`, `SIGINT` | Parada ordenada: las peticiones en curso terminan y luego el pool se drena. Un segundo `SIGTERM` o `SIGINT` fuerza la salida. |
-| `SIGQUIT` | La misma parada ordenada. Repetirla no cambia nada: una parada pedida por las buenas nunca se escala con otro `SIGQUIT`. |
-| `SIGUSR2`, `SIGHUP` | Recarga progresiva: el pool se sustituye worker a worker. Cada worker antiguo deja de aceptar trabajo y termina las peticiones actuales. |
-| `SIGUSR1` | Vuelca en el registro el estado del pool. |
-| `SIGCHLD` | Interna: ha salido un worker; recogerlo y decidir si se sustituye. |
+| `SIGTERM`, `SIGINT` | El maestro deja terminar las peticiones actuales y después detiene los workers. Una segunda señal fuerza la parada de los workers. |
+| `SIGQUIT` | El maestro hace la misma parada ordenada. Otro `SIGQUIT` no tiene efecto. |
+| `SIGUSR2`, `SIGHUP` | El maestro sustituye un worker cada vez. Cada worker antiguo deja de aceptar trabajo nuevo y termina las peticiones actuales. |
+| `SIGUSR1` | El maestro escribe el estado del pool en el registro. |
 
-Define `supervisor.pidfile` y tus scripts tendrán un sitio fijo del que leer el pid del maestro:
+Define `supervisor.pidfile` para dar a los scripts una ubicación fija del identificador del proceso maestro:
 
 ```bash
-kill -USR2 $(cat /run/rapira.pid)   # Replace workers one at a time.
-kill -USR1 $(cat /run/rapira.pid)   # Write pool status to the log.
-kill -TERM $(cat /run/rapira.pid)   # Stop after current requests finish.
+kill -USR2 $(cat /run/rapira.pid)   # Sustituir los workers uno a uno.
+kill -USR1 $(cat /run/rapira.pid)   # Escribir el estado del pool en el registro.
+kill -TERM $(cat /run/rapira.pid)   # Detener después de terminar las peticiones actuales.
 ```
 
 ::: warning
-Envía las señales solo al maestro. Los workers ignoran `SIGUSR1` y `SIGUSR2`. Los workers tratan `SIGTERM` como una terminación inmediata. El tiempo límite de petición usa esta señal. Una señal directa al worker evita la supervisión del maestro.
+Envía las señales solo al maestro. Los workers ignoran `SIGUSR1` y `SIGUSR2`. `SIGTERM` y `SIGHUP` detienen un worker inmediatamente y cortan sus peticiones actuales. El tiempo límite de petición usa `SIGTERM`. Una señal directa a un worker evita la supervisión del maestro.
+
+`Ctrl-C` en un terminal envía `SIGINT` al maestro y a todos los workers. Después, cada worker también recibe `SIGQUIT` del maestro. Una segunda señal de parada hace que un worker salga inmediatamente con el código 131, así que sus peticiones actuales no terminan. Para dejar terminar las peticiones actuales, envía `SIGTERM` solo al maestro.
 :::
 
 ### Parar el servidor
 
-Para cada señal de parada, el maestro envía inmediatamente `SIGQUIT` a todos los workers. Los workers dejan de aceptar trabajo y terminan las peticiones actuales. Después de `supervisor.process_control_timeout_secs`, el maestro envía `SIGTERM` a los workers restantes. El valor predeterminado es 30 segundos. Si quedan workers, el maestro envía `SIGKILL` un segundo después de `SIGTERM`.
+Después de una señal de parada, el maestro envía inmediatamente `SIGQUIT` a cada worker. Los workers dejan de aceptar trabajo nuevo y terminan las peticiones actuales. Después de `supervisor.process_control_timeout_secs`, el maestro envía `SIGTERM` a los workers restantes. El límite predeterminado es 30 segundos. Si quedan workers, el maestro envía `SIGKILL` un segundo después de `SIGTERM`.
 
-Un segundo `SIGTERM` o `SIGINT` se salta la espera y fuerza la salida al instante.
+El plazo de drenaje de las conexiones es el tiempo límite de control menos el menor valor entre cinco segundos y la mitad de ese límite. Con los ajustes predeterminados, las conexiones tienen 25 segundos para terminar. Las respuestas que superen este plazo pueden interrumpirse. El mismo plazo se aplica durante la recarga.
 
-### La sustitución deja terminar las peticiones actuales
+Un segundo `SIGTERM` o `SIGINT` salta la espera y fuerza la salida inmediatamente. Consulta [Códigos de salida](/es/docs/cli#codigos-de-salida) para ver los códigos de salida del maestro.
 
-`SIGUSR2` o `SIGHUP` sustituye el pool completo. Cada nuevo worker inicializa la aplicación con el código desplegado.
+### La sustitución de workers deja terminar las peticiones actuales
 
-En Classic, el script de entrada se ejecuta en una petición PHP nueva. El código nuevo funciona sin recarga. Sin embargo, `opcache.validate_timestamps = 0` requiere un reinicio completo. Worker y Dispatcher conservan la aplicación inicializada. Recarga el pool después de cada despliegue en estos modos. Consulta [En producción](/es/docs/deployment).
+`SIGUSR2` o `SIGHUP` sustituye el pool completo. Cada worker nuevo inicializa la aplicación con el código desplegado.
 
-El maestro inicia un worker nuevo y espera hasta que informa del estado `idle` o `active`. Después detiene un worker antiguo. Cuando termina, el maestro inicia un worker nuevo en la siguiente posición. Cada parada usa la secuencia `SIGQUIT` → `SIGTERM` → `SIGKILL`. El mismo límite de control se aplica a cada worker. Un worker antiguo cierra las conexiones keep-alive inactivas después de recibir `SIGQUIT`. Las peticiones actuales pueden terminar antes del límite de control.
+En el modo Classic, cada petición ejecuta el script de entrada en una petición PHP nueva, así que el código nuevo funciona sin recarga. Los modos Worker y Dispatcher mantienen la aplicación en memoria. Recarga el pool después de cada despliegue en estos modos. Con `opcache.validate_timestamps = 0`, una recarga no carga código nuevo en ningún modo, porque los workers nuevos usan la memoria de OPcache del maestro. En este caso, reinicia Rapira. Consulta [despliegue](/es/docs/deployment) para más información.
 
-Si el worker nuevo no informa de ninguno de estos estados antes del límite de control, el maestro registra una advertencia. Después, el maestro detiene el siguiente worker antiguo aunque el worker nuevo todavía no atienda peticiones.
+El maestro inicia un worker nuevo y espera hasta que informa del estado idle o active. Después, el maestro detiene el worker antiguo más viejo. Cuando ese worker termina, el maestro inicia el siguiente worker nuevo en su lugar. Esta secuencia continúa hasta que no queda ningún worker antiguo. Todos los pools se recargan al mismo tiempo.
 
-Una recarga que llega con una parada ya en marcha se ignora: la parada tiene prioridad.
+Cada parada de un worker usa la secuencia `SIGQUIT` → `SIGTERM` → `SIGKILL`. El mismo límite de control se aplica a cada worker. Un worker antiguo cierra las conexiones keep-alive inactivas después de recibir `SIGQUIT`. Las peticiones actuales tienen el plazo de drenaje de conexiones más corto descrito arriba.
+
+Si el worker nuevo no informa de ninguno de estos estados antes del límite de control, el maestro registra una advertencia. Después, el maestro detiene el siguiente worker antiguo aunque el worker nuevo no atienda peticiones.
+
+El maestro ignora una señal de recarga durante una parada o mientras una recarga está en curso. No registra la señal ignorada. Envía la señal otra vez cuando termine la recarga.
 
 ::: info
-Una recarga sustituye los workers, no el maestro. Los workers nuevos usan la misma imagen del motor. Los cambios de `rapira.toml`, `php.ini` y del binario requieren un reinicio completo.
+Una recarga sustituye los workers, pero no el maestro. Los workers nuevos heredan el mismo motor inicializado. Reinicia Rapira para aplicar cambios en el binario o en los archivos que lee el maestro, como `rapira.toml` y `php.ini`.
 :::
 
-### Volcado de estado
+### Escribir el estado en el registro
 
-`SIGUSR1` hace que el maestro escriba en el registro una foto del pool: una línea de resumen con cuántos workers hay en marcha y cuántos ociosos, más la generación actual, y después una línea por plaza con su pid, su estado y sus contadores `handled`, `errors` y `recycles`.
+`SIGUSR1` hace que el maestro escriba el estado de cada pool en el registro. La primera línea de un pool muestra el número de workers en marcha e idle y la generación de recarga. Después, una línea por cada plaza de worker muestra el identificador del proceso, el estado y tres contadores:
+
+```text
+status: http pool: 4 running, 3 idle, generation 0
+  slot 0 pid 4242 state 2 handled 1500 errors 2 recycles 0
+```
+
+| Estado | Significado |
+| --- | --- |
+| `1` | Iniciando. La aplicación todavía no ha arrancado, o su último arranque falló. |
+| `2` | Idle. El worker espera trabajo. |
+| `3` | Active. El worker procesa una petición. |
+| `4` | Drenando. El worker termina su trabajo y sale. |
+
+Una plaza conserva sus contadores cuando el maestro sustituye su worker. `recycles` cuenta los reinicios del script de entrada dentro de un worker.
 
 ::: tip
-El volcado se escribe en `info` sobre el target `master`, y el nivel de registro por defecto es `error`, así que con la configuración de fábrica parece que `kill -USR1` no hiciera absolutamente nada. Sube ese target y el volcado aparece:
+La salida de estado usa `info` en el target `master`. El nivel de registro predeterminado es `error`. Establece este target en `info` para mostrar la salida:
 
 ```toml
 [log.targets]
 master = "info"
 ```
 
-Por ese mismo target pasan todos los eventos de supervisión: forks, recogidas, reposiciones y recargas. Lo demás está en [Registros](/es/docs/logging).
+El mismo target contiene errores de creación de workers, advertencias de disponibilidad durante la recarga y advertencias de tiempo límite de petición. Consulta [registro](/es/docs/logging) para más información.
+:::
+
+::: question ¿Usa Rapira transparent huge pages?
+No. En Linux, el maestro desactiva las transparent huge pages para su propio proceso antes de que PHP se inicie. Los workers y los procesos que PHP inicia con `proc_open()` o `exec()` heredan este ajuste. Por eso, `USE_ZEND_ALLOC_HUGE_PAGES=1` y `opcache.huge_code_pages` no obtienen transparent huge pages. Estas opciones todavía pueden usar huge pages explícitas que el host reserva con `vm.nr_hugepages`. Ningún ajuste cambia este comportamiento.
+:::
+
+::: question ¿Puede el maestro ejecutarse como PID 1 en un contenedor?
+Sí. Como PID 1, el maestro procesa las señales de parada y recoge todos los procesos hijos que terminan. No necesitas un proceso init separado.
 :::

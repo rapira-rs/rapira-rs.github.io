@@ -1,13 +1,13 @@
 ---
 title: Registros
-description: "Cómo registra Rapira - niveles, ajustes por target, diagnósticos de PHP, registro desde la aplicación, los formatos plain y JSON, y la variable RUST_LOG para depurar."
+description: "Niveles de registro de Rapira, ajustes por target, diagnósticos de PHP, registros de la aplicación, formatos y la variable RUST_LOG."
 ---
 
 # Registros
 
-Rapira escribe los registros filtrados en stderr. Incluyen eventos del servidor, decisiones del proceso maestro, eventos HTTP y gRPC, diagnósticos PHP y mensajes de la aplicación. Rapira envía los diagnósticos PHP a este registro en lugar de un destino `error_log` separado. El filtro de nivel configurado controla la salida de stderr.
+Rapira escribe los registros en stderr. Incluyen eventos del servidor, decisiones del proceso maestro, eventos HTTP y gRPC, diagnósticos PHP y mensajes de la aplicación. PHP envía sus diagnósticos a este registro cuando el ajuste ini `error_log` está vacío. Este es el valor predeterminado.
 
-El nivel predeterminado de stderr es `error`, por lo que stderr solo contiene errores. Cambia la configuración o establece `RUST_LOG` para elegir otro nivel.
+El nivel predeterminado es `error`, por lo que stderr solo contiene errores. Cambia la sección `[log]` o establece `RUST_LOG` para elegir otro nivel.
 
 ## Niveles y formato
 
@@ -21,11 +21,11 @@ format = "plain"  # Use plain or json. Default: plain.
 
 `level` establece el nivel mínimo para todos los targets. `error` muestra solo errores y cada nivel siguiente añade registros. `trace` muestra todos los registros. `format` selecciona líneas legibles o un objeto JSON por línea.
 
-Las dos claves y la sección completa son opcionales. Consulta [Configuración](/es/docs/configuration) para ver las demás secciones.
+Las dos claves y la sección completa son opcionales. Consulta [Configuración](/es/docs/configuration) para ver las demás secciones del archivo de configuración.
 
 ## Ajustes por target
 
-`[log.targets]` sustituye el nivel global para targets concretos. Por ejemplo, puede activar la depuración de PHP sin activar la de HTTP:
+`[log.targets]` sustituye el nivel global para targets concretos. Por ejemplo, puede activar los registros de depuración de PHP y mantener desactivados los registros de depuración de HTTP:
 
 ```toml
 [log]
@@ -36,57 +36,68 @@ php = "debug"
 http = "warn"
 ```
 
-Cada clave nombra un target. Los demás targets usan `level`. La clave coincide **por prefijo**, por lo que `h2` también coincide con `h2::codec::framed_read`. No necesitas enumerar submódulos.
+Cada clave nombra un target. Los demás targets usan `level`. La clave coincide **por prefijo**, por lo que `h2` también coincide con las rutas de módulo `h2::codec` y `h2::proto` de una dependencia. No necesitas enumerar submódulos.
 
-Estos son los targets bajo los que emite el propio Rapira:
+Rapira usa estos targets:
 
-| Target   | Qué cubre                                                       |
-| -------- | --------------------------------------------------------------- |
-| `rapira` | el ciclo de vida del servidor: arranque, vida de los workers, apagado |
-| `master` | la supervisión: forks, recogida de procesos, reinicios, recargas |
-| `http`   | el frontal HTTP: los sockets de escucha, el tratamiento de los campos de petición y respuesta, el drenaje |
-| `grpc`   | las escuchas gRPC, los fallos de transporte, el apagado          |
-| `net`    | el bucle de aceptación de las escuchas HTTP y gRPC, los fallos de aceptación |
-| `php`    | la salida y los diagnósticos que vienen del propio PHP          |
-| `app`    | las entradas que la aplicación escribe con `\Rapira\log()`      |
+| Target          | Qué cubre                                                                                       |
+| --------------- | ----------------------------------------------------------------------------------------------- |
+| `rapira`        | la inicialización del servidor, el ciclo de vida de los workers, el apagado                     |
+| `master`        | estado de pools, errores de creación de procesos, advertencias de disponibilidad durante recargas y de tiempo de espera de peticiones |
+| `http`          | las escuchas HTTP, el tratamiento de los campos de petición y respuesta, el apagado             |
+| `grpc`          | las escuchas gRPC, los fallos de transporte, el apagado                                         |
+| `net`           | el bucle de aceptación de las escuchas HTTP y gRPC, los fallos de aceptación                    |
+| `observability` | el [proceso de métricas y sondas](/es/docs/observability): la escucha, el drenaje de peticiones, los fallos |
+| `php`           | la salida y los diagnósticos del propio PHP                                                     |
+| `app`           | los registros que la aplicación escribe con `\Rapira\log()`                                     |
 
-Rapira no escribe un registro de acceso por petición. Los registros del target `http` se describen en [HTTP](/es/docs/http).
+Rapira no escribe un registro de acceso con una línea por petición. La página [HTTP](/es/docs/http) enumera los registros de campos del target `http`.
 
-Una dependencia escribe trazas bajo su ruta de módulo. Se aplica el mismo filtro por prefijo. Cada registro contiene el nombre del target. Añade ese nombre a `[log.targets]` para reducir su salida.
+Una dependencia escribe registros de traza bajo su ruta de módulo. El mismo filtro por prefijo se aplica a estos registros. Cada registro contiene el nombre de su target. Añade ese nombre a `[log.targets]` para cambiar su nivel.
 
 ::: tip
-El target `master` contiene sustituciones de workers y recargas. Consulta [Modelo de procesos](/es/docs/process-model) para ver estos eventos.
+El target `master` informa del estado de pools, errores de creación de procesos, advertencias de disponibilidad durante recargas y de tiempo de espera de peticiones. Consulta [Modelo de procesos](/es/docs/process-model) para ver la supervisión de pools.
 :::
 
 ## Diagnósticos de PHP
 
-Rapira asigna los diagnósticos PHP al target `php`. El tipo de error determina el nivel:
+Rapira asigna los diagnósticos PHP al target `php`. Cada tipo de error de PHP se corresponde con un nivel de registro:
 
 | Diagnóstico                                                                                    | Nivel   |
 | ---------------------------------------------------------------------------------------------- | ------- |
-| Errores fatales - `E_ERROR`, `E_PARSE`, `E_CORE_ERROR`, `E_COMPILE_ERROR`, `E_USER_ERROR`, `E_RECOVERABLE_ERROR` | `error` |
-| Advertencias - `E_WARNING`, `E_CORE_WARNING`, `E_COMPILE_WARNING`, `E_USER_WARNING`            | `warn`  |
-| Avisos - `E_NOTICE`, `E_USER_NOTICE`                                                           | `info`  |
-| Obsolescencias - `E_DEPRECATED`, `E_USER_DEPRECATED`                                           | `debug` |
+| Errores fatales: `E_ERROR`, `E_PARSE`, `E_CORE_ERROR`, `E_COMPILE_ERROR`, `E_USER_ERROR`, `E_RECOVERABLE_ERROR` | `error` |
+| Advertencias: `E_WARNING`, `E_CORE_WARNING`, `E_COMPILE_WARNING`, `E_USER_WARNING`            | `warn`  |
+| Avisos: `E_NOTICE`, `E_USER_NOTICE`                                                           | `info`  |
+| Obsolescencias: `E_DEPRECATED`, `E_USER_DEPRECATED`                                           | `debug` |
 
-Las obsolescencias usan `debug`. Así, muchos mensajes de dependencias no ocultan las advertencias y los errores.
+Las obsolescencias usan `debug`. Así, las obsolescencias de dependencias no ocultan las advertencias y los errores.
 
-Un diagnóstico excluido por [`error_reporting`](https://www.php.net/manual/en/function.error-reporting.php) cambia a `trace`. Por ejemplo:
+Rapira establece el nivel de un diagnóstico en `trace` cuando [`error_reporting`](https://www.php.net/manual/en/function.error-reporting.php) lo excluye. Por ejemplo:
 
 ```php
 <?php
 error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
 ```
 
-Esta máscara excluye las obsolescencias de dependencias en niveles normales. Establece `level = "trace"` para incluirlas. Los errores fatales no bajan de nivel porque explican la terminación de un worker. Por tanto, `error_reporting(0)` no los oculta. PHP genera `E_CORE_ERROR` y `E_CORE_WARNING` antes de establecer la máscara. La máscara no se aplica a ellos.
+Esta máscara excluye las obsolescencias de dependencias. Establece `level = "trace"` para escribirlas.
+
+PHP no escribe un diagnóstico enmascarado. En los modos Worker y Dispatcher, Rapira escribe el último diagnóstico PHP en puntos fijos. El modo Worker lo hace después de la ejecución de arranque, después de cada trabajo y cuando termina el script de entrada. El modo Dispatcher lo hace solo cuando termina el script de entrada. Por tanto, Rapira escribe un diagnóstico enmascarado solo cuando es el último diagnóstico antes de uno de estos puntos. El modo Classic no escribe diagnósticos enmascarados.
+
+Los errores fatales siempre mantienen el nivel `error`, por lo que `error_reporting(0)` no los oculta. La máscara tampoco se aplica a `E_CORE_ERROR` y `E_CORE_WARNING`, porque PHP los genera antes de que un script pueda establecer una máscara.
 
 ::: info
-Rapira envía los diagnósticos al registro, no a las respuestas. Los valores predeterminados son `display_errors = 0` y `log_errors = 1`. Los valores de `php.ini` sustituyen estos valores predeterminados.
+Rapira envía los diagnósticos al registro, no a las respuestas. Establece el valor predeterminado de `display_errors` en `0` y el de `log_errors` en `1`. Un valor de `php.ini` sustituye estos valores predeterminados.
+:::
+
+La salida de PHP fuera de una respuesta va al target `php` con el nivel `info`. Por ejemplo, `echo` en la ejecución de arranque del modo Worker va al registro. En el [modo Dispatcher](/es/docs/dispatcher), toda la salida de `echo` va al registro, porque las respuestas usan la API del dispatcher. El nivel predeterminado `error` oculta estos registros. Establece `php = "info"` en `[log.targets]` para mostrarlos.
+
+::: question ¿Por qué una advertencia de PHP aparece dos veces en el registro?
+En los modos Worker y Dispatcher, Rapira también escribe el último diagnóstico PHP. Si este diagnóstico no está enmascarado, PHP también lo escribe. Por tanto, el registro contiene dos registros con el mismo nivel y distintos formatos de texto.
 :::
 
 ## Registro desde la aplicación
 
-`\Rapira\log()` escribe una entrada desde PHP en el target `app`. Recibe un mensaje, un nivel opcional y un array de contexto opcional, y está disponible en todos los modos de ejecución:
+`\Rapira\log()` escribe un registro en el target `app`. Recibe un mensaje, un nivel opcional y un array de contexto opcional. La función está disponible en todos los modos de ejecución:
 
 ```php
 <?php
@@ -96,9 +107,9 @@ Rapira envía los diagnósticos al registro, no a las respuestas. Los valores pr
 \Rapira\log('cache miss', \Rapira\LogLevel::Debug, ['key' => 'user:42', 'ttl' => 300]);
 ```
 
-El nivel es un caso del enum `\Rapira\LogLevel`, y cada caso se corresponde con el nivel que ya usa el resto del registro:
+El nivel es un caso del enum `\Rapira\LogLevel`. Cada caso se corresponde con un nivel de registro de Rapira:
 
-| Caso de `LogLevel` | Nivel de la entrada |
+| Caso de `LogLevel` | Nivel del registro  |
 | ------------------ | ------------------- |
 | `Error`         | `error`      |
 | `Warning`       | `warn`       |
@@ -106,9 +117,9 @@ El nivel es un caso del enum `\Rapira\LogLevel`, y cada caso se corresponde con 
 | `Debug`         | `debug`      |
 | `Trace`         | `trace`      |
 
-`\Rapira\log()` usa `Info` cuando se omite `level`. El filtro global `error` descarta este registro en stderr a menos que se cambie el filtro. `[log.targets]` y `RUST_LOG` filtran igual los registros de la aplicación y del servidor en stderr. Por ejemplo, `app = "debug"` cambia solo el target de la aplicación.
+`\Rapira\log()` usa `Info` cuando omites `level`. El nivel predeterminado `error` oculta los registros `Info`. Establece `app = "info"` en `[log.targets]` para escribirlos.
 
-Rapira serializa el array de contexto a JSON y lo añade como campo `context`. En JSON, este campo está dentro de `fields`. Conserva los nombres de clave y la estructura de los arrays anidados:
+Rapira codifica el array de contexto como texto JSON y lo añade como campo `context`. En la salida JSON, `fields.context` es una cadena, no un objeto anidado. El texto JSON conserva los nombres de clave y la estructura de los arrays anidados. Decodifica esta cadena en el recolector de registros para leer las claves:
 
 ```php
 <?php
@@ -119,7 +130,7 @@ Rapira serializa el array de contexto a JSON y lo añade como campo `context`. E
 ]);
 ```
 
-Rapira expande un `Throwable` antes de serializarlo porque `json_encode()` devuelve un objeto vacío. El valor contiene la clase, el mensaje, el código, el archivo, la línea y la cadena `previous`. No contiene la traza:
+Rapira expande un `Throwable` que es un valor de primer nivel del contexto. Lo hace porque `json_encode()` devuelve un objeto vacío para un `Throwable`. Rapira no expande un `Throwable` dentro de un array anidado, por lo que lo codifica como un objeto vacío. El valor expandido contiene la clase, el mensaje, el código, el archivo y la línea. También contiene hasta cuatro excepciones `previous`. No contiene la traza de la pila:
 
 ```php
 <?php
@@ -131,48 +142,50 @@ try {
 }
 ```
 
-`\Rapira\log()` no lanza excepciones. Si `jsonSerialize()` lanza una excepción, Rapira escribe `null` para ese valor. Conserva las demás claves.
+`\Rapira\log()` no lanza excepciones. Si una llamada a `jsonSerialize()` del contexto lanza una excepción, Rapira escribe `null` para ese valor. Conserva las demás claves.
 
 ::: question ¿Cómo serializa Rapira los contextos de registro grandes?
-Rapira sustituye los valores que JSON no puede representar. Incluyen recursos, closures, `NAN`, `INF` y cadenas UTF-8 no válidas. Conserva los demás campos.
+Rapira codifica el contexto con la opción `JSON_PARTIAL_OUTPUT_ON_ERROR`. Un recurso o una cadena UTF-8 no válida se convierte en `null`. `NAN` e `INF` se convierten en `0`. Los demás campos se mantienen en el registro.
 
-La serialización del contexto conserva los arrays y las cadenas completos. La capa stderr aplica su filtro configurado al registro completo. Pasa identificadores para los objetos grandes.
+Rapira no acorta los arrays ni las cadenas. Pasa identificadores en lugar de objetos grandes.
 :::
 
 ## Formatos
 
 Rapira escribe ambos formatos en stderr. Los registros grandes de distintos procesos pueden intercalarse cuando estos procesos escriben en la misma tubería de stderr.
 
-Redirige stderr para escribir los registros en un archivo. Un gestor de servicios puede recoger stderr. Consulta [En producción](/es/docs/deployment).
+Redirige stderr para escribir los registros en un archivo. Un gestor de servicios puede recoger stderr. Consulta [En producción](/es/docs/deployment) para más información.
 
-**`plain`** está pensado para leerlo en un terminal: marca de tiempo, nivel, target y mensaje:
+**`plain`** es una salida legible para el terminal. Contiene una marca de tiempo, el nivel, el target y el mensaje:
 
 ```text
 2026-07-30T09:12:34.567890Z ERROR php: …
 ```
 
-Rapira usa colores cuando stderr es un terminal. No usa colores cuando stderr es un archivo. Establece [`NO_COLOR`](https://no-color.org/) en un valor no vacío para desactivar los colores del terminal.
+Rapira usa colores solo cuando stderr es un terminal. Establece [`NO_COLOR`](https://no-color.org/) en un valor no vacío para desactivar los colores del terminal.
 
-**`json`** está pensado para un recolector de registros: un objeto por línea:
+**`json`** da un objeto por línea para un recolector de registros:
 
 ```text
 {"timestamp":…,"level":"ERROR","fields":{"message":…},"target":…}
 ```
 
-`timestamp` usa RFC 3339, UTC y microsegundos. El objeto `fields` contiene el mensaje y otros campos. Rapira escapa los saltos de línea. Por tanto, cada registro ocupa una línea. La salida JSON no usa colores.
+`timestamp` usa RFC 3339, UTC y microsegundos. El objeto `fields` contiene el mensaje y otros campos del registro. Por ejemplo, puede contener el campo `context` de la aplicación. Rapira escapa los saltos de línea de los mensajes, como las trazas de pila de PHP. Por tanto, cada registro ocupa exactamente una línea. La salida JSON no usa colores.
 
 ## `RUST_LOG`
 
-`RUST_LOG` establece el filtro de registros de stderr desde el entorno. Permite cambiarlo sin editar la configuración:
+`RUST_LOG` establece el filtro de registros de stderr desde el entorno. Los comandos siguientes cambian el filtro y no modifican el archivo de configuración:
 
 ```sh
 RUST_LOG=info rapira serve rapira.toml
-RUST_LOG=rapira=debug,php=info rapira serve rapira.toml
-RUST_LOG=warn,rapira=trace rapira serve rapira.toml
+RUST_LOG=error,rapira=debug,php=info rapira serve rapira.toml
+RUST_LOG=warn,rapira=trace,master=trace rapira serve rapira.toml
 ```
 
-El primer comando establece todos los targets en `info`. El segundo establece `rapira` en `debug` y `php` en `info`. El tercero establece todos los targets en `warn` y `rapira` en `trace`. El target `rapira` contiene registros de inicialización, workers y apagado. Cuando necesites registros del maestro, usa `RUST_LOG=warn,rapira=trace,master=trace`.
+El primer comando establece todos los targets en `info`. El segundo establece `rapira` en `debug`, `php` en `info` y todos los demás targets en `error`. El tercero establece todos los targets en `warn`, y `rapira` y `master` en `trace`.
+
+Un target que el valor no cubre no escribe registros. Por ejemplo, `RUST_LOG=php=info` oculta todos los errores de los targets `master` y `http`. Añade un nivel sin nombre de target, como `error`, para mantener los registros de los demás targets.
 
 ::: warning
-Un valor no vacío de `RUST_LOG` **sustituye** `level` y `[log.targets]`. Rapira no combina los filtros del entorno y del archivo. Elimina la variable o usa un valor vacío para aplicar el archivo. `RUST_LOG` no afecta a `format`.
+Un valor no vacío de `RUST_LOG` **sustituye** `level` y `[log.targets]`. Rapira no combina los filtros del entorno y del archivo. Elimina la variable para usar los ajustes del archivo de configuración. También puedes establecer la variable en un valor vacío. `RUST_LOG` no afecta a `format`.
 :::

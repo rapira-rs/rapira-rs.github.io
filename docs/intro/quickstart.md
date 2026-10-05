@@ -48,14 +48,11 @@ Hello, world!
 Method: GET
 ```
 
-Worker processes remain active between requests. Rapira creates the workers once and keeps an initialized PHP interpreter in each worker.
-Classic mode removes script state after each request. This state includes variables, the autoloader, and framework objects.
+Worker processes stay active between requests. Rapira creates the workers once and keeps an initialized PHP interpreter in each worker. Classic mode removes the script state after each request. This state includes variables, the autoloader, and framework objects.
 
 ## Worker mode
 
-Worker mode keeps the script active. It initializes once and then waits for requests in a loop.
-Rapira refills the superglobals and calls the handler. PHP can still read `$_GET` and use `echo` for a response.
-Application initialization runs once for each process. See [Execution modes](/docs/execution-modes) for more information.
+Worker mode keeps the script active. The script initializes once and then waits for requests in a loop. For each request, Rapira fills the superglobals again and calls the handler. PHP can still read `$_GET` and use `echo` for a response. See [Execution modes](/docs/execution-modes) for more information.
 
 Create `worker.php` in the project root:
 
@@ -109,16 +106,14 @@ Set `processes = 1` in `[http.pool]` to create one worker. See [process model](/
 Objects created before the `while` loop remain in memory until the worker script restarts. Examples include the Composer autoloader, container, connections, routes, and templates. Rapira initializes this state once instead of for each request. Only request state is new in each iteration.
 
 ::: warning
-The worker script must reset request state that remains in memory.
-Examples include static properties, global values, and open transactions. See [Worker mode](/docs/worker) for more information.
+The worker script must reset request state that remains in memory. Examples include static properties, global values, and open transactions. See [Worker mode](/docs/worker) for more information.
 :::
 
-The handler can use `header()`, `http_response_code()`, and `echo`.
-It can use `rapira_finish_request()` to send the response before the handler ends. See [HTTP](/docs/http) for more information.
+The handler can call `rapira_finish_request()` to send the response before the handler ends. See [HTTP](/docs/http) for more information.
 
 ## Configuration file
 
-The configuration file holds every setting. Add the worker count to the same file:
+The configuration file holds every setting. The `rapira serve` command accepts only the path to this file. Add the worker count to the file:
 
 ```toml
 [http]
@@ -138,11 +133,11 @@ rapira serve rapira.toml
 A relative `http.pool.entrypoint` uses the configuration file directory as its base. The current directory does not affect it.
 :::
 
-The configuration file also controls the worker count, worker replacement, request timeouts, logging, and the supervisor pidfile. An unknown key prevents server initialization. See [Configuration](/docs/configuration) for all configuration file settings and [CLI](/docs/cli) for the command.
+The file also controls worker replacement, request timeouts, logging, and the supervisor pidfile. The server does not start if the file contains an unknown key. See [Configuration](/docs/configuration) for all configuration file settings and [CLI](/docs/cli) for the command.
 
 ## Stopping the server
 
-Press `Ctrl-C` to start a controlled stop. Rapira does not accept new work, finishes current requests, shuts down extensions, and exits. Press `Ctrl-C` again to force an immediate exit. `SIGTERM` has the same behavior. See [Process model](/docs/process-model) for the complete signal table.
+Press `Ctrl-C` to stop the server. The terminal sends `SIGINT` to the master and to each worker, so current requests stop immediately. To let current requests finish, send `SIGTERM` only to the master process, for example `kill -TERM <master-pid>`. See [Process model](/docs/process-model) for the complete signal table.
 
 ## Next steps
 

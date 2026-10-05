@@ -283,7 +283,7 @@ GitHub Releases contiene tarballs, paquetes y archivos de sumas de verificación
 
 Para actualizar un tarball, extrae el nuevo directorio junto al directorio anterior. Después cambia el enlace simbólico. Conserva el directorio anterior si tienes que restaurarlo.
 
-Cada ejecución correcta de CI en `main` sube tarballs y un archivo de sumas de verificación a la prepublicación `nightly` de GitHub Releases, excepto en los commits de release. La prepublicación no contiene paquetes `.deb` ni `.rpm`. Una compilación nightly no es un release. Para las etiquetas nightly de contenedor, consulta [Docker](#docker).
+Cada ejecución correcta de CI en `main` sube tarballs y un archivo de sumas de verificación a la prepublicación `nightly` de GitHub Releases, excepto en los commits de release. La prepublicación no contiene paquetes `.deb` ni `.rpm`. Una compilación nightly no es un release. Para las etiquetas nightly de contenedor, consulta [Docker](#docker). La [página de descargas](/es/download) enlaza las compilaciones nightly.
 
 La compilación de macOS admite **Apple Silicon** y **macOS 14 o posterior**. Usa una firma ad hoc sin Developer ID ni notarización. macOS puede pedir confirmación antes de la primera ejecución. No hay compilación para Intel.
 

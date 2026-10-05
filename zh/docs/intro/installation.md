@@ -283,7 +283,7 @@ GitHub Releases 包含压缩包、软件包和校验和文件。`ghcr.io/rapira-
 
 要更新压缩包，请将新目录解压到旧目录旁边。然后更改符号链接。如果可能需要恢复，请保留之前的目录。
 
-`main` 上每次成功的 CI 运行都会将压缩包和一个校验和文件上传到 GitHub Releases 上的 `nightly` 预发布，但发布提交除外。此预发布不包含 `.deb` 或 `.rpm` 软件包。nightly 构建不是发布。nightly 容器标签请参阅 [Docker](#docker)。
+`main` 上每次成功的 CI 运行都会将压缩包和一个校验和文件上传到 GitHub Releases 上的 `nightly` 预发布，但发布提交除外。此预发布不包含 `.deb` 或 `.rpm` 软件包。nightly 构建不是发布。nightly 容器标签请参阅 [Docker](#docker)。[下载页](/zh/download)提供 nightly 构建的链接。
 
 macOS 版本支持 **Apple Silicon** 和 **macOS 14 或更新版本**。它使用 ad hoc 签名，没有 Developer ID，也没有公证。首次运行前，macOS 可能会请求确认。没有 Intel 版本。
 

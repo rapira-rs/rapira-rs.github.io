@@ -283,7 +283,7 @@ GitHub Releases contains tarballs, packages, and checksum files. `ghcr.io/rapira
 
 To update a tarball, extract the new directory next to the old directory. Then change the symbolic link. Keep the previous directory if you must restore it.
 
-Each successful CI run on `main` uploads tarballs and a checksum file to the `nightly` prerelease on GitHub Releases. Release commits skip this upload. The prerelease does not contain `.deb` or `.rpm` packages. A nightly build is not a release. For nightly container tags, see [Docker](#docker).
+Each successful CI run on `main` uploads tarballs and a checksum file to the `nightly` prerelease on GitHub Releases. Release commits skip this upload. The prerelease does not contain `.deb` or `.rpm` packages. A nightly build is not a release. For nightly container tags, see [Docker](#docker). The [download page](/download) contains a link to the nightly builds.
 
 The macOS build supports **Apple Silicon** and **macOS 14 or newer**. It uses an ad hoc signature without a Developer ID or notarization. macOS can request confirmation before the first run. There is no Intel build.
 

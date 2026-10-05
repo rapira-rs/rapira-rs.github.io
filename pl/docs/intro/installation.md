@@ -283,7 +283,7 @@ GitHub Releases zawiera archiwa, pakiety i pliki z sumami kontrolnymi. `ghcr.io/
 
 Aby zaktualizować archiwum, rozpakuj nowy katalog obok starego katalogu. Następnie zmień dowiązanie symboliczne. Zachowaj poprzedni katalog, jeśli musisz go przywrócić.
 
-Każdy udany przebieg CI na `main` przesyła archiwa i plik z sumami kontrolnymi do przedwydania `nightly` w GitHub Releases, z wyjątkiem commitów wydania. Przedwydanie nie zawiera pakietów `.deb` ani `.rpm`. Build nocny nie jest wydaniem. Tagi nocne kontenerów opisuje sekcja [Docker](#docker).
+Każdy udany przebieg CI na `main` przesyła archiwa i plik z sumami kontrolnymi do przedwydania `nightly` w GitHub Releases, z wyjątkiem commitów wydania. Przedwydanie nie zawiera pakietów `.deb` ani `.rpm`. Build nocny nie jest wydaniem. Tagi nocne kontenerów opisuje sekcja [Docker](#docker). Link do buildów nocnych znajdziesz na [stronie pobierania](/pl/download).
 
 Build dla macOS obsługuje **Apple Silicon** i **macOS 14 lub nowszy**. Używa podpisu ad hoc bez Developer ID i bez notaryzacji. macOS może poprosić o potwierdzenie przed pierwszym uruchomieniem. Build dla Intela nie istnieje.
 

@@ -11,6 +11,7 @@ import RapiraSection from './RapiraSection.vue'
 import FeatureTags from './FeatureTags.vue'
 import TextTabs from './TextTabs.vue'
 import DownloadBuilds from './DownloadBuilds.vue'
+import DownloadCard from './DownloadCard.vue'
 import { isBlogPath } from '../locales'
 import './fonts.css'
 import './style.css'
@@ -36,5 +37,6 @@ export default {
     app.component('FeatureTags', FeatureTags)
     app.component('TextTabs', TextTabs)
     app.component('DownloadBuilds', DownloadBuilds)
+    app.component('DownloadCard', DownloadCard)
   },
 } satisfies Theme

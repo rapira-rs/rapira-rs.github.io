@@ -18,7 +18,7 @@ Rapira compiles from source on Linux and macOS. A source build can support platf
 
 The build requires these tools:
 
-- **Rust 1.99 or newer.** Install Rust through [rustup](https://rustup.rs/). The repository `rust-toolchain.toml` selects the stable channel. If the installed stable version is older than 1.99, run `rustup update stable`. A Rust package from the distribution can be too old.
+- **Rust 1.98.1.** Install Rust through [rustup](https://rustup.rs/). Run `rustup toolchain install` in the repository to install the version that `rust-toolchain.toml` selects. Do not use Rust 1.99. On x86_64 it makes incorrect machine code, and Rapira can crash ([rust-lang/rust#163911](https://github.com/rust-lang/rust/issues/163911)). A Rust package from the distribution can have a different version.
 - **A C compiler.** The build compiles small C interface files against the PHP headers.
 - **libclang.** Bindgen uses it to create Zend API bindings during the build. The package is `libclang-dev` on Debian or Ubuntu, `clang-devel` on Fedora, and `clang` on Arch.
 
@@ -34,7 +34,7 @@ Several distributions package the embed SAPI already:
 
 ```bash
 sudo apt install php8.4-dev libphp8.4-embed   # Debian/Ubuntu (deb.sury.org / ppa:ondrej)
-sudo dnf install php-devel php-embedded       # Fedora/RHEL
+sudo dnf install php-devel php-embedded       # Fedora
 sudo pacman -S php php-embed                  # Arch
 sudo apk add php84-dev php84-embed            # Alpine
 ```

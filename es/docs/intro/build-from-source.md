@@ -18,7 +18,7 @@ Rapira se compila desde el código en Linux y macOS. Una compilación desde el c
 
 La compilación requiere estas herramientas:
 
-- **Rust 1.99 o posterior.** Instala Rust mediante [rustup](https://rustup.rs/). El archivo `rust-toolchain.toml` del repositorio selecciona el canal estable. Si la versión estable instalada es anterior a 1.99, ejecuta `rustup update stable`. Un paquete de Rust de la distribución puede ser demasiado antiguo.
+- **Rust 1.98.1.** Instala Rust mediante [rustup](https://rustup.rs/). Ejecuta `rustup toolchain install` en el repositorio para instalar la versión que selecciona `rust-toolchain.toml`. No uses Rust 1.99. En x86_64 genera código máquina incorrecto y Rapira puede fallar ([rust-lang/rust#163911](https://github.com/rust-lang/rust/issues/163911)). Un paquete de Rust de la distribución puede tener otra versión.
 - **Un compilador de C.** La compilación compila pequeños archivos de interfaz de C con las cabeceras de PHP.
 - **libclang.** Bindgen lo usa para crear los enlaces de la API de Zend durante la compilación. El paquete se llama `libclang-dev` en Debian y Ubuntu, `clang-devel` en Fedora y `clang` en Arch.
 
@@ -34,7 +34,7 @@ Varias distribuciones ya empaquetan el SAPI embed:
 
 ```bash
 sudo apt install php8.4-dev libphp8.4-embed   # Debian/Ubuntu (deb.sury.org / ppa:ondrej)
-sudo dnf install php-devel php-embedded       # Fedora/RHEL
+sudo dnf install php-devel php-embedded       # Fedora
 sudo pacman -S php php-embed                  # Arch
 sudo apk add php84-dev php84-embed            # Alpine
 ```

@@ -18,7 +18,7 @@ Rapira компилируется из исходников на Linux и macOS.
 
 Для сборки нужны следующие инструменты:
 
-- **Rust 1.99 или новее.** Установите Rust через [rustup](https://rustup.rs/). Файл `rust-toolchain.toml` в репозитории выбирает стабильный канал. Если установленная стабильная версия старше 1.99, выполните `rustup update stable`. Пакет Rust из дистрибутива может быть слишком старым.
+- **Rust 1.98.1.** Установите Rust через [rustup](https://rustup.rs/). Выполните `rustup toolchain install` в репозитории, чтобы установить версию из `rust-toolchain.toml`. Не используйте Rust 1.99. На x86_64 он создаёт неверный машинный код, и Rapira может аварийно завершиться ([rust-lang/rust#163911](https://github.com/rust-lang/rust/issues/163911)). Пакет Rust из дистрибутива может иметь другую версию.
 - **Компилятор C.** Сборка компилирует небольшие интерфейсные файлы C с заголовками PHP.
 - **libclang.** Bindgen использует его для создания привязок Zend API во время сборки. Пакет называется `libclang-dev` в Debian и Ubuntu, `clang-devel` в Fedora и `clang` в Arch.
 
@@ -34,7 +34,7 @@ Rapira компонует интерпретатор PHP в свой проце�
 
 ```bash
 sudo apt install php8.4-dev libphp8.4-embed   # Debian/Ubuntu (deb.sury.org / ppa:ondrej)
-sudo dnf install php-devel php-embedded       # Fedora/RHEL
+sudo dnf install php-devel php-embedded       # Fedora
 sudo pacman -S php php-embed                  # Arch
 sudo apk add php84-dev php84-embed            # Alpine
 ```

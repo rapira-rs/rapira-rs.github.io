@@ -18,7 +18,7 @@ Rapira 可以在 Linux 和 macOS 上从源码编译。源码构建可以支持�
 
 构建需要以下工具：
 
-- **Rust 1.99 或更新版本**。请通过 [rustup](https://rustup.rs/) 安装 Rust。仓库中的 `rust-toolchain.toml` 选择 stable 通道。如果已安装的 stable 版本低于 1.99，请运行 `rustup update stable`。发行版提供的 Rust 软件包可能版本太旧。
+- **Rust 1.98.1**。请通过 [rustup](https://rustup.rs/) 安装 Rust。请在仓库中运行 `rustup toolchain install`，安装 `rust-toolchain.toml` 选择的版本。不要使用 Rust 1.99。它在 x86_64 上生成错误的机器码，Rapira 可能会崩溃（[rust-lang/rust#163911](https://github.com/rust-lang/rust/issues/163911)）。发行版提供的 Rust 软件包可能是其他版本。
 - **C 编译器**。构建会使用 PHP 头文件编译小型 C 接口文件。
 - **libclang**。Bindgen 在构建时使用它创建 Zend API 绑定。Debian 和 Ubuntu 的软件包名为 `libclang-dev`，Fedora 为 `clang-devel`，Arch 为 `clang`。
 
@@ -34,7 +34,7 @@ Rapira 将 PHP 解释器链接到自己的进程中，不使用 socket。PHP 必
 
 ```bash
 sudo apt install php8.4-dev libphp8.4-embed   # Debian/Ubuntu (deb.sury.org / ppa:ondrej)
-sudo dnf install php-devel php-embedded       # Fedora/RHEL
+sudo dnf install php-devel php-embedded       # Fedora
 sudo pacman -S php php-embed                  # Arch
 sudo apk add php84-dev php84-embed            # Alpine
 ```

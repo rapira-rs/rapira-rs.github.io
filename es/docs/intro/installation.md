@@ -285,7 +285,7 @@ Para actualizar un tarball, extrae el nuevo directorio junto al directorio anter
 
 Cada ejecución correcta de CI en `main` sube tarballs y un archivo de sumas de verificación a la prepublicación `nightly` de GitHub Releases, excepto en los commits de release. La prepublicación no contiene paquetes `.deb` ni `.rpm`. Una compilación nightly no es un release. Para las etiquetas nightly de contenedor, consulta [Docker](#docker). La [página de descargas](/es/download) enlaza las compilaciones nightly.
 
-La compilación de macOS admite **Apple Silicon** y **macOS 14 o posterior**. Usa una firma ad hoc sin Developer ID ni notarización. macOS puede pedir confirmación antes de la primera ejecución. No hay compilación para Intel.
+La compilación de macOS admite **Apple Silicon** y **macOS 26 o posterior**. La versión mínima es la versión principal de macOS del runner `macos-latest` de GitHub que compila el release. La compilación usa una firma ad hoc sin Developer ID ni notarización. macOS puede pedir confirmación antes de la primera ejecución. No hay compilación para Intel.
 
 ## Windows {#windows}
 

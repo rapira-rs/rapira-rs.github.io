@@ -18,7 +18,7 @@ Rapira kompiluje się ze źródeł na Linuksie i macOS. Budowanie ze źródeł m
 
 Budowanie wymaga następujących narzędzi:
 
-- **Rusta 1.99 lub nowszego.** Zainstaluj Rusta przez [rustup](https://rustup.rs/). Plik `rust-toolchain.toml` w repozytorium wybiera kanał stable. Jeśli zainstalowana wersja stable jest starsza niż 1.99, uruchom `rustup update stable`. Pakiet Rusta z dystrybucji może być za stary.
+- **Rusta 1.98.1.** Zainstaluj Rusta przez [rustup](https://rustup.rs/). Uruchom `rustup toolchain install` w repozytorium, aby zainstalować wersję wybraną w `rust-toolchain.toml`. Nie używaj Rusta 1.99. Na x86_64 generuje on błędny kod maszynowy i Rapira może ulec awarii ([rust-lang/rust#163911](https://github.com/rust-lang/rust/issues/163911)). Pakiet Rusta z dystrybucji może mieć inną wersję.
 - **Kompilatora C.** Proces budowania kompiluje małe pliki interfejsu C z nagłówkami PHP.
 - **libclang.** Bindgen używa go do tworzenia powiązań Zend API podczas budowania. Pakiet nazywa się `libclang-dev` na Debianie i Ubuntu, `clang-devel` na Fedorze oraz `clang` na Archu.
 
@@ -34,7 +34,7 @@ Kilka dystrybucji ma SAPI embed gotowe w pakietach:
 
 ```bash
 sudo apt install php8.4-dev libphp8.4-embed   # Debian/Ubuntu (deb.sury.org / ppa:ondrej)
-sudo dnf install php-devel php-embedded       # Fedora/RHEL
+sudo dnf install php-devel php-embedded       # Fedora
 sudo pacman -S php php-embed                  # Arch
 sudo apk add php84-dev php84-embed            # Alpine
 ```

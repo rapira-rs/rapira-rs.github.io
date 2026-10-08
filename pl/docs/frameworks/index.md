@@ -164,7 +164,7 @@ Podczas programowania trwała aplikacja nie czyta ponownie kodu inicjalizacji. T
 ## Przewodniki po frameworkach
 
 - **[Symfony](/pl/docs/frameworks/symfony):** kernel inicjalizuje się raz i pozostaje w pamięci. `services_resetter` zeruje usługi stanowe między żądaniami. Jeden plik workera obsługuje Symfony 7.4 i 8.1.
-- **[Laravel](/pl/docs/frameworks/laravel):** tryb Classic uruchamia standardowy plik `public/index.php` bez zmian. Tryb Worker jest opracowywany: Rapira nie udostępnia jeszcze wymaganego sterownika Octane.
+- **[Laravel](/pl/docs/frameworks/laravel):** most `rapira/laravel` uruchamia jeden skrypt wejściowy w trybach Classic, Worker i Dispatcher. Worker Laravel Octane resetuje stan aplikacji między żądaniami.
 - **[Yii3](/pl/docs/frameworks/yii3):** `StateResetter` zeruje trwały kontener po każdym żądaniu. Worker może też tworzyć nowy runner dla każdego żądania.
 
 Inne frameworki mogą używać tego samego podstawowego skryptu workera. Użyj trybu Worker tylko wtedy, gdy aplikacja może obsłużyć wiele żądań w jednym procesie. Najpierw utwórz aplikację wewnątrz handlera. Ten wariant nie wymaga obsługi trwałych procesów przez framework.

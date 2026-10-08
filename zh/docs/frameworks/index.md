@@ -164,7 +164,7 @@ Rapira 在创建 worker 之前在 master 中启动一次 PHP。OPcache 创建一
 ## 框架指南
 
 - **[Symfony](/zh/docs/frameworks/symfony)：**内核初始化一次并保留在内存中。`services_resetter` 在请求之间重置有状态服务。一个 worker 文件支持 Symfony 7.4 和 8.1。
-- **[Laravel](/zh/docs/frameworks/laravel)：**Classic 模式运行标准 `public/index.php`，无需更改。Worker 模式正在开发中：Rapira 尚未提供所需的 Octane driver。
+- **[Laravel](/zh/docs/frameworks/laravel)：**`rapira/laravel` 桥接包以一个入口脚本在 Classic、Worker 和 Dispatcher 模式下运行。Laravel Octane worker 在请求之间重置应用状态。
 - **[Yii3](/zh/docs/frameworks/yii3)：**`StateResetter` 在每个请求后重置常驻容器。worker 也可以为每个请求创建新 runner。
 
 其他框架可以使用相同的基本 worker 脚本。仅当应用可以在一个进程中处理多个请求时，才使用 Worker 模式。首先，在 handler 中创建应用。此设计不要求框架支持常驻进程。

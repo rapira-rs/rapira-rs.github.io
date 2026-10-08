@@ -77,11 +77,7 @@ Inicia el servidor:
 rapira serve rapira.toml
 ```
 
-Abre otro terminal. Envía una petición:
-
-```bash
-curl -i http://127.0.0.1:8000/
-```
+El servidor se queda en primer plano y la aplicación está disponible en `http://127.0.0.1:8000/`. Pulsa `Ctrl-C` para detener el servidor.
 
 Un `entrypoint` relativo usa como base el directorio del archivo de configuración. Consulta [Configuración](/es/docs/configuration) para ver todas las claves y sus valores por defecto.
 

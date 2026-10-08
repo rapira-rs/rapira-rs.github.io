@@ -77,11 +77,7 @@ mode = "dispatcher"
 rapira serve rapira.toml
 ```
 
-打开另一个终端。发送请求：
-
-```bash
-curl -i http://127.0.0.1:8000/
-```
+服务器在前台运行，应用可通过 `http://127.0.0.1:8000/` 访问。按 `Ctrl-C` 停止服务器。
 
 相对的 `entrypoint` 以配置文件所在目录为基准。所有键和默认值请参阅[配置](/zh/docs/configuration)。
 

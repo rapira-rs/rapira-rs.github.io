@@ -164,7 +164,7 @@ Durante el desarrollo, una aplicación persistente no vuelve a leer su código d
 ## Guías de frameworks
 
 - **[Symfony](/es/docs/frameworks/symfony):** El kernel se inicia una vez y permanece en memoria. `services_resetter` restablece los servicios con estado entre peticiones. Un archivo de worker admite Symfony 7.4 y 8.1.
-- **[Laravel](/es/docs/frameworks/laravel):** El modo Classic ejecuta el archivo `public/index.php` estándar sin cambios. El modo Worker está en desarrollo: Rapira todavía no proporciona el driver de Octane necesario.
+- **[Laravel](/es/docs/frameworks/laravel):** El bridge `rapira/laravel` ejecuta un único script de entrada en los modos Classic, Worker y Dispatcher. El worker de Laravel Octane restablece el estado de la aplicación entre peticiones.
 - **[Yii3](/es/docs/frameworks/yii3):** `StateResetter` restablece un contenedor persistente después de cada petición. Como alternativa, el worker puede crear un runner nuevo para cada petición.
 
 Otros frameworks pueden usar el mismo script básico de worker. Usa el modo Worker solo si la aplicación puede procesar varias peticiones en un proceso. Primero, crea la aplicación dentro del handler. Este diseño no requiere que el framework admita procesos persistentes.

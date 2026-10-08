@@ -164,7 +164,7 @@ During development, a persistent application does not read its initialization co
 ## Framework guides
 
 - **[Symfony](/docs/frameworks/symfony):** The kernel initializes once and stays in memory. `services_resetter` resets stateful services between requests. One worker file supports Symfony 7.4 and 8.1.
-- **[Laravel](/docs/frameworks/laravel):** Classic mode runs the standard `public/index.php` without changes. Worker mode is under development: Rapira does not yet provide the required Octane driver.
+- **[Laravel](/docs/frameworks/laravel):** The `rapira/laravel` bridge runs one entry script in Classic, Worker, and Dispatcher modes. The Laravel Octane worker resets the application state between requests.
 - **[Yii3](/docs/frameworks/yii3):** `StateResetter` resets a persistent container after each request. Alternatively, the worker can create a new runner for each request.
 
 Other frameworks can use the same basic worker script. Use Worker mode only if the application can process several requests in one process. First, create the application inside the handler. This design does not require framework support for persistent processes.

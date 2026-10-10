@@ -75,7 +75,7 @@ El `./` inicial le indica a apt que use un archivo local en lugar de un nombre d
 :::
 
 ::: question ¿Qué archivos instala el paquete?
-El paquete instala `/usr/bin/rapira`, `/usr/lib/rapira/libphp.so` y las bibliotecas ICU en `/usr/lib/rapira/`. En PHP 8.4, también instala `/usr/lib/rapira/opcache.so`. Instala la licencia y el README en `/usr/share/doc/rapira/`.
+El paquete instala `/usr/bin/rapira`, `/usr/lib/rapira/libphp.so` y las bibliotecas que necesita `libphp.so` en `/usr/lib/rapira/`. En PHP 8.4, también instala `/usr/lib/rapira/opcache.so`. Instala la licencia y el README en `/usr/share/doc/rapira/`.
 :::
 
 ## RHEL, Rocky y Fedora
@@ -103,7 +103,7 @@ rapira-v0.9.0-php8.5-linux-x86_64/
 └── LICENSE
 ```
 
-En Linux, `lib/rapira` contiene `libphp.so` y las bibliotecas ICU necesarias. En PHP 8.4, `lib/rapira` también contiene `opcache.so` en Linux y macOS.
+En Linux, `lib/rapira` contiene `libphp.so` y las bibliotecas que necesita. En PHP 8.4, `lib/rapira` también contiene `opcache.so` en Linux y macOS.
 
 Mueve el directorio a su ubicación permanente. Añade un enlace simbólico al binario en el `PATH`:
 
@@ -151,7 +151,7 @@ El binario contiene un **rpath relativo** al intérprete. Linux usa `$ORIGIN/../
 ::: question ¿Qué bibliotecas del sistema necesita el tarball?
 En macOS, `lib/rapira` contiene `libphp.dylib` y todas las bibliotecas necesarias que no forman parte del sistema. El directorio es autocontenido.
 
-En Linux, `lib/rapira` contiene `libphp.so` y las bibliotecas ICU de su compilación. El sistema debe proporcionar OpenSSL 3, libcurl, libxml2, SQLite, Oniguruma, zlib, libpq y libstdc++. Los paquetes deb y RPM declaran estas bibliotecas, glibc y libgcc como dependencias.
+En Linux, `lib/rapira` contiene `libphp.so` y las bibliotecas de su compilación, como ICU, libxml2, SQLite, Oniguruma y libpq. El sistema debe proporcionar OpenSSL 3, libcurl, zlib y libstdc++. Los paquetes deb y RPM declaran estas bibliotecas, glibc y libgcc como dependencias.
 :::
 
 ## Comprobar las sumas de verificación

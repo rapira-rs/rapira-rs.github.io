@@ -75,7 +75,7 @@ rapira --version
 :::
 
 ::: question Какие файлы устанавливает пакет?
-Пакет устанавливает `/usr/bin/rapira`, `/usr/lib/rapira/libphp.so` и библиотеки ICU в `/usr/lib/rapira/`. На PHP 8.4 он также устанавливает `/usr/lib/rapira/opcache.so`. Лицензию и README он устанавливает в `/usr/share/doc/rapira/`.
+Пакет устанавливает `/usr/bin/rapira`, `/usr/lib/rapira/libphp.so` и библиотеки, которые нужны `libphp.so`, в `/usr/lib/rapira/`. На PHP 8.4 он также устанавливает `/usr/lib/rapira/opcache.so`. Лицензию и README он устанавливает в `/usr/share/doc/rapira/`.
 :::
 
 ## RHEL, Rocky и Fedora
@@ -103,7 +103,7 @@ rapira-v0.9.0-php8.5-linux-x86_64/
 └── LICENSE
 ```
 
-В Linux каталог `lib/rapira` содержит `libphp.so` и необходимые библиотеки ICU. На PHP 8.4 каталог `lib/rapira` также содержит `opcache.so` в Linux и macOS.
+В Linux каталог `lib/rapira` содержит `libphp.so` и необходимые ей библиотеки. На PHP 8.4 каталог `lib/rapira` также содержит `opcache.so` в Linux и macOS.
 
 Перенесите каталог в его постоянное расположение. Добавьте симлинк на бинарник в `PATH`:
 
@@ -151,7 +151,7 @@ ln -s "$HOME/.local/opt/rapira/bin/rapira" "$HOME/.local/bin/rapira"
 ::: question Какие системные библиотеки нужны для архива?
 В macOS каталог `lib/rapira` содержит `libphp.dylib` и все необходимые несистемные библиотеки. Каталог самодостаточен.
 
-В Linux каталог `lib/rapira` содержит `libphp.so` и библиотеки ICU из её сборки. Система должна предоставлять OpenSSL 3, libcurl, libxml2, SQLite, Oniguruma, zlib, libpq и libstdc++. Пакеты deb и RPM объявляют эти библиотеки, glibc и libgcc своими зависимостями.
+В Linux каталог `lib/rapira` содержит `libphp.so` и библиотеки из её сборки, например ICU, libxml2, SQLite, Oniguruma и libpq. Система должна предоставлять OpenSSL 3, libcurl, zlib и libstdc++. Пакеты deb и RPM объявляют эти библиотеки, glibc и libgcc своими зависимостями.
 :::
 
 ## Проверка контрольных сумм

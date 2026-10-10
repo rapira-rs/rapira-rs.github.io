@@ -75,7 +75,7 @@ Początkowe `./` mówi aptowi, aby użył pliku lokalnego zamiast nazwy pakietu 
 :::
 
 ::: question Jakie pliki instaluje pakiet?
-Pakiet instaluje `/usr/bin/rapira`, `/usr/lib/rapira/libphp.so` oraz biblioteki ICU w `/usr/lib/rapira/`. Na PHP 8.4 instaluje też `/usr/lib/rapira/opcache.so`. Licencję i README instaluje w `/usr/share/doc/rapira/`.
+Pakiet instaluje `/usr/bin/rapira`, `/usr/lib/rapira/libphp.so` oraz biblioteki wymagane przez `libphp.so` w `/usr/lib/rapira/`. Na PHP 8.4 instaluje też `/usr/lib/rapira/opcache.so`. Licencję i README instaluje w `/usr/share/doc/rapira/`.
 :::
 
 ## RHEL, Rocky i Fedora
@@ -103,7 +103,7 @@ rapira-v0.9.0-php8.5-linux-x86_64/
 └── LICENSE
 ```
 
-Na Linuksie katalog `lib/rapira` zawiera `libphp.so` i wymagane biblioteki ICU. Na PHP 8.4 katalog `lib/rapira` zawiera też `opcache.so` na Linuksie i macOS.
+Na Linuksie katalog `lib/rapira` zawiera `libphp.so` i wymagane przez nią biblioteki. Na PHP 8.4 katalog `lib/rapira` zawiera też `opcache.so` na Linuksie i macOS.
 
 Przenieś katalog do jego stałej lokalizacji. Dodaj dowiązanie symboliczne do pliku binarnego w `PATH`:
 
@@ -151,7 +151,7 @@ Plik binarny zawiera **względny rpath** do interpretera. Linux używa `$ORIGIN/
 ::: question Jakich bibliotek systemowych potrzebuje archiwum?
 Na macOS katalog `lib/rapira` zawiera `libphp.dylib` i wszystkie wymagane biblioteki niesystemowe. Katalog jest samowystarczalny.
 
-Na Linuksie katalog `lib/rapira` zawiera `libphp.so` i biblioteki ICU z jej kompilacji. System musi udostępniać OpenSSL 3, libcurl, libxml2, SQLite, Oniguruma, zlib, libpq i libstdc++. Pakiety deb i RPM deklarują te biblioteki, glibc i libgcc jako zależności.
+Na Linuksie katalog `lib/rapira` zawiera `libphp.so` i biblioteki z jej kompilacji, takie jak ICU, libxml2, SQLite, Oniguruma i libpq. System musi udostępniać OpenSSL 3, libcurl, zlib i libstdc++. Pakiety deb i RPM deklarują te biblioteki, glibc i libgcc jako zależności.
 :::
 
 ## Weryfikacja sum kontrolnych

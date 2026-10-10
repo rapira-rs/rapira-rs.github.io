@@ -75,7 +75,7 @@ The leading `./` tells apt to use a local file instead of a repository package n
 :::
 
 ::: question Which files does the package install?
-The package installs `/usr/bin/rapira`, `/usr/lib/rapira/libphp.so`, and ICU libraries under `/usr/lib/rapira/`. On PHP 8.4, it also installs `/usr/lib/rapira/opcache.so`. It installs the license and README under `/usr/share/doc/rapira/`.
+The package installs `/usr/bin/rapira`, `/usr/lib/rapira/libphp.so`, and the libraries that `libphp.so` needs under `/usr/lib/rapira/`. On PHP 8.4, it also installs `/usr/lib/rapira/opcache.so`. It installs the license and README under `/usr/share/doc/rapira/`.
 :::
 
 ## RHEL, Rocky and Fedora
@@ -103,7 +103,7 @@ rapira-v0.9.0-php8.5-linux-x86_64/
 └── LICENSE
 ```
 
-On Linux, `lib/rapira` contains `libphp.so` and the required ICU libraries. On PHP 8.4, `lib/rapira` also contains `opcache.so` on Linux and macOS.
+On Linux, `lib/rapira` contains `libphp.so` and the libraries that it needs. On PHP 8.4, `lib/rapira` also contains `opcache.so` on Linux and macOS.
 
 Move the directory to its permanent location. Add a symbolic link to the binary on `PATH`:
 
@@ -151,7 +151,7 @@ The binary contains a **relative rpath** to the interpreter. Linux uses `$ORIGIN
 ::: question Which system libraries does the tarball need?
 On macOS, `lib/rapira` contains `libphp.dylib` and all required non-system libraries. The directory is self-contained.
 
-On Linux, `lib/rapira` contains `libphp.so` and the ICU libraries from its build. The system must provide OpenSSL 3, libcurl, libxml2, SQLite, Oniguruma, zlib, libpq, and libstdc++. The deb and RPM packages declare these libraries, glibc, and libgcc as dependencies.
+On Linux, `lib/rapira` contains `libphp.so` and the libraries from its build, such as ICU, libxml2, SQLite, Oniguruma, and libpq. The system must provide OpenSSL 3, libcurl, zlib, and libstdc++. The deb and RPM packages declare these libraries, glibc, and libgcc as dependencies.
 :::
 
 ## Verifying checksums

@@ -75,7 +75,7 @@ rapira --version
 :::
 
 ::: question 软件包安装哪些文件？
-软件包安装 `/usr/bin/rapira`、`/usr/lib/rapira/libphp.so`，并将 ICU 库安装到 `/usr/lib/rapira/`。在 PHP 8.4 上，它还安装 `/usr/lib/rapira/opcache.so`。许可证和 README 安装在 `/usr/share/doc/rapira/` 中。
+软件包安装 `/usr/bin/rapira`、`/usr/lib/rapira/libphp.so`，并将 `libphp.so` 所需的库安装到 `/usr/lib/rapira/`。在 PHP 8.4 上，它还安装 `/usr/lib/rapira/opcache.so`。许可证和 README 安装在 `/usr/share/doc/rapira/` 中。
 :::
 
 ## RHEL、Rocky 与 Fedora
@@ -103,7 +103,7 @@ rapira-v0.9.0-php8.5-linux-x86_64/
 └── LICENSE
 ```
 
-在 Linux 上，`lib/rapira` 包含 `libphp.so` 和所需的 ICU 库。在 PHP 8.4 上，Linux 和 macOS 的 `lib/rapira` 还包含 `opcache.so`。
+在 Linux 上，`lib/rapira` 包含 `libphp.so` 及其所需的库。在 PHP 8.4 上，Linux 和 macOS 的 `lib/rapira` 还包含 `opcache.so`。
 
 将目录移到其长期位置。在 `PATH` 中为二进制文件添加符号链接：
 
@@ -151,7 +151,7 @@ ln -s "$HOME/.local/opt/rapira/bin/rapira" "$HOME/.local/bin/rapira"
 ::: question 压缩包需要哪些系统库？
 在 macOS 上，`lib/rapira` 包含 `libphp.dylib` 和所有必需的非系统库。该目录包含完整的运行依赖。
 
-在 Linux 上，`lib/rapira` 包含 `libphp.so` 和其构建所用的 ICU 库。系统必须提供 OpenSSL 3、libcurl、libxml2、SQLite、Oniguruma、zlib、libpq 和 libstdc++。deb 和 RPM 软件包将这些库、glibc 和 libgcc 声明为依赖项。
+在 Linux 上，`lib/rapira` 包含 `libphp.so` 和其构建所用的库，例如 ICU、libxml2、SQLite、Oniguruma 和 libpq。系统必须提供 OpenSSL 3、libcurl、zlib 和 libstdc++。deb 和 RPM 软件包将这些库、glibc 和 libgcc 声明为依赖项。
 :::
 
 ## 验证校验和

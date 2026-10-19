@@ -25,13 +25,13 @@ const httpFeatures = [
   { label: 'HTTP/1.1' },
   { label: 'Keep-alive' },
   { label: 'Pliki statyczne' },
-  { label: 'HTTP/2', ready: false },
+  { label: 'HTTP/2' },
   { label: 'HTTP/3', ready: false },
   { label: 'TLS 1.3', ready: false },
   { label: 'TLS 1.2', ready: false },
   { label: 'ALPN', ready: false },
   { label: 'Early Hints', ready: false },
-  { label: 'Trailers', ready: false },
+  { label: 'Trailers' },
 ]
 
 // Każda zakładka opisuje jedno połączenie między serwerem a PHP.

@@ -25,13 +25,13 @@ const httpFeatures = [
   { label: 'HTTP/1.1' },
   { label: 'Keep-alive' },
   { label: 'Статические файлы' },
-  { label: 'HTTP/2', ready: false },
+  { label: 'HTTP/2' },
   { label: 'HTTP/3', ready: false },
   { label: 'TLS 1.3', ready: false },
   { label: 'TLS 1.2', ready: false },
   { label: 'ALPN', ready: false },
   { label: 'Early Hints', ready: false },
-  { label: 'Trailers', ready: false },
+  { label: 'Trailers' },
 ]
 
 // Каждый таб описывает один способ связи между сервером и PHP.

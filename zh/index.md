@@ -25,13 +25,13 @@ const httpFeatures = [
   { label: 'HTTP/1.1' },
   { label: 'Keep-alive' },
   { label: '静态文件' },
-  { label: 'HTTP/2', ready: false },
+  { label: 'HTTP/2' },
   { label: 'HTTP/3', ready: false },
   { label: 'TLS 1.3', ready: false },
   { label: 'TLS 1.2', ready: false },
   { label: 'ALPN', ready: false },
   { label: 'Early Hints', ready: false },
-  { label: 'Trailers', ready: false },
+  { label: 'Trailers' },
 ]
 
 // 每个标签页描述服务器与 PHP 之间的一种连接方式。

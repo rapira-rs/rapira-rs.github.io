@@ -53,7 +53,7 @@ max_part_headers = 32                 # Optional. Limits fields in one part.
 entrypoint = "index.php"              # Relative paths use this file's directory.
 mode = "dispatcher"                   # Use "classic", "worker", or "dispatcher". Default: "dispatcher".
 processes = 4                         # Sets the fixed worker count.
-max_requests = 0                      # Replaces a worker after this request count. Zero disables the limit.
+max_requests = 0                      # Restarts the app after this request count. Zero disables the limit.
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
 
 [grpc]
@@ -161,8 +161,8 @@ Wtyczka `http` zarządza tą pulą workerów PHP. Nasłuch gRPC używa osobnej t
 | --- | --- | --- | --- |
 | `entrypoint` | tekst | brak, wymagane | Skrypt PHP, który wykonuje każdy worker. Ścieżka względna używa katalogu pliku konfiguracyjnego jako podstawy. Ścieżka musi wskazywać zwykły plik dostępny do odczytu. |
 | `mode` | `"classic"` \| `"worker"` \| `"dispatcher"` | `"dispatcher"` | Jak worker wykonuje skrypt wejściowy. `classic` za każdym razem uruchamia nowe żądanie PHP. `worker` zachowuje skrypt i ponownie wypełnia zmienne superglobalne. `dispatcher` zachowuje skrypt i przekazuje mu obiekt dyspozytora. Zobacz [tryby wykonania](/pl/docs/execution-modes). |
-| `processes` | liczba całkowita | dostępna równoległość lub `1`, jeśli nie można jej ustalić | Liczba workerów. Proces nadrzędny utrzymuje tyle działających workerów. Minimum to 1. Suma `processes` we wszystkich pulach nie może przekroczyć 2048. Sekcja `[observability]` dodaje do tej sumy jeden proces. |
-| `max_requests` | liczba całkowita | `0` | Limit żądań przed wymianą workera. Rapira nieznacznie zmienia ten limit, aby workery nie były wymieniane jednocześnie. `0` wyłącza limit. |
+| `processes` | liczba całkowita | dostępna równoległość lub `1`, jeśli nie można jej ustalić | Liczba workerów. Proces nadrzędny utrzymuje tyle działających workerów. Minimum to 1. Suma `processes` we wszystkich pulach nie może przekroczyć 4096. Sekcja `[observability]` dodaje do tej sumy jeden proces. |
+| `max_requests` | liczba całkowita | `0` | Limit żądań jednej instancji aplikacji w trybach Worker i Dispatcher. Po osiągnięciu limitu worker uruchamia aplikację ponownie w tym samym procesie. Rapira nieznacznie zmienia ten limit, aby aplikacje nie uruchamiały się ponownie jednocześnie. Tryb Classic ignoruje ten klucz. `0` wyłącza limit. |
 | `request_terminate_timeout_secs` | liczba całkowita | `0` | Limit czasu rzeczywistego dla jednego żądania. Rapira kończy i wymienia workera, który przekroczy ten limit. `0` wyłącza tę kontrolę. |
 
 ## Sekcja `[grpc]` {#grpc}
@@ -219,7 +219,7 @@ Ta sekcja określa zasady procesu nadrzędnego. Proces nadrzędny trzyma gniazda
 | `pidfile` | tekst | brak | Plik na identyfikator procesu nadrzędnego. Ścieżka względna używa katalogu pliku konfiguracyjnego jako podstawy. Wysyłaj sygnały procesu na ten identyfikator. Zobacz [model procesów](/pl/docs/process-model). |
 | `process_control_timeout_secs` | liczba całkowita | `30` | Jak długo proces nadrzędny czeka po `SIGQUIT` przed wysłaniem `SIGTERM`. Proces nadrzędny wysyła `SIGKILL` sekundę po `SIGTERM`. |
 
-Połączenia mają krótszy czas na zakończenie: limit sterowania pomniejszony o mniejszą z wartości: pięć sekund lub połowę limitu. Domyślnie jest to 25 sekund. Ten czas obowiązuje podczas zatrzymywania i przeładowania.
+Połączenia mają krótszy czas na zakończenie: limit sterowania pomniejszony o mniejszą z wartości: pięć sekund lub połowę limitu. Domyślnie jest to 25 sekund. Ten czas obowiązuje podczas zatrzymywania.
 
 ## Sekcja `[log]`
 

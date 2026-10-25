@@ -92,7 +92,7 @@ try {
 }
 ```
 
-La petición y la respuesta usan un mismo tipo de mensaje, por lo que el handler puede devolver los bytes directamente. `ClosedException` termina el bucle durante el apagado. `WorkDiscardedException` indica que el host ya ha cancelado la llamada.
+La petición y la respuesta usan un mismo tipo de mensaje, por lo que el handler puede devolver los bytes directamente. `ClosedException` termina el bucle durante el apagado o un reinicio de la aplicación. `WorkDiscardedException` indica que el host ya ha cancelado la llamada.
 
 ### Configurar la escucha y el pool
 

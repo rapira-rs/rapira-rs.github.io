@@ -67,5 +67,5 @@ Ctrl-C w terminalu wysyła `SIGINT` do procesu nadrzędnego i do każdego worker
 | `0` | Serwer zatrzymał się i wszystkie workery zakończyły pracę. `--help`, `--version` i `rapira` bez argumentów także kończą się kodem `0`. |
 | `1` | Serwer nie uruchomił się. Na przykład konfiguracja jest nieprawidłowa, Rapira nie może odczytać pliku, nasłuch nie może się powiązać z adresem albo PHP nie może się uruchomić. Błąd jest na stderr. |
 | `2` | Wiersz poleceń jest nieprawidłowy, na przykład zawiera nieznaną opcję albo brakuje `CONFIG`. |
-| `70` | Proces nadrzędny uległ awarii po uruchomieniu. Na przykład łączna liczba workerów wszystkich pul przekracza 2048 albo proces nadrzędny nie może zapisać pliku pidfile. Ten kod powoduje też niezdrowy worker generacji zero, jeśli jego pula nie ma udanego żądania ani bezczynnego lub aktywnego workera. Generacja zero oznacza workery utworzone przed pierwszym przeładowaniem. Log zawiera wpis `master failed`. |
+| `70` | Proces nadrzędny uległ awarii po uruchomieniu. Na przykład łączna liczba workerów wszystkich pul przekracza 4096 albo proces nadrzędny nie może zapisać pliku pidfile. Ten kod powoduje też niezdrowy worker, jeśli jego pula nie ma udanego żądania ani bezczynnego lub aktywnego workera. Log zawiera wpis `master failed`. |
 | `130` | `SIGTERM` albo `SIGINT` dotarł podczas zatrzymywania i wymusił wyjście. |

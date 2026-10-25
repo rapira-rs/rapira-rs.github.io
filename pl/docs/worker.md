@@ -139,7 +139,7 @@ if (\Rapira\get_mode() === \Rapira\Mode::Worker) {
 
 **Stan żądania pozostaje między żądaniami.** Jeśli aplikacja zawodzi tylko w trybie Worker, szukaj stanu żądania, który pozostaje. Przykłady to rosnąca tablica statyczna, obiekt żądania w singletonie albo stare dane użytkownika w loggerze.
 
-Zeruj ten stan na początku albo na końcu handlera. Zeruj też stan żądania w bibliotekach. `http.pool.max_requests` zastępuje workera, gdy obsłuży więcej żądań niż ta liczba. Ogranicza to skutek wycieku pamięci, ale go nie naprawia.
+Zeruj ten stan na początku albo na końcu handlera. Zeruj też stan żądania w bibliotekach. `http.pool.max_requests` uruchamia ponownie aplikację, gdy obsłuży ona więcej żądań niż ta liczba. Ogranicza to skutek wycieku pamięci, ale go nie naprawia.
 
 **Niezebrane cykle referencji.** Zliczanie referencji w PHP natychmiast zwalnia większość wartości. Cykle referencji zwalnia dopiero kolektor cykli. Przykład wywołuje `gc_collect_cycles()` między żądaniami. To wywołanie jest opcjonalne, ale zapewnia przewidywalny czas zbierania.
 

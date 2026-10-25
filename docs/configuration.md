@@ -53,7 +53,7 @@ max_part_headers = 32                 # Optional. Limits fields in one part.
 entrypoint = "index.php"              # Relative paths use this file's directory.
 mode = "dispatcher"                   # Use "classic", "worker", or "dispatcher". Default: "dispatcher".
 processes = 4                         # Sets the fixed worker count.
-max_requests = 0                      # Replaces a worker after this request count. Zero disables the limit.
+max_requests = 0                      # Restarts the app after this request count. Zero disables the limit.
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
 
 [grpc]
@@ -161,8 +161,8 @@ The `http` plugin owns this PHP worker pool. The gRPC listener uses a separate `
 | --- | --- | --- | --- |
 | `entrypoint` | string | none, required | The PHP script that each worker runs. A relative path uses the configuration file directory as its base. The path must identify a readable regular file. |
 | `mode` | `"classic"` \| `"worker"` \| `"dispatcher"` | `"dispatcher"` | How a worker runs the entry script. `classic` starts a new PHP request each time. `worker` keeps the script and refills the superglobals. `dispatcher` keeps the script and gives it a dispatcher object. See [execution modes](/docs/execution-modes). |
-| `processes` | integer | available parallelism, or `1` if unavailable | The worker count. The master keeps this many workers running. The minimum is 1. The sum of `processes` in all pools must not be more than 2048. An `[observability]` section adds one process to this sum. |
-| `max_requests` | integer | `0` | The request limit before worker replacement. Rapira varies the limit slightly to prevent simultaneous replacements. `0` disables the limit. |
+| `processes` | integer | available parallelism, or `1` if unavailable | The worker count. The master keeps this many workers running. The minimum is 1. The sum of `processes` in all pools must not be more than 4096. An `[observability]` section adds one process to this sum. |
+| `max_requests` | integer | `0` | The request limit of one app instance in Worker and Dispatcher modes. After the limit, the worker restarts its app in the same process. Rapira varies the limit slightly to prevent simultaneous restarts. Classic mode ignores this key. `0` disables the limit. |
 | `request_terminate_timeout_secs` | integer | `0` | Wall-clock limit for one request. Rapira terminates and replaces a worker that exceeds this limit. `0` disables the check. |
 
 ## The `[grpc]` section {#grpc}
@@ -219,7 +219,7 @@ This section defines the master process policy. The master owns the listen socke
 | `pidfile` | string | none | The file for the master process identifier. A relative path uses the configuration file directory as its base. Send process signals to this identifier. See [process model](/docs/process-model). |
 | `process_control_timeout_secs` | integer | `30` | How long the master waits after `SIGQUIT` before it sends `SIGTERM`. The master sends `SIGKILL` one second after `SIGTERM`. |
 
-Connections have a shorter drain budget: the control timeout minus the smaller of five seconds or half the timeout. The default budget is 25 seconds. This budget applies during shutdown and reload.
+Connections have a shorter drain budget: the control timeout minus the smaller of five seconds or half the timeout. The default budget is 25 seconds. This budget applies during shutdown.
 
 ## The `[log]` section
 

@@ -94,7 +94,7 @@ Después de un segundo, la siguiente petición de un archivo ejecuta `stat` sobr
 
 Una caché llena sigue sirviendo sus entradas. Elimina primero las entradas caducadas. Si la caché sigue llena, no guarda el archivo nuevo.
 
-Un proceso worker nuevo empieza con la caché vacía. Por tanto, una recarga, una sustitución de worker o un reinicio vacían la caché.
+Un proceso worker nuevo empieza con la caché vacía. Por tanto, una sustitución de worker o un reinicio vacían la caché. Una recarga conserva la caché, porque el proceso del worker se mantiene.
 
 La raíz debe usar almacenamiento local. El middleware ejecuta `stat` y `open` en el hilo que atiende peticiones. Un sistema de archivos lento retrasa las demás conexiones de ese worker.
 

@@ -74,7 +74,7 @@ while (\Rapira\handle_request($handler)) {
 }
 ```
 
-`\Rapira\handle_request()` czeka na kolejne żądanie. Funkcja wywołuje handler i zwraca `true`. Podczas zatrzymywania workera `\Rapira\handle_request()` zwraca `false`. Ta wartość kończy pętlę.
+`\Rapira\handle_request()` czeka na kolejne żądanie. Funkcja wywołuje handler i zwraca `true`. Gdy worker się zatrzymuje lub uruchamia aplikację ponownie, `\Rapira\handle_request()` zwraca `false`. Ta wartość kończy pętlę.
 
 Handler odczytuje zmienne superglobalne i odpowiada przez `echo` oraz `header()`. Wywołuj `\Rapira\handle_request()` tylko z pętli najwyższego poziomu skryptu. W innych trybach funkcja rzuca `Rapira\Exception\NotInWorkerModeError`.
 

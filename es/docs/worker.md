@@ -139,7 +139,7 @@ if (\Rapira\get_mode() === \Rapira\Mode::Worker) {
 
 **El estado de la petición permanece entre peticiones.** Si una aplicación falla solo en modo Worker, busca el estado de la petición que permanece. Algunos ejemplos son un array estático que crece, un objeto de petición en un singleton o datos antiguos de un usuario en un logger.
 
-Reinicia este estado al principio o al final del handler. Reinicia también el estado de la petición en las bibliotecas. `http.pool.max_requests` sustituye un worker después de que procesa más peticiones que este número. Esto limita el efecto de una fuga de memoria, pero no la corrige.
+Reinicia este estado al principio o al final del handler. Reinicia también el estado de la petición en las bibliotecas. `http.pool.max_requests` reinicia la aplicación después de que procesa más peticiones que este número. Esto limita el efecto de una fuga de memoria, pero no la corrige.
 
 **Ciclos de referencias sin recoger.** El conteo de referencias de PHP libera la mayoría de los valores inmediatamente. Solo libera los ciclos cuando se ejecuta el recolector. El ejemplo llama a `gc_collect_cycles()` entre peticiones. Esta llamada es opcional, pero hace predecible el momento de recogida.
 

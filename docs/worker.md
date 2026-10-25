@@ -139,7 +139,7 @@ if (\Rapira\get_mode() === \Rapira\Mode::Worker) {
 
 **Request state remains between requests.** If an application fails only in Worker mode, look for request state that remains. Examples include a static array that grows, a request object in a singleton, or old user data in a logger.
 
-Reset this state at the start or end of the handler. Also reset request state in libraries. `http.pool.max_requests` replaces a worker after it serves more than this number of requests. This limits the effect of a memory leak, but it does not correct it.
+Reset this state at the start or end of the handler. Also reset request state in libraries. `http.pool.max_requests` restarts the app after it serves more than this number of requests. This limits the effect of a memory leak, but it does not correct it.
 
 **Uncollected reference cycles.** PHP reference counting releases most values at once. It releases reference cycles only when the cycle collector runs. The example calls `gc_collect_cycles()` between requests. This call is optional, but it makes the collection time predictable.
 

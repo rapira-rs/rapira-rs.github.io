@@ -101,7 +101,7 @@ Rapira 可以使用[静态文件中间件](/zh/docs/static-files)提供静态资
 sudo systemctl reload rapira
 ```
 
-此命令向 master 进程发送 `SIGUSR2`。master 每次替换一个 worker，并让当前请求完成。如果 worker 超过 `process_control_timeout_secs`，master 会发送 `SIGTERM`，然后发送 `SIGKILL`。这种终止会结束当前请求。worker 替换顺序见[进程模型](/zh/docs/process-model)。
+此命令向 master 发送 `SIGUSR2`。master 通知每个 worker 重启它的应用。每个 worker 在同一进程中再次运行入口脚本，新应用处理后续请求。没有连接关闭，也没有请求丢失。更多内容见[进程模型](/zh/docs/process-model#重载会重启应用)。
 
 当 systemd 不管理进程时，直接向 master 进程发送信号。设置 `supervisor.pidfile` 以保存 master 进程标识符。启动 Rapira 前，创建 pidfile 目录。也可以选择现有目录。如果 master 无法写入文件，它不会启动。
 
@@ -117,12 +117,12 @@ kill -USR2 "$(cat /run/rapira/rapira.pid)"
 
 只有 master 写入 pidfile。它会在受控退出期间删除该文件。残留的文件可能表示发生了 `SIGKILL`、进程故障或系统故障。
 
-`process_control_timeout_secs` 限制停止时的初始等待时间，以及每次等待替代 worker 就绪的时间。停止等待结束后，master 发送 `SIGTERM`。一秒后发送 `SIGKILL`。请将 systemd 的 `TimeoutStopSec` 设置为大于这一完整时间间隔的值。
+`process_control_timeout_secs` 限制停止时的等待时间。此等待结束后，master 发送 `SIGTERM`。一秒后发送 `SIGKILL`。请将 systemd 的 `TimeoutStopSec` 设置为大于这一完整时间间隔的值。
 
-连接的排空时间更短：先取五秒和控制超时一半中的较小值，再从控制超时中减去该值。默认排空时间为 25 秒。停止或重载期间，超过此时间的响应可能被截断。
+连接的排空时间更短：先取五秒和控制超时一半中的较小值，再从控制超时中减去该值。默认排空时间为 25 秒。停止期间，超过此时间的响应可能被截断。
 
 ::: warning 重载不会做的事
-重载替换 worker，但不替换 master。master 保留 Rapira 二进制文件以及 `rapira.toml` 和 `php.ini` 中的设置。它还保留 gRPC 描述符集、`[grpc.auth]` 令牌文件和 OPcache 共享内存。更改其中任一文件后，请重启 Rapira。当 `opcache.validate_timestamps = 0` 时，也请重启 Rapira。在此配置中，重载不会替换缓存的 opcode。
+重载会重启应用，但不会替换进程。master 保留 Rapira 二进制文件以及 `rapira.toml` 和 `php.ini` 中的设置。它还保留 gRPC 描述符集、`[grpc.auth]` 令牌文件和 OPcache 共享内存。更改其中任一文件后，请重启 Rapira。当 `opcache.validate_timestamps = 0` 时，也请重启 Rapira。在此配置中，重载不会替换缓存的 opcode。
 :::
 
 ## 日志
@@ -170,7 +170,7 @@ request_terminate_timeout_secs = 30
 
 `[grpc.pool]` 表接受相同的键。
 
-`max_requests` 在达到指定请求数后替换 worker。Rapira 为每个 worker 添加一个随机数，最大为此限制的一半，以防止同时替换 worker。此设置限制内存泄漏的影响，但不会修复泄漏。
+`max_requests` 在指定的请求数后重启 worker 内部的应用。worker 进程保持不变，所以没有连接关闭，也没有请求丢失。Rapira 为每个 worker 增加一个随机数，最多为限制的一半，以避免同时重启。重启会释放应用的 PHP 内存。它不会释放扩展或 C 库在 PHP 之外泄漏的内存。此设置限制内存泄漏的影响，但不会修复泄漏。Classic 模式忽略此设置。
 
 `request_terminate_timeout_secs` 限制一个请求的运行时间。Rapira 会终止并替换超过此限制的 worker。两个设置的默认值都是零，即禁用。请在生产环境中启用它们。
 

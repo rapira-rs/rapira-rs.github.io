@@ -94,7 +94,7 @@ Sending all declared `Content-Length` bytes with `$eos = false` does not finaliz
 
 ## How the loop ends
 
-During a stop, a reload, or a replacement after `http.pool.max_requests`, Rapira closes the dispatcher. When the dispatcher is closed and its queue is empty, `receive()` and `tryReceive()` throw `Rapira\Exception\ClosedException`. Every later call throws it again. Catch this exception, leave the loop, and let the entry script end.
+During a stop, Rapira closes the dispatcher. When the dispatcher is closed and its queue is empty, `receive()` and `tryReceive()` throw `Rapira\Exception\ClosedException`. After `http.pool.max_requests` or a reload, the dispatcher closes at once for this app instance. The requests in the queue wait for the next app instance in the same worker. Every later call throws the exception again. Catch this exception, leave the loop, and let the entry script end.
 
 An uncaught exception or a fatal error ends the entry script. Rapira then runs the entry script again in the same worker. The client of the open exchange gets an error response or an incomplete response.
 
@@ -187,7 +187,7 @@ Each exception class in the `Rapira` namespaces implements `Rapira\Exception\Rap
 
 | Exception | Thrown by | Cause |
 | --- | --- | --- |
-| `Rapira\Exception\ClosedException` | `receive()`, `tryReceive()` | Rapira closed the dispatcher. No more requests arrive. |
+| `Rapira\Exception\ClosedException` | `receive()`, `tryReceive()` | Rapira closed the dispatcher. No more requests arrive for this app instance. |
 | `Rapira\Exception\TimeoutException` | `receive()` | No request arrived before the timeout. |
 | `Rapira\Exception\NoDispatcherError` | `\Rapira\get_dispatcher()` | The process does not run in Dispatcher mode. |
 | `Rapira\Exception\WorkDiscardedException` | The write methods | Rapira cancelled the exchange before PHP finalized it. |

@@ -126,7 +126,7 @@ while (\Rapira\handle_request($handler)) {
 
 每个请求都会初始化容器。这会增加初始化时间，并创建 PHP 稍后必须释放的对象。内存可能增加，直到 PHP 同时释放多个旧容器。此循环行为不一定是内存泄漏。请参阅[内存与回收](/zh/docs/frameworks/#内存与回收)。
 
-设置 `http.pool.max_requests` 以定期替换 worker。有关此键，请参阅[配置](/zh/docs/configuration)。
+设置 `http.pool.max_requests` 以定期重启应用。有关此键，请参阅[配置](/zh/docs/configuration)。
 
 此设计不是 [Classic 模式](/zh/docs/classic)。自动加载器、模板启动文件和请求循环常驻在 worker 中。只有应用在每个请求中是新的。
 

@@ -67,5 +67,5 @@ curl http://127.0.0.1:8000/
 | `0` | 服务器已停止，所有 worker 都已退出。`--help`、`--version` 和不带参数的 `rapira` 也以 `0` 退出。 |
 | `1` | 服务器没有启动。例如，配置无效、Rapira 无法读取文件、监听器无法绑定或 PHP 无法启动。错误输出到 stderr。 |
 | `2` | 命令行无效，例如未知选项或缺少 `CONFIG`。 |
-| `70` | master 启动后发生故障。例如，所有进程池的 worker 总数超过 2048，或 master 无法写入 pidfile。如果不健康的第零代 worker 所属进程池没有成功的请求，也没有空闲或活动的 worker，它也会导致此退出。第零代指第一次重载前创建的 worker。日志中有一条 `master failed` 记录。 |
+| `70` | master 启动后发生故障。例如，所有进程池的 worker 总数超过 4096，或 master 无法写入 pidfile。如果不健康的 worker 所属进程池没有成功的请求，也没有空闲或活动的 worker，它也会导致此退出。日志中有一条 `master failed` 记录。 |
 | `130` | 停止期间收到 `SIGTERM` 或 `SIGINT`，并强制退出。 |

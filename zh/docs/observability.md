@@ -61,10 +61,9 @@ curl http://127.0.0.1:9180/metrics
 
 - 进程池的 worker 正在启动，还没有等待请求。在 Worker 和 Dispatcher 模式下，入口脚本必须先完成启动。
 - 入口脚本启动失败。worker 再次尝试，启动成功后进程池变为就绪。不需要任何请求。
-- 重载启动的新 worker 没有完成启动。经过 `process_control_timeout_secs` 后，master 仍然停止旧 worker。
-- 进程池的每个 worker 在短时间内都在排空，例如在达到 `max_requests` 之后，并且还没有替换 worker 等待请求。
+- 在短时间内，进程池的每个 worker 都在排空，例如在不健康退出之后，而且还没有替代 worker 等待请求。
 
-正常重载使 `/readyz` 保持 `200`。master 先启动一个新 worker，然后停止一个旧 worker。重载过程见[信号](/zh/docs/process-model#信号)。
+重载会让 `/readyz` 保持 `200`，因为没有 worker 进程停止。重载内容见[信号](/zh/docs/process-model#信号)。
 
 有些情况下完全没有响应。停止开始时，可观测性进程停止接受连接。如果进程池的 worker 在进程池处理请求之前启动失败，master 以退出码 `70` 退出。见[退出码](/zh/docs/cli#退出码)。
 
@@ -116,7 +115,7 @@ scrape_configs:
 | `rapira_requests_failed_total` | counter | `pool` | 宿主无法完成的工作单元，例如丢失的调用或队列饱和后被拒绝的工作单元。 |
 | `rapira_requests_failed_on_full_queue_total` | counter | `pool` | 遇到 worker 队列已满、从未进入队列的工作单元。当队列在 30 秒内一直已满时，Rapira 拒绝此工作单元。 |
 | `rapira_requests_queued` | gauge | `pool` | 等待 worker 的 PHP 线程的工作单元。 |
-| `rapira_script_restarts_total` | counter | `pool` | worker 进程内入口脚本的重启次数，例如在致命错误之后。 |
+| `rapira_script_restarts_total` | counter | `pool` | worker 进程内部应用的重启次数，例如在 `max_requests`、重载或致命错误之后。 |
 | `rapira_worker_exits_total` | counter | `pool`、`reason` | worker 进程的退出次数。原因见下文。 |
 | `rapira_worker_rss_bytes` | gauge | `pool`、`worker` | worker 的常驻内存，单位为字节。仅限 Linux。 |
 | `rapira_worker_pss_bytes` | gauge | `pool`、`worker` | worker 的比例内存，单位为字节。仅限 Linux。 |
@@ -128,21 +127,17 @@ scrape_configs:
 
 | 原因 | 含义 |
 | --- | --- |
-| `drained` | worker 以退出码 `0` 退出，例如在停止或重载之后。 |
-| `recycled` | worker 达到了 `max_requests`。 |
+| `drained` | worker 以退出码 `0` 退出，例如在停止之后。 |
 | `unhealthy` | worker 报告它不能提供服务，例如在多次启动失败之后。 |
 | `timeout` | 请求运行时间超过 `request_terminate_timeout_secs`，master 停止了此 worker。 |
 | `crashed` | worker 以其他退出码退出，或因信号退出。 |
 
-master 替换或重载 worker 时，计数器保留它们的值。只有 master 再次启动时，计数器才归零。每次抓取为每个存活的 worker 读取一个 `/proc` 文件。探针不读取任何文件。
+master 替换 worker 时，计数器保留它们的值。只有 master 再次启动时，计数器才归零。每次抓取为每个存活的 worker 读取一个 `/proc` 文件。探针不读取任何文件。
 
 ::: question 为什么 worker 标签不是进程 ID？
-`worker` 标签是 worker 在其进程池中的槽位编号。替换 worker 可以使用同一个槽位，所以替换后时间序列继续。每个进程池为每个 worker 提供两个槽位。因此，编号从 `0` 到 `processes` 的两倍减一。
+`worker` 标签是 worker 在其进程池中的槽位编号。替换 worker 可以使用同一个槽位，所以替换后时间序列继续。每个进程池为每个 worker 提供一个槽位。因此，编号从 `0` 到 `processes` 减一。
 :::
 
-::: question 为什么进程池显示的 worker 多于 rapira_workers_configured？
-重载期间，master 先启动一个新 worker，然后停止一个旧 worker。在旧 worker 退出之前，两个 worker 都出现在 `rapira_workers` 中。
-:::
 
 ## 安全
 

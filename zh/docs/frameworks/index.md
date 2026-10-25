@@ -54,7 +54,7 @@ while (\Rapira\handle_request($handler)) {
 - **`$app = new App();`** 在循环前初始化应用。Symfony 在此处保留常驻内核。Yii3 可以保留常驻 runner，也可以在 handler 中创建 runner。每个指南都说明初始化和请求清理。
 - **`$handler = static function () use ($app): void`** 定义不带参数的 handler。handler 从超全局变量读取请求数据。它通过 `use` 获取其他依赖项。
 - **`header()`、`http_response_code()` 和 `echo`** 创建响应，方式与经典脚本相同。有关响应传输，请参阅 [HTTP](/zh/docs/http)。
-- **`while (\Rapira\handle_request($handler))`** 等待请求。`handle_request()` 填充超全局变量，运行 handler 并完成请求。它在请求后返回 `true`，在 worker 停止时返回 `false`。只能从顶层脚本循环调用它。在 Worker 模式之外，它会抛出 `Rapira\Exception\NotInWorkerModeError`。
+- **`while (\Rapira\handle_request($handler))`** 等待请求。`handle_request()` 填充超全局变量，运行 handler 并完成请求。它在请求后返回 `true`，在 worker 停止或重启应用时返回 `false`。只能从顶层脚本循环调用它。在 Worker 模式之外，它会抛出 `Rapira\Exception\NotInWorkerModeError`。
 - **`gc_collect_cycles();`** 在请求之间回收循环引用。它不会修复内存泄漏。请参阅[内存与回收](#内存与回收)。
 
 在 handler 内部，Rapira 将 `SCRIPT_NAME` 设置为 `/worker.php`，因为 `worker.php` 是入口脚本。`DOCUMENT_ROOT` 包含脚本目录。`REQUEST_URI` 包含客户端路径。Symfony 和 Yii3 使用这些值正确路由请求和生成 URL。生成的 URL 不包含 `worker.php`。集成其他框架前，请检查它是否使用 `SCRIPT_NAME` 而不是 `REQUEST_URI` 生成 URL。
@@ -140,16 +140,16 @@ worker 可以在 handler 中创建应用。这样，应用只在一个请求期�
 
 在此设计中，每个请求都会创建一个对象图。循环引用可能会保留旧图，直到循环回收器运行。内存使用量会在多个请求中增加，并在 PHP 释放多个图时减少。此模式不一定是内存泄漏。但是，内存峰值可能远大于一个请求的内存。
 
-测试发现，在循环或 handler 中调用 `gc_collect_cycles()` 都无法防止此模式。后续初始化可能会保留对旧图的引用。其他对象引用图时，回收器无法释放它。将 `memory_limit` 设置为高于测量的峰值。还要设置 worker 替换限制：
+测试发现，在循环或 handler 中调用 `gc_collect_cycles()` 都无法防止此模式。后续初始化可能会保留对旧图的引用。其他对象引用图时，回收器无法释放它。将 `memory_limit` 设置为高于测量的峰值。还要为应用设置请求数限制：
 
 ```toml
 [http.pool]
 max_requests = 100
 ```
 
-每个 worker 处理的请求超过 `max_requests` 后停止，master 启动替代的 worker。每个 worker 使用自己的限制，范围从 `max_requests + 1` 到 `max_requests` 加上该值的一半。因此，worker 不会同时停止。测试在多次替换期间发送了数百个请求。内存恢复到初始水平，每个请求都返回 `200`。此设置限制此模式的内存峰值。
+每个 worker 在处理超过 `max_requests` 个请求后重启它的应用。每个 worker 使用自己的限制，范围从 `max_requests + 1` 到 `max_requests` 加上该值的一半。因此，各个应用不会同时重启。重启会释放应用的 PHP 内存，并且没有请求丢失。此设置限制此模式的内存峰值。
 
-常驻 Symfony 和 Yii3 应用在相同测试中保持稳定的内存使用。请保持启用 worker 替换，以限制意外的内存增长。有关详细信息，请参阅[配置](/zh/docs/configuration)和[进程模型](/zh/docs/process-model)。
+常驻 Symfony 和 Yii3 应用在相同测试中保持稳定的内存使用。请保持启用 `max_requests`，以限制意外的内存增长。有关详细信息，请参阅[配置](/zh/docs/configuration)和[进程模型](/zh/docs/process-model)。
 
 ## OPcache 与改动过的代码
 

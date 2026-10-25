@@ -67,5 +67,5 @@ Ctrl-C in a terminal sends `SIGINT` to the master and to every worker. The maste
 | `0` | The server stopped, and all workers exited. `--help`, `--version`, and `rapira` with no arguments also exit with `0`. |
 | `1` | The server did not start. For example, the configuration is not valid, Rapira cannot read a file, a listener cannot bind, or PHP cannot start. The error is on stderr. |
 | `2` | The command line is not valid, for example an unknown option or a missing `CONFIG`. |
-| `70` | The master failed after it started. For example, the worker total of all pools is more than 2048, or the master cannot write the pidfile. An unhealthy generation-zero worker also causes this exit if its pool has no successful request and no idle or active worker. Generation zero identifies workers created before the first reload. The log has a `master failed` record. |
+| `70` | The master failed after it started. For example, the worker total of all pools is more than 4096, or the master cannot write the pidfile. An unhealthy worker also causes this exit if its pool has no successful request and no idle or active worker. The log has a `master failed` record. |
 | `130` | A `SIGTERM` or `SIGINT` arrived during a stop and forced the exit. |

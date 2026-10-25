@@ -94,7 +94,7 @@ Po jednej sekundzie następne żądanie pliku wykonuje na nim `stat`. Worker zac
 
 Pełny cache nadal serwuje swoje wpisy. Najpierw usuwa wygasłe wpisy. Jeśli nadal jest pełny, nie zapisuje nowego pliku.
 
-Nowy proces workera zaczyna z pustym cache'em. Dlatego przeładowanie, wymiana workera lub restart czyści cache.
+Nowy proces workera zaczyna z pustym cache'em. Dlatego wymiana workera lub restart czyści cache. Przeładowanie zachowuje cache, ponieważ proces workera pozostaje.
 
 Katalog główny musi używać lokalnego nośnika. Middleware wykonuje `stat` i `open` w wątku, który obsługuje żądania. Wolny system plików opóźnia inne połączenia w tym workerze.
 

@@ -43,7 +43,7 @@ Rapira uses these targets:
 | Target          | What it covers                                                                                  |
 | --------------- | ----------------------------------------------------------------------------------------------- |
 | `rapira`        | server initialization, worker lifecycle, shutdown                                               |
-| `master`        | pool status, spawn errors, reload readiness warnings, and request timeout warnings             |
+| `master`        | pool status, spawn errors, and request timeout warnings                                         |
 | `http`          | HTTP listeners, request and response field processing, shutdown                                 |
 | `grpc`          | gRPC listeners, transport failures, shutdown                                                    |
 | `net`           | the accept loop of the HTTP and gRPC listeners, accept failures                                 |
@@ -56,7 +56,7 @@ Rapira does not write an access log with one line for each request. The [HTTP](/
 A dependency writes trace records under its module path. The same prefix filtering applies to these records. Each record contains its target name. Add that name to `[log.targets]` to change its level.
 
 ::: tip
-The `master` target reports pool status, spawn errors, reload readiness warnings, and request timeout warnings. See [Process model](/docs/process-model) for pool supervision.
+The `master` target reports pool status, spawn errors, and request timeout warnings. See [Process model](/docs/process-model) for pool supervision.
 :::
 
 ## PHP diagnostics

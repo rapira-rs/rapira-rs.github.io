@@ -53,7 +53,7 @@ max_part_headers = 32                 # Optional. Limits fields in one part.
 entrypoint = "index.php"              # Relative paths use this file's directory.
 mode = "dispatcher"                   # Use "classic", "worker", or "dispatcher". Default: "dispatcher".
 processes = 4                         # Sets the fixed worker count.
-max_requests = 0                      # Replaces a worker after this request count. Zero disables the limit.
+max_requests = 0                      # Restarts the app after this request count. Zero disables the limit.
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
 
 [grpc]
@@ -161,8 +161,8 @@ worker 运行 PHP。此表定义它们运行什么、运行多少个，以及 ma
 | --- | --- | --- | --- |
 | `entrypoint` | 字符串 | 无，必填 | 每个 worker 运行的 PHP 脚本。相对路径以配置文件目录为基准。路径必须指向可读的普通文件。 |
 | `mode` | `"classic"` \| `"worker"` \| `"dispatcher"` | `"dispatcher"` | worker 运行入口脚本的方式。`classic` 每次启动一个新的 PHP 请求。`worker` 保留脚本并重新填充超全局变量。`dispatcher` 保留脚本并给它一个 dispatcher 对象。请参阅[执行模式](/zh/docs/execution-modes)。 |
-| `processes` | 整数 | 可用并行度，无法确定时为 `1` | worker 数量。master 保持这么多个 worker 运行。最小值为 1。所有进程池的 `processes` 之和不能超过 2048。`[observability]` 部分在此总和上加一个进程。 |
-| `max_requests` | 整数 | `0` | 替换 worker 之前的请求数上限。Rapira 会稍微改变此上限，以防止多个 worker 同时被替换。`0` 禁用此上限。 |
+| `processes` | 整数 | 可用并行度，无法确定时为 `1` | worker 数量。master 保持这么多个 worker 运行。最小值为 1。所有进程池的 `processes` 之和不能超过 4096。`[observability]` 部分在此总和上加一个进程。 |
+| `max_requests` | 整数 | `0` | Worker 和 Dispatcher 模式下一个应用实例的请求数限制。达到限制后，worker 在同一进程中重启它的应用。Rapira 会稍微改变此限制，避免多个应用同时重启。Classic 模式忽略此键。`0` 禁用此限制。 |
 | `request_terminate_timeout_secs` | 整数 | `0` | 单个请求的墙钟时间上限。Rapira 终止并替换超过此上限的 worker。`0` 禁用此检查。 |
 
 ## `[grpc]` 小节 {#grpc}
@@ -219,7 +219,7 @@ HTTP 和 gRPC 可以同时运行。每个监听器使用自己的进程池和入
 | `pidfile` | 字符串 | 无 | 写入 master 进程标识符的文件。相对路径以配置文件目录为基准。请向此标识符发送进程信号。请参阅[进程模型](/zh/docs/process-model)。 |
 | `process_control_timeout_secs` | 整数 | `30` | master 在发送 `SIGQUIT` 后等待多久才发送 `SIGTERM`。master 在 `SIGTERM` 一秒后发送 `SIGKILL`。 |
 
-连接的排空时间更短：先取五秒和控制超时一半中的较小值，再从控制超时中减去该值。默认排空时间为 25 秒。此时间限制适用于停止和重载。
+连接的排空时间更短：先取五秒和控制超时一半中的较小值，再从控制超时中减去该值。默认排空时间为 25 秒。此时间限制适用于停止。
 
 ## `[log]` 小节
 

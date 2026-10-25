@@ -53,7 +53,7 @@ max_part_headers = 32                 # Optional. Limits fields in one part.
 entrypoint = "index.php"              # Relative paths use this file's directory.
 mode = "dispatcher"                   # Use "classic", "worker", or "dispatcher". Default: "dispatcher".
 processes = 4                         # Sets the fixed worker count.
-max_requests = 0                      # Replaces a worker after this request count. Zero disables the limit.
+max_requests = 0                      # Restarts the app after this request count. Zero disables the limit.
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
 
 [grpc]
@@ -161,8 +161,8 @@ El plugin `http` es dueño de este pool de workers PHP. La escucha gRPC usa una 
 | --- | --- | --- | --- |
 | `entrypoint` | cadena | ninguno, obligatorio | El script PHP que ejecuta cada worker. Una ruta relativa se resuelve respecto al directorio donde está el archivo de configuración. La ruta debe identificar un archivo regular que se pueda leer. |
 | `mode` | `"classic"` \| `"worker"` \| `"dispatcher"` | `"dispatcher"` | Cómo ejecuta un worker el script de entrada. `classic` inicia una nueva petición PHP cada vez. `worker` conserva el script y rellena de nuevo las superglobales. `dispatcher` conserva el script y le da un objeto dispatcher. Consulta los [modos de ejecución](/es/docs/execution-modes). |
-| `processes` | entero | paralelismo disponible, o `1` si no se puede determinar | El número de workers. El maestro mantiene este número de workers en marcha. El mínimo es 1. La suma de `processes` de todos los pools no puede ser mayor que 2048. Una sección `[observability]` añade un proceso a esta suma. |
-| `max_requests` | entero | `0` | El límite de peticiones antes de sustituir el worker. Rapira varía un poco el límite para evitar sustituciones simultáneas. `0` desactiva el límite. |
+| `processes` | entero | paralelismo disponible, o `1` si no se puede determinar | El número de workers. El maestro mantiene este número de workers en marcha. El mínimo es 1. La suma de `processes` de todos los pools no puede ser mayor que 4096. Una sección `[observability]` añade un proceso a esta suma. |
+| `max_requests` | entero | `0` | El límite de peticiones de una instancia de la aplicación en los modos Worker y Dispatcher. Después del límite, el worker reinicia su aplicación en el mismo proceso. Rapira varía un poco el límite para evitar reinicios simultáneos. El modo Classic ignora esta clave. `0` desactiva el límite. |
 | `request_terminate_timeout_secs` | entero | `0` | El límite de tiempo real para una petición. Rapira termina y sustituye un worker que supera este límite. `0` desactiva la comprobación. |
 
 ## La sección `[grpc]` {#grpc}
@@ -219,7 +219,7 @@ Esta sección define la política del proceso maestro. El maestro es dueño de l
 | `pidfile` | cadena | ninguno | El archivo del identificador del proceso maestro. Una ruta relativa usa como base el directorio del archivo de configuración. Envía las señales de proceso a este identificador. Consulta el [modelo de procesos](/es/docs/process-model). |
 | `process_control_timeout_secs` | entero | `30` | Cuánto espera el maestro después de `SIGQUIT` antes de enviar `SIGTERM`. El maestro envía `SIGKILL` un segundo después de `SIGTERM`. |
 
-Las conexiones tienen un plazo de drenaje más corto: el tiempo límite de control menos el menor valor entre cinco segundos y la mitad de ese límite. El plazo predeterminado es de 25 segundos. Se aplica durante la parada y la recarga.
+Las conexiones tienen un plazo de drenaje más corto: el tiempo límite de control menos el menor valor entre cinco segundos y la mitad de ese límite. El plazo predeterminado es de 25 segundos. Se aplica durante la parada.
 
 ## La sección `[log]`
 

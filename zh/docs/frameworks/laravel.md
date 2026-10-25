@@ -184,7 +184,7 @@ processes = 4
 max_requests = 500
 ```
 
-`max_requests` 在随机请求数后替换 worker。此请求数在此值和此值的 1.5 倍之间。它限制内存泄漏的影响，但不会修复泄漏。请参阅[进程模型](/zh/docs/process-model)。
+`max_requests` 在随机请求数后重启应用。此请求数在此值和此值的 1.5 倍之间。它限制内存泄漏的影响，但不会修复泄漏。请参阅[进程模型](/zh/docs/process-model)。
 
 在 Worker 和 Dispatcher 模式下，应用代码保留在内存中。部署后，向 master 发送 `SIGUSR2` 以替换 worker。如果设置了 `opcache.validate_timestamps = 0`，请改为重启 Rapira。请参阅[生产环境部署](/zh/docs/deployment)。
 

@@ -101,7 +101,7 @@ Wdróż nowy kod. Następnie przeładuj Rapirę:
 sudo systemctl reload rapira
 ```
 
-Polecenie wysyła `SIGUSR2` do procesu nadrzędnego. Proces nadrzędny zastępuje po jednym workerze i pozwala zakończyć bieżące żądania. Jeśli worker przekroczy `process_control_timeout_secs`, proces nadrzędny wysyła `SIGTERM`, a następnie `SIGKILL`. To zakończenie przerywa bieżące żądanie. Sekwencję wymiany opisuje [Model procesów](/pl/docs/process-model).
+Polecenie wysyła `SIGUSR2` do procesu nadrzędnego. Proces nadrzędny przekazuje każdemu workerowi, że ma uruchomić aplikację ponownie. Każdy worker ponownie uruchamia skrypt wejściowy w tym samym procesie, a nowa aplikacja obsługuje kolejne żądania. Żadne połączenie się nie zamyka i żadne żądanie nie ginie. Więcej informacji zawiera [Model procesów](/pl/docs/process-model#przeładowanie-uruchamia-aplikacje-ponownie).
 
 Wyślij sygnał bezpośrednio, gdy systemd nie zarządza procesem. Ustaw `supervisor.pidfile`, aby zapisać identyfikator procesu nadrzędnego. Utwórz katalog pidfile przed uruchomieniem Rapiry. Możesz też wybrać istniejący katalog. Proces nadrzędny nie uruchomi się, jeśli nie może zapisać pliku.
 
@@ -117,12 +117,12 @@ kill -USR2 "$(cat /run/rapira/rapira.pid)"
 
 Tylko proces nadrzędny zapisuje pidfile. Usuwa go podczas kontrolowanego zakończenia. Pozostały plik może wskazywać na `SIGKILL`, awarię procesu lub awarię systemu.
 
-`process_control_timeout_secs` ogranicza początkowe oczekiwanie podczas zatrzymywania i każde oczekiwanie na gotowość nowego workera. Po oczekiwaniu podczas zatrzymywania proces nadrzędny wysyła `SIGTERM`. Sekundę później wysyła `SIGKILL`. Ustaw `TimeoutStopSec` systemd powyżej tego pełnego czasu.
+`process_control_timeout_secs` ogranicza oczekiwanie podczas zatrzymywania. Po tym oczekiwaniu proces nadrzędny wysyła `SIGTERM`. Sekundę później wysyła `SIGKILL`. Ustaw `TimeoutStopSec` systemd powyżej tego pełnego czasu.
 
-Połączenia mają krótszy czas na zakończenie: limit sterowania pomniejszony o mniejszą z wartości: pięć sekund lub połowę limitu. Domyślnie jest to 25 sekund. Odpowiedzi, które przekroczą ten czas, mogą zostać przerwane podczas zatrzymywania lub przeładowania.
+Połączenia mają krótszy czas na zakończenie: limit sterowania pomniejszony o mniejszą z wartości: pięć sekund lub połowę limitu. Domyślnie jest to 25 sekund. Odpowiedzi, które przekroczą ten czas, mogą zostać przerwane podczas zatrzymywania.
 
 ::: warning Czego przeładowanie nie zmienia
-Przeładowanie zastępuje workery, ale nie proces nadrzędny. Proces nadrzędny zachowuje plik binarny Rapiry oraz ustawienia z `rapira.toml` i `php.ini`. Zachowuje też zbiór deskryptorów gRPC, plik tokenów `[grpc.auth]` i pamięć współdzieloną OPcache. Uruchom Rapirę ponownie po zmianie jednego z tych plików. Uruchom ją ponownie także przy `opcache.validate_timestamps = 0`. W tej konfiguracji przeładowanie nie zastępuje zapisanych kodów operacji.
+Przeładowanie uruchamia ponownie aplikacje, ale nie procesy. Proces nadrzędny zachowuje plik binarny Rapiry oraz ustawienia z `rapira.toml` i `php.ini`. Zachowuje też zbiór deskryptorów gRPC, plik tokenów `[grpc.auth]` i pamięć współdzieloną OPcache. Uruchom Rapirę ponownie po zmianie jednego z tych plików. Uruchom ją ponownie także przy `opcache.validate_timestamps = 0`. W tej konfiguracji przeładowanie nie zastępuje zapisanych kodów operacji.
 :::
 
 ## Logi
@@ -170,7 +170,7 @@ request_terminate_timeout_secs = 30
 
 Tabela `[grpc.pool]` przyjmuje te same klucze.
 
-`max_requests` zastępuje workera po określonej liczbie żądań. Dla każdego workera Rapira zwiększa limit o losową liczbę żądań nie większą niż połowa limitu, aby nie zastępować workerów jednocześnie. To ustawienie ogranicza wpływ wycieku pamięci, ale go nie naprawia.
+`max_requests` uruchamia ponownie aplikację wewnątrz workera po określonej liczbie żądań. Proces workera pozostaje, więc żadne połączenie się nie zamyka i żadne żądanie nie ginie. Dla każdego workera Rapira zwiększa limit o losową liczbę żądań nie większą niż połowa limitu, aby aplikacje nie uruchamiały się ponownie jednocześnie. Ponowne uruchomienie zwalnia pamięć PHP aplikacji. Nie zwalnia pamięci, którą rozszerzenie lub biblioteka C traci poza PHP. To ustawienie ogranicza wpływ wycieku pamięci, ale go nie naprawia. Tryb Classic je ignoruje.
 
 `request_terminate_timeout_secs` ogranicza czas jednego żądania. Rapira kończy i zastępuje workera, który przekroczy limit. Domyślna wartość obu ustawień to zero, które je wyłącza. Włącz je w środowisku produkcyjnym.
 

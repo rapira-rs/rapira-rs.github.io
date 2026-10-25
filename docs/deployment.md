@@ -101,7 +101,7 @@ Deploy the new code. Then reload Rapira:
 sudo systemctl reload rapira
 ```
 
-This command sends `SIGUSR2` to the master. The master replaces one worker at a time and lets current requests finish. If a worker exceeds `process_control_timeout_secs`, the master sends `SIGTERM` and then `SIGKILL`. This termination ends the current request. See [Process model](/docs/process-model) for the worker replacement sequence.
+This command sends `SIGUSR2` to the master. The master tells each worker to restart its app. Each worker runs the entry script again in the same process, and the new app serves the next requests. No connection closes, and no request is lost. See [Process model](/docs/process-model#a-reload-restarts-the-apps) for more information.
 
 Send the signal directly when systemd does not manage the process. Set `supervisor.pidfile` to record the master process identifier. Create the pidfile directory before you start Rapira. Alternatively, select a directory that exists. The master does not start if it cannot write the file.
 
@@ -117,12 +117,12 @@ kill -USR2 "$(cat /run/rapira/rapira.pid)"
 
 Only the master writes the pidfile. It removes the file during a controlled exit. A file that remains can indicate `SIGKILL`, a process failure, or a system failure.
 
-`process_control_timeout_secs` limits the initial shutdown wait and each replacement readiness wait. After the shutdown wait, the master sends `SIGTERM`. It sends `SIGKILL` one second later. Set systemd `TimeoutStopSec` above this complete interval.
+`process_control_timeout_secs` limits the shutdown wait. After the shutdown wait, the master sends `SIGTERM`. It sends `SIGKILL` one second later. Set systemd `TimeoutStopSec` above this complete interval.
 
-Connections have a shorter drain budget: the control timeout minus the smaller of five seconds or half the timeout. The default budget is 25 seconds. Responses that exceed this budget can be cut short during shutdown or reload.
+Connections have a shorter drain budget: the control timeout minus the smaller of five seconds or half the timeout. The default budget is 25 seconds. Responses that exceed this budget can be cut short during shutdown.
 
 ::: warning What a reload does not do
-A reload replaces the workers but not the master. The master keeps the Rapira binary and the settings from `rapira.toml` and `php.ini`. It also keeps the gRPC descriptor set, the `[grpc.auth]` tokens file, and the OPcache shared memory. Restart Rapira after you change one of these files. Also restart it when `opcache.validate_timestamps = 0`. A reload does not replace the cached opcodes in this configuration.
+A reload restarts the apps but not the processes. The master keeps the Rapira binary and the settings from `rapira.toml` and `php.ini`. It also keeps the gRPC descriptor set, the `[grpc.auth]` tokens file, and the OPcache shared memory. Restart Rapira after you change one of these files. Also restart it when `opcache.validate_timestamps = 0`. A reload does not replace the cached opcodes in this configuration.
 :::
 
 ## Logs
@@ -170,7 +170,7 @@ request_terminate_timeout_secs = 30
 
 The `[grpc.pool]` table accepts the same keys.
 
-`max_requests` replaces a worker after the specified request count. Rapira adds a random count of up to half the limit for each worker to prevent simultaneous worker replacement. This setting limits the effect of a memory leak but does not correct it.
+`max_requests` restarts the app inside a worker after the specified request count. The worker process stays, so no connection closes and no request is lost. Rapira adds a random count of up to half the limit for each worker to prevent simultaneous restarts. The restart frees the PHP memory of the app. It does not free memory that an extension or a C library leaks outside PHP. This setting limits the effect of a memory leak but does not correct it. Classic mode ignores it.
 
 `request_terminate_timeout_secs` limits the elapsed time for one request. Rapira terminates and replaces a worker that exceeds the limit. The default value of both settings is zero, which disables them. Enable them for production.
 

@@ -126,7 +126,7 @@ Each request creates a new container, so the worker does not reset container sta
 
 The container initializes for each request. This adds initialization time and creates objects that PHP must later release. Memory can increase until PHP releases several old containers together. This cyclic pattern is not necessarily a memory leak. See [Memory and recycling](/docs/frameworks/#memory-and-recycling).
 
-Set `http.pool.max_requests` to replace workers periodically. See [Configuration](/docs/configuration) for this key.
+Set `http.pool.max_requests` to restart the app periodically. See [Configuration](/docs/configuration) for this key.
 
 This design is not [Classic mode](/docs/classic). The autoloader, the template bootstrap, and the request loop stay resident in the worker. Only the application is new for each request.
 

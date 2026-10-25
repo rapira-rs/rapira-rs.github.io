@@ -74,7 +74,7 @@ while (\Rapira\handle_request($handler)) {
 }
 ```
 
-`\Rapira\handle_request()` 等待下一个请求。此函数调用处理函数并返回 `true`。worker 停止时，`\Rapira\handle_request()` 返回 `false`。此值结束循环。
+`\Rapira\handle_request()` 等待下一个请求。此函数调用处理函数并返回 `true`。worker 停止或重启应用时，`\Rapira\handle_request()` 返回 `false`。此值结束循环。
 
 处理函数读取超全局变量，并使用 `echo` 和 `header()` 创建输出。只能从顶层脚本循环调用 `\Rapira\handle_request()`。此函数在其他模式下抛出 `Rapira\Exception\NotInWorkerModeError`。
 

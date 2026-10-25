@@ -14,7 +14,7 @@ El modo Worker no requiere un framework específico. Requiere una aplicación qu
 
 ## El bucle residente
 
-El script inicializa la aplicación y define un handler para una petición. Después llama a `\Rapira\handle_request()` en un bucle hasta que el worker se detiene.
+El script inicializa la aplicación y define un handler para una petición. Después llama a `\Rapira\handle_request()` en un bucle hasta que devuelve `false`.
 
 ```php
 <?php
@@ -68,7 +68,7 @@ Antes de la primera llamada a `handle_request()`, `$_SERVER` contiene el entorno
 
 ## Un bucle por worker
 
-Un script de worker ejecuta un bucle con un handler. En el ejemplo siguiente, el segundo bucle se ejecuta solo después de que termine el primero, y el primer bucle termina solo durante la detención. Usa un handler que distribuya todas las peticiones.
+Un script de worker ejecuta un bucle con un handler. En el ejemplo siguiente, el segundo bucle se ejecuta solo después de que termine el primero, y el primer bucle termina solo cuando `handle_request()` devuelve `false`. Usa un handler que distribuya todas las peticiones.
 
 ```php
 while (\Rapira\handle_request($api)) {

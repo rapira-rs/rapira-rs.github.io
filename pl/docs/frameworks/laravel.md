@@ -113,7 +113,7 @@ Most wypełnia wartości serwera w obiekcie `Request` tak, jakby żądanie obsł
 
 ## Stan między żądaniami
 
-W trybach Worker i Dispatcher worker Octane inicjalizuje aplikację raz. Dla każdego żądania Octane klonuje aplikację do piaskownicy (sandbox). Następnie uruchamia swoje listenery, które resetują znany stan żądania. Na przykład zmiana konfiguracji w jednym żądaniu nie pojawia się w następnym żądaniu. Testy mostu potwierdzają to zachowanie w obu trybach.
+W trybach Worker i Dispatcher worker Octane inicjalizuje aplikację raz dla każdej instancji aplikacji. Dla każdego żądania Octane klonuje aplikację do piaskownicy (sandbox). Następnie uruchamia swoje listenery, które resetują znany stan żądania. Na przykład zmiana konfiguracji w jednym żądaniu nie pojawia się w następnym żądaniu. Testy mostu potwierdzają to zachowanie w obu trybach.
 
 Konfiguracja Octane kontroluje te listenery. Klucz `warm` zawiera listę serwisów do inicjalizacji przed pierwszym żądaniem. Klucz `flush` zawiera listę serwisów do usunięcia po każdym żądaniu. Octane używa swojej domyślnej konfiguracji, jeśli aplikacja nie ma `config/octane.php`. Aby zmienić konfigurację, opublikuj plik:
 

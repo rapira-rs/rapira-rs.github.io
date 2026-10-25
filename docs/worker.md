@@ -14,7 +14,7 @@ Worker mode does not require a specific framework. It requires an application th
 
 ## The persistent loop
 
-The script initializes the application and defines a handler for one request. It then calls `\Rapira\handle_request()` in a loop until the worker stops.
+The script initializes the application and defines a handler for one request. It then calls `\Rapira\handle_request()` in a loop until it returns `false`.
 
 ```php
 <?php
@@ -68,7 +68,7 @@ Before the first `handle_request()` call, `$_SERVER` contains the process enviro
 
 ## One loop per worker
 
-A worker script runs one loop with one handler. In the example below, the second loop runs only after the first loop ends, and the first loop ends only at shutdown. Use one handler that routes all requests.
+A worker script runs one loop with one handler. In the example below, the second loop runs only after the first loop ends, and the first loop ends only when `handle_request()` returns `false`. Use one handler that routes all requests.
 
 ```php
 while (\Rapira\handle_request($api)) {

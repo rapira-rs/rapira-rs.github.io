@@ -14,7 +14,7 @@ Tryb Worker nie wymaga określonego frameworka. Wymaga aplikacji, która może o
 
 ## Pętla rezydentna
 
-Skrypt inicjalizuje aplikację i definiuje handler jednego żądania. Następnie wywołuje `\Rapira\handle_request()` w pętli, dopóki worker się nie zatrzyma.
+Skrypt inicjalizuje aplikację i definiuje handler jednego żądania. Następnie wywołuje `\Rapira\handle_request()` w pętli, dopóki funkcja nie zwróci `false`.
 
 ```php
 <?php
@@ -68,7 +68,7 @@ Przed pierwszym wywołaniem `handle_request()` `$_SERVER` zawiera środowisko pr
 
 ## Jedna pętla na worker
 
-Skrypt workera uruchamia jedną pętlę z jednym handlerem. W przykładzie poniżej druga pętla działa dopiero po zakończeniu pierwszej, a pierwsza pętla kończy się dopiero przy zatrzymaniu. Użyj jednego handlera, który rozdziela wszystkie żądania.
+Skrypt workera uruchamia jedną pętlę z jednym handlerem. W przykładzie poniżej druga pętla działa dopiero po zakończeniu pierwszej, a pierwsza pętla kończy się dopiero wtedy, gdy `handle_request()` zwróci `false`. Użyj jednego handlera, który rozdziela wszystkie żądania.
 
 ```php
 while (\Rapira\handle_request($api)) {

@@ -113,7 +113,7 @@ The bridge fills the server values of the `Request` object as if `public/index.p
 
 ## State between requests
 
-In Worker and Dispatcher modes, the Octane worker initializes the application once. For each request, Octane clones the application into a sandbox. It then runs its listeners, which reset known request state. For example, a configuration change in one request does not appear in the next request. The bridge tests confirm this behavior in both modes.
+In Worker and Dispatcher modes, the Octane worker initializes the application once for each app instance. For each request, Octane clones the application into a sandbox. It then runs its listeners, which reset known request state. For example, a configuration change in one request does not appear in the next request. The bridge tests confirm this behavior in both modes.
 
 The Octane configuration controls these listeners. The `warm` key lists services to initialize before the first request. The `flush` key lists services to remove after each request. Octane uses its default configuration if the application has no `config/octane.php`. To change the configuration, publish the file:
 

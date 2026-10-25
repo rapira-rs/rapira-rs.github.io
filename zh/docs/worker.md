@@ -14,7 +14,7 @@ Worker 模式不要求特定框架。它要求应用能在一次初始化后处�
 
 ## 常驻循环
 
-脚本先初始化应用并定义单个请求的 handler，然后在循环中调用 `\Rapira\handle_request()`，直到 worker 停止。
+脚本先初始化应用并定义单个请求的 handler，然后在循环中调用 `\Rapira\handle_request()`，直到它返回 `false`。
 
 ```php
 <?php
@@ -68,7 +68,7 @@ Worker 模式中的一个请求对应 `while` 循环的一次迭代。每次调�
 
 ## 每个 worker 一个循环
 
-worker 脚本运行一个循环和一个 handler。在下面的示例中，第二个循环只在第一个循环结束后运行，而第一个循环只在停止时结束。使用一个 handler 分配所有请求。
+worker 脚本运行一个循环和一个 handler。在下面的示例中，第二个循环只在第一个循环结束后运行，而第一个循环只在 `handle_request()` 返回 `false` 时结束。使用一个 handler 分配所有请求。
 
 ```php
 while (\Rapira\handle_request($api)) {

@@ -171,7 +171,7 @@ max_requests = 500
 request_terminate_timeout_secs = 30
 ```
 
-`max_requests` restarts the app after a random request count between this value and 1.5 times this value. It limits the effect of a memory leak but does not correct it. `request_terminate_timeout_secs` stops a worker when one request runs longer than this limit. The restarted app or the new worker initializes the kernel again. A relative `entrypoint` uses the configuration file directory as its base. See [Configuration](/docs/configuration) for all settings.
+`max_requests` restarts the app after a random request count above this value, up to 1.5 times this value. It limits the effect of a memory leak but does not correct it. `request_terminate_timeout_secs` stops a worker when one request runs longer than this limit. The restarted app or the new worker initializes the kernel again. A relative `entrypoint` uses the configuration file directory as its base. See [Configuration](/docs/configuration) for all settings.
 
 Start the server with `APP_ENV=prod`:
 
@@ -179,7 +179,7 @@ Start the server with `APP_ENV=prod`:
 APP_ENV=prod rapira serve rapira.toml
 ```
 
-After a deployment, send `SIGUSR2` to the master to replace the workers. With `opcache.validate_timestamps = 0`, restart Rapira instead. See [Running in production](/docs/deployment).
+After a deployment, send `SIGUSR2` to the master to restart the apps. With `opcache.validate_timestamps = 0`, restart Rapira instead. See [Running in production](/docs/deployment).
 
 ## What resets between requests
 

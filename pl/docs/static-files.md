@@ -94,10 +94,10 @@ Po jednej sekundzie następne żądanie pliku wykonuje na nim `stat`. Worker zac
 
 Pełny cache nadal serwuje swoje wpisy. Najpierw usuwa wygasłe wpisy. Jeśli nadal jest pełny, nie zapisuje nowego pliku.
 
-Nowy proces workera zaczyna z pustym cache'em. Dlatego wymiana workera lub restart czyści cache. Przeładowanie zachowuje cache, ponieważ proces workera pozostaje.
+Nowy proces workera zaczyna z pustym cache'em. Dlatego wymiana workera lub restart Rapiry czyści cache. Przeładowanie zachowuje cache, ponieważ proces workera pozostaje.
 
 Katalog główny musi używać lokalnego nośnika. Middleware wykonuje `stat` i `open` w wątku, który obsługuje żądania. Wolny system plików opóźnia inne połączenia w tym workerze.
 
 ::: question Dlaczego cache nie wykrywa mojego zmienionego pliku?
-Cache porównuje tylko czas modyfikacji i długość pliku. `ETag` zawiera te same wartości. Cache nie wykrywa zastąpienia, które zachowuje obie wartości. Zmiana uprawnień też zachowuje wpis. Aby usunąć wpis, usuń plik, zmień jego czas modyfikacji lub [przeładuj](/pl/docs/process-model#sygnały) serwer.
+Cache porównuje tylko czas modyfikacji i długość pliku. `ETag` zawiera te same wartości. Cache nie wykrywa zastąpienia, które zachowuje obie wartości. Zmiana uprawnień też zachowuje wpis. Aby usunąć wpis, usuń plik, zmień jego czas modyfikacji lub uruchom Rapirę ponownie.
 :::

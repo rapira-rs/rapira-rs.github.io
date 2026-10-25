@@ -59,7 +59,7 @@ Pozostałe klucze opisuje [Konfiguracja](/pl/docs/configuration).
 - **Wypełnia dane żądania** w `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE`, `$_FILES` oraz `$_REQUEST` przed uruchomieniem handlera. Kod czyta te zmienne superglobalne tak samo jak pod php-fpm.
 - **Wywołuje handler bez argumentów.** Użyj sygnatury `function (): void`. Przechwyć zależności, na przykład kontener lub logger, przez `use`. Rapira ignoruje zwracaną wartość.
 - **Wyjście handlera jest odpowiedzią.** Handler może używać `echo`, `print`, `header()`, `http_response_code()` i `setcookie()`. Przetwarzanie żądań i odpowiedzi opisuje strona [HTTP](/pl/docs/http).
-- **Zwraca `true`** po każdym żądaniu. Zwraca `false`, gdy worker zaczyna się zatrzymywać. Zakończ pętlę i skrypt, gdy funkcja zwróci `false`.
+- **Zwraca `true`** po każdym żądaniu. Zwraca `false`, gdy worker zaczyna się zatrzymywać lub uruchamia aplikację ponownie. Zakończ pętlę i skrypt, gdy funkcja zwróci `false`.
 - **Wywołuj ją tylko z pętli najwyższego poziomu skryptu.** Wywołanie z wnętrza handlera rzuca `\Error`. Nie wywołuj jej z funkcji shutdown ani z destruktora.
 
 Żądanie w trybie Worker odpowiada jednej iteracji pętli `while`. Przed każdym wywołaniem handlera Rapira ponownie wypełnia zmienne superglobalne. Po wywołaniu Rapira uruchamia funkcje shutdown żądania, opróżnia bufory wyjścia i zamyka sesję. Wartości, które skrypt przechowuje poza handlerem, pozostają w pamięci.

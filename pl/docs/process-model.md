@@ -97,7 +97,7 @@ Wysyłaj sygnały tylko do procesu nadrzędnego. Workery ignorują `SIGUSR1`. `S
 
 ### Zatrzymywanie
 
-Po sygnale zatrzymania proces nadrzędny natychmiast wysyła `SIGQUIT` do każdego workera. Workery nie przyjmują nowych połączeń i kończą bieżące żądania. Każdy worker zachowuje swoje połączenia. Na następne żądanie w każdym połączeniu odpowiada z `Connection: close`, a potem połączenie się zamyka. Po `supervisor.process_control_timeout_secs` proces nadrzędny wysyła `SIGTERM` do pozostałych workerów. Domyślny limit wynosi 30 sekund. Jeśli workery nadal działają, proces nadrzędny wysyła `SIGKILL` sekundę po `SIGTERM`.
+Po sygnale zatrzymania proces nadrzędny natychmiast wysyła `SIGQUIT` do każdego workera. Workery nie przyjmują nowych połączeń i kończą bieżące żądania. Każdy worker zachowuje swoje połączenia. Na następne żądanie w każdym połączeniu odpowiada, dodając nagłówek `Connection: close`, a potem połączenie się zamyka. Po `supervisor.process_control_timeout_secs` proces nadrzędny wysyła `SIGTERM` do pozostałych workerów. Domyślny limit wynosi 30 sekund. Jeśli workery nadal działają, proces nadrzędny wysyła `SIGKILL` sekundę po `SIGTERM`.
 
 Czas na zakończenie połączeń to limit sterowania pomniejszony o mniejszą z wartości: pięć sekund lub połowę limitu. Przy ustawieniach domyślnych połączenia mają 25 sekund na zakończenie. Odpowiedzi, które przekroczą ten czas, mogą zostać przerwane. Połączenie, które jest bezczynne przez cały ten czas, zamyka się na jego końcu.
 

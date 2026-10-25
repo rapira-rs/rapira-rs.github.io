@@ -94,10 +94,10 @@ After one second, the next request for a file runs `stat` on it. The worker keep
 
 A full cache continues to serve its entries. It removes expired entries first. If the cache is still full, it does not store the new file.
 
-A new worker process starts with an empty cache. Thus, a worker replacement or a restart clears the cache. A reload keeps the cache, because the worker process stays.
+A new worker process starts with an empty cache. Thus, a worker replacement or a Rapira restart clears the cache. A reload keeps the cache, because the worker process stays.
 
 The root must use local storage. The middleware runs `stat` and `open` on the thread that serves requests. A slow file system delays other connections in that worker.
 
 ::: question Why does the cache not detect my changed file?
-The cache compares only the modification time and the length of the file. The `ETag` contains the same values. The cache does not detect a replacement that keeps both values. A permission change also keeps the entry. To remove the entry, delete the file, change its modification time, or [reload](/docs/process-model#signals) the server.
+The cache compares only the modification time and the length of the file. The `ETag` contains the same values. The cache does not detect a replacement that keeps both values. A permission change also keeps the entry. To remove the entry, delete the file, change its modification time, or restart Rapira.
 :::

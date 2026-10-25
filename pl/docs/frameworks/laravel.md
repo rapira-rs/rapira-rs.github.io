@@ -174,7 +174,7 @@ php artisan config:cache
 php artisan route:cache
 ```
 
-Worker może z czasem zwiększać zużycie pamięci. Ustaw limit wymiany workera:
+Worker może z czasem zwiększać zużycie pamięci. Ustaw limit żądań dla aplikacji:
 
 ```toml
 [http.pool]
@@ -184,9 +184,9 @@ processes = 4
 max_requests = 500
 ```
 
-`max_requests` uruchamia ponownie aplikację po losowej liczbie żądań między tą wartością a 1,5 tej wartości. Ogranicza wpływ wycieku pamięci, ale go nie naprawia. Zobacz [Model procesów](/pl/docs/process-model).
+`max_requests` uruchamia ponownie aplikację po losowej liczbie żądań większej niż ta wartość, ale nie większej niż 1,5 tej wartości. Ogranicza wpływ wycieku pamięci, ale go nie naprawia. Zobacz [Model procesów](/pl/docs/process-model).
 
-W trybach Worker i Dispatcher kod aplikacji pozostaje w pamięci. Po wdrożeniu wyślij `SIGUSR2` do procesu nadrzędnego, aby zastąpić workery. Przy `opcache.validate_timestamps = 0` zamiast tego uruchom Rapirę ponownie. Zobacz [Wdrożenie produkcyjne](/pl/docs/deployment).
+W trybach Worker i Dispatcher kod aplikacji pozostaje w pamięci. Po wdrożeniu wyślij `SIGUSR2` do procesu nadrzędnego, aby uruchomić ponownie aplikacje. Przy `opcache.validate_timestamps = 0` zamiast tego uruchom Rapirę ponownie. Zobacz [Wdrożenie produkcyjne](/pl/docs/deployment).
 
 ## Programowanie
 

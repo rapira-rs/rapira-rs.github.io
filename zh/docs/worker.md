@@ -59,7 +59,7 @@ rapira serve rapira.toml
 - **填充请求数据**到 `$_GET`、`$_POST`、`$_SERVER`、`$_COOKIE`、`$_FILES` 和 `$_REQUEST`，然后运行 handler。代码可以像在 php-fpm 中一样读取这些超全局变量。
 - **调用 handler 时不传参数。**函数签名使用 `function (): void`。使用 `use` 捕获容器、日志器等依赖项。Rapira 忽略返回值。
 - **handler 输出就是响应。**handler 可以使用 `echo`、`print`、`header()`、`http_response_code()` 和 `setcookie()`。有关请求和响应处理，请参阅 [HTTP](/zh/docs/http)。
-- **每个请求后返回 `true`。**worker 开始停止时返回 `false`。返回 `false` 时结束循环和脚本。
+- **每个请求后返回 `true`。**worker 开始停止或重启应用时返回 `false`。返回 `false` 时结束循环和脚本。
 - **只能从脚本的顶层循环调用。**从 handler 内部调用会抛出 `\Error`。不要从 shutdown 函数或析构函数调用。
 
 Worker 模式中的一个请求对应 `while` 循环的一次迭代。每次调用 handler 之前，Rapira 重新填充超全局变量。调用之后，Rapira 运行请求的 shutdown 函数，刷新输出缓冲，并关闭 session。脚本在 handler 外持有的值保留在内存中。

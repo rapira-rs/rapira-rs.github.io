@@ -59,7 +59,7 @@ See [Configuration](/docs/configuration) for the other keys.
 - **It fills request data** in `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE`, `$_FILES`, and `$_REQUEST` before the handler runs. Code reads these superglobals as it does under php-fpm.
 - **It calls the handler without arguments.** Use the signature `function (): void`. Capture dependencies, such as the container or logger, with `use`. Rapira ignores the return value.
 - **Handler output is the response.** The handler can use `echo`, `print`, `header()`, `http_response_code()`, and `setcookie()`. See [HTTP](/docs/http) for request and response processing.
-- **It returns `true`** after each request. It returns `false` when the worker starts to shut down. End the loop and the script when it returns `false`.
+- **It returns `true`** after each request. It returns `false` when the worker starts to shut down or restarts the app. End the loop and the script when it returns `false`.
 - **Call it only from the top-level loop of the script.** A call from inside the handler throws an `\Error`. Do not call it from a shutdown function or a destructor.
 
 A request in Worker mode is one iteration of the `while` loop. Before each handler call, Rapira refills the superglobals. After the call, Rapira runs the request shutdown functions, flushes the output buffers, and closes the session. Values that the script holds outside the handler stay in memory.

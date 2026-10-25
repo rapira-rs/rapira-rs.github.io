@@ -171,7 +171,7 @@ max_requests = 500
 request_terminate_timeout_secs = 30
 ```
 
-`max_requests` reinicia la aplicación después de un número aleatorio de peticiones entre este valor y 1,5 veces este valor. Limita el efecto de una fuga de memoria, pero no la corrige. `request_terminate_timeout_secs` detiene un worker cuando una petición dura más que este límite. La aplicación reiniciada o el nuevo worker inicia el kernel otra vez. Un `entrypoint` relativo usa como base el directorio del archivo de configuración. Consulta todos los ajustes en [Configuración](/es/docs/configuration).
+`max_requests` reinicia la aplicación después de un número aleatorio de peticiones mayor que este valor y de hasta 1,5 veces este valor. Limita el efecto de una fuga de memoria, pero no la corrige. `request_terminate_timeout_secs` detiene un worker cuando una petición dura más que este límite. La aplicación reiniciada o el nuevo worker inicia el kernel otra vez. Un `entrypoint` relativo usa como base el directorio del archivo de configuración. Consulta todos los ajustes en [Configuración](/es/docs/configuration).
 
 Inicia el servidor con `APP_ENV=prod`:
 
@@ -179,7 +179,7 @@ Inicia el servidor con `APP_ENV=prod`:
 APP_ENV=prod rapira serve rapira.toml
 ```
 
-Después de un despliegue, envía `SIGUSR2` al maestro para sustituir los workers. Con `opcache.validate_timestamps = 0`, reinicia Rapira. Consulta [En producción](/es/docs/deployment).
+Después de un despliegue, envía `SIGUSR2` al maestro para reiniciar las aplicaciones. Con `opcache.validate_timestamps = 0`, reinicia Rapira. Consulta [En producción](/es/docs/deployment).
 
 ## Reinicio del estado entre peticiones
 

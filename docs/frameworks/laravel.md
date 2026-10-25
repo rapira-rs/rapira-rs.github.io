@@ -174,7 +174,7 @@ php artisan config:cache
 php artisan route:cache
 ```
 
-A worker can increase its memory use over time. Set a worker replacement limit:
+A worker can increase its memory use over time. Set a request limit for the app:
 
 ```toml
 [http.pool]
@@ -184,9 +184,9 @@ processes = 4
 max_requests = 500
 ```
 
-`max_requests` restarts the app after a random request count between this value and 1.5 times this value. It limits the effect of a memory leak but does not correct it. See [Process model](/docs/process-model).
+`max_requests` restarts the app after a random request count above this value, up to 1.5 times this value. It limits the effect of a memory leak but does not correct it. See [Process model](/docs/process-model).
 
-In Worker and Dispatcher modes, the application code stays in memory. After a deployment, send `SIGUSR2` to the master to replace the workers. With `opcache.validate_timestamps = 0`, restart Rapira instead. See [Running in production](/docs/deployment).
+In Worker and Dispatcher modes, the application code stays in memory. After a deployment, send `SIGUSR2` to the master to restart the apps. With `opcache.validate_timestamps = 0`, restart Rapira instead. See [Running in production](/docs/deployment).
 
 ## Development
 

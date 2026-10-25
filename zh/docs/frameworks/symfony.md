@@ -171,7 +171,7 @@ max_requests = 500
 request_terminate_timeout_secs = 30
 ```
 
-`max_requests` 在随机请求数后重启应用。此请求数在此值和此值的 1.5 倍之间。它限制内存泄漏的影响，但不会修复泄漏。当一个请求的运行时间超过 `request_terminate_timeout_secs` 时，Rapira 会停止该 worker。重启后的应用或新 worker 会再次初始化内核。相对 `entrypoint` 以配置文件所在目录为基准。有关所有设置，请参阅[配置](/zh/docs/configuration)。
+`max_requests` 在随机请求数后重启应用。此请求数大于此值，最多为此值的 1.5 倍。它限制内存泄漏的影响，但不会修复泄漏。当一个请求的运行时间超过 `request_terminate_timeout_secs` 时，Rapira 会停止该 worker。重启后的应用或新 worker 会再次初始化内核。相对 `entrypoint` 以配置文件所在目录为基准。有关所有设置，请参阅[配置](/zh/docs/configuration)。
 
 使用 `APP_ENV=prod` 启动服务器：
 
@@ -179,7 +179,7 @@ request_terminate_timeout_secs = 30
 APP_ENV=prod rapira serve rapira.toml
 ```
 
-部署后，向 master 发送 `SIGUSR2` 以替换 worker。如果设置了 `opcache.validate_timestamps = 0`，请改为重启 Rapira。请参阅[生产环境部署](/zh/docs/deployment)。
+部署后，向 master 发送 `SIGUSR2` 以重启应用。如果设置了 `opcache.validate_timestamps = 0`，请改为重启 Rapira。请参阅[生产环境部署](/zh/docs/deployment)。
 
 ## 请求之间的状态重置
 

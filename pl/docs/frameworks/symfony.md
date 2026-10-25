@@ -171,7 +171,7 @@ max_requests = 500
 request_terminate_timeout_secs = 30
 ```
 
-`max_requests` uruchamia ponownie aplikację po losowej liczbie żądań między tą wartością a 1,5 tej wartości. Ogranicza wpływ wycieku pamięci, ale go nie naprawia. `request_terminate_timeout_secs` zatrzymuje workera, gdy jedno żądanie działa dłużej niż ten limit. Ponownie uruchomiona aplikacja lub nowy worker ponownie inicjalizuje kernel. Względny `entrypoint` używa katalogu pliku konfiguracji jako bazy. Wszystkie ustawienia opisuje [Konfiguracja](/pl/docs/configuration).
+`max_requests` uruchamia ponownie aplikację po losowej liczbie żądań większej niż ta wartość, ale nie większej niż 1,5 tej wartości. Ogranicza wpływ wycieku pamięci, ale go nie naprawia. `request_terminate_timeout_secs` zatrzymuje workera, gdy jedno żądanie działa dłużej niż ten limit. Ponownie uruchomiona aplikacja lub nowy worker ponownie inicjalizuje kernel. Względny `entrypoint` używa katalogu pliku konfiguracji jako bazy. Wszystkie ustawienia opisuje [Konfiguracja](/pl/docs/configuration).
 
 Uruchom serwer z `APP_ENV=prod`:
 
@@ -179,7 +179,7 @@ Uruchom serwer z `APP_ENV=prod`:
 APP_ENV=prod rapira serve rapira.toml
 ```
 
-Po wdrożeniu wyślij `SIGUSR2` do procesu nadrzędnego, aby zastąpić workery. Przy `opcache.validate_timestamps = 0` zamiast tego uruchom Rapirę ponownie. Zobacz [Wdrożenie produkcyjne](/pl/docs/deployment).
+Po wdrożeniu wyślij `SIGUSR2` do procesu nadrzędnego, aby uruchomić ponownie aplikacje. Przy `opcache.validate_timestamps = 0` zamiast tego uruchom Rapirę ponownie. Zobacz [Wdrożenie produkcyjne](/pl/docs/deployment).
 
 ## Zerowanie stanu między żądaniami
 

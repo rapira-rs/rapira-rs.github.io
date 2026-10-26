@@ -3,6 +3,7 @@ title: "PHP2Shell i RoadRunner"
 date: 2026-10-27
 description: "Dlaczego podatności PHP2Shell (CVE-2026-109618 i CVE-2026-109619) nie dotyczą RoadRunnera, jak inne serwery uruchamiają PHP i co zrobić, jeśli masz WordPressa."
 author: Aleksei Gagarin
+image: /blog/php2shell/preview.jpg
 ---
 
 21 października zespół PHP opublikował nieplanowane wydania 8.5.12, 8.4.27, 8.3.36 i 8.2.35. Łatają one dwie krytyczne podatności, które ich odkrywcy nazwali [PHP2Shell](https://calif.io/php2shell/): [CVE-2026-109618](https://github.com/php/php-src/security/advisories/GHSA-w8hw-w9fx-j79w) i [CVE-2026-109619](https://github.com/php/php-src/security/advisories/GHSA-6wmf-4rv5-p3rp). Obie pozwalają na zdalne wykonanie kodu bez uwierzytelniania, a ich ocena CVSS v4 wynosi 9.2. Badacze zademonstrowali atak na WordPressa, Drupala, Joomlę, Magento, Nextclouda, Laravela, Symfony i inne aplikacje.

@@ -3,6 +3,7 @@ title: "PHP2Shell и RoadRunner"
 date: 2026-10-27
 description: "Почему уязвимости PHP2Shell (CVE-2026-109618 и CVE-2026-109619) не затрагивают RoadRunner, как другие серверы запускают PHP и что делать, если у вас WordPress."
 author: Aleksei Gagarin
+image: /blog/php2shell/preview.jpg
 ---
 
 21 октября PHP выпустил внеплановые обновления 8.5.12, 8.4.27, 8.3.36 и 8.2.35. Они закрывают две критические уязвимости, которые авторы назвали [PHP2Shell](https://calif.io/php2shell/): [CVE-2026-109618](https://github.com/php/php-src/security/advisories/GHSA-w8hw-w9fx-j79w) и [CVE-2026-109619](https://github.com/php/php-src/security/advisories/GHSA-6wmf-4rv5-p3rp). Обе дают удалённое выполнение кода без авторизации, оценка CVSS v4 — 9.2. Исследователи показали атаку на WordPress, Drupal, Joomla, Magento, Nextcloud, Laravel, Symfony и другие приложения.

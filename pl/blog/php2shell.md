@@ -8,6 +8,14 @@ image: /blog/php2shell/preview.jpg
 
 21 października zespół PHP opublikował nieplanowane wydania 8.5.12, 8.4.27, 8.3.36 i 8.2.35. Łatają one dwie krytyczne podatności, które ich odkrywcy nazwali [PHP2Shell](https://calif.io/php2shell/): [CVE-2026-109618](https://github.com/php/php-src/security/advisories/GHSA-w8hw-w9fx-j79w) i [CVE-2026-109619](https://github.com/php/php-src/security/advisories/GHSA-6wmf-4rv5-p3rp). Obie pozwalają na zdalne wykonanie kodu bez uwierzytelniania, a ich ocena CVSS v4 wynosi 9.2. Badacze zademonstrowali atak na WordPressa, Drupala, Joomlę, Magento, Nextclouda, Laravela, Symfony i inne aplikacje.
 
+::: details Ta podatność nie jest teoretyczna
+Wiele osób uznało, że PHP2Shell jest zbyt skomplikowana, by dało się ją wykorzystać w prawdziwym ataku. Jeden z użytkowników Hacker News postanowił to sprawdzić i ogłosił wyzwanie [stealmybitcoin.com](https://stealmybitcoin.com/): na serwerze z niezałatanym PHP leżał portfel z prawdziwymi bitcoinami, a zabrać je mógł każdy, komu uda się włamać na serwer. Portfel z 0.025 BTC (około 2000 dolarów) opróżniono 25 października. Zwycięzca opublikował [analizę](https://github.com/KillaBoi/StealMyBitcoin-PoC), która opisuje łańcuch od przekroczenia `memory_limit` podczas parsowania `multipart` aż po wykonanie polecenia w workerze PHP, który przeżył fatal error. Przebieg wyzwania szczegółowo omówił LiveOverflow:
+
+<iframe class="video-embed" src="https://www.youtube-nocookie.com/embed/VhNiMWtOutw" title="The $2,000 php2shell Challenge Was Unexploitable" loading="lazy" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
+Trudno jednak nazwać ten atak prostym. Wymaga konkretnej kompilacji PHP, wygrania wyścigu między workerami i poznania adresów w pamięci procesu, które system przy każdym uruchomieniu wybiera losowo. W środowisku testowym autora analizy atak powiódł się w 7 próbach na 10. Na [Hacker News](https://news.ycombinator.com/item?id=50224916) dyskutowano też o tym, na ile realistyczne było to środowisko: PHP działało tam na wbudowanym serwerze deweloperskim `php -S`. Czy atak zadziała na obciążonym serwerze produkcyjnym, pozostaje pytaniem otwartym. Nie da się go jednak już nazwać niemożliwym.
+:::
+
 Najciekawsze w tych podatnościach jest to, gdzie się kryją. To nie kod frameworków ani nowe funkcje języka, tylko serwerowa część samego PHP: parsowanie treści żądania POST i przesyłanie plików. Plik `main/rfc1867.c`, który parsuje `multipart/form-data`, trafił do repozytorium w 1999 roku, a `main/php_variables.c` w 2000.
 
 ::: warning
@@ -18,7 +26,7 @@ Zaktualizuj PHP, niezależnie od tego, jakiego serwera używasz. Poniżej wyjaś
 
 Wszystkie warianty ataku opierają się na tym samym pomyśle. Atakujący doprowadza do tego, że PHP pada z fatal errorem w chwili, gdy struktury w pamięci są wypełnione tylko częściowo. Najczęściej służy do tego żądanie, które zużywa więcej niż `memory_limit`. Nadają się głęboko zagnieżdżone pola formularza w `multipart` albo treść bez zadeklarowanej długości: chunked w HTTP/1.1 lub HTTP/2 bez `Content-Length`. Kontrola `post_max_size` bierze pod uwagę zadeklarowaną długość i przepuszcza takie dane.
 
-Calif opisuje trzy ścieżki ataku:
+Podatności znalazł zespół badawczy [Calif](https://calif.io/) wspólnie z OpenAI i Wiz. Calif opisuje trzy ścieżki ataku:
 
 1. **Parsowanie POST.** Pamięć kończy się, gdy PHP na starcie żądania parsuje treść `application/x-www-form-urlencoded` lub `multipart/form-data`. W tablicy haszującej zostaje element, który jest już uwzględniony, ale którego klucz nie został jeszcze utworzony.
 2. **`session.upload_progress`.** Część `multipart` z plikiem uruchamia sesję jeszcze w trakcie parsowania treści. Fatal error przerywa start żądania i sesja nie zostaje zamknięta. Jej dane wskazują na pamięć, która została już zwolniona.

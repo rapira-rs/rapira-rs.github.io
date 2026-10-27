@@ -8,6 +8,14 @@ image: /blog/php2shell/preview.jpg
 
 On October 21, PHP released unscheduled updates 8.5.12, 8.4.27, 8.3.36, and 8.2.35. They fix two critical vulnerabilities that the researchers named [PHP2Shell](https://calif.io/php2shell/): [CVE-2026-109618](https://github.com/php/php-src/security/advisories/GHSA-w8hw-w9fx-j79w) and [CVE-2026-109619](https://github.com/php/php-src/security/advisories/GHSA-6wmf-4rv5-p3rp). Both allow unauthenticated remote code execution and have a CVSS v4 score of 9.2. The researchers demonstrated the attack on WordPress, Drupal, Joomla, Magento, Nextcloud, Laravel, Symfony, and other applications.
 
+::: details The vulnerability is not theoretical
+Many people thought PHP2Shell was too complex for a real attack. A Hacker News user decided to test this and launched the [stealmybitcoin.com](https://stealmybitcoin.com/) challenge. A server with unpatched PHP held a wallet with real bitcoin, and anyone who hacked the server could take it. On October 25, someone emptied the wallet, which held 0.025 BTC (about $2,000). The winner published a [write-up](https://github.com/KillaBoi/StealMyBitcoin-PoC) that shows a chain from a `memory_limit` overflow during `multipart` parsing to command execution in a surviving PHP worker. LiveOverflow explains in detail how the challenge went:
+
+<iframe class="video-embed" src="https://www.youtube-nocookie.com/embed/VhNiMWtOutw" title="The $2,000 php2shell Challenge Was Unexploitable" loading="lazy" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
+The attack is not simple, though. It depends on a specific PHP build. The attacker must also win a race between workers and find addresses in the process memory that the system picks at random each time the process starts. On the write-up author's test setup, the attack worked in 7 of 10 runs. On [Hacker News](https://news.ycombinator.com/item?id=50224916), people also argued about how realistic the setup was: PHP ran under the built-in `php -S` development server. Whether the attack works on a busy production server is an open question, but nobody can call it impossible anymore.
+:::
+
 The most interesting thing about these vulnerabilities is their location. They are not in framework code or in new language features. They are in the server-side code of PHP itself: the code that parses POST request bodies and file uploads. The file `main/rfc1867.c`, which parses `multipart/form-data`, was added to the repository in 1999. `main/php_variables.c` followed in 2000.
 
 ::: warning
@@ -18,7 +26,7 @@ Update PHP, whatever server you use. The sections below explain why some ways of
 
 All variants of the attack share one idea. The attacker makes PHP fail with a fatal error while data structures in memory are only partly filled. Most often, the request makes PHP use more memory than `memory_limit`. Deeply nested form fields in `multipart` can do this. A body without a declared length can do it too: a chunked body in HTTP/1.1, or an HTTP/2 body without `Content-Length`. The `post_max_size` check looks at the declared length and lets such data through.
 
-Calif describes three attack paths:
+The research team [Calif](https://calif.io/) found the vulnerabilities together with OpenAI and Wiz. Calif describes three attack paths:
 
 1. **POST parsing.** PHP runs out of memory while it parses an `application/x-www-form-urlencoded` or `multipart/form-data` body at request startup. The hash table keeps an element that is already counted but has no key yet.
 2. **`session.upload_progress`.** A file part of a `multipart` body starts a session while PHP is still parsing the body. The fatal error interrupts request startup, and the session does not close. Its data points to memory that PHP has already freed.

@@ -8,6 +8,14 @@ image: /blog/php2shell/preview.jpg
 
 El 21 de octubre, PHP publicó las actualizaciones extraordinarias 8.5.12, 8.4.27, 8.3.36 y 8.2.35. Corrigen dos vulnerabilidades críticas que sus autores bautizaron como [PHP2Shell](https://calif.io/php2shell/): [CVE-2026-109618](https://github.com/php/php-src/security/advisories/GHSA-w8hw-w9fx-j79w) y [CVE-2026-109619](https://github.com/php/php-src/security/advisories/GHSA-6wmf-4rv5-p3rp). Ambas permiten la ejecución remota de código sin autenticación, con una puntuación CVSS v4 de 9.2. Los investigadores demostraron el ataque contra WordPress, Drupal, Joomla, Magento, Nextcloud, Laravel, Symfony y otras aplicaciones.
 
+::: details La vulnerabilidad no es teórica
+Muchos pensaron que PHP2Shell era demasiado complicada para un ataque real. Un usuario de Hacker News quiso comprobarlo y lanzó el reto [stealmybitcoin.com](https://stealmybitcoin.com/): en un servidor con PHP sin parchear había un monedero con bitcoins reales, y cualquiera que lograra comprometer el servidor podía llevárselos. El monedero, con 0.025 BTC (unos 2000 dólares), quedó vacío el 25 de octubre. El ganador publicó un [análisis](https://github.com/KillaBoi/StealMyBitcoin-PoC): construyó una cadena que va desde superar `memory_limit` al parsear `multipart` hasta ejecutar un comando en un worker de PHP superviviente. LiveOverflow repasó en detalle cómo se desarrolló el reto:
+
+<iframe class="video-embed" src="https://www.youtube-nocookie.com/embed/VhNiMWtOutw" title="The $2,000 php2shell Challenge Was Unexploitable" loading="lazy" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
+Eso sí, el ataque no tiene nada de sencillo. Depende de una compilación concreta de PHP, exige ganar una condición de carrera entre workers y averiguar direcciones de memoria del proceso que el sistema elige al azar en cada arranque. En el entorno de pruebas del autor del análisis funcionó en 7 de cada 10 ejecuciones. En [Hacker News](https://news.ycombinator.com/item?id=50224916) también se debatió hasta qué punto era realista ese entorno: PHP se ejecutaba con el servidor de desarrollo integrado `php -S`. Está por ver si el ataque funcionaría en un servidor de producción con mucha carga. Pero ya nadie puede decir que sea imposible.
+:::
+
 Lo más interesante de estas vulnerabilidades es dónde se encuentran. No están en el código de los frameworks ni en funcionalidades recientes del lenguaje. Están en la parte de servidor del propio PHP: el parseo del cuerpo de las peticiones POST y la subida de archivos. El fichero `main/rfc1867.c`, que parsea `multipart/form-data`, llegó al repositorio en 1999, y `main/php_variables.c`, en 2000.
 
 ::: warning
@@ -18,7 +26,7 @@ Actualiza PHP, uses el servidor que uses. A continuación explicamos por qué un
 
 Todas las variantes del ataque comparten la misma idea. El atacante hace que PHP caiga con un fatal error justo cuando las estructuras en memoria solo están rellenas a medias. Lo más habitual es conseguirlo con una petición que consume más de `memory_limit`. Sirven para ello campos de formulario profundamente anidados en un `multipart` o un cuerpo sin longitud declarada: chunked en HTTP/1.1, o HTTP/2 sin `Content-Length`. La comprobación de `post_max_size` se fija en la longitud declarada, así que deja pasar estos datos.
 
-Calif describe tres vías de ataque:
+Las vulnerabilidades las descubrió el equipo de investigación [Calif](https://calif.io/) junto con OpenAI y Wiz. Calif describe tres vías de ataque:
 
 1. **Parseo de POST.** La memoria se agota mientras PHP parsea un cuerpo `application/x-www-form-urlencoded` o `multipart/form-data` al arrancar la petición. En la tabla hash queda un elemento que ya está contabilizado, pero cuya clave todavía no se ha creado.
 2. **`session.upload_progress`.** Una parte `multipart` con un archivo inicia la sesión en pleno parseo del cuerpo. El fatal error interrumpe el arranque de la petición y la sesión no llega a cerrarse. Sus datos apuntan a memoria ya liberada.

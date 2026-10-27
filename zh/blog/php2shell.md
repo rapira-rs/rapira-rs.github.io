@@ -8,6 +8,14 @@ image: /blog/php2shell/preview.jpg
 
 10 月 21 日，PHP 发布了计划外的更新版本 8.5.12、8.4.27、8.3.36 和 8.2.35，修复了两个严重漏洞：[CVE-2026-109618](https://github.com/php/php-src/security/advisories/GHSA-w8hw-w9fx-j79w) 和 [CVE-2026-109619](https://github.com/php/php-src/security/advisories/GHSA-6wmf-4rv5-p3rp)，发现者将其命名为 [PHP2Shell](https://calif.io/php2shell/)。两个漏洞都能让攻击者无需认证即可远程执行代码，CVSS v4 评分为 9.2。研究人员演示了针对 WordPress、Drupal、Joomla、Magento、Nextcloud、Laravel、Symfony 等应用的攻击。
 
+::: details 漏洞并非纸上谈兵
+不少人认为 PHP2Shell 太过复杂，难以用于实际攻击。一位 Hacker News 用户决定验证一下，发起了 [stealmybitcoin.com](https://stealmybitcoin.com/) 挑战：一台运行未打补丁 PHP 的服务器上放着一个装有真实比特币的钱包，谁能攻破服务器，币就归谁。10 月 25 日，这个存有 0.025 BTC（约 2000 美元）的钱包被清空。获胜者公开了[分析报告](https://github.com/KillaBoi/StealMyBitcoin-PoC)，讲解了自己构造的利用链：从解析 `multipart` 时超出 `memory_limit` 开始，一直到在存活下来的 PHP worker 中执行命令。LiveOverflow 详细复盘了这次挑战的经过：
+
+<iframe class="video-embed" src="https://www.youtube-nocookie.com/embed/VhNiMWtOutw" title="The $2,000 php2shell Challenge Was Unexploitable" loading="lazy" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
+不过，这种攻击也谈不上简单。它依赖特定的 PHP 构建，需要在 worker 之间赢得竞态，还要摸清进程内存中的地址，而这些地址在每次启动时都由系统随机分配。在报告作者的测试环境中，攻击 10 次成功了 7 次。[Hacker News](https://news.ycombinator.com/item?id=50224916) 上也有人争论这个测试环境是否贴近现实：其中的 PHP 运行在内置开发服务器 `php -S` 下。这种攻击在高负载的生产环境中能否奏效，目前仍无定论。但再说它不可能实现，已经站不住脚了。
+:::
+
 这两个漏洞最值得关注的是它们所在的位置。问题既不在框架代码里，也不在语言的新特性里，而是在 PHP 自身的服务端部分：POST 请求体解析和文件上传。负责解析 `multipart/form-data` 的 `main/rfc1867.c` 早在 1999 年就进了代码仓库，`main/php_variables.c` 则是 2000 年。
 
 ::: warning
@@ -18,7 +26,7 @@ image: /blog/php2shell/preview.jpg
 
 各种攻击方式的核心思路是一样的：攻击者设法让 PHP 在内存结构只填充了一部分时因 fatal error 退出。最常见的手段是让请求消耗超过 `memory_limit` 的内存，比如在 `multipart` 中构造深度嵌套的表单字段，或者发送未声明长度的请求体：HTTP/1.1 的 chunked 传输，或不带 `Content-Length` 的 HTTP/2。`post_max_size` 检查只看声明的长度，所以这类数据能绕过它。
 
-Calif 描述了三条攻击路径：
+这些漏洞由安全研究团队 [Calif](https://calif.io/) 与 OpenAI、Wiz 共同发现。Calif 描述了三条攻击路径：
 
 1. **POST 解析。** PHP 在请求启动阶段解析 `application/x-www-form-urlencoded` 或 `multipart/form-data` 请求体时内存耗尽，哈希表中留下一个已计数、但键还没创建的元素。
 2. **`session.upload_progress`。** 带文件的 `multipart` 分段会在解析请求体的过程中直接启动会话。fatal error 打断了请求启动，会话没能正常结束，会话数据指向已经释放的内存。

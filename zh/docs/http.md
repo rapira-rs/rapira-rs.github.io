@@ -76,7 +76,7 @@ HTTP 允许重复字段，但 CGI 为每个变量提供一个值。Rapira 根据
 - **列表字段：** Rapira 使用逗号和空格连接值。例如，两行 `Accept` 变为 `text/*, image/*`。[RFC 9110 §5.3](https://www.rfc-editor.org/rfc/rfc9110#section-5.3) 允许逗号分隔字段使用此格式。
 - **`Cookie`：** Rapira 使用分号和空格连接值。PHP cookie 解析器需要此格式。
 - **单值字段：** Rapira 保留第一行 `Authorization`、`Proxy-Authorization`、`Content-Type`、`Referer` 或 `From`。它忽略其他行，因为合并后的值含义不同。
-- **`Host`：** Rapira 对多个 `Host` 行返回 `400`。[RFC 9112 §3.2](https://www.rfc-editor.org/rfc/rfc9112#section-3.2) 要求此行为。
+- **`Host`：** Rapira 对多个 `Host` 行返回 `400`。对于不符合 `uri-host [ ":" port ]` 的 `Host` 值（[RFC 9110 §7.2](https://www.rfc-editor.org/rfc/rfc9110#section-7.2)），它也返回 `400`，例如 `x/admin?` 或 `user@host`。Rapira 只检查字符，不检查 `[...]` 中的 IP 地址，也不检查 `%` 后面的十六进制数字。[RFC 9112 §3.2](https://www.rfc-editor.org/rfc/rfc9112#section-3.2) 要求此行为。
 
 在此处理之前，如果多行 `Content-Length` 的值不同，Rapira 返回 `400`。
 
@@ -134,11 +134,11 @@ Rapira 原样发送其他 PHP 字段，例如重复的 `Set-Cookie`、`Vary` 和
 
 | 状态码 | 原因 |
 | --- | --- |
-| `400` | 请求有多个 `Host` 字段。HTTP/1.1 请求没有 `Host` 字段或 `Host` 字段为空。字段名不安全，并且设置了 `unsafe_field_names = "reject"`。请求体读取失败。在 Dispatcher 模式下，multipart 请求体无效。 |
+| `400` | 请求有多个 `Host` 字段。HTTP/1.1 请求没有 `Host` 字段或 `Host` 字段为空。`Host` 值或绝对形式请求目标的 authority 不符合 `uri-host [ ":" port ]`，例如 `GET http://b:xyz/`。字段名不安全，并且设置了 `unsafe_field_names = "reject"`。请求体读取失败。在 Dispatcher 模式下，multipart 请求体无效。 |
 | `408` | 在 `http.keepalive_timeout_secs` 内没有收到请求体数据。 |
 | `413` | 请求体大于 `http.max_body_size_mb`，或 multipart 请求体超过 `[http.uploads]` 的某个上限。 |
 | `500` | worker 池已停止。在 Dispatcher 模式下，Rapira 无法将上传的文件写入 `[http.uploads].dir`。 |
-| `501` | 请求使用 `CONNECT`。 |
+| `501` | 请求使用 `CONNECT`，或其 `Transfer-Encoding` 字段在最后的 `chunked` 之前列出了传输编码，例如 `gzip, chunked` 或 `chunked, chunked`。 |
 | `502` | PHP worker 在发送响应头前停止。 |
 | `503` | worker 队列持续满 30 秒。 |
 

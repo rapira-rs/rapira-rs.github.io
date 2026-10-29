@@ -57,7 +57,7 @@ forbid = [".php"]   # 可选。此列表替换默认值。
 - `forbid` 检查作用于百分号解码后的路径，并且不区分大小写。当 `.php` 被禁止时，`/index.php`、`/index%2Ephp` 和 `/Upper.PHP` 都交给 PHP。
 - 如果路径中的百分号编码解码后不是 UTF-8，该路径交给 PHP。例如，`/%FF.css` 交给 PHP。
 - 目录 URL 交给 PHP。中间件不提供索引文件。
-- 文件不存在、权限错误或无效文件名都交给 PHP。无效文件名是指名称过长或包含 NUL 字节。
+- 文件不存在、FIFO、权限错误或无效文件名都交给 PHP。无效文件名是指名称过长或包含 NUL 字节。
 - 其他读取失败返回 `500`。PHP 不会收到该请求，Rapira 在 `http` target 上记录该失败。
 
 交给 PHP 的请求不做任何更改。PHP 从请求中读取哪些内容，请参阅 [HTTP 请求与响应](/zh/docs/http)。
@@ -72,7 +72,7 @@ PHP 控制 URL 空间，因此目录 URL 是应用路由。自动索引文件会
 
 中间件根据文件扩展名设置 `Content-Type`。没有已知扩展名的文件得到 `application/octet-stream`。
 
-响应包含 `ETag` 和 `Last-Modified` 字段。中间件根据文件修改时间创建 `Last-Modified`。它根据修改时间和文件长度创建 `ETag`。没有修改时间的文件不会得到这两个字段。
+响应包含 `ETag` 和 `Last-Modified` 字段。中间件根据文件修改时间创建 `Last-Modified`。它根据修改时间和文件长度创建 `ETag`。没有修改时间的文件不会得到这两个字段。早于 1970 年或晚于 9999 年的修改时间视为没有修改时间。
 
 当 `If-None-Match` 与 `ETag` 匹配时，中间件返回 `304 Not Modified`。请求没有 `If-None-Match` 时，如果文件修改时间不晚于 `If-Modified-Since` 的时间，请求得到 `304 Not Modified`。此响应只包含 `ETag` 和 `Last-Modified`，没有响应体。
 

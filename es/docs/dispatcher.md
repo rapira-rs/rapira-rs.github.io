@@ -113,7 +113,7 @@ Si el script recibió al menos una petición, Rapira ejecuta de nuevo el script 
 | `target` | `string` | El destino de la petición. Para una petición en forma de origen, es la ruta y la consulta, por ejemplo `/a?b=1`. |
 | `authority` | `?string` | El valor de `Host`. Es `null` para una petición HTTP/1.0 sin `Host`. |
 | `protocol` | `string` | `HTTP/1.1` o `HTTP/1.0`. |
-| `headers` | `array<string, list<string>>` | Los campos de la petición. Los nombres están en minúsculas. Cada nombre tiene una lista de valores. |
+| `headers` | `array<int\|string, list<string>>` | Los campos de la petición. Los nombres están en minúsculas. Cada nombre tiene una lista de valores. PHP guarda un nombre decimal canónico, como `123`, como una clave int. Un nombre de solo dígitos con un cero inicial, como `01`, sigue siendo un string. |
 | `body` | `string` o `Multipart` | El cuerpo completo, o un `Rapira\Http\Multipart` para un cuerpo `multipart/form-data`. |
 | `remote` | `InetAddress` o `UnixAddress` | La dirección del cliente. `Rapira\InetAddress` tiene `ip` y `port`. `Rapira\UnixAddress` tiene `path`. |
 | `server` | `InetAddress` o `UnixAddress` | La dirección de la escucha. |
@@ -126,7 +126,7 @@ En modo Dispatcher, `$_SERVER` conserva los valores del inicio del script de ent
 
 ## La respuesta
 
-`Rapira\Http\Exchange` tiene estos métodos. `$headers` y `$trailers` usan la forma `array<string, list<string>>`: cada nombre de campo tiene una lista de valores.
+`Rapira\Http\Exchange` tiene estos métodos. `$headers` y `$trailers` usan la forma `array<int|string, list<string>>`: cada nombre de campo tiene una lista de valores. Rapira envía una clave int como su texto decimal, por lo que `writeHead()` acepta el array `headers` de la petición sin cambios.
 
 | Método | Comportamiento |
 | --- | --- |
@@ -156,6 +156,10 @@ Rapira analiza un cuerpo `multipart/form-data` antes de que PHP reciba la petici
 | `FormField` | `name`, `value`, `headers`. |
 | `UploadedFile` | `name`, `clientFilename`, `clientMediaType`, `headers`, `tmpPath`, `size`. |
 
+Dentro de un parámetro `name` o `filename` entre comillas de `content-disposition`, Rapira lee `\\` como `\` y `\"` como `"`, como hace PHP en los modos Classic y Worker. Rapira conserva sin cambios cualquier otra `\`.
+
+Una `\` al final de un valor entre comillas escapa la comilla de cierre. Un navegador envía un valor así para un nombre de campo o un nombre de archivo que termina en `\`. Rapira devuelve entonces `400`, o lee los parámetros siguientes como parte del valor.
+
 Rapira escribe cada parte de archivo en un archivo temporal en el subdirectorio `rapira-spool-<pid>` de `http.uploads.dir`. `UploadedFile::$tmpPath` contiene la ruta de este archivo. Rapira elimina los archivos temporales cuando la respuesta finaliza. Para conservar un archivo, muévelo con `rename()` antes de que la respuesta finalice.
 
 Rapira devuelve `400` para un cuerpo mal formado. Devuelve `413` cuando el cuerpo supera un límite. El script no recibe estas peticiones. Consulta [La tabla `[http.uploads]`](/es/docs/configuration#la-tabla-http-uploads) para ver los límites.
@@ -166,10 +170,12 @@ Rapira devuelve `400` para un cuerpo mal formado. Devuelve `413` cuando el cuerp
 
 El host abre el archivo. PHP `open_basedir` no restringe esta operación. La raíz de sendfile configurada restringe la ruta.
 
+Rapira compara la ruta con la raíz y después abre el archivo en un segundo paso. Un usuario local que puede escribir en la raíz o en un directorio dentro de ella puede colocar un enlace simbólico en la ruta entre los dos pasos. La respuesta puede contener entonces un archivo fuera de la raíz que el worker puede leer. Asegúrate de que solo usuarios de confianza puedan escribir en la raíz de sendfile y en sus subdirectorios.
+
 La llamada lanza `Rapira\Http\Exception\FileNotSendableException` y no escribe datos en estas condiciones:
 
 - La ruta está fuera de la raíz.
-- El archivo no existe o no es un archivo regular.
+- El archivo no existe o no es un archivo regular, por ejemplo un directorio o un FIFO. La llamada no espera a un FIFO.
 - El desplazamiento o la longitud supera el final del archivo.
 
 Rapira no establece `content-type`, `etag` ni campos de rango para el archivo. Establece los campos necesarios con `writeHead()`.

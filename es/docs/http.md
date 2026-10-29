@@ -76,7 +76,7 @@ HTTP permite campos repetidos, pero CGI proporciona un valor por variable. Rapir
 - **Campos de lista:** Rapira une los valores con una coma y un espacio. Por ejemplo, dos líneas `Accept` se convierten en `text/*, image/*`. [RFC 9110 §5.3](https://www.rfc-editor.org/rfc/rfc9110#section-5.3) permite este formato para campos separados por comas.
 - **`Cookie`:** Rapira une los valores con un punto y coma y un espacio. El analizador de cookies de PHP espera este formato.
 - **Campos de valor único:** Rapira conserva la primera línea `Authorization`, `Proxy-Authorization`, `Content-Type`, `Referer` o `From`. Ignora las demás líneas, porque un valor combinado tiene otro significado.
-- **`Host`:** Rapira devuelve `400` si hay más de una línea `Host`. [RFC 9112 §3.2](https://www.rfc-editor.org/rfc/rfc9112#section-3.2) exige este comportamiento.
+- **`Host`:** Rapira devuelve `400` si hay más de una línea `Host`. También devuelve `400` para un valor de `Host` que no es `uri-host [ ":" port ]` ([RFC 9110 §7.2](https://www.rfc-editor.org/rfc/rfc9110#section-7.2)), por ejemplo `x/admin?` o `user@host`. Rapira solo comprueba los caracteres. No comprueba la dirección IP dentro de `[...]` ni los dígitos hexadecimales después de `%`. [RFC 9112 §3.2](https://www.rfc-editor.org/rfc/rfc9112#section-3.2) exige este comportamiento.
 
 Antes de este procesamiento, Rapira devuelve `400` para líneas `Content-Length` con valores distintos.
 
@@ -134,11 +134,11 @@ El servidor HTTP envía una respuesta de error cuando una petición no llega a P
 
 | Estado | Causa |
 | --- | --- |
-| `400` | La petición tiene más de un campo `Host`. Una petición HTTP/1.1 no tiene campo `Host` o tiene un campo `Host` vacío. Un nombre de campo no es seguro y `unsafe_field_names = "reject"` está configurado. La lectura del cuerpo falló. En modo Dispatcher, un cuerpo multipart no es válido. |
+| `400` | La petición tiene más de un campo `Host`. Una petición HTTP/1.1 no tiene campo `Host` o tiene un campo `Host` vacío. El valor de `Host` o la autoridad de un objetivo en forma absoluta no es `uri-host [ ":" port ]`, por ejemplo `GET http://b:xyz/`. Un nombre de campo no es seguro y `unsafe_field_names = "reject"` está configurado. La lectura del cuerpo falló. En modo Dispatcher, un cuerpo multipart no es válido. |
 | `408` | No llegaron datos del cuerpo dentro de `http.keepalive_timeout_secs`. |
 | `413` | El cuerpo es mayor que `http.max_body_size_mb`, o un cuerpo multipart supera un límite de `[http.uploads]`. |
 | `500` | El pool de workers se detuvo. En modo Dispatcher, Rapira no puede escribir un archivo subido en `[http.uploads].dir`. |
-| `501` | La petición usa `CONNECT`. |
+| `501` | La petición usa `CONNECT`, o su campo `Transfer-Encoding` indica una codificación de transferencia antes del `chunked` final, como `gzip, chunked` o `chunked, chunked`. |
 | `502` | El worker de PHP se detuvo antes de enviar las cabeceras de la respuesta. |
 | `503` | La cola de workers estuvo llena durante 30 segundos. |
 

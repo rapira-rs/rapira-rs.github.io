@@ -57,7 +57,7 @@ Middleware stosuje te reguły ścieżki:
 - Kontrola `forbid` działa na ścieżce po dekodowaniu procentowym i nie rozróżnia wielkości liter. Gdy `.php` jest zabronione, `/index.php`, `/index%2Ephp` i `/Upper.PHP` idą do PHP.
 - Ścieżka z kodowaniem procentowym, które nie dekoduje się do UTF-8, idzie do PHP. Na przykład `/%FF.css` idzie do PHP.
 - URL katalogu idzie do PHP. Middleware nie serwuje pliku indeksu.
-- Brak pliku, błąd uprawnień lub nieprawidłowa nazwa pliku powoduje, że żądanie idzie do PHP. Nieprawidłowa nazwa pliku jest za długa lub zawiera bajt NUL.
+- Brak pliku, FIFO, błąd uprawnień lub nieprawidłowa nazwa pliku powoduje, że żądanie idzie do PHP. Nieprawidłowa nazwa pliku jest za długa lub zawiera bajt NUL.
 - Każdy inny błąd odczytu zwraca `500`. PHP nie otrzymuje żądania, a Rapira zapisuje błąd w logu z celem `http`.
 
 Żądanie, które idzie do PHP, dociera bez zmian. Co PHP z niego czyta, opisuje strona [Żądania i odpowiedzi HTTP](/pl/docs/http).
@@ -72,7 +72,7 @@ Pola opisane niżej występują w odpowiedzi, która serwuje plik. Odpowiedź `5
 
 Middleware ustawia `Content-Type` na podstawie rozszerzenia pliku. Nazwa bez znanego rozszerzenia dostaje `application/octet-stream`.
 
-Odpowiedź zawiera pola `ETag` i `Last-Modified`. Middleware tworzy `Last-Modified` z czasu modyfikacji pliku. Tworzy `ETag` z czasu modyfikacji i długości pliku. Plik bez czasu modyfikacji nie dostaje żadnego z tych pól.
+Odpowiedź zawiera pola `ETag` i `Last-Modified`. Middleware tworzy `Last-Modified` z czasu modyfikacji pliku. Tworzy `ETag` z czasu modyfikacji i długości pliku. Plik bez czasu modyfikacji nie dostaje żadnego z tych pól. Czas modyfikacji przed rokiem 1970 lub po roku 9999 jest traktowany jak brak czasu modyfikacji.
 
 Middleware zwraca `304 Not Modified`, gdy `If-None-Match` pasuje do `ETag`. Żądanie bez `If-None-Match` dostaje `304 Not Modified`, gdy czas modyfikacji pliku nie jest późniejszy niż czas z `If-Modified-Since`. Ta odpowiedź zawiera tylko `ETag` i `Last-Modified`. Nie ma treści.
 

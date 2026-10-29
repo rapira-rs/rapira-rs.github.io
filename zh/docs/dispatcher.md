@@ -113,7 +113,7 @@ rapira serve rapira.toml
 | `target` | `string` | 请求目标。对于 origin-form 请求，它是路径和查询，例如 `/a?b=1`。 |
 | `authority` | `?string` | `Host` 的值。对于没有 `Host` 的 HTTP/1.0 请求，它为 `null`。 |
 | `protocol` | `string` | `HTTP/1.1` 或 `HTTP/1.0`。 |
-| `headers` | `array<string, list<string>>` | 请求字段。名称为小写。每个名称对应一个值列表。 |
+| `headers` | `array<int\|string, list<string>>` | 请求字段。名称为小写。每个名称对应一个值列表。PHP 将规范的十进制名称（例如 `123`）存储为 int 键。以零开头的纯数字名称（例如 `01`）保持为字符串。 |
 | `body` | `string` 或 `Multipart` | 完整的请求体；对于 `multipart/form-data` 请求体，是 `Rapira\Http\Multipart`。 |
 | `remote` | `InetAddress` 或 `UnixAddress` | 客户端地址。`Rapira\InetAddress` 有 `ip` 和 `port`。`Rapira\UnixAddress` 有 `path`。 |
 | `server` | `InetAddress` 或 `UnixAddress` | 监听器地址。 |
@@ -126,7 +126,7 @@ rapira serve rapira.toml
 
 ## 响应
 
-`Rapira\Http\Exchange` 有以下方法。`$headers` 和 `$trailers` 使用 `array<string, list<string>>` 结构：每个字段名称对应一个值列表。
+`Rapira\Http\Exchange` 有以下方法。`$headers` 和 `$trailers` 使用 `array<int|string, list<string>>` 结构：每个字段名称对应一个值列表。Rapira 将 int 键作为其十进制文本发送，因此 `writeHead()` 可以原样接受请求的 `headers` 数组。
 
 | 方法 | 行为 |
 | --- | --- |
@@ -156,6 +156,10 @@ rapira serve rapira.toml
 | `FormField` | `name`、`value`、`headers`。 |
 | `UploadedFile` | `name`、`clientFilename`、`clientMediaType`、`headers`、`tmpPath`、`size`。 |
 
+在 `content-disposition` 中带引号的 `name` 或 `filename` 参数内，Rapira 将 `\\` 读作 `\`，将 `\"` 读作 `"`，与 PHP 在 Classic 和 Worker 模式下的处理相同。Rapira 原样保留其他所有 `\`。
+
+带引号的值末尾的 `\` 会转义结束引号。字段名或文件名以 `\` 结尾时，浏览器会发送这样的值。此时 Rapira 返回 `400`，或将后面的参数读入该值。
+
 Rapira 将每个文件部分写入 `http.uploads.dir` 的 `rapira-spool-<pid>` 子目录中的临时文件。`UploadedFile::$tmpPath` 包含此文件的路径。响应结束时，Rapira 删除临时文件。要保留文件，请在响应结束前用 `rename()` 移动它。
 
 对于格式错误的请求体，Rapira 返回 `400`。请求体超过限制时，它返回 `413`。脚本不会收到这些请求。限制请参阅[`[http.uploads]` 表](/zh/docs/configuration#http-uploads-表)。
@@ -166,10 +170,12 @@ Rapira 将每个文件部分写入 `http.uploads.dir` 的 `rapira-spool-<pid>` �
 
 文件由宿主打开。PHP `open_basedir` 不限制此操作。配置的 sendfile 根目录限制文件路径。
 
+Rapira 先将路径与根目录比较，然后在第二步中打开文件。能够写入根目录或其下任一目录的本地用户，可以在这两步之间将符号链接放入路径。此时响应可能包含根目录之外、worker 可以读取的文件。请确保只有受信任的用户可以写入 sendfile 根目录及其子目录。
+
 在以下情况下，该调用抛出 `Rapira\Http\Exception\FileNotSendableException`，并且不写入数据：
 
 - 路径在根目录之外。
-- 文件不存在，或不是普通文件。
+- 文件不存在，或不是普通文件，例如目录或 FIFO。该调用不等待 FIFO。
 - 偏移量或长度超过文件末尾。
 
 Rapira 不为文件设置 `content-type`、`etag` 或范围字段。请用 `writeHead()` 设置需要的字段。

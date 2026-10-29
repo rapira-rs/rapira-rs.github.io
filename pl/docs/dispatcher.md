@@ -113,7 +113,7 @@ Jeśli skrypt odebrał co najmniej jedno żądanie, Rapira ponownie uruchamia sk
 | `target` | `string` | Cel żądania. Dla żądania w formie origin-form to ścieżka i zapytanie, na przykład `/a?b=1`. |
 | `authority` | `?string` | Wartość `Host`. Dla żądania HTTP/1.0 bez `Host` jest to `null`. |
 | `protocol` | `string` | `HTTP/1.1` lub `HTTP/1.0`. |
-| `headers` | `array<string, list<string>>` | Pola żądania. Nazwy są pisane małymi literami. Każda nazwa ma listę wartości. |
+| `headers` | `array<int\|string, list<string>>` | Pola żądania. Nazwy są pisane małymi literami. Każda nazwa ma listę wartości. PHP zapisuje kanoniczną nazwę dziesiętną, na przykład `123`, jako klucz int. Nazwa z samych cyfr z wiodącym zerem, na przykład `01`, pozostaje ciągiem znaków. |
 | `body` | `string` lub `Multipart` | Pełna treść albo `Rapira\Http\Multipart` dla treści `multipart/form-data`. |
 | `remote` | `InetAddress` lub `UnixAddress` | Adres klienta. `Rapira\InetAddress` ma `ip` i `port`. `Rapira\UnixAddress` ma `path`. |
 | `server` | `InetAddress` lub `UnixAddress` | Adres nasłuchu. |
@@ -126,7 +126,7 @@ W trybie Dispatcher `$_SERVER` zachowuje wartości ze startu skryptu wejścioweg
 
 ## Odpowiedź
 
-`Rapira\Http\Exchange` ma te metody. `$headers` i `$trailers` mają kształt `array<string, list<string>>`: każda nazwa pola ma listę wartości.
+`Rapira\Http\Exchange` ma te metody. `$headers` i `$trailers` mają kształt `array<int|string, list<string>>`: każda nazwa pola ma listę wartości. Rapira wysyła klucz int jako jego tekst dziesiętny, więc `writeHead()` przyjmuje tablicę `headers` żądania bez zmian.
 
 | Metoda | Działanie |
 | --- | --- |
@@ -156,6 +156,10 @@ Rapira parsuje treść `multipart/form-data`, zanim PHP otrzyma żądanie. `Requ
 | `FormField` | `name`, `value`, `headers`. |
 | `UploadedFile` | `name`, `clientFilename`, `clientMediaType`, `headers`, `tmpPath`, `size`. |
 
+W parametrze `name` lub `filename` ujętym w cudzysłów w polu `content-disposition` Rapira czyta `\\` jako `\` i `\"` jako `"`, tak jak PHP w trybach Classic i Worker. Każdy inny znak `\` Rapira zachowuje bez zmian.
+
+Znak `\` na końcu wartości w cudzysłowie maskuje cudzysłów zamykający. Przeglądarka wysyła taką wartość dla nazwy pola lub nazwy pliku, która kończy się znakiem `\`. Rapira zwraca wtedy `400` albo wczytuje kolejne parametry do wartości.
+
 Rapira zapisuje każdą część z plikiem do pliku tymczasowego w podkatalogu `rapira-spool-<pid>` katalogu `http.uploads.dir`. `UploadedFile::$tmpPath` zawiera ścieżkę tego pliku. Rapira usuwa pliki tymczasowe po zakończeniu odpowiedzi. Aby zachować plik, przenieś go przez `rename()` przed zakończeniem odpowiedzi.
 
 Dla nieprawidłowej treści Rapira zwraca `400`. Gdy treść przekracza limit, zwraca `413`. Skrypt nie otrzymuje tych żądań. Limity opisuje [Tabela `[http.uploads]`](/pl/docs/configuration#tabela-http-uploads).
@@ -166,10 +170,12 @@ Dla nieprawidłowej treści Rapira zwraca `400`. Gdy treść przekracza limit, z
 
 Plik otwiera host. PHP `open_basedir` nie ogranicza tej operacji. Ścieżkę ogranicza skonfigurowany katalog główny sendfile.
 
+Rapira porównuje ścieżkę z katalogiem głównym, a następnie otwiera plik w drugim kroku. Lokalny użytkownik, który może zapisywać w katalogu głównym lub w katalogu poniżej niego, może umieścić dowiązanie symboliczne w ścieżce między tymi dwoma krokami. Odpowiedź może wtedy zawierać plik spoza katalogu głównego, który worker może odczytać. Upewnij się, że tylko zaufani użytkownicy mogą zapisywać w katalogu głównym sendfile i jego podkatalogach.
+
 Wywołanie rzuca `Rapira\Http\Exception\FileNotSendableException` i nie zapisuje danych w tych warunkach:
 
 - Ścieżka jest poza katalogiem głównym.
-- Plik nie istnieje lub nie jest zwykłym plikiem.
+- Plik nie istnieje lub nie jest zwykłym plikiem, na przykład jest katalogiem lub FIFO. Wywołanie nie czeka na FIFO.
 - Przesunięcie lub długość wykracza poza koniec pliku.
 
 Rapira nie ustawia dla pliku pól `content-type`, `etag` ani pól zakresu. Ustaw potrzebne pola przez `writeHead()`.

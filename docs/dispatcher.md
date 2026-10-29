@@ -113,7 +113,7 @@ If the script received at least one request, Rapira runs the entry script again 
 | `target` | `string` | The request target. For an origin-form request, this is the path and the query, such as `/a?b=1`. |
 | `authority` | `?string` | The `Host` value. It is `null` for an HTTP/1.0 request without `Host`. |
 | `protocol` | `string` | `HTTP/1.1` or `HTTP/1.0`. |
-| `headers` | `array<string, list<string>>` | The request fields. The names are lowercase. Each name has a list of values. |
+| `headers` | `array<int\|string, list<string>>` | The request fields. The names are lowercase. Each name has a list of values. PHP stores a canonical decimal name such as `123` as an int key. A digit-only name with a leading zero, such as `01`, stays a string. |
 | `body` | `string` or `Multipart` | The complete body, or a `Rapira\Http\Multipart` for a `multipart/form-data` body. |
 | `remote` | `InetAddress` or `UnixAddress` | The client address. `Rapira\InetAddress` has `ip` and `port`. `Rapira\UnixAddress` has `path`. |
 | `server` | `InetAddress` or `UnixAddress` | The listener address. |
@@ -126,7 +126,7 @@ In Dispatcher mode, `$_SERVER` keeps the values from the start of the entry scri
 
 ## The response
 
-`Rapira\Http\Exchange` has these methods. `$headers` and `$trailers` use the `array<string, list<string>>` shape: each field name has a list of values.
+`Rapira\Http\Exchange` has these methods. `$headers` and `$trailers` use the `array<int|string, list<string>>` shape: each field name has a list of values. Rapira sends an int key as its decimal text, so `writeHead()` accepts the request `headers` array without changes.
 
 | Method | Behavior |
 | --- | --- |
@@ -156,6 +156,10 @@ Rapira parses a `multipart/form-data` body before PHP gets the request. `Request
 | `FormField` | `name`, `value`, `headers`. |
 | `UploadedFile` | `name`, `clientFilename`, `clientMediaType`, `headers`, `tmpPath`, `size`. |
 
+Inside a quoted `name` or `filename` parameter of `content-disposition`, Rapira reads `\\` as `\` and `\"` as `"`. PHP does the same in Classic and Worker modes. Rapira keeps every other `\` without changes.
+
+A `\` at the end of a quoted value escapes the closing quote. A browser sends such a value for a field name or a file name that ends with `\`. Rapira then returns `400`, or it reads the next parameters into the value.
+
 Rapira writes each file part to a temporary file in the `rapira-spool-<pid>` subdirectory of `http.uploads.dir`. `UploadedFile::$tmpPath` contains the path of this file. Rapira deletes the temporary files when the response ends. To keep a file, move it with `rename()` before the response ends.
 
 Rapira returns `400` for a malformed body. It returns `413` when the body exceeds a limit. The script does not get these requests. See [The `[http.uploads]` table](/docs/configuration#the-http-uploads-table) for the limits.
@@ -166,10 +170,12 @@ Rapira returns `400` for a malformed body. It returns `413` when the body exceed
 
 The host opens the file. PHP `open_basedir` does not restrict this operation. The configured sendfile root restricts the path.
 
+Rapira compares the path with the root, and then opens the file in a second step. A local user with write access to the root or below it can put a symbolic link into the path between the two steps. The response can then contain a file outside the root that the worker can read. Make sure that only trusted users can write to the sendfile root and its subdirectories.
+
 The call throws `Rapira\Http\Exception\FileNotSendableException` and writes no data in these conditions:
 
 - The path is outside the root.
-- The file does not exist or is not a regular file.
+- The file does not exist or is not a regular file, for example a directory or a FIFO. The call does not wait for a FIFO.
 - The offset or the length goes past the end of the file.
 
 Rapira does not set `content-type`, `etag`, or range fields for the file. Set the necessary fields with `writeHead()`.

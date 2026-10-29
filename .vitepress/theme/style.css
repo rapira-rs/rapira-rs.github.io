@@ -155,6 +155,10 @@ html {
 /* On narrow screens, scroll the navigation controls horizontally without a
    scrollbar, so that a wide bar does not widen the page. */
 @media (max-width: 767px) {
+  .VPNavBar .wrapper {
+    padding: 0 var(--rapira-mobile-gutter);
+  }
+
   .VPNavBar .container > .content {
     min-width: 0;
   }
@@ -227,6 +231,44 @@ html {
   .VPNavBar:not(.has-sidebar):not(.home.top) .content-body {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
+  }
+}
+
+/* Use a narrow side gutter on narrow screens. */
+:root {
+  --rapira-mobile-gutter: 5px;
+}
+
+@media (max-width: 767px) {
+  .VPDoc,
+  .VPFooter {
+    padding-right: var(--rapira-mobile-gutter) !important;
+    padding-left: var(--rapira-mobile-gutter) !important;
+  }
+
+  .VPLocalNav .menu {
+    padding-left: var(--rapira-mobile-gutter) !important;
+  }
+
+  .VPLocalNavOutlineDropdown {
+    padding-right: var(--rapira-mobile-gutter) !important;
+  }
+
+  .VPHero,
+  .VPHome > .vp-doc.container,
+  .sponsors-section {
+    padding-right: var(--rapira-mobile-gutter) !important;
+    padding-left: var(--rapira-mobile-gutter) !important;
+  }
+
+  /* The feature grid has a -8px margin around its items. */
+  .VPFeatures {
+    padding-right: calc(var(--rapira-mobile-gutter) + 8px) !important;
+    padding-left: calc(var(--rapira-mobile-gutter) + 8px) !important;
+  }
+
+  .rapira-hero {
+    width: calc(100% - 2 * var(--rapira-mobile-gutter)) !important;
   }
 }
 

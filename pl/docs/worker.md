@@ -14,7 +14,7 @@ Tryb Worker nie wymaga określonego frameworka. Wymaga aplikacji, która może o
 
 ## Pętla rezydentna
 
-Skrypt inicjalizuje aplikację i definiuje handler jednego żądania. Następnie wywołuje `\Rapira\handle_request()` w pętli, dopóki worker się nie zatrzyma.
+Skrypt inicjalizuje aplikację i definiuje handler jednego żądania. Następnie wywołuje `\Rapira\handle_request()` w pętli, dopóki funkcja nie zwróci `false`.
 
 ```php
 <?php
@@ -59,7 +59,7 @@ Pozostałe klucze opisuje [Konfiguracja](/pl/docs/configuration).
 - **Wypełnia dane żądania** w `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE`, `$_FILES` oraz `$_REQUEST` przed uruchomieniem handlera. Kod czyta te zmienne superglobalne tak samo jak pod php-fpm.
 - **Wywołuje handler bez argumentów.** Użyj sygnatury `function (): void`. Przechwyć zależności, na przykład kontener lub logger, przez `use`. Rapira ignoruje zwracaną wartość.
 - **Wyjście handlera jest odpowiedzią.** Handler może używać `echo`, `print`, `header()`, `http_response_code()` i `setcookie()`. Przetwarzanie żądań i odpowiedzi opisuje strona [HTTP](/pl/docs/http).
-- **Zwraca `true`** po każdym żądaniu. Zwraca `false`, gdy worker zaczyna się zatrzymywać. Zakończ pętlę i skrypt, gdy funkcja zwróci `false`.
+- **Zwraca `true`** po każdym żądaniu. Zwraca `false`, gdy worker zaczyna się zatrzymywać lub uruchamia aplikację ponownie. Zakończ pętlę i skrypt, gdy funkcja zwróci `false`.
 - **Wywołuj ją tylko z pętli najwyższego poziomu skryptu.** Wywołanie z wnętrza handlera rzuca `\Error`. Nie wywołuj jej z funkcji shutdown ani z destruktora.
 
 Żądanie w trybie Worker odpowiada jednej iteracji pętli `while`. Przed każdym wywołaniem handlera Rapira ponownie wypełnia zmienne superglobalne. Po wywołaniu Rapira uruchamia funkcje shutdown żądania, opróżnia bufory wyjścia i zamyka sesję. Wartości, które skrypt przechowuje poza handlerem, pozostają w pamięci.
@@ -68,7 +68,7 @@ Przed pierwszym wywołaniem `handle_request()` `$_SERVER` zawiera środowisko pr
 
 ## Jedna pętla na worker
 
-Skrypt workera uruchamia jedną pętlę z jednym handlerem. W przykładzie poniżej druga pętla działa dopiero po zakończeniu pierwszej, a pierwsza pętla kończy się dopiero przy zatrzymaniu. Użyj jednego handlera, który rozdziela wszystkie żądania.
+Skrypt workera uruchamia jedną pętlę z jednym handlerem. W przykładzie poniżej druga pętla działa dopiero po zakończeniu pierwszej, a pierwsza pętla kończy się dopiero wtedy, gdy `handle_request()` zwróci `false`. Użyj jednego handlera, który rozdziela wszystkie żądania.
 
 ```php
 while (\Rapira\handle_request($api)) {
@@ -139,7 +139,7 @@ if (\Rapira\get_mode() === \Rapira\Mode::Worker) {
 
 **Stan żądania pozostaje między żądaniami.** Jeśli aplikacja zawodzi tylko w trybie Worker, szukaj stanu żądania, który pozostaje. Przykłady to rosnąca tablica statyczna, obiekt żądania w singletonie albo stare dane użytkownika w loggerze.
 
-Zeruj ten stan na początku albo na końcu handlera. Zeruj też stan żądania w bibliotekach. `http.pool.max_requests` zastępuje workera, gdy obsłuży więcej żądań niż ta liczba. Ogranicza to skutek wycieku pamięci, ale go nie naprawia.
+Zeruj ten stan na początku albo na końcu handlera. Zeruj też stan żądania w bibliotekach. `http.pool.max_requests` uruchamia ponownie aplikację, gdy obsłuży ona więcej żądań niż ta liczba. Ogranicza to skutek wycieku pamięci, ale go nie naprawia.
 
 **Niezebrane cykle referencji.** Zliczanie referencji w PHP natychmiast zwalnia większość wartości. Cykle referencji zwalnia dopiero kolektor cykli. Przykład wywołuje `gc_collect_cycles()` między żądaniami. To wywołanie jest opcjonalne, ale zapewnia przewidywalny czas zbierania.
 

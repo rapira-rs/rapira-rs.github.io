@@ -113,7 +113,7 @@ The bridge fills the server values of the `Request` object as if `public/index.p
 
 ## State between requests
 
-In Worker and Dispatcher modes, the Octane worker initializes the application once. For each request, Octane clones the application into a sandbox. It then runs its listeners, which reset known request state. For example, a configuration change in one request does not appear in the next request. The bridge tests confirm this behavior in both modes.
+In Worker and Dispatcher modes, the Octane worker initializes the application once for each app instance. For each request, Octane clones the application into a sandbox. It then runs its listeners, which reset known request state. For example, a configuration change in one request does not appear in the next request. The bridge tests confirm this behavior in both modes.
 
 The Octane configuration controls these listeners. The `warm` key lists services to initialize before the first request. The `flush` key lists services to remove after each request. Octane uses its default configuration if the application has no `config/octane.php`. To change the configuration, publish the file:
 
@@ -174,7 +174,7 @@ php artisan config:cache
 php artisan route:cache
 ```
 
-A worker can increase its memory use over time. Set a worker replacement limit:
+A worker can increase its memory use over time. Set a request limit for the app:
 
 ```toml
 [http.pool]
@@ -184,9 +184,9 @@ processes = 4
 max_requests = 500
 ```
 
-`max_requests` replaces a worker after a random request count between this value and 1.5 times this value. It limits the effect of a memory leak but does not correct it. See [Process model](/docs/process-model).
+`max_requests` restarts the app after a random request count above this value, up to 1.5 times this value. It limits the effect of a memory leak but does not correct it. See [Process model](/docs/process-model).
 
-In Worker and Dispatcher modes, the application code stays in memory. After a deployment, send `SIGUSR2` to the master to replace the workers. With `opcache.validate_timestamps = 0`, restart Rapira instead. See [Running in production](/docs/deployment).
+In Worker and Dispatcher modes, the application code stays in memory. After a deployment, send `SIGUSR2` to the master to restart the apps. With `opcache.validate_timestamps = 0`, restart Rapira instead. See [Running in production](/docs/deployment).
 
 ## Development
 

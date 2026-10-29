@@ -54,7 +54,7 @@ Skrypt wykonuje te operacje:
 - **`$app = new App();`** inicjalizuje aplikację przed pętlą. Symfony przechowuje tutaj trwały kernel. Yii3 może przechowywać trwały runner albo tworzyć runner w handlerze. Każdy przewodnik pokazuje inicjalizację i czyszczenie po żądaniu.
 - **`$handler = static function () use ($app): void`** definiuje handler bez argumentów. Handler czyta dane żądania ze zmiennych superglobalnych. Inne zależności otrzymuje przez `use`.
 - **`header()`, `http_response_code()` i `echo`** tworzą odpowiedź jak w klasycznym skrypcie. Wysyłanie odpowiedzi opisuje strona [HTTP](/pl/docs/http).
-- **`while (\Rapira\handle_request($handler))`** czeka na żądanie. `handle_request()` wypełnia zmienne superglobalne, uruchamia handler i kończy żądanie. Zwraca `true` po żądaniu i `false`, gdy worker się zatrzymuje. Wywołuj ją tylko z pętli najwyższego poziomu skryptu. Poza trybem Worker rzuca `Rapira\Exception\NotInWorkerModeError`.
+- **`while (\Rapira\handle_request($handler))`** czeka na żądanie. `handle_request()` wypełnia zmienne superglobalne, uruchamia handler i kończy żądanie. Zwraca `true` po żądaniu i `false`, gdy worker się zatrzymuje lub uruchamia aplikację ponownie. Wywołuj ją tylko z pętli najwyższego poziomu skryptu. Poza trybem Worker rzuca `Rapira\Exception\NotInWorkerModeError`.
 - **`gc_collect_cycles();`** zbiera cykle referencji między żądaniami. Nie naprawia wycieków pamięci. Więcej informacji zawiera sekcja [Pamięć i recykling](#pamiec-i-recykling).
 
 Wewnątrz handlera Rapira ustawia `SCRIPT_NAME` na `/worker.php`, ponieważ `worker.php` jest skryptem wejściowym. `DOCUMENT_ROOT` zawiera katalog skryptu. `REQUEST_URI` zawiera ścieżkę klienta. Symfony i Yii3 poprawnie kierowały żądania oraz tworzyły adresy URL z tymi wartościami. Utworzone adresy URL nie zawierały `worker.php`. Przed integracją innego frameworka sprawdź, czy tworzy adresy URL z `SCRIPT_NAME` zamiast z `REQUEST_URI`.
@@ -140,16 +140,16 @@ Worker może tworzyć aplikację wewnątrz handlera. Wtedy aplikacja pozostaje w
 
 W tym wariancie każde żądanie tworzy graf obiektów. Cykle referencji mogą zachować stare grafy do uruchomienia kolektora cykli. Zużycie pamięci rośnie przez kilka żądań i spada, gdy PHP zwalnia wiele grafów. Ten wzorzec nie zawsze jest wyciekiem pamięci. Maksymalne zużycie pamięci może być jednak znacznie większe niż pamięć dla jednego żądania.
 
-Testy wykazały, że `gc_collect_cycles()` w pętli ani w handlerze nie zapobiega temu wzorcowi. Późniejsza inicjalizacja może zachować referencje do starych grafów. Kolektor nie zwolni grafu, gdy odwołuje się do niego inny obiekt. Ustaw `memory_limit` powyżej zmierzonego maksimum. Ustaw też limit wymiany workera:
+Testy wykazały, że `gc_collect_cycles()` w pętli ani w handlerze nie zapobiega temu wzorcowi. Późniejsza inicjalizacja może zachować referencje do starych grafów. Kolektor nie zwolni grafu, gdy odwołuje się do niego inny obiekt. Ustaw `memory_limit` powyżej zmierzonego maksimum. Ustaw też limit żądań aplikacji:
 
 ```toml
 [http.pool]
 max_requests = 100
 ```
 
-Każdy worker zatrzymuje się po obsłużeniu więcej niż `max_requests` żądań, a proces nadrzędny uruchamia nowego workera. Każdy worker używa własnego limitu, od `max_requests + 1` do `max_requests` plus połowa tej wartości. Dlatego workery nie zatrzymują się jednocześnie. Testy wysłały setki żądań podczas kilku wymian. Pamięć wracała do poziomu początkowego, a każde żądanie zwracało `200`. To ustawienie ogranicza maksymalne zużycie pamięci w tym wzorcu.
+Każdy worker uruchamia aplikację ponownie po obsłużeniu więcej niż `max_requests` żądań. Każdy worker używa własnego limitu, od `max_requests + 1` do `max_requests` plus połowa tej wartości. Dlatego aplikacje nie uruchamiają się ponownie jednocześnie. Ponowne uruchomienie zwalnia pamięć PHP aplikacji, a żadne żądanie nie ginie. To ustawienie ogranicza maksymalne zużycie pamięci w tym wzorcu.
 
-Trwałe aplikacje Symfony i Yii3 miały stabilne użycie pamięci podczas tych samych testów. Pozostaw wymianę workerów włączoną, aby ograniczyć nieoczekiwany wzrost pamięci. Więcej informacji zawierają strony [Konfiguracja](/pl/docs/configuration) i [model procesów](/pl/docs/process-model).
+Trwałe aplikacje Symfony i Yii3 miały stabilne użycie pamięci podczas tych samych testów. Pozostaw `max_requests` włączone, aby ograniczyć nieoczekiwany wzrost pamięci. Więcej informacji zawierają strony [Konfiguracja](/pl/docs/configuration) i [model procesów](/pl/docs/process-model).
 
 ## OPcache i zmieniony kod
 

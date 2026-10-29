@@ -54,7 +54,7 @@ El script contiene estas operaciones:
 - **`$app = new App();`** inicia la aplicación antes del bucle. Symfony conserva aquí un kernel persistente. Yii3 puede conservar un runner persistente o crear un runner dentro del handler. Cada guía muestra la inicialización y la limpieza de la petición.
 - **`$handler = static function () use ($app): void`** define un handler sin argumentos. El handler lee los datos de la petición de las superglobales. Obtiene otras dependencias mediante `use`.
 - **`header()`, `http_response_code()` y `echo`** crean la respuesta como en un script clásico. Consulta [HTTP](/es/docs/http) para ver la transmisión de la respuesta.
-- **`while (\Rapira\handle_request($handler))`** espera una petición. `handle_request()` rellena las superglobales, ejecuta el handler y completa la petición. Devuelve `true` después de una petición y `false` cuando el worker se detiene. Llámala solo desde el bucle de nivel superior del script. Fuera del modo Worker, lanza `Rapira\Exception\NotInWorkerModeError`.
+- **`while (\Rapira\handle_request($handler))`** espera una petición. `handle_request()` rellena las superglobales, ejecuta el handler y completa la petición. Devuelve `true` después de una petición y `false` cuando el worker se detiene o reinicia la aplicación. Llámala solo desde el bucle de nivel superior del script. Fuera del modo Worker, lanza `Rapira\Exception\NotInWorkerModeError`.
 - **`gc_collect_cycles();`** recoge los ciclos de referencias entre peticiones. No corrige las fugas de memoria. Consulta [Memoria y reciclaje](#memoria-y-reciclaje).
 
 Dentro del handler, Rapira establece `SCRIPT_NAME` en `/worker.php` porque `worker.php` es el script de entrada. `DOCUMENT_ROOT` contiene el directorio del script. `REQUEST_URI` contiene la ruta del cliente. Symfony y Yii3 enrutaron las peticiones y generaron URL correctas con estos valores. Las URL generadas no contenían `worker.php`. Antes de integrar otro framework, comprueba si crea URL desde `SCRIPT_NAME` en lugar de `REQUEST_URI`.
@@ -140,16 +140,16 @@ Un worker puede crear la aplicación dentro del handler. La aplicación permanec
 
 En este diseño, cada petición crea un grafo de objetos. Los ciclos de referencias pueden conservar grafos antiguos hasta que se ejecuta el recolector de ciclos. El uso de memoria aumenta durante varias peticiones y disminuye cuando PHP libera muchos grafos. Este patrón no siempre es una fuga de memoria. Sin embargo, el máximo de memoria puede ser mucho mayor que la memoria de una petición.
 
-Las pruebas mostraron que `gc_collect_cycles()` en el bucle o en el handler no evita este patrón. Una inicialización posterior puede conservar referencias a grafos antiguos. El recolector no puede liberar un grafo mientras otro objeto lo referencia. Establece `memory_limit` por encima del máximo medido. También establece un límite de sustitución de workers:
+Las pruebas mostraron que `gc_collect_cycles()` en el bucle o en el handler no evita este patrón. Una inicialización posterior puede conservar referencias a grafos antiguos. El recolector no puede liberar un grafo mientras otro objeto lo referencia. Establece `memory_limit` por encima del máximo medido. También establece un límite de peticiones para la aplicación:
 
 ```toml
 [http.pool]
 max_requests = 100
 ```
 
-Cada worker se detiene después de servir más de `max_requests` peticiones, y el maestro inicia un sustituto. Cada worker usa su propio límite, desde `max_requests + 1` hasta `max_requests` más la mitad de ese valor. Por tanto, los workers no se detienen al mismo tiempo. Las pruebas enviaron cientos de peticiones durante varias sustituciones. La memoria volvió a su nivel inicial y cada petición devolvió `200`. Este ajuste limita el máximo de memoria de este patrón.
+Cada worker reinicia su aplicación después de procesar más de `max_requests` peticiones. Cada worker usa su propio límite, de `max_requests + 1` a `max_requests` más la mitad de ese valor. Por tanto, las aplicaciones no se reinician al mismo tiempo. El reinicio libera la memoria PHP de la aplicación, y ninguna petición se pierde. Este ajuste limita el pico de memoria de este patrón.
 
-Las aplicaciones persistentes de Symfony y Yii3 tuvieron un uso de memoria estable durante las mismas pruebas. Mantén activada la sustitución de workers para limitar el crecimiento inesperado de la memoria. Consulta [configuración](/es/docs/configuration) y [modelo de procesos](/es/docs/process-model) para obtener más información.
+Las aplicaciones persistentes de Symfony y Yii3 tuvieron un uso de memoria estable durante las mismas pruebas. Mantén activado `max_requests` para limitar el crecimiento inesperado de la memoria. Consulta [configuración](/es/docs/configuration) y [modelo de procesos](/es/docs/process-model) para obtener más información.
 
 ## OPcache y el código que cambia
 

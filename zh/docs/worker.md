@@ -14,7 +14,7 @@ Worker 模式不要求特定框架。它要求应用能在一次初始化后处�
 
 ## 常驻循环
 
-脚本先初始化应用并定义单个请求的 handler，然后在循环中调用 `\Rapira\handle_request()`，直到 worker 停止。
+脚本先初始化应用并定义单个请求的 handler，然后在循环中调用 `\Rapira\handle_request()`，直到它返回 `false`。
 
 ```php
 <?php
@@ -59,7 +59,7 @@ rapira serve rapira.toml
 - **填充请求数据**到 `$_GET`、`$_POST`、`$_SERVER`、`$_COOKIE`、`$_FILES` 和 `$_REQUEST`，然后运行 handler。代码可以像在 php-fpm 中一样读取这些超全局变量。
 - **调用 handler 时不传参数。**函数签名使用 `function (): void`。使用 `use` 捕获容器、日志器等依赖项。Rapira 忽略返回值。
 - **handler 输出就是响应。**handler 可以使用 `echo`、`print`、`header()`、`http_response_code()` 和 `setcookie()`。有关请求和响应处理，请参阅 [HTTP](/zh/docs/http)。
-- **每个请求后返回 `true`。**worker 开始停止时返回 `false`。返回 `false` 时结束循环和脚本。
+- **每个请求后返回 `true`。**worker 开始停止或重启应用时返回 `false`。返回 `false` 时结束循环和脚本。
 - **只能从脚本的顶层循环调用。**从 handler 内部调用会抛出 `\Error`。不要从 shutdown 函数或析构函数调用。
 
 Worker 模式中的一个请求对应 `while` 循环的一次迭代。每次调用 handler 之前，Rapira 重新填充超全局变量。调用之后，Rapira 运行请求的 shutdown 函数，刷新输出缓冲，并关闭 session。脚本在 handler 外持有的值保留在内存中。
@@ -68,7 +68,7 @@ Worker 模式中的一个请求对应 `while` 循环的一次迭代。每次调�
 
 ## 每个 worker 一个循环
 
-worker 脚本运行一个循环和一个 handler。在下面的示例中，第二个循环只在第一个循环结束后运行，而第一个循环只在停止时结束。使用一个 handler 分配所有请求。
+worker 脚本运行一个循环和一个 handler。在下面的示例中，第二个循环只在第一个循环结束后运行，而第一个循环只在 `handle_request()` 返回 `false` 时结束。使用一个 handler 分配所有请求。
 
 ```php
 while (\Rapira\handle_request($api)) {
@@ -139,7 +139,7 @@ if (\Rapira\get_mode() === \Rapira\Mode::Worker) {
 
 **请求状态保留在请求之间。**如果应用只在 Worker 模式下失败，请检查保留的请求状态。例如不断增长的静态数组、单例中的请求对象或日志器中的旧用户数据。
 
-在 handler 开始或结束时重置此状态。还要重置库中的请求状态。worker 处理的请求数超过 `http.pool.max_requests` 后，Rapira 替换该 worker。它限制内存泄漏的影响，但不会修复泄漏。
+在 handler 开始或结束时重置此状态。还要重置库中的请求状态。应用处理的请求数超过 `http.pool.max_requests` 后，worker 重启该应用。它限制内存泄漏的影响，但不会修复泄漏。
 
 **未回收的循环引用。**PHP 引用计数会立即释放大多数值。只有循环回收器运行时，PHP 才会释放循环引用。示例在请求之间调用 `gc_collect_cycles()`。此调用是可选的，但可以使回收时间可预测。
 

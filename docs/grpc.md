@@ -92,7 +92,7 @@ try {
 }
 ```
 
-The request and the response use one message type, so the handler can return the bytes directly. `ClosedException` ends the loop during shutdown. `WorkDiscardedException` means that the host has already cancelled the call.
+The request and the response use one message type, so the handler can return the bytes directly. `ClosedException` ends the loop during shutdown or an app restart. `WorkDiscardedException` means that the host has already cancelled the call.
 
 ### Configure the listener and pool
 

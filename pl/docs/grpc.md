@@ -92,7 +92,7 @@ try {
 }
 ```
 
-Żądanie i odpowiedź mają ten sam typ komunikatu, więc handler może zwrócić bajty bezpośrednio. `ClosedException` kończy pętlę podczas zatrzymywania. `WorkDiscardedException` oznacza, że host już anulował wywołanie.
+Żądanie i odpowiedź mają ten sam typ komunikatu, więc handler może zwrócić bajty bezpośrednio. `ClosedException` kończy pętlę podczas zatrzymywania lub ponownego uruchomienia aplikacji. `WorkDiscardedException` oznacza, że host już anulował wywołanie.
 
 ### Konfiguracja nasłuchu i puli
 

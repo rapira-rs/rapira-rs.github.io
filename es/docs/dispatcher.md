@@ -94,7 +94,7 @@ Enviar todos los bytes declarados en `Content-Length` con `$eos = false` no fina
 
 ## Cómo termina el bucle
 
-Durante una detención, una recarga o una sustitución después de `http.pool.max_requests`, Rapira cierra el dispatcher. Cuando el dispatcher está cerrado y su cola está vacía, `receive()` y `tryReceive()` lanzan `Rapira\Exception\ClosedException`. Cada llamada posterior la lanza de nuevo. Captura esta excepción, sal del bucle y deja que el script de entrada termine.
+Durante una parada, Rapira cierra el dispatcher. Cuando el dispatcher está cerrado y su cola está vacía, `receive()` y `tryReceive()` lanzan `Rapira\Exception\ClosedException`. Después de `http.pool.max_requests` o de una recarga, el dispatcher se cierra de inmediato para esta instancia de la aplicación. Las peticiones de la cola esperan a la siguiente instancia de la aplicación en el mismo worker. Cada llamada posterior lanza la excepción otra vez. Captura esta excepción, sal del bucle y deja que termine el script de entrada.
 
 Una excepción no capturada o un error fatal termina el script de entrada. Después, Rapira ejecuta de nuevo el script de entrada en el mismo worker. El cliente del exchange abierto recibe una respuesta de error o una respuesta incompleta.
 
@@ -187,7 +187,7 @@ Cada clase de excepción de los espacios de nombres `Rapira` implementa `Rapira\
 
 | Excepción | Lanzada por | Causa |
 | --- | --- | --- |
-| `Rapira\Exception\ClosedException` | `receive()`, `tryReceive()` | Rapira cerró el dispatcher. No llegan más peticiones. |
+| `Rapira\Exception\ClosedException` | `receive()`, `tryReceive()` | Rapira cerró el dispatcher. No llegan más peticiones para esta instancia de la aplicación. |
 | `Rapira\Exception\TimeoutException` | `receive()` | No llegó ninguna petición antes del tiempo de espera. |
 | `Rapira\Exception\NoDispatcherError` | `\Rapira\get_dispatcher()` | El proceso no se ejecuta en modo Dispatcher. |
 | `Rapira\Exception\WorkDiscardedException` | Los métodos de escritura | Rapira canceló el exchange antes de que PHP lo finalizara. |

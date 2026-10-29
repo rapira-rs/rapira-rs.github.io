@@ -113,7 +113,7 @@ rapira serve rapira.toml
 
 ## 请求之间的状态
 
-在 Worker 和 Dispatcher 模式下，Octane worker 只初始化一次应用。对于每个请求，Octane 将应用克隆到一个沙箱中。然后它运行自己的监听器，这些监听器会重置已知的请求状态。例如，一个请求中的配置更改不会出现在下一个请求中。桥接包的测试在两种模式下都确认了此行为。
+在 Worker 和 Dispatcher 模式下，Octane worker 为每个应用实例只初始化一次应用。对于每个请求，Octane 将应用克隆到一个沙箱中。然后它运行自己的监听器，这些监听器会重置已知的请求状态。例如，一个请求中的配置更改不会出现在下一个请求中。桥接包的测试在两种模式下都确认了此行为。
 
 Octane 配置控制这些监听器。`warm` 键列出在第一个请求之前初始化的服务。`flush` 键列出在每个请求之后删除的服务。如果应用没有 `config/octane.php`，Octane 使用默认配置。要更改配置，请发布此文件：
 
@@ -174,7 +174,7 @@ php artisan config:cache
 php artisan route:cache
 ```
 
-worker 的内存使用量可能随时间增加。请设置 worker 替换限制：
+worker 的内存使用量可能随时间增加。请为应用设置请求数限制：
 
 ```toml
 [http.pool]
@@ -184,9 +184,9 @@ processes = 4
 max_requests = 500
 ```
 
-`max_requests` 在随机请求数后替换 worker。此请求数在此值和此值的 1.5 倍之间。它限制内存泄漏的影响，但不会修复泄漏。请参阅[进程模型](/zh/docs/process-model)。
+`max_requests` 在随机请求数后重启应用。此请求数大于此值，最多为此值的 1.5 倍。它限制内存泄漏的影响，但不会修复泄漏。请参阅[进程模型](/zh/docs/process-model)。
 
-在 Worker 和 Dispatcher 模式下，应用代码保留在内存中。部署后，向 master 发送 `SIGUSR2` 以替换 worker。如果设置了 `opcache.validate_timestamps = 0`，请改为重启 Rapira。请参阅[生产环境部署](/zh/docs/deployment)。
+在 Worker 和 Dispatcher 模式下，应用代码保留在内存中。部署后，向 master 发送 `SIGUSR2` 以重启应用。如果设置了 `opcache.validate_timestamps = 0`，请改为重启 Rapira。请参阅[生产环境部署](/zh/docs/deployment)。
 
 ## 开发
 

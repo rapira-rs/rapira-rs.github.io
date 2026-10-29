@@ -93,7 +93,7 @@ Większość operacji to standardowa inicjalizacja Symfony. Cztery części są 
 
 **`$container->has('services_resetter')` przed `get()`.** Identyfikator `services_resetter` jest publiczny w obu obsługiwanych wersjach. Klasa implementacji używa innych przestrzeni nazw w wersjach 7.4 i 8.1. Identyfikator serwisu usuwa potrzebę warunku wersji. Sprawdzenie `has()` zapobiega błędowi, gdy kontener nie definiuje serwisu.
 
-**Pętla i `gc_collect_cycles()`.** `\Rapira\handle_request()` czeka na żądanie, uruchamia handler i zwraca `true`. Podczas zamykania workera zwraca `false` i kończy pętlę. Skrypt zbiera cykle między żądaniami. Pełny kontrakt opisuje [Tryb Worker](/pl/docs/worker).
+**Pętla i `gc_collect_cycles()`.** `\Rapira\handle_request()` czeka na żądanie, uruchamia handler i zwraca `true`. Gdy worker się zatrzymuje lub uruchamia aplikację ponownie, zwraca `false` i kończy pętlę. Skrypt zbiera cykle między żądaniami. Pełny kontrakt opisuje [Tryb Worker](/pl/docs/worker).
 
 Jeśli resetter nie wystarcza, użyj `$container->reset()` albo `$kernel->reboot(null)`. Pierwsza opcja usuwa każdy utworzony serwis. Druga opcja usuwa kontener i tworzy nowy.
 
@@ -171,7 +171,7 @@ max_requests = 500
 request_terminate_timeout_secs = 30
 ```
 
-`max_requests` zastępuje workera po losowej liczbie żądań między tą wartością a 1,5 tej wartości. Ogranicza wpływ wycieku pamięci, ale go nie naprawia. `request_terminate_timeout_secs` zatrzymuje workera, gdy jedno żądanie działa dłużej niż ten limit. Nowy worker ponownie inicjalizuje kernel. Względny `entrypoint` używa katalogu pliku konfiguracji jako bazy. Wszystkie ustawienia opisuje [Konfiguracja](/pl/docs/configuration).
+`max_requests` uruchamia ponownie aplikację po losowej liczbie żądań większej niż ta wartość, ale nie większej niż 1,5 tej wartości. Ogranicza wpływ wycieku pamięci, ale go nie naprawia. `request_terminate_timeout_secs` zatrzymuje workera, gdy jedno żądanie działa dłużej niż ten limit. Ponownie uruchomiona aplikacja lub nowy worker ponownie inicjalizuje kernel. Względny `entrypoint` używa katalogu pliku konfiguracji jako bazy. Wszystkie ustawienia opisuje [Konfiguracja](/pl/docs/configuration).
 
 Uruchom serwer z `APP_ENV=prod`:
 
@@ -179,7 +179,7 @@ Uruchom serwer z `APP_ENV=prod`:
 APP_ENV=prod rapira serve rapira.toml
 ```
 
-Po wdrożeniu wyślij `SIGUSR2` do procesu nadrzędnego, aby zastąpić workery. Przy `opcache.validate_timestamps = 0` zamiast tego uruchom Rapirę ponownie. Zobacz [Wdrożenie produkcyjne](/pl/docs/deployment).
+Po wdrożeniu wyślij `SIGUSR2` do procesu nadrzędnego, aby uruchomić ponownie aplikacje. Przy `opcache.validate_timestamps = 0` zamiast tego uruchom Rapirę ponownie. Zobacz [Wdrożenie produkcyjne](/pl/docs/deployment).
 
 ## Zerowanie stanu między żądaniami
 

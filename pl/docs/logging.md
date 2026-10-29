@@ -43,7 +43,7 @@ Rapira używa tych celów:
 | Cel             | Co obejmuje                                                                                     |
 | --------------- | ----------------------------------------------------------------------------------------------- |
 | `rapira`        | inicjalizacja serwera, cykl życia workerów, zamykanie                                           |
-| `master`        | stan pul, błędy tworzenia procesów, ostrzeżenia o gotowości podczas przeładowania i limitach czasu żądań |
+| `master`        | stan pul, błędy tworzenia procesów i ostrzeżenia o limitach czasu żądań |
 | `http`          | nasłuchy HTTP, przetwarzanie pól żądania i odpowiedzi, zamykanie                                |
 | `grpc`          | nasłuchy gRPC, błędy transportu, zamykanie                                                      |
 | `net`           | pętla akceptowania połączeń nasłuchów HTTP i gRPC, błędy akceptowania                           |
@@ -56,7 +56,7 @@ Rapira nie zapisuje logu dostępu z jedną linią dla każdego żądania. Wpisy 
 Zależność zapisuje wpisy trace pod swoją ścieżką modułu. Ten sam filtr prefiksu dotyczy tych wpisów. Każdy wpis zawiera nazwę swojego celu. Dodaj tę nazwę do `[log.targets]`, aby zmienić jej poziom.
 
 ::: tip
-Cel `master` zgłasza stan pul, błędy tworzenia procesów, ostrzeżenia o gotowości podczas przeładowania i limitach czasu żądań. Nadzór nad pulami opisuje [Model procesów](/pl/docs/process-model).
+Cel `master` zgłasza stan pul, błędy tworzenia procesów i ostrzeżenia o limitach czasu żądań. Nadzór nad pulami opisuje [Model procesów](/pl/docs/process-model).
 :::
 
 ## Diagnostyka PHP

@@ -101,7 +101,7 @@ Despliega el código nuevo. Después, recarga Rapira:
 sudo systemctl reload rapira
 ```
 
-El comando envía `SIGUSR2` al proceso maestro. El maestro sustituye un worker cada vez y deja que las peticiones actuales terminen. Si un worker supera `process_control_timeout_secs`, el maestro envía `SIGTERM` y después `SIGKILL`. Esto termina la petición actual. Consulta [Modelo de procesos](/es/docs/process-model) para ver la secuencia de sustitución.
+Este comando envía `SIGUSR2` al maestro. El maestro indica a cada worker que reinicie su aplicación. Cada worker ejecuta otra vez el script de entrada en el mismo proceso, y la aplicación nueva atiende las siguientes peticiones. Ninguna conexión se cierra y ninguna petición se pierde. Consulta [Modelo de procesos](/es/docs/process-model#una-recarga-reinicia-las-aplicaciones) para más información.
 
 Envía la señal directamente cuando systemd no gestione el proceso. Define `supervisor.pidfile` para guardar el identificador del proceso maestro. Crea el directorio del pidfile antes de iniciar Rapira. También puedes seleccionar un directorio existente. El proceso maestro no se inicia si no puede escribir el archivo.
 
@@ -117,12 +117,12 @@ kill -USR2 "$(cat /run/rapira/rapira.pid)"
 
 Solo el maestro escribe el pidfile. Elimina el archivo durante una salida controlada. Un archivo restante puede indicar un `SIGKILL`, un fallo del proceso o un fallo del sistema.
 
-`process_control_timeout_secs` limita la espera inicial de parada y cada espera de disponibilidad de un worker de sustitución. Después de la espera de parada, el maestro envía `SIGTERM`. Envía `SIGKILL` un segundo después. Establece `TimeoutStopSec` de systemd por encima de este intervalo completo.
+`process_control_timeout_secs` limita la espera de parada. Después de esta espera, el maestro envía `SIGTERM`. Envía `SIGKILL` un segundo después. Establece `TimeoutStopSec` de systemd por encima de este intervalo completo.
 
-Las conexiones tienen un plazo de drenaje más corto: el tiempo límite de control menos el menor valor entre cinco segundos y la mitad de ese límite. El plazo predeterminado es de 25 segundos. Las respuestas que superen este plazo pueden interrumpirse durante la parada o la recarga.
+Las conexiones tienen un plazo de drenaje más corto: el tiempo límite de control menos el menor valor entre cinco segundos y la mitad de ese límite. El plazo predeterminado es de 25 segundos. Las respuestas que superen este plazo pueden interrumpirse durante la parada.
 
 ::: warning Lo que una recarga no hace
-Una recarga sustituye los workers, pero no el maestro. El maestro conserva el binario de Rapira y los ajustes de `rapira.toml` y `php.ini`. También conserva el conjunto de descriptores de gRPC, el archivo de tokens de `[grpc.auth]` y la memoria compartida de OPcache. Reinicia Rapira después de cambiar uno de estos archivos. Reinícialo también cuando `opcache.validate_timestamps = 0`. Una recarga no sustituye los opcodes en caché con esta configuración.
+Una recarga reinicia las aplicaciones, pero no los procesos. El maestro conserva el binario de Rapira y los ajustes de `rapira.toml` y `php.ini`. También conserva el conjunto de descriptores de gRPC, el archivo de tokens de `[grpc.auth]` y la memoria compartida de OPcache. Reinicia Rapira después de cambiar uno de estos archivos. Reinícialo también cuando `opcache.validate_timestamps = 0`. Una recarga no sustituye los opcodes en caché con esta configuración.
 :::
 
 ## Registros
@@ -170,7 +170,7 @@ request_terminate_timeout_secs = 30
 
 La tabla `[grpc.pool]` acepta las mismas claves.
 
-`max_requests` sustituye un worker después del número definido de peticiones. Rapira añade a cada worker un número aleatorio de hasta la mitad del límite para evitar la sustitución simultánea de workers. Este ajuste limita el efecto de una fuga de memoria, pero no la corrige.
+`max_requests` reinicia la aplicación dentro de un worker después del número de peticiones indicado. El proceso del worker se mantiene, así que ninguna conexión se cierra y ninguna petición se pierde. Rapira añade a cada worker un número aleatorio de hasta la mitad del límite para evitar reinicios simultáneos. El reinicio libera la memoria PHP de la aplicación. No libera la memoria que una extensión o una biblioteca C pierde fuera de PHP. Este ajuste limita el efecto de una fuga de memoria, pero no la corrige. El modo Classic lo ignora.
 
 `request_terminate_timeout_secs` limita el tiempo transcurrido de una petición. Rapira termina y sustituye un worker que supera el límite. El valor predeterminado de los dos ajustes es cero, que los desactiva. Actívalos en producción.
 

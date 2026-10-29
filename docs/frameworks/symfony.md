@@ -93,7 +93,7 @@ Most operations use standard Symfony initialization. Four parts are specific to 
 
 **`$container->has('services_resetter')` before `get()`.** The `services_resetter` identifier is public in both supported versions. Its implementation class uses different namespaces in versions 7.4 and 8.1. The service identifier avoids a version condition. The `has()` check prevents an error when a container does not define the service.
 
-**The loop and `gc_collect_cycles()`.** `\Rapira\handle_request()` waits for a request, runs the handler, and returns `true`. It returns `false` during worker shutdown and ends the loop. The script collects cycles between requests. See [Worker mode](/docs/worker) for the complete contract.
+**The loop and `gc_collect_cycles()`.** `\Rapira\handle_request()` waits for a request, runs the handler, and returns `true`. It returns `false` when the worker stops or restarts the app, and ends the loop. The script collects cycles between requests. See [Worker mode](/docs/worker) for the complete contract.
 
 If the resetter is insufficient, use `$container->reset()` or `$kernel->reboot(null)`. The first option removes each created service. The second option removes the container and creates a new one.
 
@@ -171,7 +171,7 @@ max_requests = 500
 request_terminate_timeout_secs = 30
 ```
 
-`max_requests` replaces a worker after a random request count between this value and 1.5 times this value. It limits the effect of a memory leak but does not correct it. `request_terminate_timeout_secs` stops a worker when one request runs longer than this limit. The new worker initializes the kernel again. A relative `entrypoint` uses the configuration file directory as its base. See [Configuration](/docs/configuration) for all settings.
+`max_requests` restarts the app after a random request count above this value, up to 1.5 times this value. It limits the effect of a memory leak but does not correct it. `request_terminate_timeout_secs` stops a worker when one request runs longer than this limit. The restarted app or the new worker initializes the kernel again. A relative `entrypoint` uses the configuration file directory as its base. See [Configuration](/docs/configuration) for all settings.
 
 Start the server with `APP_ENV=prod`:
 
@@ -179,7 +179,7 @@ Start the server with `APP_ENV=prod`:
 APP_ENV=prod rapira serve rapira.toml
 ```
 
-After a deployment, send `SIGUSR2` to the master to replace the workers. With `opcache.validate_timestamps = 0`, restart Rapira instead. See [Running in production](/docs/deployment).
+After a deployment, send `SIGUSR2` to the master to restart the apps. With `opcache.validate_timestamps = 0`, restart Rapira instead. See [Running in production](/docs/deployment).
 
 ## What resets between requests
 

@@ -92,7 +92,7 @@ try {
 }
 ```
 
-请求和响应使用同一种消息类型，因此 handler 可以直接返回这些字节。`ClosedException` 在关闭期间结束循环。`WorkDiscardedException` 表示宿主已经取消了该调用。
+请求和响应使用同一种消息类型，因此 handler 可以直接返回这些字节。`ClosedException` 在关闭或应用重启期间结束循环。`WorkDiscardedException` 表示宿主已经取消了该调用。
 
 ### 配置监听器和进程池
 

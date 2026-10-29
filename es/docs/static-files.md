@@ -94,10 +94,10 @@ Después de un segundo, la siguiente petición de un archivo ejecuta `stat` sobr
 
 Una caché llena sigue sirviendo sus entradas. Elimina primero las entradas caducadas. Si la caché sigue llena, no guarda el archivo nuevo.
 
-Un proceso worker nuevo empieza con la caché vacía. Por tanto, una recarga, una sustitución de worker o un reinicio vacían la caché.
+Un proceso worker nuevo empieza con la caché vacía. Por tanto, una sustitución de worker o un reinicio de Rapira vacían la caché. Una recarga conserva la caché, porque el proceso del worker se mantiene.
 
 La raíz debe usar almacenamiento local. El middleware ejecuta `stat` y `open` en el hilo que atiende peticiones. Un sistema de archivos lento retrasa las demás conexiones de ese worker.
 
 ::: question ¿Por qué la caché no detecta mi archivo modificado?
-La caché compara solo la fecha de modificación y el tamaño del archivo. El `ETag` contiene los mismos valores. La caché no detecta una sustitución que conserva ambos valores. Un cambio de permisos también conserva la entrada. Para eliminar la entrada, elimina el archivo, cambia su fecha de modificación o [recarga](/es/docs/process-model#senales) el servidor.
+La caché compara solo la fecha de modificación y el tamaño del archivo. El `ETag` contiene los mismos valores. La caché no detecta una sustitución que conserva ambos valores. Un cambio de permisos también conserva la entrada. Para eliminar la entrada, elimina el archivo, cambia su fecha de modificación o reinicia Rapira.
 :::

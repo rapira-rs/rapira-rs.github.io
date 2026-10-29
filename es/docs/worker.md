@@ -14,7 +14,7 @@ El modo Worker no requiere un framework específico. Requiere una aplicación qu
 
 ## El bucle residente
 
-El script inicializa la aplicación y define un handler para una petición. Después llama a `\Rapira\handle_request()` en un bucle hasta que el worker se detiene.
+El script inicializa la aplicación y define un handler para una petición. Después llama a `\Rapira\handle_request()` en un bucle hasta que devuelve `false`.
 
 ```php
 <?php
@@ -59,7 +59,7 @@ Consulta las demás claves en [Configuración](/es/docs/configuration).
 - **Rellena los datos de la petición** en `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE`, `$_FILES` y `$_REQUEST` antes de ejecutar el handler. El código lee estas superglobales como lo hace con php-fpm.
 - **Llama al handler sin argumentos.** Usa la firma `function (): void`. Captura dependencias, como el contenedor o el logger, con `use`. Rapira ignora el valor de retorno.
 - **La salida del handler es la respuesta.** El handler puede usar `echo`, `print`, `header()`, `http_response_code()` y `setcookie()`. Consulta [HTTP](/es/docs/http) para el procesamiento de las peticiones y las respuestas.
-- **Devuelve `true`** después de cada petición. Devuelve `false` cuando el worker empieza a detenerse. Termina el bucle y el script cuando devuelve `false`.
+- **Devuelve `true`** después de cada petición. Devuelve `false` cuando el worker empieza a detenerse o reinicia la aplicación. Termina el bucle y el script cuando devuelve `false`.
 - **Llámala solo desde el bucle de nivel superior del script.** Una llamada desde dentro del handler lanza un `\Error`. No la llames desde una función de shutdown ni desde un destructor.
 
 Una petición en modo Worker es una iteración del bucle `while`. Antes de cada llamada al handler, Rapira vuelve a rellenar las superglobales. Después de la llamada, Rapira ejecuta las funciones de shutdown de la petición, vacía los búferes de salida y cierra la sesión. Los valores que el script mantiene fuera del handler permanecen en memoria.
@@ -68,7 +68,7 @@ Antes de la primera llamada a `handle_request()`, `$_SERVER` contiene el entorno
 
 ## Un bucle por worker
 
-Un script de worker ejecuta un bucle con un handler. En el ejemplo siguiente, el segundo bucle se ejecuta solo después de que termine el primero, y el primer bucle termina solo durante la detención. Usa un handler que distribuya todas las peticiones.
+Un script de worker ejecuta un bucle con un handler. En el ejemplo siguiente, el segundo bucle se ejecuta solo después de que termine el primero, y el primer bucle termina solo cuando `handle_request()` devuelve `false`. Usa un handler que distribuya todas las peticiones.
 
 ```php
 while (\Rapira\handle_request($api)) {
@@ -139,7 +139,7 @@ if (\Rapira\get_mode() === \Rapira\Mode::Worker) {
 
 **El estado de la petición permanece entre peticiones.** Si una aplicación falla solo en modo Worker, busca el estado de la petición que permanece. Algunos ejemplos son un array estático que crece, un objeto de petición en un singleton o datos antiguos de un usuario en un logger.
 
-Reinicia este estado al principio o al final del handler. Reinicia también el estado de la petición en las bibliotecas. `http.pool.max_requests` sustituye un worker después de que procesa más peticiones que este número. Esto limita el efecto de una fuga de memoria, pero no la corrige.
+Reinicia este estado al principio o al final del handler. Reinicia también el estado de la petición en las bibliotecas. `http.pool.max_requests` reinicia la aplicación después de que procesa más peticiones que este número. Esto limita el efecto de una fuga de memoria, pero no la corrige.
 
 **Ciclos de referencias sin recoger.** El conteo de referencias de PHP libera la mayoría de los valores inmediatamente. Solo libera los ciclos cuando se ejecuta el recolector. El ejemplo llama a `gc_collect_cycles()` entre peticiones. Esta llamada es opcional, pero hace predecible el momento de recogida.
 

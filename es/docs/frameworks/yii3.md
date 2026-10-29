@@ -126,7 +126,7 @@ Cada petición crea un contenedor nuevo, así que el worker no reinicia el estad
 
 El contenedor se inicia para cada petición. Esto añade tiempo de inicio y crea objetos que PHP debe liberar después. La memoria puede aumentar hasta que PHP libere varios contenedores antiguos a la vez. Este comportamiento cíclico no siempre es una fuga de memoria. Consulta [Memoria y reciclaje](/es/docs/frameworks/#memoria-y-reciclaje).
 
-Define `http.pool.max_requests` para sustituir los workers periódicamente. Consulta esta clave en [Configuración](/es/docs/configuration).
+Define `http.pool.max_requests` para reiniciar la aplicación periódicamente. Consulta esta clave en [Configuración](/es/docs/configuration).
 
 Este diseño no es el [modo Classic](/es/docs/classic). El autoloader, el arranque de la plantilla y el bucle de peticiones permanecen residentes en el worker. Solo la aplicación es nueva en cada petición.
 

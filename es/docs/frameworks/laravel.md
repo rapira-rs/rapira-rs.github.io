@@ -113,7 +113,7 @@ El bridge rellena los valores de servidor del objeto `Request` como si `public/i
 
 ## Estado entre peticiones
 
-En los modos Worker y Dispatcher, el worker de Octane inicia la aplicación una vez. Para cada petición, Octane clona la aplicación en un sandbox. Después ejecuta sus listeners, que restablecen el estado de petición conocido. Por ejemplo, un cambio de configuración en una petición no aparece en la siguiente petición. Las pruebas del bridge confirman este comportamiento en ambos modos.
+En los modos Worker y Dispatcher, el worker de Octane inicia la aplicación una vez por cada instancia de la aplicación. Para cada petición, Octane clona la aplicación en un sandbox. Después ejecuta sus listeners, que restablecen el estado de petición conocido. Por ejemplo, un cambio de configuración en una petición no aparece en la siguiente petición. Las pruebas del bridge confirman este comportamiento en ambos modos.
 
 La configuración de Octane controla estos listeners. La clave `warm` enumera los servicios que se inician antes de la primera petición. La clave `flush` enumera los servicios que se eliminan después de cada petición. Octane usa su configuración por defecto si la aplicación no tiene `config/octane.php`. Para cambiar la configuración, publica el archivo:
 
@@ -174,7 +174,7 @@ php artisan config:cache
 php artisan route:cache
 ```
 
-Un worker puede aumentar su uso de memoria con el tiempo. Establece un límite de sustitución de workers:
+Un worker puede aumentar su uso de memoria con el tiempo. Establece un límite de peticiones para la aplicación:
 
 ```toml
 [http.pool]
@@ -184,9 +184,9 @@ processes = 4
 max_requests = 500
 ```
 
-`max_requests` sustituye un worker después de un número aleatorio de peticiones entre este valor y 1,5 veces este valor. Limita el efecto de una fuga de memoria, pero no la corrige. Consulta [Modelo de procesos](/es/docs/process-model).
+`max_requests` reinicia la aplicación después de un número aleatorio de peticiones mayor que este valor y de hasta 1,5 veces este valor. Limita el efecto de una fuga de memoria, pero no la corrige. Consulta [Modelo de procesos](/es/docs/process-model).
 
-En los modos Worker y Dispatcher, el código de la aplicación permanece en memoria. Después de un despliegue, envía `SIGUSR2` al maestro para sustituir los workers. Con `opcache.validate_timestamps = 0`, reinicia Rapira. Consulta [En producción](/es/docs/deployment).
+En los modos Worker y Dispatcher, el código de la aplicación permanece en memoria. Después de un despliegue, envía `SIGUSR2` al maestro para reiniciar las aplicaciones. Con `opcache.validate_timestamps = 0`, reinicia Rapira. Consulta [En producción](/es/docs/deployment).
 
 ## Desarrollo
 

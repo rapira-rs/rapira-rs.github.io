@@ -93,7 +93,7 @@ while (\Rapira\handle_request($handler)) {
 
 **在 `get()` 前调用 `$container->has('services_resetter')`。**`services_resetter` 标识符在两个支持的版本中都是公开的。其实现类在 7.4 和 8.1 中使用不同的命名空间。服务标识符不需要版本条件。如果容器未定义此服务，`has()` 检查可以防止错误。
 
-**循环和 `gc_collect_cycles()`。**`\Rapira\handle_request()` 等待请求，运行 handler，然后返回 `true`。worker 关闭期间它返回 `false`，循环结束。脚本在请求之间回收循环引用。完整契约见 [Worker 模式](/zh/docs/worker)。
+**循环和 `gc_collect_cycles()`。**`\Rapira\handle_request()` 等待请求，运行 handler，然后返回 `true`。worker 停止或重启应用时，它返回 `false`，循环结束。脚本在请求之间回收循环引用。完整契约见 [Worker 模式](/zh/docs/worker)。
 
 如果 resetter 不足，请使用 `$container->reset()` 或 `$kernel->reboot(null)`。第一个选项删除每个已创建的服务。第二个选项删除容器并创建新容器。
 
@@ -171,7 +171,7 @@ max_requests = 500
 request_terminate_timeout_secs = 30
 ```
 
-`max_requests` 在随机请求数后替换 worker。此请求数在此值和此值的 1.5 倍之间。它限制内存泄漏的影响，但不会修复泄漏。当一个请求的运行时间超过 `request_terminate_timeout_secs` 时，Rapira 会停止该 worker。新 worker 会再次初始化内核。相对 `entrypoint` 以配置文件所在目录为基准。有关所有设置，请参阅[配置](/zh/docs/configuration)。
+`max_requests` 在随机请求数后重启应用。此请求数大于此值，最多为此值的 1.5 倍。它限制内存泄漏的影响，但不会修复泄漏。当一个请求的运行时间超过 `request_terminate_timeout_secs` 时，Rapira 会停止该 worker。重启后的应用或新 worker 会再次初始化内核。相对 `entrypoint` 以配置文件所在目录为基准。有关所有设置，请参阅[配置](/zh/docs/configuration)。
 
 使用 `APP_ENV=prod` 启动服务器：
 
@@ -179,7 +179,7 @@ request_terminate_timeout_secs = 30
 APP_ENV=prod rapira serve rapira.toml
 ```
 
-部署后，向 master 发送 `SIGUSR2` 以替换 worker。如果设置了 `opcache.validate_timestamps = 0`，请改为重启 Rapira。请参阅[生产环境部署](/zh/docs/deployment)。
+部署后，向 master 发送 `SIGUSR2` 以重启应用。如果设置了 `opcache.validate_timestamps = 0`，请改为重启 Rapira。请参阅[生产环境部署](/zh/docs/deployment)。
 
 ## 请求之间的状态重置
 

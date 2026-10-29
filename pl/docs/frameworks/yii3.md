@@ -126,7 +126,7 @@ Każde żądanie tworzy nowy kontener, więc worker nie zeruje stanu kontenera. 
 
 Kontener jest inicjalizowany dla każdego żądania. Dodaje to czas inicjalizacji i tworzy obiekty, które PHP musi później zwolnić. Pamięć może rosnąć do czasu, gdy PHP zwolni kilka starych kontenerów naraz. To cykliczne zachowanie nie musi oznaczać wycieku pamięci. Zobacz [Pamięć i recykling](/pl/docs/frameworks/#pamiec-i-recykling).
 
-Ustaw `http.pool.max_requests`, aby okresowo zastępować workery. Ten klucz opisuje [Konfiguracja](/pl/docs/configuration).
+Ustaw `http.pool.max_requests`, aby okresowo uruchamiać aplikację ponownie. Ten klucz opisuje [Konfiguracja](/pl/docs/configuration).
 
 Ten wariant to nie [tryb Classic](/pl/docs/classic). Autoloader, bootstrap szablonu i pętla żądań zostają w workerze. Tylko aplikacja jest nowa dla każdego żądania.
 

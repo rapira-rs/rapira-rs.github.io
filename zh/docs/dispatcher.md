@@ -94,7 +94,7 @@ rapira serve rapira.toml
 
 ## 循环如何结束
 
-在停止、重载或达到 `http.pool.max_requests` 后的替换期间，Rapira 关闭 dispatcher。dispatcher 已关闭且队列为空时，`receive()` 和 `tryReceive()` 抛出 `Rapira\Exception\ClosedException`。之后的每次调用都再次抛出它。请捕获此异常，退出循环，并让入口脚本结束。
+停止期间，Rapira 关闭 dispatcher。当 dispatcher 已关闭且其队列为空时，`receive()` 和 `tryReceive()` 抛出 `Rapira\Exception\ClosedException`。在 `http.pool.max_requests` 之后或重载时，dispatcher 会立即对当前应用实例关闭。队列中的请求等待同一 worker 中的下一个应用实例。之后的每次调用都会再次抛出该异常。请捕获此异常，退出循环，并让入口脚本结束。
 
 未捕获的异常或致命错误会结束入口脚本。然后 Rapira 在同一个 worker 中再次运行入口脚本。打开的 exchange 的客户端收到错误响应或不完整的响应。
 
@@ -187,7 +187,7 @@ $exchange->sendFile(__DIR__ . '/files/report.pdf');
 
 | 异常 | 抛出者 | 原因 |
 | --- | --- | --- |
-| `Rapira\Exception\ClosedException` | `receive()`、`tryReceive()` | Rapira 关闭了 dispatcher。不会再有请求到达。 |
+| `Rapira\Exception\ClosedException` | `receive()`、`tryReceive()` | Rapira 关闭了 dispatcher。不会再有请求到达当前应用实例。 |
 | `Rapira\Exception\TimeoutException` | `receive()` | 在等待时限之前没有请求到达。 |
 | `Rapira\Exception\NoDispatcherError` | `\Rapira\get_dispatcher()` | 进程不在 Dispatcher 模式下运行。 |
 | `Rapira\Exception\WorkDiscardedException` | 写入方法 | Rapira 在 PHP 终结 exchange 前取消了它。 |

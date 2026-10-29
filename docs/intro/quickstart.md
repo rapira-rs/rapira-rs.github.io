@@ -74,7 +74,7 @@ while (\Rapira\handle_request($handler)) {
 }
 ```
 
-`\Rapira\handle_request()` waits for the next request. It calls the handler and returns `true`. During worker shutdown, `\Rapira\handle_request()` returns `false`. This value ends the loop.
+`\Rapira\handle_request()` waits for the next request. It calls the handler and returns `true`. When the worker stops or restarts the app, `\Rapira\handle_request()` returns `false`. This value ends the loop.
 
 The handler reads superglobals and creates output with `echo` and `header()`. Call `\Rapira\handle_request()` only from the top-level script loop. It throws `Rapira\Exception\NotInWorkerModeError` in other modes.
 

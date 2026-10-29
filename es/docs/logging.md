@@ -43,7 +43,7 @@ Rapira usa estos targets:
 | Target          | Qué cubre                                                                                       |
 | --------------- | ----------------------------------------------------------------------------------------------- |
 | `rapira`        | la inicialización del servidor, el ciclo de vida de los workers, el apagado                     |
-| `master`        | estado de pools, errores de creación de procesos, advertencias de disponibilidad durante recargas y de tiempo de espera de peticiones |
+| `master`        | estado de pools, errores de creación de procesos y advertencias de tiempo de espera de peticiones |
 | `http`          | las escuchas HTTP, el tratamiento de los campos de petición y respuesta, el apagado             |
 | `grpc`          | las escuchas gRPC, los fallos de transporte, el apagado                                         |
 | `net`           | el bucle de aceptación de las escuchas HTTP y gRPC, los fallos de aceptación                    |
@@ -56,7 +56,7 @@ Rapira no escribe un registro de acceso con una línea por petición. La página
 Una dependencia escribe registros de traza bajo su ruta de módulo. El mismo filtro por prefijo se aplica a estos registros. Cada registro contiene el nombre de su target. Añade ese nombre a `[log.targets]` para cambiar su nivel.
 
 ::: tip
-El target `master` informa del estado de pools, errores de creación de procesos, advertencias de disponibilidad durante recargas y de tiempo de espera de peticiones. Consulta [Modelo de procesos](/es/docs/process-model) para ver la supervisión de pools.
+El target `master` informa del estado de pools, errores de creación de procesos y advertencias de tiempo de espera de peticiones. Consulta [Modelo de procesos](/es/docs/process-model) para ver la supervisión de pools.
 :::
 
 ## Diagnósticos de PHP

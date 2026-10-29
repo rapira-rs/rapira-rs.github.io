@@ -61,10 +61,9 @@ Każda inna metoda lub ścieżka dostaje `404` z pustą treścią. Ścieżka wy�
 
 - Workery puli się uruchamiają i jeszcze nie czekają na żądanie. W trybach Worker i Dispatcher skrypt wejściowy musi najpierw zakończyć rozruch.
 - Rozruch skryptu wejściowego się nie udaje. Worker próbuje ponownie, a pula staje się gotowa po udanym rozruchu. Żądanie nie jest potrzebne.
-- Przeładowanie uruchamia nowe workery, których rozruch się nie udaje. Po `process_control_timeout_secs` proces nadrzędny i tak zatrzymuje stare workery.
-- Przez krótki czas każdy worker puli kończy bieżące żądania przed wyjściem, na przykład po `max_requests`, a żaden zastępca jeszcze nie czeka na żądanie.
+- Przez krótki czas każdy worker puli kończy bieżące żądania przed wyjściem, na przykład po niezdrowych zakończeniach, a żaden zastępca jeszcze nie czeka na żądanie.
 
-Normalne przeładowanie utrzymuje `/readyz` na `200`. Proces nadrzędny uruchamia nowego workera, zanim zatrzyma starego. Kolejność przeładowania opisuje sekcja [Sygnały](/pl/docs/process-model#sygnały).
+Przeładowanie utrzymuje `/readyz` na `200`, ponieważ żaden proces workera się nie zatrzymuje. Przeładowanie opisuje sekcja [Sygnały](/pl/docs/process-model#sygnały).
 
 W niektórych przypadkach nie ma żadnej odpowiedzi. Na początku zatrzymywania proces observability przestaje przyjmować połączenia. Jeśli rozruch workerów puli się nie udaje, zanim pula obsłuży żądanie, proces nadrzędny kończy działanie z kodem `70`. Zobacz [Kody wyjścia](/pl/docs/cli#kody-wyjscia).
 
@@ -116,7 +115,7 @@ Wyjście zawiera te metryki. Etykieta `pool` ma wartość `http` lub `grpc`. Met
 | `rapira_requests_failed_total` | counter | `pool` | Jednostki pracy, których host nie mógł zakończyć, na przykład utracone wywołanie lub jednostka odrzucona po przepełnieniu kolejki. |
 | `rapira_requests_failed_on_full_queue_total` | counter | `pool` | Jednostki pracy, które zastały pełną kolejkę workera i nigdy do niej nie weszły. Rapira odrzuca taką jednostkę, gdy kolejka pozostaje pełna przez 30 sekund. |
 | `rapira_requests_queued` | gauge | `pool` | Jednostki pracy, które czekają na wątek PHP workera. |
-| `rapira_script_restarts_total` | counter | `pool` | Ponowne uruchomienia skryptu wejściowego wewnątrz procesu workera, na przykład po błędzie krytycznym. |
+| `rapira_script_restarts_total` | counter | `pool` | Ponowne uruchomienia aplikacji wewnątrz procesu workera, na przykład po `max_requests`, przeładowaniu lub błędzie krytycznym. |
 | `rapira_worker_exits_total` | counter | `pool`, `reason` | Zakończenia procesów workerów. Przyczyny opisuje tabela poniżej. |
 | `rapira_worker_rss_bytes` | gauge | `pool`, `worker` | Pamięć rezydentna workera w bajtach. Tylko Linux. |
 | `rapira_worker_pss_bytes` | gauge | `pool`, `worker` | Proporcjonalna pamięć workera w bajtach. Tylko Linux. |
@@ -128,21 +127,17 @@ Etykieta `reason` metryki `rapira_worker_exits_total` ma te wartości:
 
 | Przyczyna | Znaczenie |
 | --- | --- |
-| `drained` | Worker zakończył działanie z kodem `0`, na przykład po zatrzymaniu lub przeładowaniu. |
-| `recycled` | Worker osiągnął `max_requests`. |
+| `drained` | Worker zakończył działanie z kodem `0`, na przykład po zatrzymaniu. |
 | `unhealthy` | Worker zgłosił, że nie może obsługiwać żądań, na przykład po powtarzających się nieudanych rozruchach. |
 | `timeout` | Żądanie działało dłużej niż `request_terminate_timeout_secs`, a proces nadrzędny zatrzymał workera. |
 | `crashed` | Worker zakończył działanie z innym kodem lub z powodu sygnału. |
 
-Liczniki zachowują wartości, gdy proces nadrzędny zastępuje lub przeładowuje workera. Wracają do zera tylko po ponownym uruchomieniu procesu nadrzędnego. Jedno pobranie metryk czyta jeden plik `/proc` dla każdego działającego workera. Sondy nie czytają plików.
+Liczniki zachowują wartości, gdy proces nadrzędny zastępuje workera. Wracają do zera tylko po ponownym uruchomieniu procesu nadrzędnego. Jedno pobranie metryk czyta jeden plik `/proc` dla każdego działającego workera. Sondy nie czytają plików.
 
 ::: question Dlaczego etykieta worker nie jest identyfikatorem procesu?
-Etykieta `worker` to numer miejsca workera w jego puli. Worker zastępczy może użyć tego samego miejsca, więc serie trwają dalej po zastąpieniu. Każda pula ma dwa miejsca na każdego workera. Dlatego numery mają wartości od `0` do dwukrotności `processes` minus jeden.
+Etykieta `worker` to numer miejsca workera w jego puli. Worker zastępczy może użyć tego samego miejsca, więc serie trwają dalej po zastąpieniu. Każda pula ma jedno miejsce na każdego workera. Dlatego numery mają wartości od `0` do `processes` minus jeden.
 :::
 
-::: question Dlaczego pula pokazuje więcej workerów niż rapira_workers_configured?
-Podczas przeładowania proces nadrzędny uruchamia nowego workera, zanim zatrzyma starego. Oba workery są widoczne w `rapira_workers`, dopóki stary worker nie zakończy działania.
-:::
 
 ## Bezpieczeństwo
 

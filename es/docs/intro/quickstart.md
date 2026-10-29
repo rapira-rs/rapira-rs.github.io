@@ -74,7 +74,7 @@ while (\Rapira\handle_request($handler)) {
 }
 ```
 
-`\Rapira\handle_request()` espera la siguiente petición. La función llama al handler y devuelve `true`. Durante la parada del worker, `\Rapira\handle_request()` devuelve `false`. Este valor termina el bucle.
+`\Rapira\handle_request()` espera la siguiente petición. La función llama al handler y devuelve `true`. Cuando el worker se detiene o reinicia la aplicación, `\Rapira\handle_request()` devuelve `false`. Este valor termina el bucle.
 
 El handler lee las superglobales y crea la salida con `echo` y `header()`. Llama a `\Rapira\handle_request()` solo desde el bucle de nivel superior del script. En otros modos, lanza `Rapira\Exception\NotInWorkerModeError`.
 

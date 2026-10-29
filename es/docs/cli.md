@@ -67,5 +67,5 @@ Ctrl-C en un terminal envía `SIGINT` al maestro y a cada worker. Después, el m
 | `0` | El servidor se paró y todos los workers salieron. `--help`, `--version` y `rapira` sin argumentos también salen con `0`. |
 | `1` | El servidor no se inició. Por ejemplo, la configuración no es válida, Rapira no puede leer un archivo, una escucha no puede enlazar la dirección o PHP no puede iniciarse. El error está en stderr. |
 | `2` | La línea de comandos no es válida, por ejemplo una opción desconocida o la falta de `CONFIG`. |
-| `70` | El maestro falló después de iniciarse. Por ejemplo, el total de workers de todos los pools es mayor que 2048, o el maestro no puede escribir el pidfile. Un worker unhealthy de la generación cero también causa esta salida si su pool no tiene ninguna petición correcta ni ningún worker idle o active. La generación cero identifica los workers creados antes de la primera recarga. El registro tiene una entrada `master failed`. |
+| `70` | El maestro falló después de iniciarse. Por ejemplo, el total de workers de todos los pools es mayor que 4096, o el maestro no puede escribir el pidfile. Un worker unhealthy también causa esta salida si su pool no tiene ninguna petición correcta ni ningún worker idle o active. El registro tiene una entrada `master failed`. |
 | `130` | Un `SIGTERM` o `SIGINT` llegó durante una parada y forzó la salida. |

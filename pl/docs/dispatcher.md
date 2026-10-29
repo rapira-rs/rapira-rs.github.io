@@ -94,7 +94,7 @@ Wysłanie wszystkich bajtów zadeklarowanych w `Content-Length` z `$eos = false`
 
 ## Koniec pętli
 
-Podczas zatrzymania, przeładowania lub zastąpienia po `http.pool.max_requests` Rapira zamyka dyspozytora. Gdy dyspozytor jest zamknięty, a jego kolejka jest pusta, `receive()` i `tryReceive()` rzucają `Rapira\Exception\ClosedException`. Każde kolejne wywołanie rzuca go ponownie. Przechwyć ten wyjątek, wyjdź z pętli i pozwól skryptowi wejściowemu się zakończyć.
+Podczas zatrzymania Rapira zamyka dyspozytora. Gdy dyspozytor jest zamknięty, a jego kolejka jest pusta, `receive()` i `tryReceive()` rzucają `Rapira\Exception\ClosedException`. Po `http.pool.max_requests` lub przeładowaniu dyspozytor zamyka się od razu dla tej instancji aplikacji. Żądania w kolejce czekają na następną instancję aplikacji w tym samym workerze. Każde kolejne wywołanie rzuca ten wyjątek ponownie. Przechwyć ten wyjątek, wyjdź z pętli i pozwól skryptowi wejściowemu się zakończyć.
 
 Nieprzechwycony wyjątek lub błąd krytyczny kończy skrypt wejściowy. Rapira wtedy ponownie uruchamia skrypt wejściowy w tym samym workerze. Klient otwartej wymiany otrzymuje odpowiedź błędu lub niekompletną odpowiedź.
 
@@ -187,7 +187,7 @@ Każda klasa wyjątku w przestrzeniach nazw `Rapira` implementuje `Rapira\Except
 
 | Wyjątek | Rzuca go | Przyczyna |
 | --- | --- | --- |
-| `Rapira\Exception\ClosedException` | `receive()`, `tryReceive()` | Rapira zamknęła dyspozytora. Żądania już nie przychodzą. |
+| `Rapira\Exception\ClosedException` | `receive()`, `tryReceive()` | Rapira zamknęła dyspozytora. Do tej instancji aplikacji żądania już nie przychodzą. |
 | `Rapira\Exception\TimeoutException` | `receive()` | Żadne żądanie nie przyszło przed upływem limitu czasu. |
 | `Rapira\Exception\NoDispatcherError` | `\Rapira\get_dispatcher()` | Proces nie działa w trybie Dispatcher. |
 | `Rapira\Exception\WorkDiscardedException` | Metody zapisu | Rapira anulowała wymianę, zanim PHP ją sfinalizował. |

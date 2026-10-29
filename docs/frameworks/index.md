@@ -54,7 +54,7 @@ The script contains these operations:
 - **`$app = new App();`** initializes the application before the loop. Symfony keeps a persistent kernel here. Yii3 can keep a persistent runner or create a runner inside the handler. Each guide shows the initialization and the request cleanup.
 - **`$handler = static function () use ($app): void`** defines a handler without arguments. The handler reads request data from the superglobals. It gets other dependencies through `use`.
 - **`header()`, `http_response_code()`, and `echo`** create the response as in a classic script. See [HTTP](/docs/http) for response transmission.
-- **`while (\Rapira\handle_request($handler))`** waits for a request. `handle_request()` fills the superglobals, runs the handler, and completes the request. It returns `true` after a request and `false` when the worker stops. Call it only from the top-level script loop. Outside Worker mode, it throws `Rapira\Exception\NotInWorkerModeError`.
+- **`while (\Rapira\handle_request($handler))`** waits for a request. `handle_request()` fills the superglobals, runs the handler, and completes the request. It returns `true` after a request and `false` when the worker stops or restarts the app. Call it only from the top-level script loop. Outside Worker mode, it throws `Rapira\Exception\NotInWorkerModeError`.
 - **`gc_collect_cycles();`** collects reference cycles between requests. It does not correct memory leaks. See [Memory and recycling](#memory-and-recycling).
 
 Inside the handler, Rapira sets `SCRIPT_NAME` to `/worker.php` because `worker.php` is the entry script. `DOCUMENT_ROOT` contains the script directory. `REQUEST_URI` contains the client path. Symfony and Yii3 routed requests and generated URLs correctly with these values. The generated URLs did not contain `worker.php`. Before you integrate another framework, check whether it builds URLs from `SCRIPT_NAME` instead of `REQUEST_URI`.
@@ -140,16 +140,16 @@ A worker can create the application inside the handler. The application then sta
 
 In this design, each request creates an object graph. Reference cycles can keep old graphs until the cycle collector runs. Memory use then increases for several requests and decreases when PHP releases many graphs. This pattern is not necessarily a memory leak. However, peak memory can be much larger than the memory for one request.
 
-Tests found that `gc_collect_cycles()` in the loop or handler did not prevent this pattern. Later initialization can keep references to old graphs. The collector cannot release a graph while another object references it. Set `memory_limit` above the measured peak. Also set a worker replacement limit:
+Tests found that `gc_collect_cycles()` in the loop or handler did not prevent this pattern. Later initialization can keep references to old graphs. The collector cannot release a graph while another object references it. Set `memory_limit` above the measured peak. Also set a request limit for the app:
 
 ```toml
 [http.pool]
 max_requests = 100
 ```
 
-Each worker stops after it serves more than `max_requests` requests, and the master starts a replacement. Each worker uses its own limit, from `max_requests + 1` to `max_requests` plus half of that value. Thus, workers do not stop at the same time. Tests sent hundreds of requests during several replacements. Memory returned to its initial level, and each request returned `200`. This setting limits the memory peak of this pattern.
+Each worker restarts its app after it serves more than `max_requests` requests. Each worker uses its own limit, from `max_requests + 1` to `max_requests` plus half of that value. Thus, the apps do not restart at the same time. The restart frees the PHP memory of the app, and no request is lost. This setting limits the memory peak of this pattern.
 
-Persistent Symfony and Yii3 applications had stable memory use during the same tests. Keep worker replacement enabled to limit unexpected memory growth. See [configuration](/docs/configuration) and [process model](/docs/process-model) for more information.
+Persistent Symfony and Yii3 applications had stable memory use during the same tests. Keep `max_requests` enabled to limit unexpected memory growth. See [configuration](/docs/configuration) and [process model](/docs/process-model) for more information.
 
 ## OPcache and changed code
 

@@ -14,7 +14,7 @@ Worker mode does not require a specific framework. It requires an application th
 
 ## The persistent loop
 
-The script initializes the application and defines a handler for one request. It then calls `\Rapira\handle_request()` in a loop until the worker stops.
+The script initializes the application and defines a handler for one request. It then calls `\Rapira\handle_request()` in a loop until it returns `false`.
 
 ```php
 <?php
@@ -59,7 +59,7 @@ See [Configuration](/docs/configuration) for the other keys.
 - **It fills request data** in `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE`, `$_FILES`, and `$_REQUEST` before the handler runs. Code reads these superglobals as it does under php-fpm.
 - **It calls the handler without arguments.** Use the signature `function (): void`. Capture dependencies, such as the container or logger, with `use`. Rapira ignores the return value.
 - **Handler output is the response.** The handler can use `echo`, `print`, `header()`, `http_response_code()`, and `setcookie()`. See [HTTP](/docs/http) for request and response processing.
-- **It returns `true`** after each request. It returns `false` when the worker starts to shut down. End the loop and the script when it returns `false`.
+- **It returns `true`** after each request. It returns `false` when the worker starts to shut down or restarts the app. End the loop and the script when it returns `false`.
 - **Call it only from the top-level loop of the script.** A call from inside the handler throws an `\Error`. Do not call it from a shutdown function or a destructor.
 
 A request in Worker mode is one iteration of the `while` loop. Before each handler call, Rapira refills the superglobals. After the call, Rapira runs the request shutdown functions, flushes the output buffers, and closes the session. Values that the script holds outside the handler stay in memory.
@@ -68,7 +68,7 @@ Before the first `handle_request()` call, `$_SERVER` contains the process enviro
 
 ## One loop per worker
 
-A worker script runs one loop with one handler. In the example below, the second loop runs only after the first loop ends, and the first loop ends only at shutdown. Use one handler that routes all requests.
+A worker script runs one loop with one handler. In the example below, the second loop runs only after the first loop ends, and the first loop ends only when `handle_request()` returns `false`. Use one handler that routes all requests.
 
 ```php
 while (\Rapira\handle_request($api)) {
@@ -139,7 +139,7 @@ if (\Rapira\get_mode() === \Rapira\Mode::Worker) {
 
 **Request state remains between requests.** If an application fails only in Worker mode, look for request state that remains. Examples include a static array that grows, a request object in a singleton, or old user data in a logger.
 
-Reset this state at the start or end of the handler. Also reset request state in libraries. `http.pool.max_requests` replaces a worker after it serves more than this number of requests. This limits the effect of a memory leak, but it does not correct it.
+Reset this state at the start or end of the handler. Also reset request state in libraries. `http.pool.max_requests` restarts the app after it serves more than this number of requests. This limits the effect of a memory leak, but it does not correct it.
 
 **Uncollected reference cycles.** PHP reference counting releases most values at once. It releases reference cycles only when the cycle collector runs. The example calls `gc_collect_cycles()` between requests. This call is optional, but it makes the collection time predictable.
 

@@ -113,7 +113,7 @@ Most wypełnia wartości serwera w obiekcie `Request` tak, jakby żądanie obsł
 
 ## Stan między żądaniami
 
-W trybach Worker i Dispatcher worker Octane inicjalizuje aplikację raz. Dla każdego żądania Octane klonuje aplikację do piaskownicy (sandbox). Następnie uruchamia swoje listenery, które resetują znany stan żądania. Na przykład zmiana konfiguracji w jednym żądaniu nie pojawia się w następnym żądaniu. Testy mostu potwierdzają to zachowanie w obu trybach.
+W trybach Worker i Dispatcher worker Octane inicjalizuje aplikację raz dla każdej instancji aplikacji. Dla każdego żądania Octane klonuje aplikację do piaskownicy (sandbox). Następnie uruchamia swoje listenery, które resetują znany stan żądania. Na przykład zmiana konfiguracji w jednym żądaniu nie pojawia się w następnym żądaniu. Testy mostu potwierdzają to zachowanie w obu trybach.
 
 Konfiguracja Octane kontroluje te listenery. Klucz `warm` zawiera listę serwisów do inicjalizacji przed pierwszym żądaniem. Klucz `flush` zawiera listę serwisów do usunięcia po każdym żądaniu. Octane używa swojej domyślnej konfiguracji, jeśli aplikacja nie ma `config/octane.php`. Aby zmienić konfigurację, opublikuj plik:
 
@@ -174,7 +174,7 @@ php artisan config:cache
 php artisan route:cache
 ```
 
-Worker może z czasem zwiększać zużycie pamięci. Ustaw limit wymiany workera:
+Worker może z czasem zwiększać zużycie pamięci. Ustaw limit żądań dla aplikacji:
 
 ```toml
 [http.pool]
@@ -184,9 +184,9 @@ processes = 4
 max_requests = 500
 ```
 
-`max_requests` zastępuje workera po losowej liczbie żądań między tą wartością a 1,5 tej wartości. Ogranicza wpływ wycieku pamięci, ale go nie naprawia. Zobacz [Model procesów](/pl/docs/process-model).
+`max_requests` uruchamia ponownie aplikację po losowej liczbie żądań większej niż ta wartość, ale nie większej niż 1,5 tej wartości. Ogranicza wpływ wycieku pamięci, ale go nie naprawia. Zobacz [Model procesów](/pl/docs/process-model).
 
-W trybach Worker i Dispatcher kod aplikacji pozostaje w pamięci. Po wdrożeniu wyślij `SIGUSR2` do procesu nadrzędnego, aby zastąpić workery. Przy `opcache.validate_timestamps = 0` zamiast tego uruchom Rapirę ponownie. Zobacz [Wdrożenie produkcyjne](/pl/docs/deployment).
+W trybach Worker i Dispatcher kod aplikacji pozostaje w pamięci. Po wdrożeniu wyślij `SIGUSR2` do procesu nadrzędnego, aby uruchomić ponownie aplikacje. Przy `opcache.validate_timestamps = 0` zamiast tego uruchom Rapirę ponownie. Zobacz [Wdrożenie produkcyjne](/pl/docs/deployment).
 
 ## Programowanie
 

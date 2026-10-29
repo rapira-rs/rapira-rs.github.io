@@ -61,10 +61,9 @@ Every other method or path gets `404` with an empty body. A path of a disabled s
 
 - The workers of a pool start and do not yet wait for a request. In Worker and Dispatcher modes, the entry script must boot first.
 - The entry script fails to boot. The worker tries again, and the pool becomes ready after a boot succeeds. No request is necessary.
-- A reload starts new workers that do not boot. After `process_control_timeout_secs`, the master stops the old workers anyway.
-- For a short time, each worker of a pool drains, for example after `max_requests`, and no replacement waits for a request yet.
+- For a short time, each worker of a pool drains, for example after unhealthy exits, and no replacement waits for a request yet.
 
-A normal reload keeps `/readyz` at `200`. The master starts a new worker before it stops an old one. See [Signals](/docs/process-model#signals) for the reload sequence.
+A reload keeps `/readyz` at `200`, because no worker process stops. See [Signals](/docs/process-model#signals) for the reload.
 
 Some cases give no answer at all. At the start of a stop, the observability process stops accepting connections. If the workers of a pool fail to boot before the pool serves a request, the master exits with code `70`. See [Exit codes](/docs/cli#exit-codes).
 
@@ -116,7 +115,7 @@ The output contains these metrics. The `pool` label is `http` or `grpc`. The met
 | `rapira_requests_failed_total` | counter | `pool` | Units of work that the host could not complete, for example a lost call or a unit rejected after queue saturation. |
 | `rapira_requests_failed_on_full_queue_total` | counter | `pool` | Units of work that found the worker queue full and never entered it. Rapira rejects such a unit when the queue stays full for 30 seconds. |
 | `rapira_requests_queued` | gauge | `pool` | Units of work that wait for the PHP thread of a worker. |
-| `rapira_script_restarts_total` | counter | `pool` | Restarts of the entry script inside a worker process, for example after a fatal error. |
+| `rapira_script_restarts_total` | counter | `pool` | Restarts of the app inside a worker process, for example after `max_requests`, a reload, or a fatal error. |
 | `rapira_worker_exits_total` | counter | `pool`, `reason` | Worker process exits. See the reasons below. |
 | `rapira_worker_rss_bytes` | gauge | `pool`, `worker` | The resident memory of a worker in bytes. Linux only. |
 | `rapira_worker_pss_bytes` | gauge | `pool`, `worker` | The proportional memory of a worker in bytes. Linux only. |
@@ -128,21 +127,17 @@ The `reason` label of `rapira_worker_exits_total` has these values:
 
 | Reason | Meaning |
 | --- | --- |
-| `drained` | The worker exited with code `0`, for example after a stop or a reload. |
-| `recycled` | The worker reached `max_requests`. |
+| `drained` | The worker exited with code `0`, for example after a stop. |
 | `unhealthy` | The worker reported that it cannot serve, for example after repeated boot failures. |
 | `timeout` | A request ran longer than `request_terminate_timeout_secs`, and the master stopped the worker. |
 | `crashed` | The worker exited with another code or because of a signal. |
 
-The counters keep their values when the master replaces or reloads a worker. They go back to zero only when the master starts again. A scrape reads one `/proc` file for each live worker. The probes read no files.
+The counters keep their values when the master replaces a worker. They go back to zero only when the master starts again. A scrape reads one `/proc` file for each live worker. The probes read no files.
 
 ::: question Why is the worker label not a process ID?
-The `worker` label is the slot number of the worker in its pool. A replacement worker can use the same slot, so the series continue after a replacement. Each pool has two slots for each worker. Thus, the numbers go from `0` to two times `processes` minus one.
+The `worker` label is the slot number of the worker in its pool. A replacement worker can use the same slot, so the series continue after a replacement. Each pool has one slot for each worker. Thus, the numbers go from `0` to `processes` minus one.
 :::
 
-::: question Why does a pool show more workers than rapira_workers_configured?
-During a reload, the master starts a new worker before it stops an old one. Both workers appear in `rapira_workers` until the old worker exits.
-:::
 
 ## Security
 

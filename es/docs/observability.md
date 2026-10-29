@@ -61,10 +61,9 @@ Cualquier otro método o ruta recibe `404` con un cuerpo vacío. La ruta de una 
 
 - Los workers de un pool arrancan y todavía no esperan una petición. En los modos Worker y Dispatcher, el script de entrada debe inicializarse primero.
 - El script de entrada no se inicializa. El worker lo intenta de nuevo, y el pool queda listo después de una inicialización correcta. No es necesaria ninguna petición.
-- Una recarga inicia workers nuevos que no se inicializan. Después de `process_control_timeout_secs`, el maestro detiene los workers antiguos de todos modos.
-- Durante un tiempo corto, todos los workers de un pool drenan, por ejemplo después de `max_requests`, y ningún sustituto espera todavía una petición.
+- Durante poco tiempo, cada worker de un pool drena, por ejemplo después de salidas unhealthy, y ningún sustituto espera todavía una petición.
 
-Una recarga normal mantiene `/readyz` en `200`. El maestro inicia un worker nuevo antes de detener uno antiguo. Consulta [Señales](/es/docs/process-model#senales) para ver la secuencia de recarga.
+Una recarga mantiene `/readyz` en `200`, porque ningún proceso de worker se detiene. Consulta [Señales](/es/docs/process-model#senales) para la recarga.
 
 Algunos casos no dan ninguna respuesta. Al inicio de una parada, el proceso de observabilidad deja de aceptar conexiones. Si los workers de un pool no se inicializan antes de que el pool atienda una petición, el maestro termina con el código `70`. Consulta [Códigos de salida](/es/docs/cli#codigos-de-salida).
 
@@ -116,7 +115,7 @@ La salida contiene estas métricas. La etiqueta `pool` es `http` o `grpc`. Las m
 | `rapira_requests_failed_total` | counter | `pool` | Unidades de trabajo que el host no pudo completar, por ejemplo una llamada perdida o una unidad rechazada tras la saturación de la cola. |
 | `rapira_requests_failed_on_full_queue_total` | counter | `pool` | Unidades de trabajo que encontraron llena la cola del worker y nunca entraron en ella. Rapira rechaza una unidad así cuando la cola sigue llena durante 30 segundos. |
 | `rapira_requests_queued` | gauge | `pool` | Unidades de trabajo que esperan al hilo PHP de un worker. |
-| `rapira_script_restarts_total` | counter | `pool` | Reinicios del script de entrada dentro de un proceso worker, por ejemplo después de un error fatal. |
+| `rapira_script_restarts_total` | counter | `pool` | Reinicios de la aplicación dentro de un proceso de worker, por ejemplo después de `max_requests`, de una recarga o de un error fatal. |
 | `rapira_worker_exits_total` | counter | `pool`, `reason` | Salidas de procesos worker. Consulta los motivos más abajo. |
 | `rapira_worker_rss_bytes` | gauge | `pool`, `worker` | La memoria residente de un worker en bytes. Solo Linux. |
 | `rapira_worker_pss_bytes` | gauge | `pool`, `worker` | La memoria proporcional de un worker en bytes. Solo Linux. |
@@ -128,21 +127,17 @@ La etiqueta `reason` de `rapira_worker_exits_total` tiene estos valores:
 
 | Motivo | Significado |
 | --- | --- |
-| `drained` | El worker terminó con el código `0`, por ejemplo después de una parada o una recarga. |
-| `recycled` | El worker alcanzó `max_requests`. |
+| `drained` | El worker terminó con el código `0`, por ejemplo después de una parada. |
 | `unhealthy` | El worker informó de que no puede atender peticiones, por ejemplo después de fallos de inicialización repetidos. |
 | `timeout` | Una petición se ejecutó más tiempo que `request_terminate_timeout_secs`, y el maestro detuvo el worker. |
 | `crashed` | El worker terminó con otro código o por una señal. |
 
-Los contadores conservan sus valores cuando el maestro sustituye o recarga un worker. Vuelven a cero solo cuando el maestro arranca de nuevo. Un scrape lee un archivo de `/proc` por cada worker vivo. Las sondas no leen archivos.
+Los contadores conservan sus valores cuando el maestro sustituye un worker. Vuelven a cero solo cuando el maestro arranca de nuevo. Un scrape lee un archivo de `/proc` por cada worker vivo. Las sondas no leen archivos.
 
 ::: question ¿Por qué la etiqueta worker no es un identificador de proceso?
-La etiqueta `worker` es el número de slot del worker en su pool. Un worker sustituto puede usar el mismo slot, así que las series continúan después de una sustitución. Cada pool tiene dos slots por cada worker. Por tanto, los números van de `0` a dos veces `processes` menos uno.
+La etiqueta `worker` es el número de slot del worker en su pool. Un worker sustituto puede usar el mismo slot, así que las series continúan después de una sustitución. Cada pool tiene un slot por cada worker. Por tanto, los números van de `0` a `processes` menos uno.
 :::
 
-::: question ¿Por qué un pool muestra más workers que rapira_workers_configured?
-Durante una recarga, el maestro inicia un worker nuevo antes de detener uno antiguo. Los dos workers aparecen en `rapira_workers` hasta que el worker antiguo termina.
-:::
 
 ## Seguridad
 

@@ -141,10 +141,18 @@ html {
   }
 }
 
-/* Hide controls from the menu because the navigation bar contains them. */
-.VPNavScreen .appearance,
+/* Hide the language control from the menu because the navigation bar
+   contains it. */
 .VPNavScreen .translations {
   display: none !important;
+}
+
+/* On narrow screens, the theme control is in the menu, not in the bar.
+   The menu opens only on narrow screens. */
+@media (max-width: 767px) {
+  .VPNavBarAppearance {
+    display: none !important;
+  }
 }
 
 .VPNavBar .menu + .translations::before,

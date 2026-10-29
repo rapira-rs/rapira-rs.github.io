@@ -152,6 +152,52 @@ html {
   display: none;
 }
 
+/* On narrow screens, scroll the navigation controls horizontally without a
+   scrollbar, so that a wide bar does not widen the page. */
+@media (max-width: 767px) {
+  .VPNavBar .container > .content {
+    min-width: 0;
+  }
+
+  .VPNavBar .content-body {
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    /* With `flex-end`, the overflow goes to the left and cannot be scrolled.
+       The auto margin of `::before` aligns the controls to the right. */
+    justify-content: flex-start;
+  }
+
+  .VPNavBar .content-body::before {
+    content: '';
+    margin-left: auto;
+  }
+
+  .VPNavBar .content-body::-webkit-scrollbar {
+    display: none;
+  }
+
+  .VPNavBar .content-body > * {
+    flex-shrink: 0;
+  }
+
+  /* Keep the menu button visible while the controls scroll. */
+  .VPNavBar .content-body > .hamburger {
+    position: sticky;
+    right: 0;
+    background-color: var(--vp-c-bg);
+  }
+
+  /* The scroll container clips absolute children, so attach the language
+     menu to the navigation bar. */
+  .VPNavBar .translations .menu {
+    position: fixed;
+    top: var(--vp-nav-height);
+    right: 16px;
+  }
+}
+
 /* Blur content below the translucent navigation background.
    VitePress puts this background on different elements with a sidebar.
    These selectors put the filter on the same element as the background. */

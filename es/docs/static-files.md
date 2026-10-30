@@ -57,7 +57,7 @@ El middleware aplica estas reglas de ruta:
 - La comprobación de `forbid` se hace sobre la ruta con la codificación porcentual decodificada y no distingue mayúsculas. Con `.php` prohibido, `/index.php`, `/index%2Ephp` y `/Upper.PHP` van todas a PHP.
 - Una ruta con una codificación porcentual que no decodifica a UTF-8 va a PHP. Por ejemplo, `/%FF.css` va a PHP.
 - La URL de un directorio va a PHP. El middleware no sirve un archivo de índice.
-- Un archivo que no existe, un FIFO, un error de permisos o un nombre de archivo no válido van a PHP. Un nombre de archivo no válido es demasiado largo o contiene un byte NUL.
+- Un archivo que no existe, un error de permisos o un nombre de archivo no válido van a PHP. Un nombre de archivo no válido es demasiado largo o contiene un byte NUL.
 - Cualquier otro fallo de lectura devuelve `500`. PHP no recibe la petición, y Rapira registra el fallo en el target `http`.
 
 Una petición que va a PHP llega sin cambios. Consulta [Peticiones y respuestas HTTP](/es/docs/http) para ver qué lee PHP de ella.

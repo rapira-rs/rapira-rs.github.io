@@ -57,7 +57,7 @@ The middleware applies these path rules:
 - The `forbid` check runs on the percent-decoded path and ignores case. With `.php` forbidden, `/index.php`, `/index%2Ephp` and `/Upper.PHP` all go to PHP.
 - A path with a percent-encoding that does not decode to UTF-8 goes to PHP. For example, `/%FF.css` goes to PHP.
 - A directory URL goes to PHP. The middleware does not serve an index file.
-- A missing file, a FIFO, a permission error, or an invalid file name goes to PHP. An invalid file name is too long or contains a NUL byte.
+- A missing file, a permission error, or an invalid file name goes to PHP. An invalid file name is too long or contains a NUL byte.
 - Any other read failure returns `500`. PHP does not receive the request, and Rapira logs the failure on the `http` target.
 
 A request that goes to PHP arrives without changes. See [HTTP requests and responses](/docs/http) for what PHP reads from it.

@@ -76,7 +76,7 @@ HTTP pozwala na powtórzone pola, ale CGI udostępnia jedną wartość dla każd
 - **Pola listowe:** Rapira łączy wartości przecinkiem i spacją. Na przykład dwie linie `Accept` stają się `text/*, image/*`. [RFC 9110 §5.3](https://www.rfc-editor.org/rfc/rfc9110#section-5.3) pozwala na ten format dla pól z wartościami rozdzielonymi przecinkami.
 - **`Cookie`:** Rapira łączy wartości średnikiem i spacją. Parser ciasteczek PHP oczekuje tego formatu.
 - **Pola jednowartościowe:** Rapira zachowuje pierwszą linię `Authorization`, `Proxy-Authorization`, `Content-Type`, `Referer` lub `From`. Pomija pozostałe linie, ponieważ połączona wartość ma inne znaczenie.
-- **`Host`:** Rapira zwraca `400` dla więcej niż jednej linii `Host`. Zwraca też `400` dla wartości `Host`, która nie ma postaci `uri-host [ ":" port ]` ([RFC 9110 §7.2](https://www.rfc-editor.org/rfc/rfc9110#section-7.2)), na przykład `x/admin?` lub `user@host`. Rapira sprawdza tylko znaki. Nie sprawdza adresu IP w `[...]` ani cyfr szesnastkowych po `%`. [RFC 9112 §3.2](https://www.rfc-editor.org/rfc/rfc9112#section-3.2) wymaga tego zachowania.
+- **`Host`:** Rapira zwraca `400` dla więcej niż jednej linii `Host`. [RFC 9112 §3.2](https://www.rfc-editor.org/rfc/rfc9112#section-3.2) wymaga tego zachowania.
 
 Przed tym przetwarzaniem Rapira zwraca `400` dla linii `Content-Length` o różnych wartościach.
 
@@ -134,11 +134,11 @@ Serwer HTTP wysyła odpowiedź błędu, gdy żądanie nie dociera do PHP lub PHP
 
 | Status | Przyczyna |
 | --- | --- |
-| `400` | Żądanie ma więcej niż jedno pole `Host`. Żądanie HTTP/1.1 nie ma pola `Host` lub ma puste pole `Host`. Wartość `Host` lub część authority celu w formie bezwzględnej nie ma postaci `uri-host [ ":" port ]`, na przykład `GET http://b:xyz/`. Nazwa pola jest niebezpieczna i ustawiono `unsafe_field_names = "reject"`. Odczyt treści się nie udał. W trybie Dispatcher treść multipart jest nieprawidłowa. |
+| `400` | Żądanie ma więcej niż jedno pole `Host`. Żądanie HTTP/1.1 nie ma pola `Host` lub ma puste pole `Host`. Nazwa pola jest niebezpieczna i ustawiono `unsafe_field_names = "reject"`. Odczyt treści się nie udał. W trybie Dispatcher treść multipart jest nieprawidłowa. |
 | `408` | Żadne dane treści nie dotarły w czasie `http.keepalive_timeout_secs`. |
 | `413` | Treść jest większa niż `http.max_body_size_mb` lub treść multipart przekracza limit `[http.uploads]`. |
 | `500` | Pula workerów się zatrzymała. W trybie Dispatcher Rapira nie może zapisać przesłanego pliku w `[http.uploads].dir`. |
-| `501` | Żądanie używa `CONNECT` lub jego pole `Transfer-Encoding` zawiera kodowanie transferu przed końcowym `chunked`, na przykład `gzip, chunked` lub `chunked, chunked`. |
+| `501` | Żądanie używa `CONNECT`. |
 | `502` | Worker PHP zatrzymał się przed wysłaniem nagłówków odpowiedzi. |
 | `503` | Kolejka workerów była pełna przez 30 sekund. |
 

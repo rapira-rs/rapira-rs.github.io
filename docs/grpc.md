@@ -358,7 +358,6 @@ curl -H 'Content-Type: application/json' -d '{}' http://127.0.0.1:50051/grpc.hea
 - A Connect JSON request that does not decode returns `INVALID_ARGUMENT`, and PHP does not get the call. The JSON decoder ignores unknown fields. It does not ignore an enum value name that the descriptor set does not declare.
 - A method with `option idempotency_level = NO_SIDE_EFFECTS;` also accepts a Connect GET request.
 - Messages can use gzip compression. A request with another message encoding returns `UNIMPLEMENTED`.
-- An HTTP/1.1 request whose `Transfer-Encoding` field lists a transfer coding before the final `chunked` gets HTTP status `501` with no body. PHP does not get the call.
 - PHP service requests have a 4 MiB body limit and a separate 4 MiB decompressed-message limit. A larger request returns `RESOURCE_EXHAUSTED`. No TOML key changes these limits.
 - A PHP response that cannot convert to Connect JSON returns `INTERNAL` and logs a warning. Binary protobuf responses do not use this conversion.
 - The JSON decoder does not limit the memory that the elements of a request use. A 4 MiB Connect JSON request with many small elements can make a worker use several hundred MiB for repeated or map fields. For `google.protobuf.Struct` or `ListValue` fields, the worker can use more than 1 GiB. The 4 MiB limit applies after decompression. When clients are not trusted, put a proxy in front of the listener that limits the decompressed request size.

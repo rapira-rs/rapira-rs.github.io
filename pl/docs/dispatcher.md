@@ -113,7 +113,7 @@ Jeśli skrypt odebrał co najmniej jedno żądanie, Rapira ponownie uruchamia sk
 | `target` | `string` | Cel żądania. Dla żądania w formie origin-form to ścieżka i zapytanie, na przykład `/a?b=1`. |
 | `authority` | `?string` | Wartość `Host`. Dla żądania HTTP/1.0 bez `Host` jest to `null`. |
 | `protocol` | `string` | `HTTP/1.1` lub `HTTP/1.0`. |
-| `headers` | `array<int\|string, list<string>>` | Pola żądania. Nazwy są pisane małymi literami. Każda nazwa ma listę wartości. PHP zapisuje kanoniczną nazwę dziesiętną, na przykład `123`, jako klucz int. Nazwa z samych cyfr z wiodącym zerem, na przykład `01`, pozostaje ciągiem znaków. |
+| `headers` | `array<string, list<string>>` | Pola żądania. Nazwy są pisane małymi literami. Każda nazwa ma listę wartości. |
 | `body` | `string` lub `Multipart` | Pełna treść albo `Rapira\Http\Multipart` dla treści `multipart/form-data`. |
 | `remote` | `InetAddress` lub `UnixAddress` | Adres klienta. `Rapira\InetAddress` ma `ip` i `port`. `Rapira\UnixAddress` ma `path`. |
 | `server` | `InetAddress` lub `UnixAddress` | Adres nasłuchu. |
@@ -126,7 +126,7 @@ W trybie Dispatcher `$_SERVER` zachowuje wartości ze startu skryptu wejścioweg
 
 ## Odpowiedź
 
-`Rapira\Http\Exchange` ma te metody. `$headers` i `$trailers` mają kształt `array<int|string, list<string>>`: każda nazwa pola ma listę wartości. Rapira wysyła klucz int jako jego tekst dziesiętny, więc `writeHead()` przyjmuje tablicę `headers` żądania bez zmian.
+`Rapira\Http\Exchange` ma te metody. `$headers` i `$trailers` mają kształt `array<string, list<string>>`: każda nazwa pola ma listę wartości.
 
 | Metoda | Działanie |
 | --- | --- |
@@ -175,7 +175,7 @@ Rapira porównuje ścieżkę z katalogiem głównym, a następnie otwiera plik w
 Wywołanie rzuca `Rapira\Http\Exception\FileNotSendableException` i nie zapisuje danych w tych warunkach:
 
 - Ścieżka jest poza katalogiem głównym.
-- Plik nie istnieje lub nie jest zwykłym plikiem, na przykład jest katalogiem lub FIFO. Wywołanie nie czeka na FIFO.
+- Plik nie istnieje lub nie jest zwykłym plikiem.
 - Przesunięcie lub długość wykracza poza koniec pliku.
 
 Rapira nie ustawia dla pliku pól `content-type`, `etag` ani pól zakresu. Ustaw potrzebne pola przez `writeHead()`.

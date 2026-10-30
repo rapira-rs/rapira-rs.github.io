@@ -113,7 +113,7 @@ Si el script recibió al menos una petición, Rapira ejecuta de nuevo el script 
 | `target` | `string` | El destino de la petición. Para una petición en forma de origen, es la ruta y la consulta, por ejemplo `/a?b=1`. |
 | `authority` | `?string` | El valor de `Host`. Es `null` para una petición HTTP/1.0 sin `Host`. |
 | `protocol` | `string` | `HTTP/1.1` o `HTTP/1.0`. |
-| `headers` | `array<int\|string, list<string>>` | Los campos de la petición. Los nombres están en minúsculas. Cada nombre tiene una lista de valores. PHP guarda un nombre decimal canónico, como `123`, como una clave int. Un nombre de solo dígitos con un cero inicial, como `01`, sigue siendo un string. |
+| `headers` | `array<string, list<string>>` | Los campos de la petición. Los nombres están en minúsculas. Cada nombre tiene una lista de valores. |
 | `body` | `string` o `Multipart` | El cuerpo completo, o un `Rapira\Http\Multipart` para un cuerpo `multipart/form-data`. |
 | `remote` | `InetAddress` o `UnixAddress` | La dirección del cliente. `Rapira\InetAddress` tiene `ip` y `port`. `Rapira\UnixAddress` tiene `path`. |
 | `server` | `InetAddress` o `UnixAddress` | La dirección de la escucha. |
@@ -126,7 +126,7 @@ En modo Dispatcher, `$_SERVER` conserva los valores del inicio del script de ent
 
 ## La respuesta
 
-`Rapira\Http\Exchange` tiene estos métodos. `$headers` y `$trailers` usan la forma `array<int|string, list<string>>`: cada nombre de campo tiene una lista de valores. Rapira envía una clave int como su texto decimal, por lo que `writeHead()` acepta el array `headers` de la petición sin cambios.
+`Rapira\Http\Exchange` tiene estos métodos. `$headers` y `$trailers` usan la forma `array<string, list<string>>`: cada nombre de campo tiene una lista de valores.
 
 | Método | Comportamiento |
 | --- | --- |
@@ -175,7 +175,7 @@ Rapira compara la ruta con la raíz y después abre el archivo en un segundo pas
 La llamada lanza `Rapira\Http\Exception\FileNotSendableException` y no escribe datos en estas condiciones:
 
 - La ruta está fuera de la raíz.
-- El archivo no existe o no es un archivo regular, por ejemplo un directorio o un FIFO. La llamada no espera a un FIFO.
+- El archivo no existe o no es un archivo regular.
 - El desplazamiento o la longitud supera el final del archivo.
 
 Rapira no establece `content-type`, `etag` ni campos de rango para el archivo. Establece los campos necesarios con `writeHead()`.

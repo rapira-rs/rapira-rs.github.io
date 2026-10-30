@@ -358,7 +358,6 @@ curl -H 'Content-Type: application/json' -d '{}' http://127.0.0.1:50051/grpc.hea
 - 无法解码的 Connect JSON 请求返回 `INVALID_ARGUMENT`，PHP 不会收到该调用。JSON 解码器忽略未知字段。它不忽略描述符集未声明的枚举值名称。
 - 带有 `option idempotency_level = NO_SIDE_EFFECTS;` 的方法也接受 Connect GET 请求。
 - 消息可以使用 gzip 压缩。使用其他消息编码的请求返回 `UNIMPLEMENTED`。
-- 如果 HTTP/1.1 请求的 `Transfer-Encoding` 字段在最后的 `chunked` 之前列出了传输编码，该请求收到 HTTP 状态码 `501`，没有响应体，PHP 也不会收到该调用。
 - PHP 服务请求的请求体限制为 4 MiB，解压后消息另有 4 MiB 限制。更大的请求返回 `RESOURCE_EXHAUSTED`。没有 TOML 键可更改这些限制。
 - 无法转换为 Connect JSON 的 PHP 响应返回 `INTERNAL`，并记录警告。二进制 protobuf 响应不使用此转换。
 - JSON 解码器不限制请求中各元素占用的内存。一个包含大量小元素的 4 MiB Connect JSON 请求，可能使 worker 为 repeated 或 map 字段占用数百 MiB 内存。对于 `google.protobuf.Struct` 或 `ListValue` 字段，worker 可能占用超过 1 GiB 内存。4 MiB 限制在解压后应用。客户端不受信任时，请在监听器前放置一个限制解压后请求大小的代理。

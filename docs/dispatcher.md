@@ -113,7 +113,7 @@ If the script received at least one request, Rapira runs the entry script again 
 | `target` | `string` | The request target. For an origin-form request, this is the path and the query, such as `/a?b=1`. |
 | `authority` | `?string` | The `Host` value. It is `null` for an HTTP/1.0 request without `Host`. |
 | `protocol` | `string` | `HTTP/1.1` or `HTTP/1.0`. |
-| `headers` | `array<int\|string, list<string>>` | The request fields. The names are lowercase. Each name has a list of values. PHP stores a canonical decimal name such as `123` as an int key. A digit-only name with a leading zero, such as `01`, stays a string. |
+| `headers` | `array<string, list<string>>` | The request fields. The names are lowercase. Each name has a list of values. |
 | `body` | `string` or `Multipart` | The complete body, or a `Rapira\Http\Multipart` for a `multipart/form-data` body. |
 | `remote` | `InetAddress` or `UnixAddress` | The client address. `Rapira\InetAddress` has `ip` and `port`. `Rapira\UnixAddress` has `path`. |
 | `server` | `InetAddress` or `UnixAddress` | The listener address. |
@@ -126,7 +126,7 @@ In Dispatcher mode, `$_SERVER` keeps the values from the start of the entry scri
 
 ## The response
 
-`Rapira\Http\Exchange` has these methods. `$headers` and `$trailers` use the `array<int|string, list<string>>` shape: each field name has a list of values. Rapira sends an int key as its decimal text, so `writeHead()` accepts the request `headers` array without changes.
+`Rapira\Http\Exchange` has these methods. `$headers` and `$trailers` use the `array<string, list<string>>` shape: each field name has a list of values.
 
 | Method | Behavior |
 | --- | --- |
@@ -175,7 +175,7 @@ Rapira compares the path with the root, and then opens the file in a second step
 The call throws `Rapira\Http\Exception\FileNotSendableException` and writes no data in these conditions:
 
 - The path is outside the root.
-- The file does not exist or is not a regular file, for example a directory or a FIFO. The call does not wait for a FIFO.
+- The file does not exist or is not a regular file.
 - The offset or the length goes past the end of the file.
 
 Rapira does not set `content-type`, `etag`, or range fields for the file. Set the necessary fields with `writeHead()`.

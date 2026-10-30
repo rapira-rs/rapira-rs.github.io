@@ -113,7 +113,7 @@ rapira serve rapira.toml
 | `target` | `string` | Цель запроса. Для запроса в origin-form это путь и строка запроса, например `/a?b=1`. |
 | `authority` | `?string` | Значение `Host`. Для запроса HTTP/1.0 без `Host` равно `null`. |
 | `protocol` | `string` | `HTTP/1.1` или `HTTP/1.0`. |
-| `headers` | `array<int\|string, list<string>>` | Поля запроса. Имена в нижнем регистре. Каждое имя имеет список значений. PHP хранит каноническое десятичное имя, например `123`, как ключ int. Имя только из цифр с ведущим нулём, например `01`, остаётся строкой. |
+| `headers` | `array<string, list<string>>` | Поля запроса. Имена в нижнем регистре. Каждое имя имеет список значений. |
 | `body` | `string` или `Multipart` | Полное тело или `Rapira\Http\Multipart` для тела `multipart/form-data`. |
 | `remote` | `InetAddress` или `UnixAddress` | Адрес клиента. `Rapira\InetAddress` имеет `ip` и `port`. `Rapira\UnixAddress` имеет `path`. |
 | `server` | `InetAddress` или `UnixAddress` | Адрес слушателя. |
@@ -126,7 +126,7 @@ Rapira читает всё тело в память до того, как PHP п
 
 ## Ответ
 
-`Rapira\Http\Exchange` имеет следующие методы. `$headers` и `$trailers` имеют форму `array<int|string, list<string>>`: каждое имя поля имеет список значений. Rapira отправляет ключ int как его десятичный текст, поэтому `writeHead()` принимает массив `headers` запроса без изменений.
+`Rapira\Http\Exchange` имеет следующие методы. `$headers` и `$trailers` имеют форму `array<string, list<string>>`: каждое имя поля имеет список значений.
 
 | Метод | Поведение |
 | --- | --- |
@@ -175,7 +175,7 @@ Rapira сравнивает путь с корнем, а затем открыв
 Вызов бросает `Rapira\Http\Exception\FileNotSendableException` и не записывает данные в этих случаях:
 
 - Путь находится вне корня.
-- Файл не существует или не является обычным файлом, например является каталогом или FIFO. Вызов не ждёт FIFO.
+- Файл не существует или не является обычным файлом.
 - Смещение или длина выходит за конец файла.
 
 Rapira не задаёт для файла `content-type`, `etag` или поля диапазонов. Задайте нужные поля с помощью `writeHead()`.

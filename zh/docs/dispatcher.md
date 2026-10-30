@@ -113,7 +113,7 @@ rapira serve rapira.toml
 | `target` | `string` | 请求目标。对于 origin-form 请求，它是路径和查询，例如 `/a?b=1`。 |
 | `authority` | `?string` | `Host` 的值。对于没有 `Host` 的 HTTP/1.0 请求，它为 `null`。 |
 | `protocol` | `string` | `HTTP/1.1` 或 `HTTP/1.0`。 |
-| `headers` | `array<int\|string, list<string>>` | 请求字段。名称为小写。每个名称对应一个值列表。PHP 将规范的十进制名称（例如 `123`）存储为 int 键。以零开头的纯数字名称（例如 `01`）保持为字符串。 |
+| `headers` | `array<string, list<string>>` | 请求字段。名称为小写。每个名称对应一个值列表。 |
 | `body` | `string` 或 `Multipart` | 完整的请求体；对于 `multipart/form-data` 请求体，是 `Rapira\Http\Multipart`。 |
 | `remote` | `InetAddress` 或 `UnixAddress` | 客户端地址。`Rapira\InetAddress` 有 `ip` 和 `port`。`Rapira\UnixAddress` 有 `path`。 |
 | `server` | `InetAddress` 或 `UnixAddress` | 监听器地址。 |
@@ -126,7 +126,7 @@ rapira serve rapira.toml
 
 ## 响应
 
-`Rapira\Http\Exchange` 有以下方法。`$headers` 和 `$trailers` 使用 `array<int|string, list<string>>` 结构：每个字段名称对应一个值列表。Rapira 将 int 键作为其十进制文本发送，因此 `writeHead()` 可以原样接受请求的 `headers` 数组。
+`Rapira\Http\Exchange` 有以下方法。`$headers` 和 `$trailers` 使用 `array<string, list<string>>` 结构：每个字段名称对应一个值列表。
 
 | 方法 | 行为 |
 | --- | --- |
@@ -175,7 +175,7 @@ Rapira 先将路径与根目录比较，然后在第二步中打开文件。能�
 在以下情况下，该调用抛出 `Rapira\Http\Exception\FileNotSendableException`，并且不写入数据：
 
 - 路径在根目录之外。
-- 文件不存在，或不是普通文件，例如目录或 FIFO。该调用不等待 FIFO。
+- 文件不存在，或不是普通文件。
 - 偏移量或长度超过文件末尾。
 
 Rapira 不为文件设置 `content-type`、`etag` 或范围字段。请用 `writeHead()` 设置需要的字段。

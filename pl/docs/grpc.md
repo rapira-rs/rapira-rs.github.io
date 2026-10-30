@@ -358,7 +358,6 @@ curl -H 'Content-Type: application/json' -d '{}' http://127.0.0.1:50051/grpc.hea
 - Żądanie Connect JSON, którego nie da się zdekodować, zwraca `INVALID_ARGUMENT`, a PHP nie otrzymuje wywołania. Dekoder JSON ignoruje nieznane pola. Nie ignoruje nazwy wartości enum, której zestaw deskryptorów nie deklaruje.
 - Metoda z `option idempotency_level = NO_SIDE_EFFECTS;` akceptuje też żądanie Connect GET.
 - Komunikaty mogą używać kompresji gzip. Żądanie z innym kodowaniem komunikatu zwraca `UNIMPLEMENTED`.
-- Żądanie HTTP/1.1, którego pole `Transfer-Encoding` zawiera kodowanie transferu przed końcowym `chunked`, otrzymuje status HTTP `501` bez treści, a PHP nie otrzymuje wywołania.
 - Żądania do usług PHP mają limit treści 4 MiB i osobny limit komunikatu po dekompresji 4 MiB. Większe żądanie zwraca `RESOURCE_EXHAUSTED`. Żaden klucz TOML nie zmienia tych limitów.
 - Odpowiedź PHP, której nie można przekształcić do Connect JSON, zwraca `INTERNAL` i zapisuje ostrzeżenie. Odpowiedzi w binarnym protobuf nie używają tego przekształcenia.
 - Dekoder JSON nie ogranicza pamięci, której używają elementy żądania. Żądanie Connect JSON o rozmiarze 4 MiB z wieloma małymi elementami może spowodować, że worker użyje kilkuset MiB dla pól powtarzanych lub pól map. Dla pól `google.protobuf.Struct` lub `ListValue` worker może użyć więcej niż 1 GiB. Limit 4 MiB obowiązuje po dekompresji. Gdy klienci nie są zaufani, umieść przed nasłuchem proxy, które ogranicza rozmiar żądania po dekompresji.

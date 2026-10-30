@@ -160,11 +160,12 @@ Punkty końcowe nie mają uwierzytelniania ani TLS. Użyj adresu pętli zwrotnej
 
 ## Wymiana workerów i limity czasu żądania
 
-W [trybach Worker i Dispatcher](/pl/docs/execution-modes) worker zachowuje stan aplikacji między żądaniami. Dlatego wyciek pamięci może stopniowo zwiększać pamięć workera. Użyj tych dwóch ustawień, aby ograniczyć ten efekt:
+W [trybach Worker i Dispatcher](/pl/docs/execution-modes) worker zachowuje stan aplikacji między żądaniami. Dlatego wyciek pamięci może stopniowo zwiększać pamięć workera. Użyj tych ustawień, aby ograniczyć ten efekt:
 
 ```toml
 [http.pool]
 max_requests = 500
+max_memory_mb = 256
 request_terminate_timeout_secs = 30
 ```
 
@@ -172,6 +173,10 @@ Tabela `[grpc.pool]` przyjmuje te same klucze.
 
 `max_requests` uruchamia ponownie aplikację wewnątrz workera po określonej liczbie żądań. Proces workera pozostaje, więc żadne połączenie się nie zamyka i żadne żądanie nie ginie. Dla każdego workera Rapira zwiększa limit o losową liczbę żądań nie większą niż połowa limitu, aby aplikacje nie uruchamiały się ponownie jednocześnie. Ponowne uruchomienie zwalnia pamięć PHP aplikacji. Nie zwalnia pamięci, którą rozszerzenie lub biblioteka C traci poza PHP. To ustawienie ogranicza wpływ wycieku pamięci, ale go nie naprawia. Tryb Classic je ignoruje.
 
-`request_terminate_timeout_secs` ogranicza czas jednego żądania. Rapira kończy i zastępuje workera, który przekroczy limit. Domyślna wartość obu ustawień to zero, które je wyłącza. Włącz je w środowisku produkcyjnym.
+`max_memory_mb` zastępuje proces workera, gdy jego pamięć rezydentna (RSS) przekroczy limit w MiB. Proces nadrzędny sprawdza każdego workera raz na sekundę. Worker kończy bieżące żądania przed zakończeniem działania, więc żadne żądanie nie ginie. Zakończenie starego workera zwalnia całą jego pamięć, także pamięć, którą rozszerzenie lub biblioteka C traci poza PHP. To ustawienie działa we wszystkich trybach.
+
+Używaj `max_memory_mb`, gdy kontener ma limit pamięci. Gdy kontener przekroczy swój limit, jądro natychmiast zatrzymuje proces, a wszystkie żądania tego procesu kończą się błędem. Utrzymuj `processes × max_memory_mb` poniżej limitu kontenera. RSS każdego workera obejmuje pamięć współdzieloną, na przykład OPcache, więc ta suma jest większa niż rzeczywiste użycie. Ustaw limit powyżej RSS nowego workera. W przeciwnym razie proces nadrzędny zastępuje każdego nowego workera po około jednej sekundzie. Metryka `rapira_worker_rss_bytes` pokazuje RSS każdego workera.
+
+`request_terminate_timeout_secs` ogranicza czas jednego żądania. Rapira kończy i zastępuje workera, który przekroczy limit. Domyślna wartość tych ustawień to zero, które je wyłącza. Włącz je w środowisku produkcyjnym.
 
 [Model procesów](/pl/docs/process-model) opisuje rozmiar puli, opóźnienia wymiany oraz obsługę awarii workerów.

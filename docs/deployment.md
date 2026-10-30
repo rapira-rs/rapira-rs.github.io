@@ -160,11 +160,12 @@ The endpoints have no authentication and no TLS. Use a loopback address or a Uni
 
 ## Recycling and request timeouts
 
-In [Worker and Dispatcher modes](/docs/execution-modes), a worker keeps application state between requests. Thus, a memory leak can increase the worker memory over time. Use these two settings to limit the effect:
+In [Worker and Dispatcher modes](/docs/execution-modes), a worker keeps application state between requests. Thus, a memory leak can increase the worker memory over time. Use these settings to limit the effect:
 
 ```toml
 [http.pool]
 max_requests = 500
+max_memory_mb = 256
 request_terminate_timeout_secs = 30
 ```
 
@@ -172,6 +173,10 @@ The `[grpc.pool]` table accepts the same keys.
 
 `max_requests` restarts the app inside a worker after the specified request count. The worker process stays, so no connection closes and no request is lost. Rapira adds a random count of up to half the limit for each worker to prevent simultaneous restarts. The restart frees the PHP memory of the app. It does not free memory that an extension or a C library leaks outside PHP. This setting limits the effect of a memory leak but does not correct it. Classic mode ignores it.
 
-`request_terminate_timeout_secs` limits the elapsed time for one request. Rapira terminates and replaces a worker that exceeds the limit. The default value of both settings is zero, which disables them. Enable them for production.
+`max_memory_mb` replaces a worker process when its resident set size (RSS) exceeds the limit in MiB. The master checks each worker once each second. The worker finishes its current requests before it exits, so no request is lost. The exit of the old worker frees all its memory, also memory that an extension or a C library leaks outside PHP. This setting applies in all modes.
+
+Use `max_memory_mb` when a container has a memory limit. When a container exceeds its limit, the kernel stops a process at once, and all requests of that process fail. Keep `processes × max_memory_mb` below the container limit. The RSS of each worker includes shared memory, for example OPcache, so this sum is larger than the real use. Set the limit above the RSS of a new worker. Otherwise, the master replaces each new worker after approximately one second. The `rapira_worker_rss_bytes` metric shows the RSS of each worker.
+
+`request_terminate_timeout_secs` limits the elapsed time for one request. Rapira terminates and replaces a worker that exceeds the limit. The default value of these settings is zero, which disables them. Enable them for production.
 
 See [Process model](/docs/process-model) for pool sizing, replacement delays, and worker failure processing.

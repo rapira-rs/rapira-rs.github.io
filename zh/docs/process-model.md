@@ -54,6 +54,7 @@ master 每秒执行一次维护。worker 退出时，master 也会立即处理�
 - **启动失败时 master 停止。** 如果不健康的 worker 退出，master 以退出码 70 停止。仅当进程池没有成功的请求，也没有空闲或活动的 worker 时，此规则才适用。在其他所有情况下，master 在替换延迟后替换 worker。worker 崩溃永远不会使 master 停止。
 - **请求限制。** 在 Worker 和 Dispatcher 模式下，`http.pool.max_requests` 限制一个应用实例的请求数。在处理 `max_requests + 1` 到大约 `1.5 × max_requests` 之间的随机数量请求后，worker 重启它的应用。worker 进程、它的连接和它的队列保持不变。下一个请求等待应用启动。随机范围可以避免同时重启。Classic 模式忽略此设置，因为每个请求都在新的 PHP 请求中运行。
 - **请求超时。** 使用 `http.pool.request_terminate_timeout_secs` 时，如果 worker 的当前请求超过限制，master 向它发送 `SIGTERM`。如果在下一次维护时 worker 仍处于活动状态，master 发送 `SIGKILL`。然后 master 立即替换该 worker。master 在停止期间不应用此超时。
+- **内存限制。** 使用 `http.pool.max_memory_mb` 时，master 在每次维护时读取每个 worker 的常驻内存（RSS）。当 RSS 超过限制时，master 向该 worker 发送一次 `SIGQUIT`。worker 停止接受新工作，完成当前请求，然后退出。然后 master 立即替换该 worker。退出会释放 worker 进程的全部内存，包括 PHP 之外的内存。在同一进程中重启应用不一定会降低 RSS，因为 PHP 会保留部分已释放的内存以便重用。master 在停止期间不应用此限制。
 - **master 监控。** 每个 worker 从 master 保持打开的管道中读取。如果 master 退出，每个 worker 停止接受新工作，完成当前请求，然后退出。
 
 ## 进程池大小

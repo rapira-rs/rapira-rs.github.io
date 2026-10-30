@@ -54,6 +54,7 @@ entrypoint = "index.php"              # Relative paths use this file's directory
 mode = "dispatcher"                   # Use "classic", "worker", or "dispatcher". Default: "dispatcher".
 processes = 4                         # Sets the fixed worker count.
 max_requests = 0                      # Restarts the app after this request count. Zero disables the limit.
+max_memory_mb = 0                     # Replaces a worker when its RSS exceeds this size. Zero disables the limit.
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
 
 [grpc]
@@ -75,6 +76,7 @@ entrypoint = "grpc.php"
 mode = "dispatcher"                   # Required mode for gRPC.
 processes = 4
 max_requests = 0
+max_memory_mb = 0
 request_terminate_timeout_secs = 0
 
 [observability]                       # Optional. Starts one process without PHP for metrics and probes.
@@ -163,6 +165,7 @@ The `http` plugin owns this PHP worker pool. The gRPC listener uses a separate `
 | `mode` | `"classic"` \| `"worker"` \| `"dispatcher"` | `"dispatcher"` | How a worker runs the entry script. `classic` starts a new PHP request each time. `worker` keeps the script and refills the superglobals. `dispatcher` keeps the script and gives it a dispatcher object. See [execution modes](/docs/execution-modes). |
 | `processes` | integer | available parallelism, or `1` if unavailable | The worker count. The master keeps this many workers running. The minimum is 1. The sum of `processes` in all pools must not be more than 4096. An `[observability]` section adds one process to this sum. |
 | `max_requests` | integer | `0` | The request limit of one app instance in Worker and Dispatcher modes. After the limit, the worker restarts its app in the same process. Rapira varies the limit slightly to prevent simultaneous restarts. Classic mode ignores this key. `0` disables the limit. |
+| `max_memory_mb` | integer | `0` | The resident set size (RSS) limit of one worker process, in MiB. The master checks the RSS of each worker once each second. It stops a worker above the limit gracefully and starts a new worker. This key applies in all modes. `0` disables the limit. See [Running in production](/docs/deployment). |
 | `request_terminate_timeout_secs` | integer | `0` | Wall-clock limit for one request. Rapira terminates and replaces a worker that exceeds this limit. `0` disables the check. |
 
 ## The `[grpc]` section {#grpc}

@@ -156,6 +156,10 @@ Rapira analiza un cuerpo `multipart/form-data` antes de que PHP reciba la petici
 | `FormField` | `name`, `value`, `headers`. |
 | `UploadedFile` | `name`, `clientFilename`, `clientMediaType`, `headers`, `tmpPath`, `size`. |
 
+Dentro de un parámetro `name` o `filename` entre comillas de `content-disposition`, Rapira lee `\\` como `\` y `\"` como `"`, como hace PHP en los modos Classic y Worker. Rapira conserva sin cambios cualquier otra `\`.
+
+Una `\` al final de un valor entre comillas escapa la comilla de cierre. Un navegador envía un valor así para un nombre de campo o un nombre de archivo que termina en `\`. Rapira devuelve entonces `400`, o lee los parámetros siguientes como parte del valor.
+
 Rapira escribe cada parte de archivo en un archivo temporal en el subdirectorio `rapira-spool-<pid>` de `http.uploads.dir`. `UploadedFile::$tmpPath` contiene la ruta de este archivo. Rapira elimina los archivos temporales cuando la respuesta finaliza. Para conservar un archivo, muévelo con `rename()` antes de que la respuesta finalice.
 
 Rapira devuelve `400` para un cuerpo mal formado. Devuelve `413` cuando el cuerpo supera un límite. El script no recibe estas peticiones. Consulta [La tabla `[http.uploads]`](/es/docs/configuration#la-tabla-http-uploads) para ver los límites.
@@ -165,6 +169,8 @@ Rapira devuelve `400` para un cuerpo mal formado. Devuelve `413` cuando el cuerp
 `sendFile()` lee solo archivos dentro de la raíz de sendfile. La raíz predeterminada es el directorio de `http.pool.entrypoint`. Rapira resuelve los enlaces simbólicos antes de comparar la ruta con la raíz. Consulta [La tabla `[http.sendfile]`](/es/docs/configuration#la-tabla-http-sendfile) para establecer la raíz.
 
 El host abre el archivo. PHP `open_basedir` no restringe esta operación. La raíz de sendfile configurada restringe la ruta.
+
+Rapira compara la ruta con la raíz y después abre el archivo en un segundo paso. Un usuario local que puede escribir en la raíz o en un directorio dentro de ella puede colocar un enlace simbólico en la ruta entre los dos pasos. La respuesta puede contener entonces un archivo fuera de la raíz que el worker puede leer. Asegúrate de que solo usuarios de confianza puedan escribir en la raíz de sendfile y en sus subdirectorios.
 
 La llamada lanza `Rapira\Http\Exception\FileNotSendableException` y no escribe datos en estas condiciones:
 

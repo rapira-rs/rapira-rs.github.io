@@ -156,6 +156,10 @@ rapira serve rapira.toml
 | `FormField` | `name`、`value`、`headers`。 |
 | `UploadedFile` | `name`、`clientFilename`、`clientMediaType`、`headers`、`tmpPath`、`size`。 |
 
+在 `content-disposition` 中带引号的 `name` 或 `filename` 参数内，Rapira 将 `\\` 读作 `\`，将 `\"` 读作 `"`，与 PHP 在 Classic 和 Worker 模式下的处理相同。Rapira 原样保留其他所有 `\`。
+
+带引号的值末尾的 `\` 会转义结束引号。字段名或文件名以 `\` 结尾时，浏览器会发送这样的值。此时 Rapira 返回 `400`，或将后面的参数读入该值。
+
 Rapira 将每个文件部分写入 `http.uploads.dir` 的 `rapira-spool-<pid>` 子目录中的临时文件。`UploadedFile::$tmpPath` 包含此文件的路径。响应结束时，Rapira 删除临时文件。要保留文件，请在响应结束前用 `rename()` 移动它。
 
 对于格式错误的请求体，Rapira 返回 `400`。请求体超过限制时，它返回 `413`。脚本不会收到这些请求。限制请参阅[`[http.uploads]` 表](/zh/docs/configuration#http-uploads-表)。
@@ -165,6 +169,8 @@ Rapira 将每个文件部分写入 `http.uploads.dir` 的 `rapira-spool-<pid>` �
 `sendFile()` 只读取 sendfile 根目录下的文件。默认根目录是 `http.pool.entrypoint` 所在的目录。Rapira 先解析符号链接，再将路径与根目录比较。要设置根目录，请参阅[`[http.sendfile]` 表](/zh/docs/configuration#http-sendfile-表)。
 
 文件由宿主打开。PHP `open_basedir` 不限制此操作。配置的 sendfile 根目录限制文件路径。
+
+Rapira 先将路径与根目录比较，然后在第二步中打开文件。能够写入根目录或其下任一目录的本地用户，可以在这两步之间将符号链接放入路径。此时响应可能包含根目录之外、worker 可以读取的文件。请确保只有受信任的用户可以写入 sendfile 根目录及其子目录。
 
 在以下情况下，该调用抛出 `Rapira\Http\Exception\FileNotSendableException`，并且不写入数据：
 

@@ -54,6 +54,7 @@ entrypoint = "index.php"              # Relative paths use this file's directory
 mode = "dispatcher"                   # Use "classic", "worker", or "dispatcher". Default: "dispatcher".
 processes = 4                         # Sets the fixed worker count.
 max_requests = 0                      # Restarts the app after this request count. Zero disables the limit.
+max_memory_mb = 0                     # Replaces a worker when its RSS exceeds this size. Zero disables the limit.
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
 
 [grpc]
@@ -75,6 +76,7 @@ entrypoint = "grpc.php"
 mode = "dispatcher"                   # Required mode for gRPC.
 processes = 4
 max_requests = 0
+max_memory_mb = 0
 request_terminate_timeout_secs = 0
 
 [observability]                       # Optional. Starts one process without PHP for metrics and probes.
@@ -163,6 +165,7 @@ worker 运行 PHP。此表定义它们运行什么、运行多少个，以及 ma
 | `mode` | `"classic"` \| `"worker"` \| `"dispatcher"` | `"dispatcher"` | worker 运行入口脚本的方式。`classic` 每次启动一个新的 PHP 请求。`worker` 保留脚本并重新填充超全局变量。`dispatcher` 保留脚本并给它一个 dispatcher 对象。请参阅[执行模式](/zh/docs/execution-modes)。 |
 | `processes` | 整数 | 可用并行度，无法确定时为 `1` | worker 数量。master 保持这么多个 worker 运行。最小值为 1。所有进程池的 `processes` 之和不能超过 4096。`[observability]` 部分在此总和上加一个进程。 |
 | `max_requests` | 整数 | `0` | Worker 和 Dispatcher 模式下一个应用实例的请求数限制。达到限制后，worker 在同一进程中重启它的应用。Rapira 会稍微改变此限制，避免多个应用同时重启。Classic 模式忽略此键。`0` 禁用此限制。 |
+| `max_memory_mb` | 整数 | `0` | 一个 worker 进程的常驻内存（RSS）限制，单位 MiB。master 每秒检查一次每个 worker 的 RSS。master 平稳地停止超过限制的 worker，并启动一个新 worker。此键适用于所有模式。`0` 禁用此限制。请参阅[生产环境部署](/zh/docs/deployment)。 |
 | `request_terminate_timeout_secs` | 整数 | `0` | 单个请求的墙钟时间上限。Rapira 终止并替换超过此上限的 worker。`0` 禁用此检查。 |
 
 ## `[grpc]` 小节 {#grpc}

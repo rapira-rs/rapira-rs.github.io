@@ -160,11 +160,12 @@ Los endpoints no tienen autenticación ni TLS. Usa una dirección de loopback o 
 
 ## Reciclado de workers y tiempos límite de petición
 
-En los [modos Worker y Dispatcher](/es/docs/execution-modes), un worker conserva el estado de la aplicación entre peticiones. Por tanto, una fuga de memoria puede aumentar la memoria del worker con el tiempo. Usa estos dos ajustes para limitar el efecto:
+En los [modos Worker y Dispatcher](/es/docs/execution-modes), un worker conserva el estado de la aplicación entre peticiones. Por tanto, una fuga de memoria puede aumentar la memoria del worker con el tiempo. Usa estos ajustes para limitar el efecto:
 
 ```toml
 [http.pool]
 max_requests = 500
+max_memory_mb = 256
 request_terminate_timeout_secs = 30
 ```
 
@@ -172,6 +173,10 @@ La tabla `[grpc.pool]` acepta las mismas claves.
 
 `max_requests` reinicia la aplicación dentro de un worker después del número de peticiones indicado. El proceso del worker se mantiene, así que ninguna conexión se cierra y ninguna petición se pierde. Rapira añade a cada worker un número aleatorio de hasta la mitad del límite para evitar reinicios simultáneos. El reinicio libera la memoria PHP de la aplicación. No libera la memoria que una extensión o una biblioteca C pierde fuera de PHP. Este ajuste limita el efecto de una fuga de memoria, pero no la corrige. El modo Classic lo ignora.
 
-`request_terminate_timeout_secs` limita el tiempo transcurrido de una petición. Rapira termina y sustituye un worker que supera el límite. El valor predeterminado de los dos ajustes es cero, que los desactiva. Actívalos en producción.
+`max_memory_mb` sustituye un proceso worker cuando su memoria residente (RSS) supera el límite en MiB. El maestro comprueba cada worker una vez por segundo. El worker deja de aceptar trabajo nuevo y termina sus peticiones actuales antes de salir. La salida del worker antiguo libera toda su memoria, también la memoria que una extensión o una biblioteca C pierde fuera de PHP. Este ajuste se aplica en todos los modos.
+
+Usa `max_memory_mb` cuando un contenedor tiene un límite de memoria. Cuando un contenedor supera su límite, el kernel detiene un proceso de inmediato, y todas las peticiones de ese proceso fallan. Mantén la suma de `processes × max_memory_mb` de todos los pools por debajo del límite del contenedor. Deja margen para el maestro, para el proceso de observabilidad y para el crecimiento entre dos comprobaciones. La RSS de cada worker incluye memoria compartida, por ejemplo OPcache, así que esta suma es mayor que el uso real. Fija el límite por encima de la RSS de un worker nuevo. Si no, el maestro sustituye cada worker nuevo después de aproximadamente un segundo. La métrica `rapira_worker_rss_bytes` muestra la RSS de cada worker.
+
+`request_terminate_timeout_secs` limita el tiempo transcurrido de una petición. Rapira termina y sustituye un worker que supera el límite. El valor predeterminado de estos ajustes es cero, que los desactiva. Actívalos en producción.
 
 Consulta [Modelo de procesos](/es/docs/process-model) para ver el dimensionamiento del pool, las esperas de sustitución y el procesamiento de fallos de workers.

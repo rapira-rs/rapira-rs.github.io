@@ -54,6 +54,7 @@ entrypoint = "index.php"              # Relative paths use this file's directory
 mode = "dispatcher"                   # Use "classic", "worker", or "dispatcher". Default: "dispatcher".
 processes = 4                         # Sets the fixed worker count.
 max_requests = 0                      # Restarts the app after this request count. Zero disables the limit.
+max_memory_mb = 0                     # Replaces a worker when its RSS exceeds this size. Zero disables the limit.
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
 
 [grpc]
@@ -75,6 +76,7 @@ entrypoint = "grpc.php"
 mode = "dispatcher"                   # Required mode for gRPC.
 processes = 4
 max_requests = 0
+max_memory_mb = 0
 request_terminate_timeout_secs = 0
 
 [observability]                       # Optional. Starts one process without PHP for metrics and probes.
@@ -163,6 +165,7 @@ Wtyczka `http` zarządza tą pulą workerów PHP. Nasłuch gRPC używa osobnej t
 | `mode` | `"classic"` \| `"worker"` \| `"dispatcher"` | `"dispatcher"` | Jak worker wykonuje skrypt wejściowy. `classic` za każdym razem uruchamia nowe żądanie PHP. `worker` zachowuje skrypt i ponownie wypełnia zmienne superglobalne. `dispatcher` zachowuje skrypt i przekazuje mu obiekt dyspozytora. Zobacz [tryby wykonania](/pl/docs/execution-modes). |
 | `processes` | liczba całkowita | dostępna równoległość lub `1`, jeśli nie można jej ustalić | Liczba workerów. Proces nadrzędny utrzymuje tyle działających workerów. Minimum to 1. Suma `processes` we wszystkich pulach nie może przekroczyć 4096. Sekcja `[observability]` dodaje do tej sumy jeden proces. |
 | `max_requests` | liczba całkowita | `0` | Limit żądań jednej instancji aplikacji w trybach Worker i Dispatcher. Po osiągnięciu limitu worker uruchamia aplikację ponownie w tym samym procesie. Rapira nieznacznie zmienia ten limit, aby aplikacje nie uruchamiały się ponownie jednocześnie. Tryb Classic ignoruje ten klucz. `0` wyłącza limit. |
+| `max_memory_mb` | liczba całkowita | `0` | Limit pamięci rezydentnej (RSS) jednego procesu workera w MiB. Proces nadrzędny sprawdza RSS każdego workera raz na sekundę. Łagodnie zatrzymuje workera powyżej limitu i uruchamia nowego workera. Klucz działa we wszystkich trybach. `0` wyłącza limit. Zobacz [Wdrożenie produkcyjne](/pl/docs/deployment). |
 | `request_terminate_timeout_secs` | liczba całkowita | `0` | Limit czasu rzeczywistego dla jednego żądania. Rapira kończy i wymienia workera, który przekroczy ten limit. `0` wyłącza tę kontrolę. |
 
 ## Sekcja `[grpc]` {#grpc}

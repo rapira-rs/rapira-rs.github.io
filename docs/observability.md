@@ -127,7 +127,7 @@ The `reason` label of `rapira_worker_exits_total` has these values:
 
 | Reason | Meaning |
 | --- | --- |
-| `drained` | The worker exited with code `0`, for example after a stop. |
+| `drained` | The worker exited with code `0`, for example after a stop or after the worker exceeds the `max_memory_mb` limit. |
 | `unhealthy` | The worker reported that it cannot serve, for example after repeated boot failures. |
 | `timeout` | A request ran longer than `request_terminate_timeout_secs`, and the master stopped the worker. |
 | `crashed` | The worker exited with another code or because of a signal. |

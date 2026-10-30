@@ -127,7 +127,7 @@ scrape_configs:
 
 | 原因 | 含义 |
 | --- | --- |
-| `drained` | worker 以退出码 `0` 退出，例如在停止之后或在 `max_memory_mb` 之后。 |
+| `drained` | worker 以退出码 `0` 退出，例如在停止之后，或在 worker 超过 `max_memory_mb` 限制之后。 |
 | `unhealthy` | worker 报告它不能提供服务，例如在多次启动失败之后。 |
 | `timeout` | 请求运行时间超过 `request_terminate_timeout_secs`，master 停止了此 worker。 |
 | `crashed` | worker 以其他退出码退出，或因信号退出。 |

@@ -72,7 +72,7 @@ Pola opisane niżej występują w odpowiedzi, która serwuje plik. Odpowiedź `5
 
 Middleware ustawia `Content-Type` na podstawie rozszerzenia pliku. Nazwa bez znanego rozszerzenia dostaje `application/octet-stream`.
 
-Odpowiedź zawiera pola `ETag` i `Last-Modified`. Middleware tworzy `Last-Modified` z czasu modyfikacji pliku. Tworzy `ETag` z czasu modyfikacji i długości pliku. Plik bez czasu modyfikacji nie dostaje żadnego z tych pól.
+Odpowiedź zawiera pola `ETag` i `Last-Modified`. Middleware tworzy `Last-Modified` z czasu modyfikacji pliku. Tworzy `ETag` z czasu modyfikacji i długości pliku. Plik bez czasu modyfikacji nie dostaje żadnego z tych pól. Czas modyfikacji przed rokiem 1970 lub po roku 9999 jest traktowany jak brak czasu modyfikacji.
 
 Middleware zwraca `304 Not Modified`, gdy `If-None-Match` pasuje do `ETag`. Żądanie bez `If-None-Match` dostaje `304 Not Modified`, gdy czas modyfikacji pliku nie jest późniejszy niż czas z `If-Modified-Since`. Ta odpowiedź zawiera tylko `ETag` i `Last-Modified`. Nie ma treści.
 

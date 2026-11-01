@@ -72,7 +72,7 @@ PHP 控制 URL 空间，因此目录 URL 是应用路由。自动索引文件会
 
 中间件根据文件扩展名设置 `Content-Type`。没有已知扩展名的文件得到 `application/octet-stream`。
 
-响应包含 `ETag` 和 `Last-Modified` 字段。中间件根据文件修改时间创建 `Last-Modified`。它根据修改时间和文件长度创建 `ETag`。没有修改时间的文件不会得到这两个字段。
+响应包含 `ETag` 和 `Last-Modified` 字段。中间件根据文件修改时间创建 `Last-Modified`。它根据修改时间和文件长度创建 `ETag`。没有修改时间的文件不会得到这两个字段。早于 1970 年或晚于 9999 年的修改时间视为没有修改时间。
 
 当 `If-None-Match` 与 `ETag` 匹配时，中间件返回 `304 Not Modified`。请求没有 `If-None-Match` 时，如果文件修改时间不晚于 `If-Modified-Since` 的时间，请求得到 `304 Not Modified`。此响应只包含 `ETag` 和 `Last-Modified`，没有响应体。
 

@@ -72,7 +72,7 @@ Los campos siguientes aparecen en una respuesta que sirve un archivo. La respues
 
 El middleware define `Content-Type` a partir de la extensión del archivo. Un nombre sin extensión conocida recibe `application/octet-stream`.
 
-La respuesta contiene los campos `ETag` y `Last-Modified`. El middleware crea `Last-Modified` a partir de la fecha de modificación del archivo. Crea `ETag` a partir de la fecha de modificación y el tamaño del archivo. Un archivo sin fecha de modificación no recibe ninguno de los dos campos.
+La respuesta contiene los campos `ETag` y `Last-Modified`. El middleware crea `Last-Modified` a partir de la fecha de modificación del archivo. Crea `ETag` a partir de la fecha de modificación y el tamaño del archivo. Un archivo sin fecha de modificación no recibe ninguno de los dos campos. Una fecha de modificación anterior a 1970 o posterior al año 9999 cuenta como ausencia de fecha de modificación.
 
 El middleware devuelve `304 Not Modified` cuando `If-None-Match` coincide con el `ETag`. Una petición sin `If-None-Match` recibe `304 Not Modified` cuando la fecha de modificación del archivo no es posterior a la fecha de `If-Modified-Since`. Esta respuesta contiene solo `ETag` y `Last-Modified`. No tiene cuerpo.
 

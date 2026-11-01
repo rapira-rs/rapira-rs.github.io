@@ -156,6 +156,10 @@ Rapira parsuje treść `multipart/form-data`, zanim PHP otrzyma żądanie. `Requ
 | `FormField` | `name`, `value`, `headers`. |
 | `UploadedFile` | `name`, `clientFilename`, `clientMediaType`, `headers`, `tmpPath`, `size`. |
 
+W parametrze `name` lub `filename` ujętym w cudzysłów w polu `content-disposition` Rapira czyta `\\` jako `\` i `\"` jako `"`, tak jak PHP w trybach Classic i Worker. Każdy inny znak `\` Rapira zachowuje bez zmian.
+
+Znak `\` na końcu wartości w cudzysłowie maskuje cudzysłów zamykający. Przeglądarka wysyła taką wartość dla nazwy pola lub nazwy pliku, która kończy się znakiem `\`. Rapira zwraca wtedy `400` albo wczytuje kolejne parametry do wartości.
+
 Rapira zapisuje każdą część z plikiem do pliku tymczasowego w podkatalogu `rapira-spool-<pid>` katalogu `http.uploads.dir`. `UploadedFile::$tmpPath` zawiera ścieżkę tego pliku. Rapira usuwa pliki tymczasowe po zakończeniu odpowiedzi. Aby zachować plik, przenieś go przez `rename()` przed zakończeniem odpowiedzi.
 
 Dla nieprawidłowej treści Rapira zwraca `400`. Gdy treść przekracza limit, zwraca `413`. Skrypt nie otrzymuje tych żądań. Limity opisuje [Tabela `[http.uploads]`](/pl/docs/configuration#tabela-http-uploads).
@@ -165,6 +169,8 @@ Dla nieprawidłowej treści Rapira zwraca `400`. Gdy treść przekracza limit, z
 `sendFile()` czyta tylko pliki poniżej katalogu głównego sendfile. Domyślny katalog główny to katalog `http.pool.entrypoint`. Rapira rozwiązuje dowiązania symboliczne, zanim porówna ścieżkę z katalogiem głównym. Ustawienie katalogu głównego opisuje [Tabela `[http.sendfile]`](/pl/docs/configuration#tabela-http-sendfile).
 
 Plik otwiera host. PHP `open_basedir` nie ogranicza tej operacji. Ścieżkę ogranicza skonfigurowany katalog główny sendfile.
+
+Rapira porównuje ścieżkę z katalogiem głównym, a następnie otwiera plik w drugim kroku. Lokalny użytkownik, który może zapisywać w katalogu głównym lub w katalogu poniżej niego, może umieścić dowiązanie symboliczne w ścieżce między tymi dwoma krokami. Odpowiedź może wtedy zawierać plik spoza katalogu głównego, który worker może odczytać. Upewnij się, że tylko zaufani użytkownicy mogą zapisywać w katalogu głównym sendfile i jego podkatalogach.
 
 Wywołanie rzuca `Rapira\Http\Exception\FileNotSendableException` i nie zapisuje danych w tych warunkach:
 

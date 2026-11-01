@@ -28,7 +28,7 @@ Rapira 0.9.2 改进了 worker 重启应用、处理内存增长和完成请求�
 
 ## 请求处理更可靠，处理开销更低
 
-在 Worker 模式下，客户端断开连接只会结束当前请求，不会重启应用。PHP `max_execution_time` 超时会保留 worker 进程。Classic 模式也能在异常处理器调用 `exit()` 时完成流式响应，包括 Yii2 错误页面。
+在 Worker 模式下，客户端断开连接只会结束当前请求，不会重启应用。PHP `max_execution_time` 超时会保留 worker 进程。Classic 模式也能在异常处理器调用 `exit()` 时完成流式响应。
 
 HTTP 修复涵盖上传、`sendFile()` 长度检查和 HEAD 响应。静态文件会正确处理 `If-Range`。原始请求体和 URL 编码的请求体通过内存流传给 PHP。文件读取使用更大的块，空闲 worker 会在两秒后释放分配器中未使用的内存。
 

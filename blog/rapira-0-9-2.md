@@ -28,7 +28,7 @@ This complements app restarts: a process replacement releases memory that can re
 
 ## More reliable requests, less processing work
 
-In worker mode, a client disconnect ends the current request without restarting the app. PHP `max_execution_time` timeouts keep the worker process alive. Classic mode also completes streamed responses when an exception handler calls `exit()`, including Yii2 error pages.
+In worker mode, a client disconnect ends the current request without restarting the app. PHP `max_execution_time` timeouts keep the worker process alive. Classic mode also completes streamed responses when an exception handler calls `exit()`.
 
 HTTP fixes cover uploads, `sendFile()` length checks, and HEAD responses. Static files handle `If-Range` correctly. Raw and URL-encoded request bodies reach PHP through a memory stream. File reads use larger blocks, and idle workers release unused allocator memory after two seconds.
 

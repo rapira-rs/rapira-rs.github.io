@@ -28,7 +28,7 @@ Esto complementa los reinicios de la aplicación: sustituir el proceso libera me
 
 ## Peticiones más fiables y menos trabajo de procesamiento
 
-En modo Worker, la desconexión de un cliente termina la petición actual sin reiniciar la aplicación. Los tiempos de espera de PHP `max_execution_time` mantienen vivo el proceso worker. El modo Classic también completa las respuestas en streaming cuando un manejador de excepciones llama a `exit()`, incluidas las páginas de error de Yii2.
+En modo Worker, la desconexión de un cliente termina la petición actual sin reiniciar la aplicación. Los tiempos de espera de PHP `max_execution_time` mantienen vivo el proceso worker. El modo Classic también completa las respuestas en streaming cuando un manejador de excepciones llama a `exit()`.
 
 Las correcciones de HTTP cubren las subidas, las comprobaciones de longitud de `sendFile()` y las respuestas HEAD. Los archivos estáticos procesan `If-Range` correctamente. Los cuerpos de petición sin procesar y los codificados como URL llegan a PHP mediante un flujo en memoria. Las lecturas de archivos usan bloques más grandes y los workers inactivos liberan memoria no utilizada del asignador después de dos segundos.
 

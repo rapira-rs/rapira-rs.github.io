@@ -28,7 +28,7 @@ To uzupełnia restart aplikacji: wymiana procesu zwalnia pamięć, która może 
 
 ## Pewniejsza obsługa żądań, mniej pracy
 
-W trybie worker rozłączenie klienta kończy bieżące żądanie bez restartu aplikacji. Po przekroczeniu PHP `max_execution_time` proces roboczy nadal działa. Tryb classic kończy też odpowiedzi strumieniowe, gdy procedura obsługi wyjątku wywołuje `exit()`, w tym na stronach błędów Yii2.
+W trybie worker rozłączenie klienta kończy bieżące żądanie bez restartu aplikacji. Po przekroczeniu PHP `max_execution_time` proces roboczy nadal działa. Tryb classic kończy też odpowiedzi strumieniowe, gdy procedura obsługi wyjątku wywołuje `exit()`.
 
 Poprawki HTTP obejmują przesyłanie plików, sprawdzanie długości w `sendFile()` i odpowiedzi HEAD. Pliki statyczne poprawnie obsługują `If-Range`. Surowe treści żądań oraz treści w formacie URL-encoded trafiają do PHP przez strumień w pamięci. Odczyt plików używa większych bloków, a bezczynne procesy robocze zwalniają nieużywaną pamięć alokatora po dwóch sekundach.
 

@@ -170,7 +170,7 @@ Rapira returns `400` for a malformed body. It returns `413` when the body exceed
 
 The host opens the file. PHP `open_basedir` does not restrict this operation. The configured sendfile root restricts the path.
 
-Rapira compares the path with the root, and then opens the file in a second step. A local user with write access to the root or below it can put a symbolic link into the path between the two steps. The response can then contain a file outside the root that the worker can read. Make sure that only trusted users can write to the sendfile root and its subdirectories.
+Rapira compares the path with the root, and then opens the file in a second step. A user who can write to the root or its subdirectories can insert a symbolic link between these steps. The response can then contain a file outside the root that the worker can read. Make sure that only trusted users can write to the sendfile root and its subdirectories.
 
 The call throws `Rapira\Http\Exception\FileNotSendableException` and writes no data in these conditions:
 

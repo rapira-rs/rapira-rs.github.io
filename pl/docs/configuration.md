@@ -187,7 +187,7 @@ Interceptor `auth` przyjmuje wywołanie tylko z prawidłowym tokenem bearer. PHP
 
 | Klucz | Typ | Domyślnie | Znaczenie |
 | --- | --- | --- | --- |
-| `tokens_file` | tekst | brak, wymagane | Plik z akceptowanymi tokenami. Ścieżka względna używa katalogu pliku konfiguracyjnego jako podstawy. Zapisz jeden token w każdej linii. Rapira pomija puste linie i linie, które zaczynają się od `#`. Rapira usuwa białe znaki na początku i na końcu każdej linii. Każdy token musi być [tokenem bearer według RFC 6750](https://www.rfc-editor.org/rfc/rfc6750#section-2.1). Plik musi zawierać co najmniej jeden token. |
+| `tokens_file` | tekst | brak, wymagane | Plik z akceptowanymi tokenami. Ścieżka względna używa katalogu pliku konfiguracyjnego jako podstawy. Zapisz jeden token w każdej linii. Rapira usuwa białe znaki na początku i na końcu każdej linii, a następnie pomija puste linie i linie zaczynające się od `#`. Każdy token musi być [tokenem bearer według RFC 6750](https://www.rfc-editor.org/rfc/rfc6750#section-2.1). Plik musi zawierać co najmniej jeden token. |
 
 ### Tabela `[grpc.pool]` {#grpc-pool}
 

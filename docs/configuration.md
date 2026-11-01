@@ -187,7 +187,7 @@ The `auth` interceptor accepts a call only with a valid bearer token. PHP does n
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `tokens_file` | string | none, required | The file with the accepted tokens. A relative path uses the configuration file directory as its base. Write one token on each line. Rapira skips blank lines and lines that start with `#`. Rapira removes the whitespace at the start and end of each line. Each token must be an [RFC 6750 bearer token](https://www.rfc-editor.org/rfc/rfc6750#section-2.1). The file must contain at least one token. |
+| `tokens_file` | string | none, required | The file with the accepted tokens. A relative path uses the configuration file directory as its base. Write one token on each line. Rapira removes whitespace from the start and end of each line, then skips empty lines and lines that start with `#`. Each token must be an [RFC 6750 bearer token](https://www.rfc-editor.org/rfc/rfc6750#section-2.1). The file must contain at least one token. |
 
 ### The `[grpc.pool]` table {#grpc-pool}
 

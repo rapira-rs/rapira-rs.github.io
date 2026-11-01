@@ -89,7 +89,7 @@ listen = "127.0.0.1:8000"
 
 Rapira crea el socket Unix con el modo `0666`. Cualquier proceso que pueda acceder al directorio de ejecución puede conectarse al socket. Rapira no configura el modo del socket. Usa los permisos del directorio para restringir el acceso. Para esta unidad, establece `RuntimeDirectoryMode=0750`. Establece `Group=` en un grupo que incluya la cuenta del proxy.
 
-Reenvía los campos con guiones, como `X-Forwarded-For`. No uses nombres como `X_Forwarded_For`. En los modos Classic y Worker, un nombre con `_` o `.` se puede asignar a la misma clave de `$_SERVER` que el nombre con guiones. En estos modos, Rapira elimina de forma predeterminada cada nombre con un carácter que no sea una letra ASCII, un dígito o un guion. La [página de HTTP](/es/docs/http) explica la asignación.
+Reenvía los campos con guiones, como `X-Forwarded-For`. No uses nombres como `X_Forwarded_For`. En los modos Classic y Worker, un nombre con `_` o `.` se puede asignar a la misma clave de `$_SERVER` que el nombre con guiones. En estos modos, Rapira siempre elimina cada nombre con un carácter que no sea una letra ASCII, un dígito o un guion. La [página de HTTP](/es/docs/http) explica la asignación.
 
 Rapira puede servir archivos estáticos con el [middleware de archivos estáticos](/es/docs/static-files). El proxy no necesita una segunda copia de la raíz de documentos. Como alternativa, un proxy o una CDN pueden servir los archivos.
 

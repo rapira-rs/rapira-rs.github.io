@@ -187,7 +187,7 @@ master 在 fork 出 worker 前加载描述符集。以下错误会阻止初始�
 
 | 键 | 类型 | 默认值 | 含义 |
 | --- | --- | --- | --- |
-| `tokens_file` | 字符串 | 无，必填 | 包含被接受的令牌的文件。相对路径以配置文件目录为基准。每行写一个令牌。Rapira 跳过空行和以 `#` 开头的行。Rapira 删除每行开头和末尾的空白字符。每个令牌都必须是 [RFC 6750 bearer 令牌](https://www.rfc-editor.org/rfc/rfc6750#section-2.1)。文件必须至少包含一个令牌。 |
+| `tokens_file` | 字符串 | 无，必填 | 包含被接受的令牌的文件。相对路径以配置文件目录为基准。每行写一个令牌。Rapira 先删除每行开头和末尾的空白字符，再跳过空行和以 `#` 开头的行。每个令牌都必须是 [RFC 6750 bearer 令牌](https://www.rfc-editor.org/rfc/rfc6750#section-2.1)。文件必须至少包含一个令牌。 |
 
 ### `[grpc.pool]` 表 {#grpc-pool}
 

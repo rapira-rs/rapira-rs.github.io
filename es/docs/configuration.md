@@ -187,7 +187,7 @@ El interceptor `auth` acepta una llamada solo con un token bearer válido. PHP n
 
 | Clave | Tipo | Por defecto | Significado |
 | --- | --- | --- | --- |
-| `tokens_file` | cadena | ninguno, obligatorio | El archivo con los tokens aceptados. Una ruta relativa usa como base el directorio del archivo de configuración. Escribe un token en cada línea. Rapira omite las líneas vacías y las líneas que empiezan por `#`. Rapira elimina los espacios en blanco al principio y al final de cada línea. Cada token debe ser un [token bearer de RFC 6750](https://www.rfc-editor.org/rfc/rfc6750#section-2.1). El archivo debe contener al menos un token. |
+| `tokens_file` | cadena | ninguno, obligatorio | El archivo con los tokens aceptados. Una ruta relativa usa como base el directorio del archivo de configuración. Escribe un token en cada línea. Rapira elimina los espacios en blanco al principio y al final de cada línea y después omite las líneas vacías y las que empiezan por `#`. Cada token debe ser un [token bearer de RFC 6750](https://www.rfc-editor.org/rfc/rfc6750#section-2.1). El archivo debe contener al menos un token. |
 
 ### La tabla `[grpc.pool]` {#grpc-pool}
 

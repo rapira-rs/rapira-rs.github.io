@@ -18,9 +18,9 @@ HTTP 服务器接受明文 HTTP。使用代理终止 TLS。请参阅[生产环�
 
 HTTP 服务器在 PHP 运行前检查每个请求。检查失败时，服务器不调用 PHP。
 
-Rapira 对 `CONNECT` 请求返回 `501`。HTTP 服务器不创建隧道。
+Rapira 将 `CONNECT` 请求像其他方法一样传给 PHP。HTTP 服务器不创建隧道：对 `CONNECT` 返回 `2xx` 响应后，它关闭连接。
 
-Rapira 接受绝对形式的请求目标，例如 `GET http://host.example/admin?x=1 HTTP/1.1`。Rapira 从目标 authority 中删除用户信息。然后 authority 替换 `Host` 字段，因此 `$_SERVER['HTTP_HOST']` 与目标一致。PHP 在 `$_SERVER['REQUEST_URI']` 中收到 origin 形式的路径和查询字符串。
+Rapira 按原样接受绝对形式的请求目标，例如 `GET http://host.example/admin?x=1 HTTP/1.1`。authority 来自 `Host` 字段。PHP 在 `$_SERVER['REQUEST_URI']` 中收到 origin 形式的路径和查询字符串。在 Dispatcher 模式下，`Request::$target` 保留完整形式。
 
 `http.keepalive_timeout_secs` 限制每次从客户端读取的时间。此限制适用于空闲连接和请求头。如果在限制时间内没有收到请求体数据，Rapira 返回 `408`，然后关闭连接。默认值为 60 秒。
 
@@ -51,23 +51,9 @@ Rapira 只接受明文 HTTP。因此，`$_SERVER['HTTPS']` 始终为空，`REQUE
 
 ## 会撞上 CGI 变量的名字
 
-Rapira 在请求字段名中只接受 `A-Z`、`a-z`、`0-9` 和 `-` 这些字节。此规则拒绝 `_` 和 `.`，也拒绝 `~` 等其他字符。`http.unsafe_field_names` 设置如何处理被拒绝的名称：
-
-- **`drop`** 是默认值。在 Classic 和 Worker 模式下，Rapira 在 PHP 收到字段前删除这些字段。它为每个请求写入一条 `warn` 记录。在 Dispatcher 模式下，`drop` 保留所有名称，因为此模式下 Rapira 不将请求字段放入 `$_SERVER`。
-- **`reject`** 使 Rapira 在所有模式下返回 `400`。
-
-```toml
-[http]
-unsafe_field_names = "drop"
-```
-
-不能禁用此检查，也不能为单个名称添加例外。请参阅[配置](/zh/docs/configuration)以了解完整的设置参考。
+在 Classic 和 Worker 模式下，Rapira 在请求字段名中只接受 `A-Z`、`a-z`、`0-9` 和 `-` 这些字节。它在 PHP 收到请求前删除带有其他字符（例如 `_`、`.` 或 `~`）的每个字段。不能禁用此检查，也不能为单个名称添加例外。在 Dispatcher 模式下，Rapira 保留所有名称，因为此模式下它不将请求字段放入 `$_SERVER`。
 
 将必需字段名中的下划线改为连字符。Rapira 对来自代理的字段使用相同规则。它无法确定带下划线的字段来自客户端还是可信代理。请配置代理，在发送字段前更改字段名。
-
-::: tip
-`drop` 以 `warn` 级别写入记录，但默认日志级别为 `error`。将 `http` 目标设置为 `warn` 以查看这些记录。请参阅[日志](/zh/docs/logging)以了解更多信息。
-:::
 
 ## 发了不止一次的字段
 
@@ -134,11 +120,10 @@ Rapira 原样发送其他 PHP 字段，例如重复的 `Set-Cookie`、`Vary` 和
 
 | 状态码 | 原因 |
 | --- | --- |
-| `400` | 请求有多个 `Host` 字段。HTTP/1.1 请求没有 `Host` 字段或 `Host` 字段为空。字段名不安全，并且设置了 `unsafe_field_names = "reject"`。请求体读取失败。在 Dispatcher 模式下，multipart 请求体无效。 |
+| `400` | 请求有多个 `Host` 字段。HTTP/1.1 请求没有 `Host` 字段或 `Host` 字段为空。请求体读取失败。在 Dispatcher 模式下，multipart 请求体无效，或 multipart 请求有多个 `Content-Type` 字段。 |
 | `408` | 在 `http.keepalive_timeout_secs` 内没有收到请求体数据。 |
 | `413` | 请求体大于 `http.max_body_size_mb`，或 multipart 请求体超过 `[http.uploads]` 的某个上限。 |
 | `500` | worker 池已停止。在 Dispatcher 模式下，Rapira 无法将上传的文件写入 `[http.uploads].dir`。 |
-| `501` | 请求使用 `CONNECT`。 |
 | `502` | PHP worker 在发送响应头前停止。 |
 | `503` | worker 队列持续满 30 秒。 |
 

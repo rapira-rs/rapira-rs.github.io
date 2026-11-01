@@ -18,9 +18,9 @@ El servidor HTTP acepta HTTP sin cifrar. Usa un proxy para terminar TLS. Consult
 
 El servidor HTTP comprueba cada petición antes de ejecutar PHP. No llama a PHP para una petición que no supera una comprobación.
 
-Rapira devuelve `501` para una petición `CONNECT`. El servidor HTTP no crea túneles.
+Rapira pasa una petición `CONNECT` a PHP como cualquier otro método. El servidor HTTP no crea túneles: después de una respuesta `2xx` a `CONNECT`, cierra la conexión.
 
-Rapira acepta un objetivo de petición en forma absoluta, como `GET http://host.example/admin?x=1 HTTP/1.1`. Rapira elimina los datos de usuario de la autoridad del objetivo. Después, la autoridad sustituye al campo `Host`, por lo que `$_SERVER['HTTP_HOST']` y el objetivo coinciden. PHP recibe la ruta y la consulta en forma de origen en `$_SERVER['REQUEST_URI']`.
+Rapira acepta tal cual un objetivo de petición en forma absoluta, como `GET http://host.example/admin?x=1 HTTP/1.1`. La autoridad procede del campo `Host`. PHP recibe la ruta y la consulta en forma de origen en `$_SERVER['REQUEST_URI']`. En modo Dispatcher, `Request::$target` conserva la forma completa.
 
 `http.keepalive_timeout_secs` limita cada lectura del cliente. Se aplica a una conexión inactiva y a las cabeceras de la petición. Rapira devuelve `408` si no recibe datos del cuerpo antes del límite. Después cierra la conexión. El valor predeterminado es 60 segundos.
 
@@ -51,23 +51,9 @@ Rapira solo acepta HTTP sin cifrar. Por tanto, `$_SERVER['HTTPS']` siempre está
 
 ## Nombres que colisionan con una variable CGI
 
-Rapira solo acepta los bytes `A-Z`, `a-z`, `0-9` y `-` en el nombre de un campo de la petición. Esta regla rechaza `_` y `.`, y también otros caracteres, como `~`. `http.unsafe_field_names` define la acción para un nombre rechazado:
-
-- **`drop`** es el valor predeterminado. En los modos Classic y Worker, Rapira elimina los campos antes de que PHP los reciba. Escribe un registro `warn` por cada petición. En modo Dispatcher, `drop` conserva todos los nombres, porque Rapira no pone los campos de la petición en `$_SERVER` en este modo.
-- **`reject`** hace que Rapira devuelva `400` en todos los modos.
-
-```toml
-[http]
-unsafe_field_names = "drop"
-```
-
-No puedes desactivar la comprobación ni añadir excepciones para nombres concretos. Consulta [Configuración](/es/docs/configuration) para ver la referencia completa de ajustes.
+En los modos Classic y Worker, Rapira solo acepta los bytes `A-Z`, `a-z`, `0-9` y `-` en el nombre de un campo de la petición. Elimina cada campo con otro carácter, como `_`, `.` o `~`, antes de que PHP reciba la petición. No puedes desactivar esta comprobación ni añadir excepciones para nombres concretos. En modo Dispatcher, Rapira conserva todos los nombres, porque en este modo no pone los campos de la petición en `$_SERVER`.
 
 Cambia un nombre de campo obligatorio con guiones bajos para que use guiones. Rapira aplica la misma regla a los campos de un proxy. No puede determinar si un cliente o un proxy de confianza envió un campo con guiones bajos. Configura el proxy para cambiar el nombre antes de enviar el campo.
-
-::: tip
-`drop` escribe sus registros en el nivel `warn`, pero el nivel de registro predeterminado es `error`. Configura el target `http` como `warn` para ver estos registros. Consulta [Registros](/es/docs/logging) para más información.
-:::
 
 ## Campos que llegan más de una vez
 
@@ -134,11 +120,10 @@ El servidor HTTP envía una respuesta de error cuando una petición no llega a P
 
 | Estado | Causa |
 | --- | --- |
-| `400` | La petición tiene más de un campo `Host`. Una petición HTTP/1.1 no tiene campo `Host` o tiene un campo `Host` vacío. Un nombre de campo no es seguro y `unsafe_field_names = "reject"` está configurado. La lectura del cuerpo falló. En modo Dispatcher, un cuerpo multipart no es válido. |
+| `400` | La petición tiene más de un campo `Host`. Una petición HTTP/1.1 no tiene campo `Host` o tiene un campo `Host` vacío. La lectura del cuerpo falló. En modo Dispatcher, un cuerpo multipart no es válido o una petición multipart tiene más de un campo `Content-Type`. |
 | `408` | No llegaron datos del cuerpo dentro de `http.keepalive_timeout_secs`. |
 | `413` | El cuerpo es mayor que `http.max_body_size_mb`, o un cuerpo multipart supera un límite de `[http.uploads]`. |
 | `500` | El pool de workers se detuvo. En modo Dispatcher, Rapira no puede escribir un archivo subido en `[http.uploads].dir`. |
-| `501` | La petición usa `CONNECT`. |
 | `502` | El worker de PHP se detuvo antes de enviar las cabeceras de la respuesta. |
 | `503` | La cola de workers estuvo llena durante 30 segundos. |
 

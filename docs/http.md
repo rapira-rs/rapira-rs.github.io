@@ -18,9 +18,9 @@ The HTTP server accepts plain HTTP. Use a proxy to terminate TLS. See [Deploymen
 
 The HTTP server checks each request before PHP runs. It does not call PHP for a request that fails a check.
 
-Rapira returns `501` for a `CONNECT` request. The HTTP server does not create tunnels.
+Rapira passes a `CONNECT` request to PHP like any other method. The HTTP server does not create tunnels: after a `2xx` response to `CONNECT`, it closes the connection.
 
-Rapira accepts an absolute-form request target, such as `GET http://host.example/admin?x=1 HTTP/1.1`. Rapira removes the user information from the target authority. Then the authority replaces the `Host` field, so `$_SERVER['HTTP_HOST']` and the target agree. PHP receives the origin-form path and query in `$_SERVER['REQUEST_URI']`.
+Rapira accepts an absolute-form request target, such as `GET http://host.example/admin?x=1 HTTP/1.1`, as it is. The authority comes from the `Host` field. PHP receives the origin-form path and query in `$_SERVER['REQUEST_URI']`. In Dispatcher mode, `Request::$target` keeps the full form.
 
 `http.keepalive_timeout_secs` limits each read from the client. It applies to an idle connection and the request headers. Rapira returns `408` if it receives no request body data before the limit. It then closes the connection. The default is 60 seconds.
 
@@ -51,23 +51,9 @@ Rapira accepts plain HTTP only. Thus, `$_SERVER['HTTPS']` is always empty and `R
 
 ## Names that alias a CGI variable
 
-Rapira accepts only the bytes `A-Z`, `a-z`, `0-9`, and `-` in a request field name. This rule rejects `_` and `.`, and also other characters such as `~`. `http.unsafe_field_names` sets the action for a rejected name:
-
-- **`drop`** is the default. In Classic and Worker modes, Rapira removes the fields before PHP receives them. It writes one `warn` record for each request. In Dispatcher mode, `drop` keeps all names, because Rapira does not put request fields in `$_SERVER` in this mode.
-- **`reject`** makes Rapira return `400` in all modes.
-
-```toml
-[http]
-unsafe_field_names = "drop"
-```
-
-You cannot disable the check or add exceptions for individual names. See [Configuration](/docs/configuration) for the complete setting reference.
+In Classic and Worker modes, Rapira accepts only the bytes `A-Z`, `a-z`, `0-9`, and `-` in a request field name. It removes each field with another character, such as `_`, `.`, or `~`, before PHP receives the request. You cannot disable this check or add exceptions for individual names. In Dispatcher mode, Rapira keeps all names, because it does not put request fields in `$_SERVER` in this mode.
 
 Change a required field name with underscores to use hyphens. Rapira applies the same rule to fields from a proxy. It cannot determine whether a client or trusted proxy sent a field with underscores. Configure the proxy to change the name before it sends the field.
-
-::: tip
-`drop` writes its records at `warn`, but the default log level is `error`. Set the `http` target to `warn` to see these records. See [Logging](/docs/logging) for more information.
-:::
 
 ## Fields sent more than once
 
@@ -134,11 +120,10 @@ The HTTP server sends an error response when a request does not reach PHP or PHP
 
 | Status | Cause |
 | --- | --- |
-| `400` | The request has more than one `Host` field. An HTTP/1.1 request has no `Host` field or an empty `Host` field. A field name is unsafe and `unsafe_field_names = "reject"` is set. The body read failed. In Dispatcher mode, a multipart body is not valid. |
+| `400` | The request has more than one `Host` field. An HTTP/1.1 request has no `Host` field or an empty `Host` field. The body read failed. In Dispatcher mode, a multipart body is not valid or a multipart request has more than one `Content-Type` field. |
 | `408` | No body data arrived within `http.keepalive_timeout_secs`. |
 | `413` | The body is larger than `http.max_body_size_mb`, or a multipart body exceeds an `[http.uploads]` limit. |
 | `500` | The worker pool stopped. In Dispatcher mode, Rapira cannot write an uploaded file to `[http.uploads].dir`. |
-| `501` | The request uses `CONNECT`. |
 | `502` | The PHP worker stopped before it sent the response head. |
 | `503` | The worker queue stayed full for 30 seconds. |
 

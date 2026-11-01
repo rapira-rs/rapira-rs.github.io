@@ -142,8 +142,6 @@ Ustaw `content-length` w `writeHead()`, gdy znasz rozmiar treści. Zapis poza t�
 
 Aby przesłać odpowiedź strumieniowo, wywołaj `writeBody()` z `$eos = false` dla każdej części. Następnie wywołaj `writeBody('')`, aby zakończyć odpowiedź.
 
-Ogranicz każdy fragment `writeBody()` do maksymalnie 1 GiB. Większy fragment rzuca `\Error` i kończy odpowiedź jako uciętą. Limit dotyczy każdego fragmentu, a nie całej odpowiedzi strumieniowej.
-
 Wolny klient może zapełnić kanał odpowiedzi. Zapis blokuje wtedy wątek PHP do czasu zwolnienia miejsca lub zamknięcia kanału. Blokuje to wszystkie Fibery PHP w tym workerze.
 
 ## Przesyłane pliki
@@ -203,7 +201,6 @@ Każda klasa wyjątku w przestrzeniach nazw `Rapira` implementuje `Rapira\Except
 | `Rapira\Http\Exception\ContentLengthExceededError` | `writeBody()`, `sendFile()` | Zapis wykracza poza zadeklarowany `content-length`. |
 | `Rapira\Http\Exception\FileNotSendableException` | `sendFile()` | Rapira nie może wysłać pliku. |
 | `\Error` | `receive()`, `tryReceive()` | Poprzednia wymiana jest nadal otwarta. |
-| `\Error` | `writeBody()` | Jeden fragment przekracza 1 GiB. Rapira kończy odpowiedź jako uciętą. |
 | `\Error` | `rapira_finish_request()` | Funkcja nie jest dostępna w trybie Dispatcher. Zamiast tego zakończ wymianę. |
 | `\ValueError` | Kilka metod | Argument jest nieprawidłowy. Przykłady to status poza zakresem od 100 do 599, pole nieprawidłowe w sieci lub pole trailer takie jak `content-type`. |
 

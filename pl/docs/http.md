@@ -18,9 +18,9 @@ Serwer HTTP przyjmuje nieszyfrowany HTTP. Użyj proxy do zakończenia TLS. Zobac
 
 Serwer HTTP sprawdza każde żądanie przed uruchomieniem PHP. Nie wywołuje PHP dla żądania, które nie przejdzie kontroli.
 
-Rapira zwraca `501` dla żądania `CONNECT`. Serwer HTTP nie tworzy tuneli.
+Rapira przekazuje żądanie `CONNECT` do PHP jak każdą inną metodę. Serwer HTTP nie tworzy tuneli: po odpowiedzi `2xx` na `CONNECT` zamyka połączenie.
 
-Rapira przyjmuje cel żądania w formie bezwzględnej, na przykład `GET http://host.example/admin?x=1 HTTP/1.1`. Rapira usuwa dane użytkownika z części authority celu. Następnie ta część zastępuje pole `Host`, więc `$_SERVER['HTTP_HOST']` i cel są zgodne. PHP otrzymuje ścieżkę i zapytanie w formie origin-form w `$_SERVER['REQUEST_URI']`.
+Rapira przyjmuje cel żądania w formie bezwzględnej, na przykład `GET http://host.example/admin?x=1 HTTP/1.1`, bez zmian. Część authority pochodzi z pola `Host`. PHP otrzymuje ścieżkę i zapytanie w formie origin-form w `$_SERVER['REQUEST_URI']`. W trybie Dispatcher `Request::$target` zachowuje pełną formę.
 
 `http.keepalive_timeout_secs` ogranicza każdy odczyt od klienta. Dotyczy bezczynnego połączenia i nagłówków żądania. Rapira zwraca `408`, jeśli nie otrzyma danych treści żądania przed upływem limitu. Następnie zamyka połączenie. Wartość domyślna to 60 sekund.
 
@@ -51,23 +51,9 @@ Rapira przyjmuje tylko nieszyfrowany HTTP. Dlatego `$_SERVER['HTTPS']` jest zaws
 
 ## Nazwy kolidujące ze zmienną CGI
 
-Rapira przyjmuje w nazwie pola żądania tylko bajty `A-Z`, `a-z`, `0-9` i `-`. Ta reguła odrzuca `_` i `.`, a także inne znaki, na przykład `~`. `http.unsafe_field_names` ustala działanie dla odrzuconej nazwy:
-
-- **`drop`** to wartość domyślna. W trybach Classic i Worker Rapira usuwa pola, zanim PHP je otrzyma. Zapisuje jeden wpis `warn` dla każdego żądania. W trybie Dispatcher `drop` zachowuje wszystkie nazwy, ponieważ w tym trybie Rapira nie umieszcza pól żądania w `$_SERVER`.
-- **`reject`** powoduje, że Rapira zwraca `400` we wszystkich trybach.
-
-```toml
-[http]
-unsafe_field_names = "drop"
-```
-
-Nie można wyłączyć kontroli ani dodać wyjątków dla pojedynczych nazw. Zobacz [Konfiguracja](/pl/docs/configuration), aby poznać wszystkie ustawienia.
+W trybach Classic i Worker Rapira przyjmuje w nazwie pola żądania tylko bajty `A-Z`, `a-z`, `0-9` i `-`. Każde pole z innym znakiem, na przykład `_`, `.` lub `~`, usuwa, zanim PHP otrzyma żądanie. Nie można wyłączyć tej kontroli ani dodać wyjątków dla pojedynczych nazw. W trybie Dispatcher Rapira zachowuje wszystkie nazwy, ponieważ w tym trybie nie umieszcza pól żądania w `$_SERVER`.
 
 Zmień wymaganą nazwę pola z podkreśleniami na nazwę z łącznikami. Rapira stosuje tę samą regułę do pól od proxy. Nie może ustalić, czy pole z podkreśleniami wysłał klient, czy zaufane proxy. Skonfiguruj proxy, aby zmieniało nazwę przed wysłaniem pola.
-
-::: tip
-`drop` zapisuje swoje wpisy na poziomie `warn`, ale domyślny poziom logu to `error`. Ustaw target `http` na `warn`, aby zobaczyć te wpisy. Zobacz [Logi](/pl/docs/logging).
-:::
 
 ## Pola wysłane więcej niż raz
 
@@ -134,11 +120,10 @@ Serwer HTTP wysyła odpowiedź błędu, gdy żądanie nie dociera do PHP lub PHP
 
 | Status | Przyczyna |
 | --- | --- |
-| `400` | Żądanie ma więcej niż jedno pole `Host`. Żądanie HTTP/1.1 nie ma pola `Host` lub ma puste pole `Host`. Nazwa pola jest niebezpieczna i ustawiono `unsafe_field_names = "reject"`. Odczyt treści się nie udał. W trybie Dispatcher treść multipart jest nieprawidłowa. |
+| `400` | Żądanie ma więcej niż jedno pole `Host`. Żądanie HTTP/1.1 nie ma pola `Host` lub ma puste pole `Host`. Odczyt treści się nie udał. W trybie Dispatcher treść multipart jest nieprawidłowa lub żądanie multipart ma więcej niż jedno pole `Content-Type`. |
 | `408` | Żadne dane treści nie dotarły w czasie `http.keepalive_timeout_secs`. |
 | `413` | Treść jest większa niż `http.max_body_size_mb` lub treść multipart przekracza limit `[http.uploads]`. |
 | `500` | Pula workerów się zatrzymała. W trybie Dispatcher Rapira nie może zapisać przesłanego pliku w `[http.uploads].dir`. |
-| `501` | Żądanie używa `CONNECT`. |
 | `502` | Worker PHP zatrzymał się przed wysłaniem nagłówków odpowiedzi. |
 | `503` | Kolejka workerów była pełna przez 30 sekund. |
 

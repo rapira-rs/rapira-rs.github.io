@@ -160,11 +160,12 @@ listen = "127.0.0.1:9180"
 
 ## worker 回收与请求超时
 
-在 [Worker 和 Dispatcher 模式](/zh/docs/execution-modes)下，worker 在请求之间保留应用状态。因此，内存泄漏可能会随着时间增加 worker 内存。请使用以下两个设置来限制其影响：
+在 [Worker 和 Dispatcher 模式](/zh/docs/execution-modes)下，worker 在请求之间保留应用状态。因此，内存泄漏可能会随着时间增加 worker 内存。请使用以下设置来限制其影响：
 
 ```toml
 [http.pool]
 max_requests = 500
+max_memory_mb = 256
 request_terminate_timeout_secs = 30
 ```
 
@@ -172,6 +173,12 @@ request_terminate_timeout_secs = 30
 
 `max_requests` 在指定的请求数后重启 worker 内部的应用。worker 进程保持不变，所以没有连接关闭，也没有请求丢失。Rapira 为每个 worker 增加一个随机数，最多为限制的一半，以避免同时重启。重启会释放应用的 PHP 内存。它不会释放扩展或 C 库在 PHP 之外泄漏的内存。此设置限制内存泄漏的影响，但不会修复泄漏。Classic 模式忽略此设置。
 
-`request_terminate_timeout_secs` 限制一个请求的运行时间。Rapira 会终止并替换超过此限制的 worker。两个设置的默认值都是零，即禁用。请在生产环境中启用它们。
+`max_memory_mb` 在 worker 进程的常驻内存（RSS）超过以 MiB 为单位的限制时替换该进程。master 每秒检查一次每个 worker。worker 停止接受新连接；现有连接可以在排空超时内收到下一个请求的响应。超过此超时的响应可能被截断。worker 退出会释放 PHP 内外的内存，随后 master 启动替代进程。此设置适用于所有模式。
+
+当容器有内存限制时，请使用 `max_memory_mb`。当容器达到其限制时，内核可能终止一个进程，该进程的所有请求都会失败。请让所有进程池的 `processes × max_memory_mb` 之和低于容器限制。请为 master、可观测性进程以及两次检查之间的内存增长留出余量。每个 worker 的 RSS 包含共享内存，例如 OPcache，所以这个总和大于实际使用量。
+
+请把限制设置在新 worker 的 RSS 之上。否则，每个新 worker 都可能在下一次检查时再次触发内存排空。`rapira_worker_rss_bytes` 指标显示每个 worker 的 RSS。
+
+`request_terminate_timeout_secs` 限制一个请求的运行时间。Rapira 会终止并替换超过此限制的 worker。这些设置的默认值都是零，即禁用。请在生产环境中启用它们。
 
 有关进程池大小调整、替换延迟和 worker 故障处理，请参阅[进程模型](/zh/docs/process-model)。

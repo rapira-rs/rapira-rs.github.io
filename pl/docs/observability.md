@@ -127,7 +127,7 @@ Etykieta `reason` metryki `rapira_worker_exits_total` ma te wartości:
 
 | Przyczyna | Znaczenie |
 | --- | --- |
-| `drained` | Worker zakończył działanie z kodem `0`, na przykład po zatrzymaniu. |
+| `drained` | Worker zakończył działanie z kodem `0`, na przykład po zatrzymaniu lub po przekroczeniu limitu `max_memory_mb` przez workera. |
 | `unhealthy` | Worker zgłosił, że nie może obsługiwać żądań, na przykład po powtarzających się nieudanych rozruchach. |
 | `timeout` | Żądanie działało dłużej niż `request_terminate_timeout_secs`, a proces nadrzędny zatrzymał workera. |
 | `crashed` | Worker zakończył działanie z innym kodem lub z powodu sygnału. |

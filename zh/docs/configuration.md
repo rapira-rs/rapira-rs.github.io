@@ -31,7 +31,6 @@ server_port = 8000                    # Optional. Uses the TCP listen port by de
 max_body_size_mb = 8                  # Optional. Rapira returns 413 for larger request bodies.
 write_timeout_secs = 30               # Optional. Closes a connection after a response write times out.
 keepalive_timeout_secs = 60           # Optional. Limits idle periods and read operations.
-unsafe_field_names = "drop"           # Optional. Use "drop" or "reject". Default: "drop".
 middleware = ["static"]               # Optional. Rapira uses the list order.
 
 [http.static]                         # Required when middleware contains "static".
@@ -110,7 +109,6 @@ http = "warn"
 | `max_body_size_mb` | 整数 | `8` | 最大请求体，单位 MiB。请求体更大时，Rapira 返回 `413`。最小值为 1。 |
 | `write_timeout_secs` | 整数 | `30` | 响应写入期间没有进展的最长时间。超过后，Rapira 关闭连接。范围是 1 到 `86400`。 |
 | `keepalive_timeout_secs` | 整数 | `60` | 接收请求头的时间上限。它包含在空闲连接上的等待时间。它也是两个请求体分片之间的最长时间。超过上限后，Rapira 关闭连接。停滞的请求体先收到 `408`。范围是 1 到 `86400`。 |
-| `unsafe_field_names` | `"drop"` \| `"reject"` | `"drop"` | 字段名包含 `[A-Za-z0-9-]` 以外的字符时的处理方式。`"reject"` 返回 `400`。在 Classic 和 Worker 模式下，`"drop"` 删除该字段并记录日志。在 Dispatcher 模式下，`"drop"` 保留该字段。请参阅 [HTTP](/zh/docs/http) 页面。 |
 | `middleware` | 字符串列表 | 空 | 在 PHP 之前运行的中间件，按列表顺序运行。只有 `"static"` 可用。Rapira 拒绝重复的名称和没有配置表的名称。它也拒绝未使用的中间件表。 |
 
 ### `[http.static]` 表
@@ -189,7 +187,7 @@ master 在 fork 出 worker 前加载描述符集。以下错误会阻止初始�
 
 | 键 | 类型 | 默认值 | 含义 |
 | --- | --- | --- | --- |
-| `tokens_file` | 字符串 | 无，必填 | 包含被接受的令牌的文件。相对路径以配置文件目录为基准。每行写一个令牌。Rapira 跳过空行和以 `#` 开头的行。每个令牌都必须是 [RFC 6750 bearer 令牌](https://www.rfc-editor.org/rfc/rfc6750#section-2.1)。文件必须至少包含一个令牌。 |
+| `tokens_file` | 字符串 | 无，必填 | 包含被接受的令牌的文件。相对路径以配置文件目录为基准。每行写一个令牌。Rapira 跳过空行和以 `#` 开头的行。Rapira 删除每行开头和末尾的空白字符。每个令牌都必须是 [RFC 6750 bearer 令牌](https://www.rfc-editor.org/rfc/rfc6750#section-2.1)。文件必须至少包含一个令牌。 |
 
 ### `[grpc.pool]` 表 {#grpc-pool}
 
@@ -244,7 +242,7 @@ HTTP 和 gRPC 可以同时运行。每个监听器使用自己的进程池和入
 
 Rapira 只接受文档中的表和键。例如，`[htttp]` 或 `lissten = ":8000"` 会导致初始化失败。错误会标识未知名称。每个键属于一个表。例如，`max_requests` 属于 `[http.pool]`，`pidfile` 属于 `[supervisor]`。
 
-Rapira 还会验证值。它拒绝不支持的值，不会使用默认值替换。例如，它拒绝 `level = "verbose"`、`format = "pretty"` 和 `unsafe_field_names = "allow"`。worker 数量、请求体大小和上传上限必须至少为 1。每个 `*_secs` 键的范围是 1 到 `86400`。只有 `request_terminate_timeout_secs` 还接受 `0`。
+Rapira 还会验证值。它拒绝不支持的值，不会使用默认值替换。例如，它拒绝 `level = "verbose"` 和 `format = "pretty"`。worker 数量、请求体大小和上传上限必须至少为 1。每个 `*_secs` 键的范围是 1 到 `86400`。只有 `request_terminate_timeout_secs` 还接受 `0`。
 
 ::: warning
 Rapira 只在启动时读取配置文件。使用 `SIGHUP` 或 `SIGUSR2` 重载时不会再次读取它。请重启 Rapira 以应用更改后的文件。

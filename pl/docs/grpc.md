@@ -277,7 +277,7 @@ Interceptor sprawdza wywołanie, zanim PHP je otrzyma. Wymień interceptory w `g
 ci.deploy-token
 ```
 
-Rapira pomija puste wiersze i wiersze zaczynające się od `#`. Każdy token składa się ze znaków `A-Z`, `a-z`, `0-9`, `-`, `.`, `_`, `~`, `+` i `/`, z opcjonalnymi znakami `=` na końcu. Następnie włącz interceptor:
+Rapira pomija puste wiersze i wiersze zaczynające się od `#`. Rapira usuwa białe znaki na początku i na końcu każdej linii. Każdy token składa się ze znaków `A-Z`, `a-z`, `0-9`, `-`, `.`, `_`, `~`, `+` i `/`, z opcjonalnymi znakami `=` na końcu. Następnie włącz interceptor:
 
 ```toml
 [grpc]

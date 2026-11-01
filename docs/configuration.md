@@ -31,7 +31,6 @@ server_port = 8000                    # Optional. Uses the TCP listen port by de
 max_body_size_mb = 8                  # Optional. Rapira returns 413 for larger request bodies.
 write_timeout_secs = 30               # Optional. Closes a connection after a response write times out.
 keepalive_timeout_secs = 60           # Optional. Limits idle periods and read operations.
-unsafe_field_names = "drop"           # Optional. Use "drop" or "reject". Default: "drop".
 middleware = ["static"]               # Optional. Rapira uses the list order.
 
 [http.static]                         # Required when middleware contains "static".
@@ -110,7 +109,6 @@ This section defines the listener and the server information reported to PHP. It
 | `max_body_size_mb` | integer | `8` | The largest request body in MiB. Rapira returns `413` for a larger body. The minimum is 1. |
 | `write_timeout_secs` | integer | `30` | The maximum time without progress during a response write. Rapira then closes the connection. The range is 1 through `86400`. |
 | `keepalive_timeout_secs` | integer | `60` | The time limit to receive the request headers. It includes the wait on an idle connection. It is also the maximum time between two request body frames. After the limit, Rapira closes the connection. A stalled request body gets `408` first. The range is 1 through `86400`. |
-| `unsafe_field_names` | `"drop"` \| `"reject"` | `"drop"` | Processing for a field name outside `[A-Za-z0-9-]`. `"reject"` returns `400`. In Classic and Worker modes, `"drop"` removes and logs the field. In Dispatcher mode, `"drop"` keeps the field. See the [HTTP page](/docs/http). |
 | `middleware` | list of strings | empty | Middleware that runs before PHP, in list order. Only `"static"` is available. Rapira rejects duplicate names and names without configuration tables. It also rejects unused middleware tables. |
 
 ### The `[http.static]` table
@@ -189,7 +187,7 @@ The `auth` interceptor accepts a call only with a valid bearer token. PHP does n
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `tokens_file` | string | none, required | The file with the accepted tokens. A relative path uses the configuration file directory as its base. Write one token on each line. Rapira skips blank lines and lines that start with `#`. Each token must be an [RFC 6750 bearer token](https://www.rfc-editor.org/rfc/rfc6750#section-2.1). The file must contain at least one token. |
+| `tokens_file` | string | none, required | The file with the accepted tokens. A relative path uses the configuration file directory as its base. Write one token on each line. Rapira skips blank lines and lines that start with `#`. Rapira removes the whitespace at the start and end of each line. Each token must be an [RFC 6750 bearer token](https://www.rfc-editor.org/rfc/rfc6750#section-2.1). The file must contain at least one token. |
 
 ### The `[grpc.pool]` table {#grpc-pool}
 
@@ -244,7 +242,7 @@ A `[log.targets]` key uses letters, digits, `_`, `:`, `.`, or `-`. It must start
 
 Rapira accepts only documented tables and keys. For example, `[htttp]` or `lissten = ":8000"` causes initialization to fail. The error identifies the unknown name. Each key belongs to one table. For example, `max_requests` belongs to `[http.pool]`, and `pidfile` belongs to `[supervisor]`.
 
-Rapira also validates values. It rejects unsupported values and does not replace them with defaults. For example, it rejects `level = "verbose"`, `format = "pretty"`, and `unsafe_field_names = "allow"`. Worker counts, body sizes, and upload limits must be at least 1. Each `*_secs` key must be 1 through `86400`. Only `request_terminate_timeout_secs` also accepts `0`.
+Rapira also validates values. It rejects unsupported values and does not replace them with defaults. For example, it rejects `level = "verbose"` and `format = "pretty"`. Worker counts, body sizes, and upload limits must be at least 1. Each `*_secs` key must be 1 through `86400`. Only `request_terminate_timeout_secs` also accepts `0`.
 
 ::: warning
 Rapira reads the configuration file only at start. A reload with `SIGHUP` or `SIGUSR2` does not read it again. Restart Rapira to apply a changed file.

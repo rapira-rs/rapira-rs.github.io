@@ -31,7 +31,6 @@ server_port = 8000                    # Optional. Uses the TCP listen port by de
 max_body_size_mb = 8                  # Optional. Rapira returns 413 for larger request bodies.
 write_timeout_secs = 30               # Optional. Closes a connection after a response write times out.
 keepalive_timeout_secs = 60           # Optional. Limits idle periods and read operations.
-unsafe_field_names = "drop"           # Optional. Use "drop" or "reject". Default: "drop".
 middleware = ["static"]               # Optional. Rapira uses the list order.
 
 [http.static]                         # Required when middleware contains "static".
@@ -110,7 +109,6 @@ Esta sección define la escucha y los datos del servidor que recibe PHP. Tambié
 | `max_body_size_mb` | entero | `8` | El cuerpo de petición más grande, en MiB. Rapira devuelve `413` para un cuerpo más grande. El mínimo es 1. |
 | `write_timeout_secs` | entero | `30` | El tiempo máximo sin avance durante la escritura de una respuesta. Después, Rapira cierra la conexión. El rango es de 1 a `86400`. |
 | `keepalive_timeout_secs` | entero | `60` | El tiempo límite para recibir las cabeceras de la petición. Incluye la espera en una conexión inactiva. También es el tiempo máximo entre dos frames del cuerpo de la petición. Después del límite, Rapira cierra la conexión. Un cuerpo de petición detenido recibe antes `408`. El rango es de 1 a `86400`. |
-| `unsafe_field_names` | `"drop"` \| `"reject"` | `"drop"` | El tratamiento de un nombre de campo fuera de `[A-Za-z0-9-]`. `"reject"` devuelve `400`. En los modos Classic y Worker, `"drop"` elimina el campo y lo registra. En modo Dispatcher, `"drop"` conserva el campo. Consulta la [página de HTTP](/es/docs/http). |
 | `middleware` | lista de cadenas | vacía | El middleware que se ejecuta antes que PHP, en el orden de la lista. Solo `"static"` está disponible. Rapira rechaza los nombres duplicados y los nombres sin tabla de configuración. También rechaza las tablas de middleware que la lista no usa. |
 
 ### La tabla `[http.static]`
@@ -189,7 +187,7 @@ El interceptor `auth` acepta una llamada solo con un token bearer válido. PHP n
 
 | Clave | Tipo | Por defecto | Significado |
 | --- | --- | --- | --- |
-| `tokens_file` | cadena | ninguno, obligatorio | El archivo con los tokens aceptados. Una ruta relativa usa como base el directorio del archivo de configuración. Escribe un token en cada línea. Rapira omite las líneas vacías y las líneas que empiezan por `#`. Cada token debe ser un [token bearer de RFC 6750](https://www.rfc-editor.org/rfc/rfc6750#section-2.1). El archivo debe contener al menos un token. |
+| `tokens_file` | cadena | ninguno, obligatorio | El archivo con los tokens aceptados. Una ruta relativa usa como base el directorio del archivo de configuración. Escribe un token en cada línea. Rapira omite las líneas vacías y las líneas que empiezan por `#`. Rapira elimina los espacios en blanco al principio y al final de cada línea. Cada token debe ser un [token bearer de RFC 6750](https://www.rfc-editor.org/rfc/rfc6750#section-2.1). El archivo debe contener al menos un token. |
 
 ### La tabla `[grpc.pool]` {#grpc-pool}
 
@@ -244,7 +242,7 @@ Una clave de `[log.targets]` puede usar letras, dígitos, `_`, `:`, `.` y `-`. D
 
 Rapira solo acepta las tablas y claves documentadas. Por ejemplo, `[htttp]` o `lissten = ":8000"` impiden la inicialización. El error identifica el nombre desconocido. Cada clave pertenece a una tabla. Por ejemplo, `max_requests` pertenece a `[http.pool]` y `pidfile` pertenece a `[supervisor]`.
 
-Rapira también valida los valores. Rechaza los valores no admitidos en lugar de usar los predeterminados. Por ejemplo, rechaza `level = "verbose"`, `format = "pretty"` y `unsafe_field_names = "allow"`. El número de workers, los tamaños de cuerpo y los límites de carga deben ser como mínimo 1. Cada clave `*_secs` debe estar entre 1 y `86400`. Solo `request_terminate_timeout_secs` acepta también `0`.
+Rapira también valida los valores. Rechaza los valores no admitidos en lugar de usar los predeterminados. Por ejemplo, rechaza `level = "verbose"` y `format = "pretty"`. El número de workers, los tamaños de cuerpo y los límites de carga deben ser como mínimo 1. Cada clave `*_secs` debe estar entre 1 y `86400`. Solo `request_terminate_timeout_secs` acepta también `0`.
 
 ::: warning
 Rapira lee el archivo de configuración solo al arrancar. Una recarga con `SIGHUP` o `SIGUSR2` no lo vuelve a leer. Reinicia Rapira para aplicar un archivo modificado.

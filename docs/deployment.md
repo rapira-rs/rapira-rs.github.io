@@ -89,7 +89,7 @@ listen = "127.0.0.1:8000"
 
 Rapira creates the Unix socket with mode `0666`. Any process that can access the runtime directory can connect to the socket. Rapira does not configure the socket mode. Use directory permissions to restrict access. For this unit, set `RuntimeDirectoryMode=0750`. Set `Group=` to a group that includes the proxy account.
 
-Forward fields with hyphens, such as `X-Forwarded-For`. Do not use names such as `X_Forwarded_For`. In Classic and Worker modes, a name with `_` or `.` can map to the same `$_SERVER` key as the name with hyphens. In these modes, Rapira removes by default each name with a character other than an ASCII letter, a digit, or a hyphen. The [HTTP page](/docs/http) explains the mapping and `http.unsafe_field_names`.
+Forward fields with hyphens, such as `X-Forwarded-For`. Do not use names such as `X_Forwarded_For`. In Classic and Worker modes, a name with `_` or `.` can map to the same `$_SERVER` key as the name with hyphens. In these modes, Rapira removes by default each name with a character other than an ASCII letter, a digit, or a hyphen. The [HTTP page](/docs/http) explains the mapping.
 
 Rapira can serve static assets with the [static file middleware](/docs/static-files). The proxy does not need a second copy of the document root. A proxy or CDN can serve the assets instead.
 

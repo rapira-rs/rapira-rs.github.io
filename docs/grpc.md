@@ -277,7 +277,7 @@ An interceptor checks a call before PHP gets it. List the interceptors in `grpc.
 ci.deploy-token
 ```
 
-Rapira ignores blank lines and lines that start with `#`. Each token uses the characters `A-Z`, `a-z`, `0-9`, `-`, `.`, `_`, `~`, `+`, and `/`, with optional `=` characters at the end. Then enable the interceptor:
+Rapira ignores blank lines and lines that start with `#`. Rapira removes the whitespace at the start and end of each line. Each token uses the characters `A-Z`, `a-z`, `0-9`, `-`, `.`, `_`, `~`, `+`, and `/`, with optional `=` characters at the end. Then enable the interceptor:
 
 ```toml
 [grpc]

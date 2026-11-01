@@ -277,7 +277,7 @@ Un interceptor comprueba una llamada antes de que PHP la reciba. Indica los inte
 ci.deploy-token
 ```
 
-Rapira ignora las líneas vacías y las líneas que empiezan por `#`. Cada token usa los caracteres `A-Z`, `a-z`, `0-9`, `-`, `.`, `_`, `~`, `+` y `/`, con caracteres `=` opcionales al final. Después activa el interceptor:
+Rapira ignora las líneas vacías y las líneas que empiezan por `#`. Rapira elimina los espacios en blanco al principio y al final de cada línea. Cada token usa los caracteres `A-Z`, `a-z`, `0-9`, `-`, `.`, `_`, `~`, `+` y `/`, con caracteres `=` opcionales al final. Después activa el interceptor:
 
 ```toml
 [grpc]

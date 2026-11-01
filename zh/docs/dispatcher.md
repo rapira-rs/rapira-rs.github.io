@@ -142,8 +142,6 @@ rapira serve rapira.toml
 
 要流式发送响应，请对每个部分调用 `writeBody()` 并设置 `$eos = false`。然后调用 `writeBody('')` 结束响应。
 
-请将每个 `writeBody()` 数据块限制为不超过 1 GiB。更大的数据块会抛出 `\Error`，并以截断状态结束响应。此限制适用于每个数据块，而非整个流式响应。
-
 慢速客户端可能填满响应通道。此时写入会阻塞 PHP 线程，直到通道有可用空间或关闭。这会阻塞该 worker 中的所有 PHP Fiber。
 
 ## 上传
@@ -197,7 +195,6 @@ $exchange->sendFile(__DIR__ . '/files/report.pdf');
 | `Rapira\Http\Exception\ContentLengthExceededError` | `writeBody()`、`sendFile()` | 写入超过了声明的 `content-length`。 |
 | `Rapira\Http\Exception\FileNotSendableException` | `sendFile()` | Rapira 无法发送该文件。 |
 | `\Error` | `receive()`、`tryReceive()` | 上一个 exchange 仍然打开。 |
-| `\Error` | `writeBody()` | 一个数据块超过 1 GiB。Rapira 以截断状态结束响应。 |
 | `\Error` | `rapira_finish_request()` | 此函数在 Dispatcher 模式下不可用。请改为结束 exchange。 |
 | `\ValueError` | 多个方法 | 参数无效。例如，状态不在 100 到 599 之间，字段在网络上无效，或尾部字段是 `content-type` 等字段。 |
 

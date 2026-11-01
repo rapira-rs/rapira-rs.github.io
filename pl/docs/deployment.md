@@ -89,7 +89,7 @@ listen = "127.0.0.1:8000"
 
 Rapira tworzy gniazdo uniksowe z trybem `0666`. Każdy proces z dostępem do katalogu środowiska uruchomieniowego może połączyć się z gniazdem. Rapira nie konfiguruje trybu gniazda. Ogranicz dostęp za pomocą uprawnień katalogu. Dla tej jednostki ustaw `RuntimeDirectoryMode=0750`. W `Group=` podaj grupę, która zawiera konto proxy.
 
-Przekazuj pola z łącznikami, na przykład `X-Forwarded-For`. Nie używaj nazw takich jak `X_Forwarded_For`. W trybach Classic i Worker nazwa z `_` lub `.` może odpowiadać temu samemu kluczowi `$_SERVER` co nazwa z łącznikami. W tych trybach Rapira domyślnie usuwa każdą nazwę ze znakiem innym niż litera ASCII, cyfra lub łącznik. [Strona HTTP](/pl/docs/http) opisuje mapowanie i ustawienie `http.unsafe_field_names`.
+Przekazuj pola z łącznikami, na przykład `X-Forwarded-For`. Nie używaj nazw takich jak `X_Forwarded_For`. W trybach Classic i Worker nazwa z `_` lub `.` może odpowiadać temu samemu kluczowi `$_SERVER` co nazwa z łącznikami. W tych trybach Rapira domyślnie usuwa każdą nazwę ze znakiem innym niż litera ASCII, cyfra lub łącznik. [Strona HTTP](/pl/docs/http) opisuje mapowanie.
 
 Rapira może obsługiwać zasoby statyczne za pomocą [middleware plików statycznych](/pl/docs/static-files). Proxy nie potrzebuje drugiej kopii katalogu głównego dokumentów. Zamiast tego zasoby może obsługiwać proxy lub CDN.
 

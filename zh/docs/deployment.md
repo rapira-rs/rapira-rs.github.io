@@ -89,7 +89,7 @@ listen = "127.0.0.1:8000"
 
 Rapira 使用 `0666` 模式创建 Unix socket。任何可以访问运行时目录的进程都可以连接到该 socket。Rapira 不配置 socket 模式。请使用目录权限限制访问。对于此 unit，请设置 `RuntimeDirectoryMode=0750`。将 `Group=` 设置为包含代理账户的组。
 
-使用连字符转发字段，例如 `X-Forwarded-For`。不要使用 `X_Forwarded_For` 等名称。在 Classic 和 Worker 模式下，带 `_` 或 `.` 的名称可能与带连字符的名称映射到同一个 `$_SERVER` 键。在这些模式下，Rapira 默认删除包含 ASCII 字母、数字和连字符以外字符的每个名称。[HTTP 页面](/zh/docs/http)介绍了此映射和 `http.unsafe_field_names`。
+使用连字符转发字段，例如 `X-Forwarded-For`。不要使用 `X_Forwarded_For` 等名称。在 Classic 和 Worker 模式下，带 `_` 或 `.` 的名称可能与带连字符的名称映射到同一个 `$_SERVER` 键。在这些模式下，Rapira 默认删除包含 ASCII 字母、数字和连字符以外字符的每个名称。[HTTP 页面](/zh/docs/http)介绍了此映射。
 
 Rapira 可以使用[静态文件中间件](/zh/docs/static-files)提供静态资源。代理不需要文档根目录的第二个副本。代理或 CDN 也可以提供这些资源。
 

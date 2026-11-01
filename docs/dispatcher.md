@@ -142,8 +142,6 @@ Set `content-length` in `writeHead()` when you know the body size. A write past 
 
 To stream a response, call `writeBody()` with `$eos = false` for each part. Then call `writeBody('')` to end the response.
 
-Keep each `writeBody()` chunk at or below 1 GiB. A larger chunk throws `\Error` and ends the response as truncated. This limit applies to each chunk, not the complete streamed response.
-
 A slow client can fill the response channel. A write then blocks the PHP thread until space becomes available or the channel closes. This blocks all PHP Fibers in that worker.
 
 ## Uploads
@@ -197,7 +195,6 @@ Each exception class in the `Rapira` namespaces implements `Rapira\Exception\Rap
 | `Rapira\Http\Exception\ContentLengthExceededError` | `writeBody()`, `sendFile()` | The write goes past the declared `content-length`. |
 | `Rapira\Http\Exception\FileNotSendableException` | `sendFile()` | Rapira cannot send the file. |
 | `\Error` | `receive()`, `tryReceive()` | The previous exchange is still open. |
-| `\Error` | `writeBody()` | One chunk exceeds 1 GiB. Rapira ends the response as truncated. |
 | `\Error` | `rapira_finish_request()` | The function is not available in Dispatcher mode. End the exchange instead. |
 | `\ValueError` | Several methods | An argument is not valid. Examples are a status outside 100 through 599, a field that is not valid on the network, or a trailer field such as `content-type`. |
 

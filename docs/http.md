@@ -61,7 +61,8 @@ HTTP permits repeated fields, but CGI provides one value for each variable. Rapi
 
 - **List fields:** Rapira joins the values with a comma and a space. For example, two `Accept` lines become `text/*, image/*`. [RFC 9110 §5.3](https://www.rfc-editor.org/rfc/rfc9110#section-5.3) permits this format for comma-separated fields.
 - **`Cookie`:** Rapira joins the values with a semicolon and a space. The PHP cookie parser expects this format.
-- **Single-value fields:** Rapira keeps the first `Authorization`, `Proxy-Authorization`, `Content-Type`, `Referer`, `From`, or `Host` line. It ignores the other lines, because a combined value has a different meaning.
+- **Single-value fields:** Rapira keeps the first `Authorization`, `Proxy-Authorization`, `Content-Type`, `Referer`, or `From` line. It ignores the other lines, because a combined value has a different meaning.
+- **`Host`:** Rapira returns `400` for more than one `Host` line. [RFC 9112 §3.2](https://www.rfc-editor.org/rfc/rfc9112#section-3.2) requires this behavior.
 
 Rapira returns `400` for `Content-Length` lines with different values before this processing.
 
@@ -119,7 +120,7 @@ The HTTP server sends an error response when a request does not reach PHP or PHP
 
 | Status | Cause |
 | --- | --- |
-| `400` | An HTTP/1.1 request has no `Host` field or an empty `Host` field. The body read failed. In Dispatcher mode, a multipart body is not valid. |
+| `400` | The request has more than one `Host` field. An HTTP/1.1 request has no `Host` field or an empty `Host` field. The body read failed. In Dispatcher mode, a multipart body is not valid or a multipart request has more than one `Content-Type` field. |
 | `408` | No body data arrived within `http.keepalive_timeout_secs`. |
 | `413` | The body is larger than `http.max_body_size_mb`, or a multipart body exceeds an `[http.uploads]` limit. |
 | `500` | The worker pool stopped. In Dispatcher mode, Rapira cannot write an uploaded file to `[http.uploads].dir`. |

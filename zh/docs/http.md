@@ -61,7 +61,8 @@ HTTP 允许重复字段，但 CGI 为每个变量提供一个值。Rapira 根据
 
 - **列表字段：** Rapira 使用逗号和空格连接值。例如，两行 `Accept` 变为 `text/*, image/*`。[RFC 9110 §5.3](https://www.rfc-editor.org/rfc/rfc9110#section-5.3) 允许逗号分隔字段使用此格式。
 - **`Cookie`：** Rapira 使用分号和空格连接值。PHP cookie 解析器需要此格式。
-- **单值字段：** Rapira 保留第一行 `Authorization`、`Proxy-Authorization`、`Content-Type`、`Referer`、`From` 或 `Host`。它忽略其他行，因为合并后的值含义不同。
+- **单值字段：** Rapira 保留第一行 `Authorization`、`Proxy-Authorization`、`Content-Type`、`Referer` 或 `From`。它忽略其他行，因为合并后的值含义不同。
+- **`Host`：** Rapira 对多个 `Host` 行返回 `400`。[RFC 9112 §3.2](https://www.rfc-editor.org/rfc/rfc9112#section-3.2) 要求此行为。
 
 在此处理之前，如果多行 `Content-Length` 的值不同，Rapira 返回 `400`。
 
@@ -119,7 +120,7 @@ Rapira 原样发送其他 PHP 字段，例如重复的 `Set-Cookie`、`Vary` 和
 
 | 状态码 | 原因 |
 | --- | --- |
-| `400` | HTTP/1.1 请求没有 `Host` 字段或 `Host` 字段为空。请求体读取失败。在 Dispatcher 模式下，multipart 请求体无效。 |
+| `400` | 请求有多个 `Host` 字段。HTTP/1.1 请求没有 `Host` 字段或 `Host` 字段为空。请求体读取失败。在 Dispatcher 模式下，multipart 请求体无效，或 multipart 请求有多个 `Content-Type` 字段。 |
 | `408` | 在 `http.keepalive_timeout_secs` 内没有收到请求体数据。 |
 | `413` | 请求体大于 `http.max_body_size_mb`，或 multipart 请求体超过 `[http.uploads]` 的某个上限。 |
 | `500` | worker 池已停止。在 Dispatcher 模式下，Rapira 无法将上传的文件写入 `[http.uploads].dir`。 |

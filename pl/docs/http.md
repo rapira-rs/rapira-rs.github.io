@@ -61,7 +61,8 @@ HTTP pozwala na powtórzone pola, ale CGI udostępnia jedną wartość dla każd
 
 - **Pola listowe:** Rapira łączy wartości przecinkiem i spacją. Na przykład dwie linie `Accept` stają się `text/*, image/*`. [RFC 9110 §5.3](https://www.rfc-editor.org/rfc/rfc9110#section-5.3) pozwala na ten format dla pól z wartościami rozdzielonymi przecinkami.
 - **`Cookie`:** Rapira łączy wartości średnikiem i spacją. Parser ciasteczek PHP oczekuje tego formatu.
-- **Pola jednowartościowe:** Rapira zachowuje pierwszą linię `Authorization`, `Proxy-Authorization`, `Content-Type`, `Referer`, `From` lub `Host`. Pomija pozostałe linie, ponieważ połączona wartość ma inne znaczenie.
+- **Pola jednowartościowe:** Rapira zachowuje pierwszą linię `Authorization`, `Proxy-Authorization`, `Content-Type`, `Referer` lub `From`. Pomija pozostałe linie, ponieważ połączona wartość ma inne znaczenie.
+- **`Host`:** Rapira zwraca `400` dla więcej niż jednej linii `Host`. [RFC 9112 §3.2](https://www.rfc-editor.org/rfc/rfc9112#section-3.2) wymaga tego zachowania.
 
 Przed tym przetwarzaniem Rapira zwraca `400` dla linii `Content-Length` o różnych wartościach.
 
@@ -119,7 +120,7 @@ Serwer HTTP wysyła odpowiedź błędu, gdy żądanie nie dociera do PHP lub PHP
 
 | Status | Przyczyna |
 | --- | --- |
-| `400` | Żądanie HTTP/1.1 nie ma pola `Host` lub ma puste pole `Host`. Odczyt treści się nie udał. W trybie Dispatcher treść multipart jest nieprawidłowa. |
+| `400` | Żądanie ma więcej niż jedno pole `Host`. Żądanie HTTP/1.1 nie ma pola `Host` lub ma puste pole `Host`. Odczyt treści się nie udał. W trybie Dispatcher treść multipart jest nieprawidłowa lub żądanie multipart ma więcej niż jedno pole `Content-Type`. |
 | `408` | Żadne dane treści nie dotarły w czasie `http.keepalive_timeout_secs`. |
 | `413` | Treść jest większa niż `http.max_body_size_mb` lub treść multipart przekracza limit `[http.uploads]`. |
 | `500` | Pula workerów się zatrzymała. W trybie Dispatcher Rapira nie może zapisać przesłanego pliku w `[http.uploads].dir`. |

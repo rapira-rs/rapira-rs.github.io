@@ -289,18 +289,26 @@ La compilación de macOS admite **Apple Silicon** y **macOS 26 o posterior**. La
 
 ## Windows {#windows}
 
-[rapira-rs/rapira-windows](https://github.com/rapira-rs/rapira-windows) proporciona compilaciones para Windows para desarrollo local. Usa Linux o macOS en producción. La última versión estable para Windows es v0.8.0. Sigue su [README de release](https://github.com/rapira-rs/rapira-windows/blob/v0.8.0/README.md) para conocer su configuración y conjunto de extensiones.
+[rapira-rs/rapira-windows](https://github.com/rapira-rs/rapira-windows) proporciona compilaciones para Windows para desarrollo local. Usa Linux o macOS en producción.
 
-La compilación x64 admite Windows 10, Windows 11 y Windows Server. La compilación ARM64 admite Windows 11. Instala el [Microsoft Visual C++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist) para la arquitectura seleccionada. Extrae el ZIP completo en un directorio. Mantén juntos `rapira.exe`, el runtime ZTS de PHP correspondiente, las DLL de extensiones y `php.ini`.
+La compilación x64 admite Windows 10, Windows 11 y Windows Server. La compilación ARM64 admite Windows 11. Instala el [Microsoft Visual C++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist) para tu arquitectura.
 
-Windows v0.8.0 solo sirve HTTP. Su configuración usa una tabla `[pool]` de nivel superior. Ejecútalo desde el directorio extraído:
+Ejecuta este comando en Windows PowerShell 5.1 o PowerShell 7:
 
 ```powershell
-.\rapira.exe serve --config C:\app\rapira.toml
+irm https://rapira.rs/install.ps1 | iex
 ```
 
-Esta versión no admite la configuración de inicio rápido de v0.9 ni gRPC. Su perfil de PHP excluye OpenSSL, cURL, SQLite, XML e iconv. Cada release para Windows tiene un archivo `rapira-v<VERSION>-windows-<x86_64|arm64>-SHA256SUMS.txt` para cada arquitectura.
+El instalador selecciona tu arquitectura y descarga la última versión estable con PHP 8.5. Verifica la suma SHA256. Instala el paquete completo en `%LOCALAPPDATA%\Programs\Rapira` y añade ese directorio al `PATH` del usuario y del PowerShell actual. Rechaza un directorio de destino existente. La instalación de Rapira no requiere permisos de administrador.
 
-El [código fuente actual para Windows](https://github.com/rapira-rs/rapira-windows/blob/main/README.md) implementa la configuración de plugins de v0.9 y gRPC. Usa `rapira serve CONFIG` y un pool separado de hilos de intérprete por plugin. Rechaza `[observability]`, `grpc.interceptors` y `[grpc.auth]`. Estas funciones del código fuente no están en la descarga estable v0.8.0.
+Ejecuta Rapira desde cualquier directorio:
+
+```powershell
+rapira serve C:\app\rapira.toml
+```
+
+Para PHP 8.4, otro directorio de instalación, la configuración y las extensiones, consulta el [README de Windows](https://github.com/rapira-rs/rapira-windows/blob/main/README.md).
+
+También puedes descargar un ZIP de las [versiones de Windows](https://github.com/rapira-rs/rapira-windows/releases). Verifícalo con el archivo `rapira-v<VERSION>-windows-<x86_64|arm64>-SHA256SUMS.txt` correspondiente. Extrae el ZIP completo en un directorio. Mantén juntos `rapira.exe`, el runtime ZTS de PHP correspondiente, las DLL de extensiones y `php.ini`. Ejecuta `.\rapira.exe` desde ese directorio.
 
 [Inicio rápido](/es/docs/intro/quickstart) explica cómo atender la primera petición después de instalar el binario.

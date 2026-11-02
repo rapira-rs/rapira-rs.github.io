@@ -289,18 +289,26 @@ macOS 构建支持 **Apple Silicon** 和 **macOS 26 或更新版本**。最低�
 
 ## Windows {#windows}
 
-[rapira-rs/rapira-windows](https://github.com/rapira-rs/rapira-windows) 提供用于本地开发的 Windows 版本。生产环境请使用 Linux 或 macOS。Windows 的最新稳定发布是 v0.8.0。其配置和扩展集请参阅[发布 README](https://github.com/rapira-rs/rapira-windows/blob/v0.8.0/README.md)。
+[rapira-rs/rapira-windows](https://github.com/rapira-rs/rapira-windows) 提供用于本地开发的 Windows 版本。生产环境请使用 Linux 或 macOS。
 
-x64 构建支持 Windows 10、Windows 11 和 Windows Server。ARM64 构建支持 Windows 11。请安装对应架构的 [Microsoft Visual C++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist)。将完整 ZIP 解压到一个目录中。将 `rapira.exe`、匹配的 ZTS PHP 运行时、扩展 DLL 和 `php.ini` 保留在一起。
+x64 构建支持 Windows 10、Windows 11 和 Windows Server。ARM64 构建支持 Windows 11。请安装对应架构的 [Microsoft Visual C++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist)。
 
-Windows v0.8.0 仅提供 HTTP 服务。其配置使用顶层 `[pool]` 表。请从解压目录运行：
+在 Windows PowerShell 5.1 或 PowerShell 7 中运行以下命令：
 
 ```powershell
-.\rapira.exe serve --config C:\app\rapira.toml
+irm https://rapira.rs/install.ps1 | iex
 ```
 
-此发布不支持 v0.9 快速开始配置或 gRPC。其 PHP 配置不包含 OpenSSL、cURL、SQLite、XML 和 iconv。每个 Windows 发布为每种架构提供一个 `rapira-v<VERSION>-windows-<x86_64|arm64>-SHA256SUMS.txt` 文件。
+安装程序会选择你的架构，并下载带有 PHP 8.5 的最新稳定版本。它会验证 SHA256 校验和。它会将完整软件包安装到 `%LOCALAPPDATA%\Programs\Rapira`，并将该目录添加到用户和当前 PowerShell 的 `PATH`。如果目标目录已存在，安装程序会拒绝安装。安装 Rapira 不需要管理员权限。
 
-[当前 Windows 源码](https://github.com/rapira-rs/rapira-windows/blob/main/README.md)实现了 v0.9 插件配置和 gRPC。它使用 `rapira serve CONFIG`，并为每个插件提供独立的解释器线程池。它拒绝 `[observability]`、`grpc.interceptors` 和 `[grpc.auth]`。这些源码功能不包含在稳定版 v0.8.0 下载中。
+从任意目录运行 Rapira：
+
+```powershell
+rapira serve C:\app\rapira.toml
+```
+
+有关 PHP 8.4、其他安装目录、配置和扩展的信息，请参阅 [Windows README](https://github.com/rapira-rs/rapira-windows/blob/main/README.md)。
+
+你也可以从 [Windows 发布页面](https://github.com/rapira-rs/rapira-windows/releases)下载 ZIP。使用对应的 `rapira-v<VERSION>-windows-<x86_64|arm64>-SHA256SUMS.txt` 文件验证它。将完整 ZIP 解压到一个目录中。将 `rapira.exe`、匹配的 ZTS PHP 运行时、扩展 DLL 和 `php.ini` 保留在一起。从该目录运行 `.\rapira.exe`。
 
 安装二进制文件后，[快速开始](/zh/docs/intro/quickstart)说明如何处理第一个请求。

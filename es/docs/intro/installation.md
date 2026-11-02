@@ -309,6 +309,6 @@ rapira serve C:\app\rapira.toml
 
 Para PHP 8.4, otro directorio de instalación, la configuración y las extensiones, consulta el [README de Windows](https://github.com/rapira-rs/rapira-windows/blob/main/README.md).
 
-También puedes descargar un ZIP de las [versiones de Windows](https://github.com/rapira-rs/rapira-windows/releases). Verifícalo con el archivo `rapira-v<VERSION>-windows-<x86_64|arm64>-SHA256SUMS.txt` correspondiente. Extrae el ZIP completo en un directorio. Mantén juntos `rapira.exe`, el runtime ZTS de PHP correspondiente, las DLL de extensiones y `php.ini`. Ejecuta `rapira.exe` desde ese directorio.
+También puedes descargar un ZIP de las [versiones de Windows](https://github.com/rapira-rs/rapira-windows/releases). Verifícalo con el archivo `rapira-v<VERSION>-windows-<x86_64|arm64>-SHA256SUMS.txt` correspondiente. Extrae el ZIP completo en un directorio. Mantén juntos `rapira.exe`, el runtime ZTS de PHP correspondiente, las DLL de extensiones y `php.ini`. Ejecuta `.\rapira.exe` desde ese directorio.
 
 [Inicio rápido](/es/docs/intro/quickstart) explica cómo atender la primera petición después de instalar el binario.

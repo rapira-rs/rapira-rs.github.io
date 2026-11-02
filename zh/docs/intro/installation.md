@@ -309,6 +309,6 @@ rapira serve C:\app\rapira.toml
 
 有关 PHP 8.4、其他安装目录、配置和扩展的信息，请参阅 [Windows README](https://github.com/rapira-rs/rapira-windows/blob/main/README.md)。
 
-你也可以从 [Windows 发布页面](https://github.com/rapira-rs/rapira-windows/releases)下载 ZIP。使用对应的 `rapira-v<VERSION>-windows-<x86_64|arm64>-SHA256SUMS.txt` 文件验证它。将完整 ZIP 解压到一个目录中。将 `rapira.exe`、匹配的 ZTS PHP 运行时、扩展 DLL 和 `php.ini` 保留在一起。从该目录运行 `rapira.exe`。
+你也可以从 [Windows 发布页面](https://github.com/rapira-rs/rapira-windows/releases)下载 ZIP。使用对应的 `rapira-v<VERSION>-windows-<x86_64|arm64>-SHA256SUMS.txt` 文件验证它。将完整 ZIP 解压到一个目录中。将 `rapira.exe`、匹配的 ZTS PHP 运行时、扩展 DLL 和 `php.ini` 保留在一起。从该目录运行 `.\rapira.exe`。
 
 安装二进制文件后，[快速开始](/zh/docs/intro/quickstart)说明如何处理第一个请求。

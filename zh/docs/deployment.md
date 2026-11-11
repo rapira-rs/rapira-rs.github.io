@@ -75,7 +75,7 @@ Rapira 可以在没有 `php.ini` 的情况下运行。默认值将 PHP 诊断信
 
 相对 `http.pool.entrypoint` 以**配置文件目录**为基准。在此结构中，`entrypoint = "index.php"` 表示 `/etc/rapira/index.php`。在生产环境中使用入口脚本的绝对路径。`supervisor.pidfile` 使用相同的解析规则。
 
-每次应用启动时，worker 解析入口脚本路径中的符号链接，并将其工作目录更改为入口脚本所在的目录。使用相对路径的 PHP 文件操作使用该目录。PHP 不在工作目录中查找 `php.ini`，因此请设置 `PHPRC`。`WorkingDirectory=` 设置只作用于 master。master 将它用作相对 `CONFIG` 路径和相对 `unix:` 监听路径的基准。所有键和默认值见[配置](/zh/docs/configuration)。
+每次 worker 启动或重启它的应用时，都会解析入口脚本路径中的符号链接，并进入入口脚本所在的目录。使用相对路径的 PHP 文件操作使用该目录。PHP 不在工作目录中查找 `php.ini`，因此请设置 `PHPRC`。`WorkingDirectory=` 设置只作用于 master。master 将它用作相对 `CONFIG` 路径和相对 `unix:` 监听路径的基准。所有键和默认值见[配置](/zh/docs/configuration)。
 
 ## 反向代理
 
@@ -103,10 +103,6 @@ sudo systemctl reload rapira
 
 此命令向 master 发送 `SIGUSR2`。master 通知每个 worker 重启它的应用。每个 worker 在同一进程中再次运行入口脚本，新应用处理后续请求。没有连接关闭，也没有请求丢失。更多内容见[进程模型](/zh/docs/process-model#重载会重启应用)。
 
-部署可以将每个应用版本放在单独的目录中，并将入口脚本路径中的符号链接切换到新目录。切换后的重载会将每个进程池的每个 worker 移到新版本：代码、工作目录和默认的 sendfile 根目录。切换后请立即重载 Rapira。在重载之前，因其他原因启动的应用（例如达到 `max_requests` 后）会在新版本中启动。因此，在重载之前，进程池会运行两个版本。
-
-重载会清空 OPcache，因此在 `opcache.validate_timestamps = 0` 时它也会加载新的 PHP 代码。重载后，最初的请求会重新编译其 PHP 文件。在重载时处于活动状态的最长请求结束之前，请求在没有 OPcache 的情况下运行。在 Worker 和 Dispatcher 模式下，大多数 worker 会启动应用两次，因此 worker 循环之前的代码会运行两次。
-
 当 systemd 不管理进程时，直接向 master 进程发送信号。设置 `supervisor.pidfile` 以保存 master 进程标识符。启动 Rapira 前，创建 pidfile 目录。也可以选择现有目录。如果 master 无法写入文件，它不会启动。
 
 ```toml
@@ -125,8 +121,14 @@ kill -USR2 "$(cat /run/rapira/rapira.pid)"
 
 连接的排空时间更短：先取五秒和控制超时一半中的较小值，再从控制超时中减去该值。默认排空时间为 25 秒。停止期间，超过此时间的响应可能被截断。
 
+部署可以将每个应用版本放在单独的目录中，并将入口脚本路径中的符号链接切换到新目录。切换后的重载会将每个进程池的每个 worker 移到新版本：代码、工作目录和默认的 sendfile 根目录。切换后请立即重载 Rapira。在重载之前，因其他原因启动的应用（例如达到 `max_requests` 后）会在新版本中启动。因此，在重载之前，进程池会运行两个版本。
+
+重载会清空 OPcache，因此在 `opcache.validate_timestamps = 0` 时它也会加载新的 PHP 代码。在重载时处于活动状态的最长请求结束之前，请求在没有 OPcache 的情况下运行，并重新编译其文件。在 Worker 和 Dispatcher 模式下，大多数 worker 会启动应用两次，因此 worker 循环之前的代码会运行两次。
+
 ::: warning 重载不会做的事
 重载会重启应用，但不会替换进程。master 保留 Rapira 二进制文件以及 `rapira.toml` 和 `php.ini` 中的设置。它还保留 gRPC 描述符集和 `[grpc.auth]` 令牌文件。更改其中任一文件后，请重启 Rapira。更改 `opcache.preload` 加载的文件后，也请重启 Rapira。PHP 只在 master 启动时加载这些文件一次。
+
+设置了 `opcache.restrict_api` 时，重载不会清空 OPcache。使用此设置且 `opcache.validate_timestamps = 0` 时，请在每次部署后重启 Rapira。
 :::
 
 ## 日志

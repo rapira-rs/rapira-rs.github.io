@@ -87,7 +87,7 @@ while (\Rapira\handle_request($web)) {
 
 worker 脚本定义状态的生命周期。将应用状态放在循环之前。将请求状态放在 handler 中，或在下一个请求之前重置。
 
-请在每个请求中于 handler 内打开 `php://input`。在较早请求中或初始化阶段打开的 `php://input` 流可能返回后续请求的请求体，也可能使 worker 进程结束。
+请在每个请求中于 handler 内打开 `php://input`。在之前的请求中或初始化阶段打开的 `php://input` 流可能返回后续请求的请求体，也可能使 worker 进程结束。
 
 ::: warning
 全局状态也会保留在请求之间。例如静态属性、单例、注册表和 `ini_set()` 更改。php-fpm 在每个请求结束时丢弃这些值。Rapira worker 保留这些值。

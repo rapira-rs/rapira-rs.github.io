@@ -179,7 +179,7 @@ Uruchom serwer z `APP_ENV=prod`:
 APP_ENV=prod rapira serve rapira.toml
 ```
 
-Po wdrożeniu wyślij `SIGUSR2` do procesu nadrzędnego, aby uruchomić ponownie aplikacje. Przeładowanie opróżnia OPcache, więc wczytuje nowy kod także przy `opcache.validate_timestamps = 0`. Uruchom Rapirę ponownie po zmianie pliku, który wczytuje `opcache.preload`. Zobacz [Wdrożenie produkcyjne](/pl/docs/deployment).
+Po wdrożeniu wyślij `SIGUSR2` do procesu nadrzędnego, aby uruchomić ponownie aplikacje. To przeładowanie opróżnia OPcache, więc wczytuje nowy kod także przy `opcache.validate_timestamps = 0`. Uruchom Rapirę ponownie po zmianie pliku, który wczytuje `opcache.preload`. Zobacz [Wdrożenie produkcyjne](/pl/docs/deployment).
 
 ## Zerowanie stanu między żądaniami
 

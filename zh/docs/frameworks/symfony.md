@@ -179,7 +179,7 @@ request_terminate_timeout_secs = 30
 APP_ENV=prod rapira serve rapira.toml
 ```
 
-部署后，向 master 发送 `SIGUSR2` 以重启应用。重载会清空 OPcache，因此在 `opcache.validate_timestamps = 0` 时它也会加载新代码。更改 `opcache.preload` 加载的文件后，请重启 Rapira。请参阅[生产环境部署](/zh/docs/deployment)。
+部署后，向 master 发送 `SIGUSR2` 以重启应用。这次重载会清空 OPcache，因此在 `opcache.validate_timestamps = 0` 时它也会加载新代码。更改 `opcache.preload` 加载的文件后，请重启 Rapira。请参阅[生产环境部署](/zh/docs/deployment)。
 
 ## 请求之间的状态重置
 

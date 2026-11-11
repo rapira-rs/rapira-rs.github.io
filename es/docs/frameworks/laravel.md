@@ -186,7 +186,7 @@ max_requests = 500
 
 `max_requests` reinicia la aplicación después de un número aleatorio de peticiones mayor que este valor y de hasta 1,5 veces este valor. Limita el efecto de una fuga de memoria, pero no la corrige. Consulta [Modelo de procesos](/es/docs/process-model).
 
-En los modos Worker y Dispatcher, el código de la aplicación permanece en memoria. Después de un despliegue, envía `SIGUSR2` al maestro para reiniciar las aplicaciones. La recarga vacía OPcache, así que carga el código nuevo también cuando `opcache.validate_timestamps = 0`. Reinicia Rapira después de cambiar un archivo que carga `opcache.preload`. Consulta [En producción](/es/docs/deployment).
+En los modos Worker y Dispatcher, el código de la aplicación permanece en memoria. Después de un despliegue, envía `SIGUSR2` al maestro para reiniciar las aplicaciones. Esta recarga vacía OPcache, así que carga el código nuevo también cuando `opcache.validate_timestamps = 0`. Reinicia Rapira después de cambiar un archivo que carga `opcache.preload`. Consulta [En producción](/es/docs/deployment).
 
 ## Desarrollo
 

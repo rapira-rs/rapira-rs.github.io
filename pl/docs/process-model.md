@@ -108,19 +108,19 @@ Drugi `SIGTERM` albo `SIGINT` pomija czekanie i wymusza natychmiastowe zakończe
 
 `SIGUSR2` lub `SIGHUP` uruchamia ponownie aplikację w każdym workerze każdej puli. Worker kończy żądanie PHP aplikacji i ponownie uruchamia skrypt wejściowy w tym samym procesie. Przed uruchomieniem skryptu worker rozwiązuje dowiązania symboliczne w ścieżce skryptu wejściowego i zmienia katalog roboczy na katalog skryptu. Gniazdo nasłuchujące, połączenia i żądania w kolejce pozostają. Stara aplikacja obsługuje żądania, które czekają w kolejce przed sygnałem. Późniejsze żądania trafiają do nowej aplikacji.
 
-W trybie Classic każde żądanie uruchamia skrypt wejściowy w nowym żądaniu PHP. Dlatego zmieniony plik działa bez przeładowania, a obowiązują ustawienia znaczników czasu OPcache. Wdrożenie, które przełącza dowiązanie symboliczne w ścieżce skryptu wejściowego, wymaga przeładowania we wszystkich trybach, także w trybie Classic. Tryby Worker i Dispatcher trzymają aplikację w pamięci. Przeładuj pulę po każdym wdrożeniu w tych trybach. Więcej informacji znajdziesz we [Wdrożeniu](/pl/docs/deployment).
+W trybie Classic każde żądanie uruchamia skrypt wejściowy w nowym żądaniu PHP. Dlatego zmieniony plik działa bez przeładowania, z wyjątkiem `opcache.validate_timestamps = 0`. Wdrożenie, które przełącza dowiązanie symboliczne w ścieżce skryptu wejściowego, wymaga przeładowania we wszystkich trybach, także w trybie Classic. Tryby Worker i Dispatcher trzymają aplikację w pamięci. Przeładuj pulę po każdym wdrożeniu w tych trybach. Więcej informacji znajdziesz we [Wdrożeniu](/pl/docs/deployment).
 
-Przeładowanie opróżnia OPcache, więc aplikacje wczytują nowy kod także przy `opcache.validate_timestamps = 0`. Po przeładowaniu pierwsze żądania ponownie kompilują swoje pliki PHP. Żądania działają bez OPcache, dopóki nie zakończy się najdłuższe żądanie, które było aktywne w chwili przeładowania. W trybie Classic żądanie, które zaczyna się po tym, jak jego worker otrzymał przeładowanie, uruchamia nowy kod, a aktywne żądania kończą się ze starym kodem.
+Przeładowanie opróżnia OPcache, więc aplikacje wczytują nowy kod także przy `opcache.validate_timestamps = 0`. Wartość `manual_restarts` z `opcache_get_status()` liczy te przeładowania. Po przeładowaniu pierwsze żądania ponownie kompilują swoje pliki PHP. Żądania działają bez OPcache, dopóki nie zakończy się najdłuższe żądanie, które było aktywne w chwili przeładowania. W trybie Classic żądanie, które zaczyna się po tym, jak jego worker otrzymał przeładowanie, uruchamia nowy kod, a aktywne żądania kończą się ze starym kodem.
 
 Każdy worker uruchamia aplikację ponownie samodzielnie. W trybach Worker i Dispatcher z OPcache większość workerów uruchamia aplikację dwa razy podczas przeładowania. Dlatego kod przed pętlą workera działa dwa razy. Gdy wszystkie workery robią to w tym samym czasie, każda kolejka czeka tylko na starty aplikacji własnego workera. Klient nie zauważa ponownego uruchomienia, poza tym oczekiwaniem.
 
 Proces nadrzędny ignoruje sygnał przeładowania podczas zatrzymywania. Nie zapisuje zignorowanego sygnału w logu.
 
-OPcache planuje ponowne uruchomienie, gdy kod aplikacji wywołuje `opcache_reset()` lub gdy pamięć podręczna jest pełna. Rapira uruchamia wtedy ponownie każdą aplikację każdej puli jeden raz, w tych samych procesach workerów, i zapisuje jedno ostrzeżenie w logu. Żaden proces workera się nie zatrzymuje i żadne połączenie się nie zamyka. W Rapirze domyślna wartość `opcache.force_restart_timeout` to 0, a wartość w `php.ini` ją zastępuje. Przy wartości powyżej 0 OPcache może zabić workera, którego żądanie trwa dłużej niż ten czas podczas ponownego uruchomienia OPcache, także podczas przeładowania. Zostaw wartość 0.
-
 ::: info
 Przeładowanie uruchamia ponownie aplikacje, a nie procesy. Workery zachowują ten sam zainicjalizowany silnik. Zrestartuj Rapira, aby zastosować zmiany pliku binarnego lub plików, które czyta proces nadrzędny, na przykład `rapira.toml` i `php.ini`. Zrestartuj ją także po zmianie pliku, który wczytuje `opcache.preload`.
 :::
+
+OPcache planuje ponowne uruchomienie, gdy kod aplikacji wywołuje `opcache_reset()` lub gdy pamięć podręczna jest pełna. Rapira przeładowuje wtedy każdą pulę i zapisuje jedno ostrzeżenie w logu. Żaden proces workera się nie zatrzymuje i żadne połączenie się nie zamyka. W Rapirze domyślna wartość `opcache.force_restart_timeout` to 0, a wartość w `php.ini` ją zastępuje. Przy wartości powyżej 0 OPcache może zabić workera, którego żądanie trwa dłużej niż ten czas podczas ponownego uruchomienia OPcache, także podczas przeładowania. Zostaw wartość 0.
 
 ### Zapisywanie stanu do logu
 

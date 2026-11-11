@@ -179,7 +179,7 @@ Start the server with `APP_ENV=prod`:
 APP_ENV=prod rapira serve rapira.toml
 ```
 
-After a deployment, send `SIGUSR2` to the master to restart the apps. With `opcache.validate_timestamps = 0`, restart Rapira instead. See [Running in production](/docs/deployment).
+After a deployment, send `SIGUSR2` to the master to restart the apps. The reload empties OPcache, so it loads the new code also when `opcache.validate_timestamps = 0`. Restart Rapira after a change to a file that `opcache.preload` loads. See [Running in production](/docs/deployment).
 
 ## What resets between requests
 

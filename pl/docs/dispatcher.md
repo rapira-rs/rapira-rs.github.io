@@ -164,7 +164,7 @@ Dla nieprawidłowej treści Rapira zwraca `400`. Gdy treść przekracza limit, z
 
 ## Wysyłanie pliku
 
-`sendFile()` czyta tylko pliki poniżej katalogu głównego sendfile. Domyślny katalog główny to katalog `http.pool.entrypoint`. Rapira rozwiązuje dowiązania symboliczne, zanim porówna ścieżkę z katalogiem głównym. Ustawienie katalogu głównego opisuje [Tabela `[http.sendfile]`](/pl/docs/configuration#tabela-http-sendfile).
+`sendFile()` czyta tylko pliki poniżej katalogu głównego sendfile. Domyślny katalog główny to katalog `http.pool.entrypoint`. Rapira rozwiązuje dowiązania symboliczne, zanim porówna ścieżkę z katalogiem głównym. Rapira rozwiązuje katalog główny ponownie dla każdej instancji aplikacji, więc katalog główny podąża za przełączeniem dowiązania symbolicznego przy następnym starcie aplikacji. Ustawienie katalogu głównego opisuje [Tabela `[http.sendfile]`](/pl/docs/configuration#tabela-http-sendfile).
 
 Plik otwiera host. PHP `open_basedir` nie ogranicza tej operacji. Ścieżkę ogranicza skonfigurowany katalog główny sendfile.
 

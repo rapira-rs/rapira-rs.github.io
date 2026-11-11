@@ -164,7 +164,7 @@ Rapira 将每个文件部分写入 `http.uploads.dir` 的 `rapira-spool-<pid>` �
 
 ## 发送文件
 
-`sendFile()` 只读取 sendfile 根目录下的文件。默认根目录是 `http.pool.entrypoint` 所在的目录。Rapira 先解析符号链接，再将路径与根目录比较。要设置根目录，请参阅[`[http.sendfile]` 表](/zh/docs/configuration#http-sendfile-表)。
+`sendFile()` 只读取 sendfile 根目录下的文件。默认根目录是 `http.pool.entrypoint` 所在的目录。Rapira 先解析符号链接，再将路径与根目录比较。Rapira 为每个应用实例重新解析根目录，因此根目录会在下一次应用启动时跟随符号链接的切换。要设置根目录，请参阅[`[http.sendfile]` 表](/zh/docs/configuration#http-sendfile-表)。
 
 文件由宿主打开。PHP `open_basedir` 不限制此操作。配置的 sendfile 根目录限制文件路径。
 

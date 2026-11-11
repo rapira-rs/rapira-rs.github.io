@@ -87,6 +87,8 @@ Values created **inside** the handler belong to one request. PHP frees them afte
 
 The worker script defines the state lifetime. Put application state before the loop. Put request state in the handler or reset it before the next request.
 
+Open `php://input` inside the handler for each request. A handle from an earlier request or from initialization can return the body of a later request, or it can end the worker process.
+
 ::: warning
 Global state also remains between requests. Examples include static properties, singletons, registries, and `ini_set()` changes. php-fpm discards these values at the end of each request. A Rapira worker keeps them.
 
@@ -121,6 +123,19 @@ Objects use a different rule. Rapira does not run all destructors at the end of 
 ::: question Why does an initialization shutdown function not run after the first request?
 PHP stores shutdown functions in request state. Request shutdown calls the functions and then releases the list. At the first `handle_request()` call, Rapira removes and stores the initialization registrations, so each request has only its own registrations. At the end of the cycle, Rapira restores the stored list and adds the registrations from after the loop.
 :::
+
+## Large responses
+
+Rapira keeps the complete response of a Worker handler in the memory of the worker. It sends the response when the handler returns, or when the handler calls `rapira_finish_request()`. The PHP `flush()` function does not send data to the client.
+
+The worker needs memory for the complete response. While the body grows, the worker can use up to approximately three times the response size. The worker keeps the response in memory until the client receives it, and it can start the next request during this time. Thus, a 600 MB download uses more than 600 MB of memory in one worker. When the buffered body exceeds 1 GiB, Rapira stops the request, and the client receives an incomplete response.
+
+For large files and long streams, use one of these alternatives:
+
+- [Dispatcher mode](/docs/dispatcher). `Exchange::writeBody()` with `$eos = false` sends each part when the script writes it. `Exchange::sendFile()` sends a file from disk, and the worker does not keep the file in memory. See [Send a file](/docs/dispatcher#send-a-file).
+- A reverse proxy that sends the file. The handler sets a response field and sends no body, for example the nginx [`X-Accel-Redirect`](https://nginx.org/en/docs/http/ngx_http_core_module.html#internal) field. Rapira sends this field to the proxy without changes. The proxy reads the file and sends it to the client.
+
+See [Response transmission](/docs/http#response-transmission) for more information.
 
 ## Worker mode only
 

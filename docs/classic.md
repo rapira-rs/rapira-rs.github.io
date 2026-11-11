@@ -15,7 +15,7 @@ Objects and request data cannot affect a later request. Some state stays in the 
 
 The application initializes its autoloader, configuration, container, and routes for each request. See [execution modes](/docs/execution-modes) for more information.
 
-Each worker uses the entry script directory as its working directory. A `chdir()` call in a request stays in effect for later requests of the same worker, until the worker exits. If a request changes the working directory, restore it before the request ends.
+Each worker uses the entry script directory as its working directory. The worker resolves the symbolic links in the entry script path and sets this directory when it starts and at each reload. A `chdir()` call in a request stays in effect for later requests of the same worker, until the next reload. If a request changes the working directory, restore it before the request ends.
 
 Rapira does not provide the php-fpm `fastcgi_finish_request()` function. Use `rapira_finish_request()` to send the response before the script ends. See [HTTP](/docs/http) for more information.
 
@@ -67,6 +67,19 @@ The `[http.uploads]` table applies only to Dispatcher mode. Rapira does not star
 Each PHP request removes application state. OPcache keeps compiled bytecode across requests. The master process starts PHP before it creates workers, so all workers use the same OPcache shared memory segment. When you enable OPcache, later requests use the cached bytecode, and PHP does not compile unchanged scripts again. See [deployment](/docs/deployment) for the OPcache setup.
 
 Each worker handles one request at a time. `http.pool.processes` sets the worker count, which is also the maximum number of concurrent requests. See the [process model](/docs/process-model) for more information.
+
+## Large responses
+
+Rapira keeps the complete response of a Classic script in the memory of the worker. It sends the response when the script ends, or when the script calls `rapira_finish_request()`. The PHP `flush()` function does not send data to the client.
+
+The worker needs memory for the complete response. While the body grows, the worker can use up to approximately three times the response size. The worker keeps the response in memory until the client receives it, and it can start the next request during this time. Thus, a 600 MB download uses more than 600 MB of memory in one worker. When the buffered body exceeds 1 GiB, Rapira stops the request, and the client receives an incomplete response.
+
+For large files and long streams, use one of these alternatives:
+
+- [Dispatcher mode](/docs/dispatcher). `Exchange::writeBody()` with `$eos = false` sends each part when the script writes it. `Exchange::sendFile()` sends a file from disk, and the worker does not keep the file in memory. See [Send a file](/docs/dispatcher#send-a-file).
+- A reverse proxy that sends the file. The script sets a response field and sends no body, for example the nginx [`X-Accel-Redirect`](https://nginx.org/en/docs/http/ngx_http_core_module.html#internal) field. Rapira sends this field to the proxy without changes. The proxy reads the file and sends it to the client.
+
+See [Response transmission](/docs/http#response-transmission) for more information.
 
 ## Choosing between Classic and Worker
 

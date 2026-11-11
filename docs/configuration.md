@@ -126,7 +126,7 @@ See [Static files](/docs/static-files) for the file cache and other details.
 
 ### The `[http.sendfile]` table
 
-The sendfile root is the directory that `sendFile()` can read. Rapira resolves the root and the requested path to canonical paths. It rejects a path outside the root.
+The sendfile root is the directory that `sendFile()` can read. Rapira resolves the root and the requested path to canonical paths. It rejects a path outside the root. Rapira resolves the root for each app instance, at the first `sendFile()` call of that app instance. Thus, the root follows a symbolic link switch at the next app start, for example a reload.
 
 `sendFile()` is a method of `Rapira\Http\Exchange`. Only Dispatcher mode gives an exchange to the script. Thus, this table affects only Dispatcher mode. Classic and Worker modes accept but do not use it.
 
@@ -134,7 +134,7 @@ The sendfile root is the directory that `sendFile()` can read. Rapira resolves t
 | --- | --- | --- | --- |
 | `root` | string | the directory of `http.pool.entrypoint` | The only directory `sendFile()` may read. A relative path resolves against the directory that contains the configuration file. |
 
-If the root does not exist at start, Rapira logs a warning, and `sendFile()` rejects every path. Create the directory before you start the server.
+If the root does not exist at the first `sendFile()` call of an app instance, Rapira logs a warning. `sendFile()` then rejects every path in that app instance. A root that you create later works after the next app start, for example after a reload. Create the directory before you start the server.
 
 ### The `[http.uploads]` table
 

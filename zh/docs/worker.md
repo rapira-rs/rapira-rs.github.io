@@ -87,6 +87,8 @@ while (\Rapira\handle_request($web)) {
 
 worker 脚本定义状态的生命周期。将应用状态放在循环之前。将请求状态放在 handler 中，或在下一个请求之前重置。
 
+请在每个请求中于 handler 内打开 `php://input`。在较早请求中或初始化阶段打开的 `php://input` 流可能返回后续请求的请求体，也可能使 worker 进程结束。
+
 ::: warning
 全局状态也会保留在请求之间。例如静态属性、单例、注册表和 `ini_set()` 更改。php-fpm 在每个请求结束时丢弃这些值。Rapira worker 保留这些值。
 
@@ -121,6 +123,19 @@ while (\Rapira\handle_request($handler)) {
 ::: question 为什么初始化注册的 shutdown 函数不在第一个请求后运行？
 PHP 将 shutdown 函数存储在请求状态中。请求关闭过程调用这些函数，然后释放列表。第一次调用 `handle_request()` 时，Rapira 移除并保存初始化期间注册的函数，因此每个请求只保留自己注册的函数。周期结束时，Rapira 恢复保存的列表，并添加循环之后注册的函数。
 :::
+
+## 大型响应
+
+Rapira 将 Worker 模式 handler 的完整响应保存在 worker 的内存中。它在 handler 返回时发送响应，或在 handler 调用 `rapira_finish_request()` 时发送响应。PHP 的 `flush()` 函数不向客户端发送数据。
+
+worker 需要能容纳完整响应的内存。响应体增长期间，worker 最多可以使用约为响应大小三倍的内存。worker 将响应保存在内存中，直到客户端收到它，在此期间 worker 可以开始处理下一个请求。因此，一次 600 MB 的下载会在一个 worker 中占用超过 600 MB 的内存。缓冲的响应体超过 1 GiB 时，Rapira 停止请求，客户端收到不完整的响应。
+
+对于大文件和长时间的流式响应，请使用以下替代方案之一：
+
+- [Dispatcher 模式](/zh/docs/dispatcher)。`$eos = false` 时，`Exchange::writeBody()` 在脚本写入每个部分时发送该部分。`Exchange::sendFile()` 从磁盘发送文件，worker 不会将文件保存在内存中。请参阅[发送文件](/zh/docs/dispatcher#发送文件)。
+- 由反向代理发送文件。handler 设置一个响应字段且不发送响应体，例如 nginx 的 [`X-Accel-Redirect`](https://nginx.org/en/docs/http/ngx_http_core_module.html#internal) 字段。Rapira 将此字段原样发送给代理。代理读取文件并将其发送给客户端。
+
+更多内容请参阅[响应传输](/zh/docs/http#响应传输)。
 
 ## 只在 Worker 模式下可用
 

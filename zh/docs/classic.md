@@ -15,7 +15,7 @@ Classic 模式执行普通 PHP 入口脚本。它可以是 php-fpm 运行的同�
 
 应用为每个请求初始化自动加载器、配置、容器和路由。请参阅[执行模式](/zh/docs/execution-modes)。
 
-每个 worker 使用入口脚本所在目录作为工作目录。请求中的 `chdir()` 调用对同一 worker 的后续请求保持有效，直到该 worker 退出。如果请求更改了工作目录，请在请求结束前恢复它。
+每个 worker 使用入口脚本所在目录作为工作目录。worker 在启动时和每次重载时解析入口脚本路径中的符号链接，并设置此目录。请求中的 `chdir()` 调用对同一 worker 的后续请求保持有效，直到下一次重载。如果请求更改了工作目录，请在请求结束前恢复它。
 
 Rapira 不提供 php-fpm 的 `fastcgi_finish_request()` 函数。使用 `rapira_finish_request()` 在脚本结束前发送响应。请参阅 [HTTP](/zh/docs/http)。
 
@@ -67,6 +67,19 @@ Rapira 在 PHP 运行前对完整请求体应用 `http.max_body_size_mb`。默�
 每个 PHP 请求都会删除应用状态。OPcache 在请求间保留编译后的字节码。主进程在创建 worker 前启动 PHP，因此所有 worker 使用同一个 OPcache 共享内存段。启用 OPcache 后，后续请求使用缓存的字节码，PHP 不会再次编译未更改的脚本。OPcache 设置请参阅[部署](/zh/docs/deployment)。
 
 每个 worker 一次处理一个请求。`http.pool.processes` 设置 worker 数量，它也是最大并发请求数。请参阅[进程模型](/zh/docs/process-model)。
+
+## 大型响应
+
+Rapira 将 Classic 脚本的完整响应保存在 worker 的内存中。它在脚本结束时发送响应，或在脚本调用 `rapira_finish_request()` 时发送响应。PHP 的 `flush()` 函数不向客户端发送数据。
+
+worker 需要能容纳完整响应的内存。响应体增长期间，worker 最多可以使用约为响应大小三倍的内存。worker 将响应保存在内存中，直到客户端收到它，在此期间 worker 可以开始处理下一个请求。因此，一次 600 MB 的下载会在一个 worker 中占用超过 600 MB 的内存。缓冲的响应体超过 1 GiB 时，Rapira 停止请求，客户端收到不完整的响应。
+
+对于大文件和长时间的流式响应，请使用以下替代方案之一：
+
+- [Dispatcher 模式](/zh/docs/dispatcher)。`$eos = false` 时，`Exchange::writeBody()` 在脚本写入每个部分时发送该部分。`Exchange::sendFile()` 从磁盘发送文件，worker 不会将文件保存在内存中。请参阅[发送文件](/zh/docs/dispatcher#发送文件)。
+- 由反向代理发送文件。脚本设置一个响应字段且不发送响应体，例如 nginx 的 [`X-Accel-Redirect`](https://nginx.org/en/docs/http/ngx_http_core_module.html#internal) 字段。Rapira 将此字段原样发送给代理。代理读取文件并将其发送给客户端。
+
+更多内容请参阅[响应传输](/zh/docs/http#响应传输)。
 
 ## 在 Classic 和 Worker 之间做选择
 

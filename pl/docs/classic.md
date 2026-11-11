@@ -15,7 +15,7 @@ Obiekty i dane żądania nie mogą wpłynąć na późniejsze żądanie. Częś�
 
 Aplikacja inicjalizuje autoloader, konfigurację, kontener i trasy dla każdego żądania. Zobacz [Tryby wykonania](/pl/docs/execution-modes).
 
-Każdy worker używa katalogu skryptu wejściowego jako katalogu roboczego. Wywołanie `chdir()` w żądaniu działa też w późniejszych żądaniach tego samego workera, do zakończenia workera. Jeśli żądanie zmienia katalog roboczy, przywróć go przed końcem żądania.
+Każdy worker używa katalogu skryptu wejściowego jako katalogu roboczego. Worker rozwiązuje dowiązania symboliczne w ścieżce skryptu wejściowego i ustawia ten katalog przy starcie oraz przy każdym przeładowaniu. Wywołanie `chdir()` w żądaniu działa też w późniejszych żądaniach tego samego workera, do następnego przeładowania. Jeśli żądanie zmienia katalog roboczy, przywróć go przed końcem żądania.
 
 Rapira nie udostępnia funkcji php-fpm `fastcgi_finish_request()`. Użyj `rapira_finish_request()`, aby wysłać odpowiedź przed końcem skryptu. Zobacz [HTTP](/pl/docs/http).
 
@@ -67,6 +67,19 @@ Tabela `[http.uploads]` dotyczy tylko trybu Dispatcher. Rapira nie uruchamia si�
 Każde żądanie PHP usuwa stan aplikacji. OPcache zachowuje skompilowany bytecode między żądaniami. Proces nadrzędny uruchamia PHP przed utworzeniem workerów, więc wszystkie workery używają tego samego segmentu pamięci współdzielonej OPcache. Po włączeniu OPcache późniejsze żądania używają bytecode'u z cache'u, a PHP nie kompiluje ponownie niezmienionych skryptów. Konfigurację OPcache opisuje [Wdrożenie produkcyjne](/pl/docs/deployment).
 
 Każdy worker obsługuje jedno żądanie naraz. `http.pool.processes` określa liczbę workerów, która jest też maksymalną liczbą równoczesnych żądań. Zobacz [model procesów](/pl/docs/process-model).
+
+## Duże odpowiedzi
+
+Rapira przechowuje pełną odpowiedź skryptu Classic w pamięci workera. Wysyła odpowiedź po zakończeniu skryptu lub gdy skrypt wywoła `rapira_finish_request()`. Funkcja PHP `flush()` nie wysyła danych do klienta.
+
+Worker potrzebuje pamięci na pełną odpowiedź. Gdy treść rośnie, worker może użyć do około trzykrotności rozmiaru odpowiedzi. Worker przechowuje odpowiedź w pamięci, dopóki klient jej nie odbierze, i w tym czasie może rozpocząć następne żądanie. Dlatego pobieranie 600 MB zajmuje ponad 600 MB pamięci w jednym workerze. Gdy buforowana treść przekroczy 1 GiB, Rapira zatrzymuje żądanie, a klient otrzymuje niekompletną odpowiedź.
+
+Dla dużych plików i długich strumieni użyj jednej z tych możliwości:
+
+- [Tryb Dispatcher](/pl/docs/dispatcher). `Exchange::writeBody()` z `$eos = false` wysyła każdą część, gdy skrypt ją zapisze. `Exchange::sendFile()` wysyła plik z dysku, a worker nie przechowuje pliku w pamięci. Zobacz [Wysyłanie pliku](/pl/docs/dispatcher#wysyłanie-pliku).
+- Reverse proxy, które wysyła plik. Skrypt ustawia pole odpowiedzi i nie wysyła treści, na przykład pole [`X-Accel-Redirect`](https://nginx.org/en/docs/http/ngx_http_core_module.html#internal) serwera nginx. Rapira przekazuje to pole do proxy bez zmian. Proxy czyta plik i wysyła go do klienta.
+
+Więcej informacji zawiera [Przesyłanie odpowiedzi](/pl/docs/http#przesyłanie-odpowiedzi).
 
 ## Wybór między Classic a Worker
 

@@ -106,16 +106,20 @@ Un segundo `SIGTERM` o `SIGINT` salta la espera y fuerza la salida inmediatament
 
 ### Una recarga reinicia las aplicaciones
 
-`SIGUSR2` o `SIGHUP` reinicia la aplicación en cada worker de cada pool. El worker termina la petición PHP de la aplicación y ejecuta otra vez el script de entrada en el mismo proceso. El socket de escucha, las conexiones y las peticiones en cola se mantienen. La aplicación antigua atiende las peticiones que esperan en la cola antes de la señal. Las peticiones posteriores van a la aplicación nueva.
+`SIGUSR2` o `SIGHUP` reinicia la aplicación en cada worker de cada pool. El worker termina la petición PHP de la aplicación y ejecuta otra vez el script de entrada en el mismo proceso. Antes de ejecutar el script, el worker resuelve los enlaces simbólicos de la ruta del script de entrada y cambia su directorio de trabajo al directorio del script. El socket de escucha, las conexiones y las peticiones en cola se mantienen. La aplicación antigua atiende las peticiones que esperan en la cola antes de la señal. Las peticiones posteriores van a la aplicación nueva.
 
-En el modo Classic, cada petición ejecuta el script de entrada en una petición PHP nueva, así que el código nuevo funciona sin recarga. Los modos Worker y Dispatcher mantienen la aplicación en memoria. Recarga el pool después de cada despliegue en estos modos. Con `opcache.validate_timestamps = 0`, una recarga no carga código nuevo en ningún modo, porque los workers usan la memoria de OPcache del maestro. En este caso, reinicia Rapira. Consulta [despliegue](/es/docs/deployment) para más información.
+En el modo Classic, cada petición ejecuta el script de entrada en una petición PHP nueva. Por tanto, un archivo cambiado funciona sin recarga, y se aplican los ajustes de marca de tiempo de OPcache. Un despliegue que cambia un enlace simbólico de la ruta del script de entrada necesita una recarga en todos los modos, también en el modo Classic. Los modos Worker y Dispatcher mantienen la aplicación en memoria. Recarga el pool después de cada despliegue en estos modos. Consulta [despliegue](/es/docs/deployment) para más información.
 
-Cada worker reinicia su aplicación por su cuenta. Cuando todos los workers se reinician al mismo tiempo, cada cola espera un arranque de la aplicación. Un cliente no nota el reinicio, salvo esta espera.
+Una recarga vacía OPcache, así que las aplicaciones cargan el código nuevo también cuando `opcache.validate_timestamps = 0`. Después de una recarga, las primeras peticiones vuelven a compilar sus archivos PHP. Las peticiones se ejecutan sin OPcache hasta que termina la petición más larga que estaba activa en la recarga. En el modo Classic, una petición que empieza después de que su worker recibe la recarga ejecuta el código nuevo, y las peticiones activas terminan con el código antiguo.
+
+Cada worker reinicia su aplicación por su cuenta. En los modos Worker y Dispatcher con OPcache, la mayoría de los workers arrancan la aplicación dos veces durante una recarga. Por tanto, el código antes del bucle del worker se ejecuta dos veces. Cuando todos los workers se reinician al mismo tiempo, cada cola espera solo los arranques de la aplicación de su propio worker. Un cliente no nota el reinicio, salvo esta espera.
 
 El maestro ignora una señal de recarga durante una parada. No registra la señal ignorada.
 
+OPcache programa un reinicio cuando el código de la aplicación llama a `opcache_reset()` o cuando la caché está llena. Rapira reinicia entonces cada aplicación de cada pool una vez, en los mismos procesos worker, y registra un aviso. Ningún proceso worker se detiene y ninguna conexión se cierra. Con Rapira, el valor predeterminado de `opcache.force_restart_timeout` es 0, y un valor en `php.ini` lo sustituye. Con un valor mayor que 0, OPcache puede matar un worker cuya petición dura más que ese tiempo durante un reinicio de OPcache, también durante una recarga. Mantén el valor 0.
+
 ::: info
-Una recarga reinicia las aplicaciones, pero no los procesos. Los workers conservan el mismo motor inicializado. Reinicia Rapira para aplicar cambios en el binario o en los archivos que lee el maestro, como `rapira.toml` y `php.ini`.
+Una recarga reinicia las aplicaciones, pero no los procesos. Los workers conservan el mismo motor inicializado. Reinicia Rapira para aplicar cambios en el binario o en los archivos que lee el maestro, como `rapira.toml` y `php.ini`. Reinícialo también después de cambiar un archivo que carga `opcache.preload`.
 :::
 
 ### Escribir el estado en el registro

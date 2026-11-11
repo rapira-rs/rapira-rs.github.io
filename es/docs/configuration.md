@@ -126,7 +126,7 @@ Consulta [Archivos estáticos](/es/docs/static-files) para ver la caché de arch
 
 ### La tabla `[http.sendfile]`
 
-La raíz de sendfile es el directorio que `sendFile()` puede leer. Rapira resuelve la raíz y la ruta pedida a rutas canónicas. Rechaza una ruta fuera de la raíz.
+La raíz de sendfile es el directorio que `sendFile()` puede leer. Rapira resuelve la raíz y la ruta pedida a rutas canónicas. Rechaza una ruta fuera de la raíz. Rapira resuelve la raíz para cada instancia de la aplicación, en la primera llamada a `sendFile()` de esa instancia. Por tanto, la raíz sigue un cambio de enlace simbólico en el siguiente arranque de la aplicación, por ejemplo una recarga.
 
 `sendFile()` es un método de `Rapira\Http\Exchange`. Solo el modo Dispatcher da un exchange al script. Por eso, esta tabla solo afecta al modo Dispatcher. Los modos Classic y Worker la aceptan, pero no la usan.
 
@@ -134,7 +134,7 @@ La raíz de sendfile es el directorio que `sendFile()` puede leer. Rapira resuel
 | --- | --- | --- | --- |
 | `root` | cadena | el directorio de `http.pool.entrypoint` | El único directorio que `sendFile()` puede leer. Una ruta relativa usa como base el directorio que contiene el archivo de configuración. |
 
-Si la raíz no existe al arrancar, Rapira registra un aviso y `sendFile()` rechaza todas las rutas. Crea el directorio antes de arrancar el servidor.
+Si la raíz no existe en la primera llamada a `sendFile()` de una instancia de la aplicación, Rapira registra un aviso. Después, `sendFile()` rechaza todas las rutas en esa instancia. Una raíz que creas más tarde funciona después del siguiente arranque de la aplicación, por ejemplo después de una recarga. Crea el directorio antes de arrancar el servidor.
 
 ### La tabla `[http.uploads]`
 

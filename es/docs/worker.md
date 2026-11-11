@@ -87,6 +87,8 @@ Los valores creados **dentro** del handler pertenecen a una petición. PHP los l
 
 El script del worker define la duración del estado. Coloca el estado de la aplicación antes del bucle. Coloca el estado de la petición en el handler o reinícialo antes de la siguiente petición.
 
+Abre `php://input` dentro del handler en cada petición. Un stream de `php://input` abierto en una petición anterior o en la inicialización puede devolver el cuerpo de una petición posterior, o puede terminar el proceso worker.
+
 ::: warning
 El estado global también permanece entre peticiones. Algunos ejemplos son las propiedades estáticas, los singletons, los registros y los cambios de `ini_set()`. php-fpm descarta estos valores al final de cada petición. Un worker de Rapira los mantiene.
 
@@ -121,6 +123,19 @@ Los objetos usan otra regla. Rapira no ejecuta todos los destructores al final d
 ::: question ¿Por qué una función de shutdown de la inicialización no se ejecuta después de la primera petición?
 PHP guarda las funciones de shutdown en el estado de la petición. El cierre de la petición llama a las funciones y libera la lista. En la primera llamada a `handle_request()`, Rapira elimina y guarda los registros de la inicialización, por lo que cada petición tiene solo sus propios registros. Al final del ciclo, Rapira restaura la lista guardada y añade los registros posteriores al bucle.
 :::
+
+## Respuestas grandes
+
+Rapira mantiene la respuesta completa de un handler del modo Worker en la memoria del worker. Envía la respuesta cuando el handler retorna o cuando el handler llama a `rapira_finish_request()`. La función `flush()` de PHP no envía datos al cliente.
+
+El worker necesita memoria para la respuesta completa. Mientras el cuerpo crece, el worker puede usar hasta aproximadamente tres veces el tamaño de la respuesta. El worker mantiene la respuesta en memoria hasta que el cliente la recibe, y puede empezar la siguiente petición durante ese tiempo. Por tanto, una descarga de 600 MB usa más de 600 MB de memoria en un worker. Cuando el cuerpo almacenado supera 1 GiB, Rapira detiene la petición y el cliente recibe una respuesta incompleta.
+
+Para archivos grandes y flujos largos, usa una de estas alternativas:
+
+- [Modo Dispatcher](/es/docs/dispatcher). `Exchange::writeBody()` con `$eos = false` envía cada parte cuando el script la escribe. `Exchange::sendFile()` envía un archivo desde el disco, y el worker no mantiene el archivo en memoria. Consulta [Enviar un archivo](/es/docs/dispatcher#enviar-un-archivo).
+- Un proxy inverso que envía el archivo. El handler define un campo de respuesta y no envía cuerpo, por ejemplo el campo [`X-Accel-Redirect`](https://nginx.org/en/docs/http/ngx_http_core_module.html#internal) de nginx. Rapira envía este campo al proxy sin cambios. El proxy lee el archivo y lo envía al cliente.
+
+Consulta [Transmisión de la respuesta](/es/docs/http#transmision-de-la-respuesta) para más información.
 
 ## Solo en modo Worker
 

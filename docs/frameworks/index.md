@@ -24,7 +24,7 @@ Tests ran these applications on Linux with one worker process. Framework stateme
 
 One codebase can use both modes. Keep `public/index.php`. Add `worker.php` to the project root. `http.pool.mode` selects the execution mode, and `http.pool.entrypoint` selects the script. Classic mode remains available if a Worker mode migration fails.
 
-Each worker uses the directory of its entry script as the working directory. Thus, relative file paths in `worker.php` resolve against the project root. Relative file paths in `public/index.php` resolve against `public/`. A `chdir()` call in PHP code stays in effect until the worker process exits.
+Each worker uses the directory of its entry script as the working directory. Thus, relative file paths in `worker.php` resolve against the project root. Relative file paths in `public/index.php` resolve against `public/`. A `chdir()` call in PHP code stays in effect until the next app start, for example a reload or a restart after `max_requests`. In Classic mode, it stays in effect until the next reload.
 
 ## Worker loop
 
@@ -157,7 +157,7 @@ Rapira starts PHP once in the master before it creates workers. OPcache creates 
 
 On PHP 8.4, OPcache is a separate `opcache.so` file that needs a `zend_extension` line in `php.ini`. See [php.ini](/docs/intro/installation#php-ini).
 
-In production, `opcache.validate_timestamps = 0` removes the file check from each request. This setting prevents automatic cache invalidation. The OPcache segment belongs to the master and remains during worker replacement. Thus, a deployment requires a complete restart. See [running in production](/docs/deployment) for the sequence.
+In production, `opcache.validate_timestamps = 0` removes the file check from each request. This setting prevents automatic cache invalidation. The OPcache segment belongs to the master and remains during worker replacement. A reload empties the cache, so a reload after a deployment loads the new code. Files that `opcache.preload` loads need a complete restart. See [running in production](/docs/deployment) for the sequence.
 
 During development, a persistent application does not read its initialization code again. This behavior does not depend on OPcache. After changes to the worker script or initialized services, press Ctrl-C. Then run `rapira serve rapira.toml` again.
 

@@ -62,7 +62,7 @@ Consulta las demás claves en [Configuración](/es/docs/configuration).
 - **Devuelve `true`** después de cada petición. Devuelve `false` cuando el worker empieza a detenerse o reinicia la aplicación. Termina el bucle y el script cuando devuelve `false`.
 - **Llámala solo desde el bucle de nivel superior del script.** Una llamada desde dentro del handler lanza un `\Error`. No la llames desde una función de shutdown ni desde un destructor.
 
-Una petición en modo Worker es una iteración del bucle `while`. Antes de cada llamada al handler, Rapira vuelve a rellenar las superglobales. Después de la llamada, Rapira ejecuta las funciones de shutdown de la petición, vacía los búferes de salida y cierra la sesión. Los valores que el script mantiene fuera del handler permanecen en memoria.
+Una petición en modo Worker es una iteración del bucle `while`. Antes de cada llamada al handler, Rapira vuelve a rellenar las superglobales. Después de la llamada, Rapira ejecuta las funciones de shutdown de la petición, vacía los búferes de salida y cierra la sesión. Rapira envía la respuesta después de estos pasos. Los valores que el script mantiene fuera del handler permanecen en memoria.
 
 Antes de la primera llamada a `handle_request()`, `$_SERVER` contiene el entorno del proceso y la ruta del script de entrada, igual que con PHP CLI. Consulta la lista completa en [Modos de ejecución](/es/docs/execution-modes).
 
@@ -123,6 +123,8 @@ Los objetos usan otra regla. Rapira no ejecuta todos los destructores al final d
 ::: question ¿Por qué una función de shutdown de la inicialización no se ejecuta después de la primera petición?
 PHP guarda las funciones de shutdown en el estado de la petición. El cierre de la petición llama a las funciones y libera la lista. En la primera llamada a `handle_request()`, Rapira elimina y guarda los registros de la inicialización, por lo que cada petición tiene solo sus propios registros. Al final del ciclo, Rapira restaura la lista guardada y añade los registros posteriores al bucle.
 :::
+
+Una excepción de una función de shutdown de la petición es una excepción sin capturar, así que la recibe el callback que registró `set_exception_handler()`. Si ningún callback procesa la excepción, Rapira escribe un registro de error y devuelve `500`. Si la salida ya se inició, Rapira corta la respuesta en su lugar. El bucle continúa, pero PHP no ejecuta las funciones de shutdown posteriores de esa petición.
 
 ## Respuestas grandes
 

@@ -62,7 +62,7 @@ Pozostałe klucze opisuje [Konfiguracja](/pl/docs/configuration).
 - **Zwraca `true`** po każdym żądaniu. Zwraca `false`, gdy worker zaczyna się zatrzymywać lub uruchamia aplikację ponownie. Zakończ pętlę i skrypt, gdy funkcja zwróci `false`.
 - **Wywołuj ją tylko z pętli najwyższego poziomu skryptu.** Wywołanie z wnętrza handlera rzuca `\Error`. Nie wywołuj jej z funkcji shutdown ani z destruktora.
 
-Żądanie w trybie Worker odpowiada jednej iteracji pętli `while`. Przed każdym wywołaniem handlera Rapira ponownie wypełnia zmienne superglobalne. Po wywołaniu Rapira uruchamia funkcje shutdown żądania, opróżnia bufory wyjścia i zamyka sesję. Wartości, które skrypt przechowuje poza handlerem, pozostają w pamięci.
+Żądanie w trybie Worker odpowiada jednej iteracji pętli `while`. Przed każdym wywołaniem handlera Rapira ponownie wypełnia zmienne superglobalne. Po wywołaniu Rapira uruchamia funkcje shutdown żądania, opróżnia bufory wyjścia i zamyka sesję. Rapira wysyła odpowiedź po tych krokach. Wartości, które skrypt przechowuje poza handlerem, pozostają w pamięci.
 
 Przed pierwszym wywołaniem `handle_request()` `$_SERVER` zawiera środowisko procesu i ścieżkę skryptu wejściowego, tak jak pod PHP CLI. Pełną listę zawierają [Tryby wykonania](/pl/docs/execution-modes).
 
@@ -123,6 +123,8 @@ Obiekty używają innej reguły. Rapira nie uruchamia wszystkich destruktorów n
 ::: question Dlaczego funkcja shutdown z inicjalizacji nie uruchamia się po pierwszym żądaniu?
 PHP przechowuje funkcje shutdown w stanie żądania. Zamknięcie żądania wywołuje funkcje, a następnie zwalnia listę. Przy pierwszym wywołaniu `handle_request()` Rapira usuwa i zapisuje rejestracje inicjalizacji, więc każde żądanie ma tylko własne rejestracje. Na końcu cyklu Rapira przywraca zapisaną listę i dodaje rejestracje utworzone po pętli.
 :::
+
+Wyjątek z funkcji shutdown żądania jest nieprzechwyconym wyjątkiem, więc otrzymuje go callback zarejestrowany przez `set_exception_handler()`. Jeśli żaden callback nie obsłuży wyjątku, Rapira zapisuje rekord logu z błędem i zwraca `500`. Jeśli wysyłanie już się rozpoczęło, Rapira zamiast tego ucina odpowiedź. Pętla działa dalej, ale PHP nie uruchamia późniejszych funkcji shutdown tego żądania.
 
 ## Duże odpowiedzi
 

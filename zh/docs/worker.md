@@ -62,7 +62,7 @@ rapira serve rapira.toml
 - **每个请求后返回 `true`。**worker 开始停止或重启应用时返回 `false`。返回 `false` 时结束循环和脚本。
 - **只能从脚本的顶层循环调用。**从 handler 内部调用会抛出 `\Error`。不要从 shutdown 函数或析构函数调用。
 
-Worker 模式中的一个请求对应 `while` 循环的一次迭代。每次调用 handler 之前，Rapira 重新填充超全局变量。调用之后，Rapira 运行请求的 shutdown 函数，刷新输出缓冲，并关闭 session。脚本在 handler 外持有的值保留在内存中。
+Worker 模式中的一个请求对应 `while` 循环的一次迭代。每次调用 handler 之前，Rapira 重新填充超全局变量。调用之后，Rapira 运行请求的 shutdown 函数，刷新输出缓冲，并关闭 session。Rapira 在这些步骤之后发送响应。脚本在 handler 外持有的值保留在内存中。
 
 在第一次调用 `handle_request()` 之前，`$_SERVER` 包含进程环境和入口脚本路径，与 PHP CLI 下相同。完整列表请参阅[执行模式](/zh/docs/execution-modes)。
 
@@ -123,6 +123,8 @@ while (\Rapira\handle_request($handler)) {
 ::: question 为什么初始化注册的 shutdown 函数不在第一个请求后运行？
 PHP 将 shutdown 函数存储在请求状态中。请求关闭过程调用这些函数，然后释放列表。第一次调用 `handle_request()` 时，Rapira 移除并保存初始化期间注册的函数，因此每个请求只保留自己注册的函数。周期结束时，Rapira 恢复保存的列表，并添加循环之后注册的函数。
 :::
+
+请求的 shutdown 函数抛出的异常是未捕获的异常，因此 `set_exception_handler()` 注册的回调会收到它。如果没有回调处理该异常，Rapira 写入一条错误日志记录并返回 `500`。如果输出已经开始，Rapira 会改为截断响应。循环会继续，但 PHP 不会运行该请求中后续的 shutdown 函数。
 
 ## 大型响应
 

@@ -62,7 +62,7 @@ See [Configuration](/docs/configuration) for the other keys.
 - **It returns `true`** after each request. It returns `false` when the worker starts to shut down or restarts the app. End the loop and the script when it returns `false`.
 - **Call it only from the top-level loop of the script.** A call from inside the handler throws an `\Error`. Do not call it from a shutdown function or a destructor.
 
-A request in Worker mode is one iteration of the `while` loop. Before each handler call, Rapira refills the superglobals. After the call, Rapira runs the request shutdown functions, flushes the output buffers, and closes the session. Values that the script holds outside the handler stay in memory.
+A request in Worker mode is one iteration of the `while` loop. Before each handler call, Rapira refills the superglobals. After the call, Rapira runs the request shutdown functions, flushes the output buffers, and closes the session. Rapira sends the response after these steps. Values that the script holds outside the handler stay in memory.
 
 Before the first `handle_request()` call, `$_SERVER` contains the process environment and the entry script path, as under the PHP CLI. See [Execution modes](/docs/execution-modes) for the complete list.
 
@@ -123,6 +123,8 @@ Objects use a different rule. Rapira does not run all destructors at the end of 
 ::: question Why does an initialization shutdown function not run after the first request?
 PHP stores shutdown functions in request state. Request shutdown calls the functions and then releases the list. At the first `handle_request()` call, Rapira removes and stores the initialization registrations, so each request has only its own registrations. At the end of the cycle, Rapira restores the stored list and adds the registrations from after the loop.
 :::
+
+An exception from a request shutdown function is an uncaught exception, so the callback that `set_exception_handler()` registered receives it. If no callback handles the exception, Rapira writes an error record and returns `500`. If output already started, Rapira cuts the response instead. The loop continues, but PHP does not run the later shutdown functions of that request.
 
 ## Large responses
 

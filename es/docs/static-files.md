@@ -90,7 +90,7 @@ Cada proceso worker guarda en memoria los archivos que sirve. No puedes configur
 - La caché no guarda un archivo de más de 256 KiB. Ese archivo se transmite desde el disco en cada petición.
 - Cada worker guarda como máximo 16 MiB. Por tanto, la caché puede usar 16 MiB de memoria por cada proceso de `http.pool.processes`.
 
-Después de un segundo, la siguiente petición de un archivo ejecuta `stat` sobre él. El worker conserva la entrada cuando la fecha de modificación y el tamaño no cambian. En otro caso, vuelve a leer el archivo. Rapira deja de servir un archivo eliminado después de un segundo como máximo.
+Después de un segundo, la siguiente petición de un archivo ejecuta `stat` sobre él. El worker conserva la entrada cuando el número de dispositivo, el número de inodo, la fecha de modificación y el tamaño no cambian. En otro caso, vuelve a leer el archivo. Rapira deja de servir un archivo eliminado después de un segundo como máximo.
 
 Una caché llena sigue sirviendo sus entradas. Elimina primero las entradas caducadas. Si la caché sigue llena, no guarda el archivo nuevo.
 
@@ -99,5 +99,5 @@ Un proceso worker nuevo empieza con la caché vacía. Por tanto, una sustitució
 La raíz debe usar almacenamiento local. El middleware ejecuta `stat` y `open` en el hilo que atiende peticiones. Un sistema de archivos lento retrasa las demás conexiones de ese worker.
 
 ::: question ¿Por qué la caché no detecta mi archivo modificado?
-La caché compara solo la fecha de modificación y el tamaño del archivo. El `ETag` contiene los mismos valores. La caché no detecta una sustitución que conserva ambos valores. Un cambio de permisos también conserva la entrada. Para eliminar la entrada, elimina el archivo, cambia su fecha de modificación o reinicia Rapira.
+La caché compara el número de dispositivo, el número de inodo, la fecha de modificación y el tamaño del archivo. No detecta un cambio en el propio archivo que conserva la fecha de modificación y el tamaño. El `ETag` contiene solo la fecha de modificación y el tamaño. Cuando un renombrado sustituye un archivo por un archivo nuevo con los mismos dos valores, un cliente que revalida su copia conserva la copia antigua. Un cambio de permisos también conserva la entrada. Para eliminar la entrada, elimina el archivo, cambia su fecha de modificación o reinicia Rapira.
 :::

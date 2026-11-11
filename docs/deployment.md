@@ -128,7 +128,7 @@ A reload empties OPcache, so it also loads the new PHP code when `opcache.valida
 ::: warning What a reload does not do
 A reload restarts the apps but not the processes. The master keeps the Rapira binary and the settings from `rapira.toml` and `php.ini`. It also keeps the gRPC descriptor set and the `[grpc.auth]` tokens file. Restart Rapira after you change one of these files. Also restart it after you change a file that `opcache.preload` loads. PHP loads these files one time, when the master starts.
 
-When `opcache.restrict_api` is set, a reload does not empty OPcache. With this setting and `opcache.validate_timestamps = 0`, restart Rapira after each deployment.
+When `opcache.restrict_api` is set, a reload does not empty OPcache. With this setting and `opcache.validate_timestamps = 0`, restart Rapira after each deployment. With this setting, an app that starts while an OPcache restart is pending runs without OPcache until its next start.
 :::
 
 ## Logs

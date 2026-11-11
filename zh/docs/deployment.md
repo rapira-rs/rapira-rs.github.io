@@ -128,7 +128,7 @@ kill -USR2 "$(cat /run/rapira/rapira.pid)"
 ::: warning 重载不会做的事
 重载会重启应用，但不会替换进程。master 保留 Rapira 二进制文件以及 `rapira.toml` 和 `php.ini` 中的设置。它还保留 gRPC 描述符集和 `[grpc.auth]` 令牌文件。更改其中任一文件后，请重启 Rapira。更改 `opcache.preload` 加载的文件后，也请重启 Rapira。PHP 只在 master 启动时加载这些文件一次。
 
-设置了 `opcache.restrict_api` 时，重载不会清空 OPcache。使用此设置且 `opcache.validate_timestamps = 0` 时，请在每次部署后重启 Rapira。
+设置了 `opcache.restrict_api` 时，重载不会清空 OPcache。使用此设置且 `opcache.validate_timestamps = 0` 时，请在每次部署后重启 Rapira。使用此设置时，在 OPcache 重启待执行期间启动的应用会在没有 OPcache 的情况下运行，直到它下一次启动。
 :::
 
 ## 日志

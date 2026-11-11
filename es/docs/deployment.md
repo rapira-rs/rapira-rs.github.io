@@ -128,7 +128,7 @@ Una recarga vacía OPcache, así que también carga el código PHP nuevo cuando 
 ::: warning Lo que una recarga no hace
 Una recarga reinicia las aplicaciones, pero no los procesos. El maestro conserva el binario de Rapira y los ajustes de `rapira.toml` y `php.ini`. También conserva el conjunto de descriptores de gRPC y el archivo de tokens de `[grpc.auth]`. Reinicia Rapira después de cambiar uno de estos archivos. Reinícialo también después de cambiar un archivo que carga `opcache.preload`. PHP carga estos archivos una vez, cuando arranca el maestro.
 
-Cuando `opcache.restrict_api` está definido, una recarga no vacía OPcache. Con este ajuste y `opcache.validate_timestamps = 0`, reinicia Rapira después de cada despliegue.
+Cuando `opcache.restrict_api` está definido, una recarga no vacía OPcache. Con este ajuste y `opcache.validate_timestamps = 0`, reinicia Rapira después de cada despliegue. Con este ajuste, una aplicación que arranca mientras un reinicio de OPcache está pendiente se ejecuta sin OPcache hasta su siguiente arranque.
 :::
 
 ## Registros

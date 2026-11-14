@@ -129,7 +129,7 @@ Serwer HTTP wysyła odpowiedź błędu, gdy żądanie nie dociera do PHP lub PHP
 
 Rapira wysyła te statusy bez tych dwóch pól:
 
-- `503`, gdy worker nie może uruchomić swojego skryptu wejściowego. Po każdym nieudanym uruchomieniu worker odpowiada tym statusem na jedno żądanie z kolejki.
+- `503`, gdy worker nie może uruchomić swojego skryptu wejściowego. Podczas oczekiwania przed następnym uruchomieniem worker odpowiada tym statusem na każde żądanie.
 - `502`, gdy PHP ustawia końcowy status poniżej `200`, na przykład `101`.
 - `500`, gdy skrypt Dispatcher zwalnia wymianę, zanim Rapira wyśle nagłówki odpowiedzi.
 

@@ -99,7 +99,7 @@ rapira serve rapira.toml
 未捕获的异常或致命错误会结束入口脚本。然后 Rapira 在同一个 worker 中再次运行入口脚本。打开的 exchange 的客户端收到错误响应或不完整的响应。
 
 ::: question 入口脚本在 `ClosedException` 之前结束时会发生什么？
-如果脚本至少接收了一个请求，Rapira 在同一个 worker 中再次运行入口脚本。如果脚本在接收请求之前结束，Rapira 记为一次启动失败。如果在五秒内有请求到达，Rapira 用 `503` 回答该请求。然后 Rapira 再次运行脚本。连续五次启动失败后，worker 以不健康状态退出。
+如果脚本至少接收了一个请求，Rapira 在同一个 worker 中再次运行入口脚本。如果脚本在接收请求之前结束，Rapira 记为一次启动失败。然后 Rapira 等待，并再次运行脚本。等待时间从 100 ms 开始，每次连续启动失败后翻倍，最大为 5 秒。等待期间，Rapira 用 `503` 回答每个请求。连续 `http.pool.max_failures` 次（默认 5 次）启动失败后，worker 以不健康状态退出。
 :::
 
 ## 请求

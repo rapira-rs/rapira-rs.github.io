@@ -50,7 +50,7 @@ master 在整个生命周期中持有 PHP 模块。只有 master 关闭此模块
 master 每秒执行一次维护。worker 退出时，master 也会立即处理每次退出。
 
 - **替换 worker。** worker 正常退出后，master 立即替换它。worker 崩溃或以不健康状态退出后，替换延迟从 100 ms 开始。每次连续故障后延迟翻倍，最大为 25.6 秒。worker 运行至少 10 秒会重置延迟。
-- **启动失败。** 在 Worker 和 Dispatcher 模式下，如果入口脚本在收到请求前结束，则启动失败。worker 随后最多等待 5 秒，然后再次运行入口脚本。等待期间到达的请求会收到 HTTP `503` 或 gRPC `UNAVAILABLE`。连续五次启动失败后，worker 以不健康状态退出。
+- **启动失败。** 在 Worker 和 Dispatcher 模式下，如果入口脚本在收到请求前结束，则启动失败。worker 随后等待，然后再次运行入口脚本。等待时间从 100 ms 开始，每次连续启动失败后翻倍，最大为 5 秒。等待期间，worker 以 HTTP `503` 或 gRPC `UNAVAILABLE` 回答每个请求，请求也不会触发下一次启动。连续 `http.pool.max_failures` 次启动失败后，worker 以不健康状态退出。默认值为 5，`0` 禁用此限制。
 - **启动失败时 master 停止。** 如果不健康的 worker 退出，master 以退出码 70 停止。仅当进程池没有成功的请求，也没有空闲或活动的 worker 时，此规则才适用。在其他所有情况下，master 在替换延迟后替换 worker。worker 崩溃永远不会使 master 停止。
 - **请求限制。** 在 Worker 和 Dispatcher 模式下，`http.pool.max_requests` 限制一个应用实例的请求数。在处理 `max_requests + 1` 到大约 `1.5 × max_requests` 之间的随机数量请求后，worker 重启它的应用。worker 进程、它的连接和它的队列保持不变。下一个请求等待应用启动。随机范围可以避免同时重启。Classic 模式忽略此设置，因为每个请求都在新的 PHP 请求中运行。
 - **请求超时。** 使用 `http.pool.request_terminate_timeout_secs` 时，如果 worker 的当前请求超过限制，master 向它发送 `SIGTERM`。如果在下一次维护时 worker 仍处于活动状态，master 发送 `SIGKILL`。然后 master 立即替换该 worker。master 在停止期间不应用此超时。

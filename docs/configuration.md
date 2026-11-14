@@ -54,6 +54,7 @@ mode = "dispatcher"                   # Use "classic", "worker", or "dispatcher"
 processes = 4                         # Sets the fixed worker count.
 max_requests = 0                      # Restarts the app after this request count. Zero disables the limit.
 max_memory_mb = 0                     # Replaces a worker when its RSS exceeds this size. Zero disables the limit.
+max_failures = 5                      # Stops a worker after this count of consecutive boot failures. Zero disables the limit.
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
 
 [grpc]
@@ -76,6 +77,7 @@ mode = "dispatcher"                   # Required mode for gRPC.
 processes = 4
 max_requests = 0
 max_memory_mb = 0
+max_failures = 5
 request_terminate_timeout_secs = 0
 
 [observability]                       # Optional. Starts one process without PHP for metrics and probes.
@@ -164,6 +166,7 @@ The `http` plugin owns this PHP worker pool. The gRPC listener uses a separate `
 | `processes` | integer | available parallelism, or `1` if unavailable | The worker count. The master keeps this many workers running. The minimum is 1. The sum of `processes` in all pools must not be more than 4096. An `[observability]` section adds one process to this sum. |
 | `max_requests` | integer | `0` | The request limit of one app instance in Worker and Dispatcher modes. After the limit, the worker restarts its app in the same process. Rapira varies the limit slightly to prevent simultaneous restarts. Classic mode ignores this key. `0` disables the limit. |
 | `max_memory_mb` | integer | `0` | The resident set size (RSS) limit of one worker process, in MiB. The master checks the RSS of each worker once each second. It stops a worker above the limit gracefully and starts a new worker. This key applies in all modes. `0` disables the limit. See [Running in production](/docs/deployment). |
+| `max_failures` | integer | `5` | The limit of consecutive boot failures of one worker in Worker and Dispatcher modes. At the limit, the worker exits as unhealthy. A boot that succeeds resets the count. Classic mode ignores this key. `0` disables the limit. See [Process model](/docs/process-model#supervision). |
 | `request_terminate_timeout_secs` | integer | `0` | Wall-clock limit for one request. Rapira terminates and replaces a worker that exceeds this limit. `0` disables the check. |
 
 ## The `[grpc]` section {#grpc}

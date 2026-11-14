@@ -54,6 +54,7 @@ mode = "dispatcher"                   # Use "classic", "worker", or "dispatcher"
 processes = 4                         # Sets the fixed worker count.
 max_requests = 0                      # Restarts the app after this request count. Zero disables the limit.
 max_memory_mb = 0                     # Replaces a worker when its RSS exceeds this size. Zero disables the limit.
+max_failures = 5                      # Stops a worker after this count of consecutive boot failures. Zero disables the limit.
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
 
 [grpc]
@@ -76,6 +77,7 @@ mode = "dispatcher"                   # Required mode for gRPC.
 processes = 4
 max_requests = 0
 max_memory_mb = 0
+max_failures = 5
 request_terminate_timeout_secs = 0
 
 [observability]                       # Optional. Starts one process without PHP for metrics and probes.
@@ -164,6 +166,7 @@ Wtyczka `http` zarządza tą pulą workerów PHP. Nasłuch gRPC używa osobnej t
 | `processes` | liczba całkowita | dostępna równoległość lub `1`, jeśli nie można jej ustalić | Liczba workerów. Proces nadrzędny utrzymuje tyle działających workerów. Minimum to 1. Suma `processes` we wszystkich pulach nie może przekroczyć 4096. Sekcja `[observability]` dodaje do tej sumy jeden proces. |
 | `max_requests` | liczba całkowita | `0` | Limit żądań jednej instancji aplikacji w trybach Worker i Dispatcher. Po osiągnięciu limitu worker uruchamia aplikację ponownie w tym samym procesie. Rapira nieznacznie zmienia ten limit, aby aplikacje nie uruchamiały się ponownie jednocześnie. Tryb Classic ignoruje ten klucz. `0` wyłącza limit. |
 | `max_memory_mb` | liczba całkowita | `0` | Limit pamięci rezydentnej (RSS) jednego procesu workera w MiB. Proces nadrzędny sprawdza RSS każdego workera raz na sekundę. Łagodnie zatrzymuje workera powyżej limitu i uruchamia nowego workera. Klucz działa we wszystkich trybach. `0` wyłącza limit. Zobacz [Wdrożenie produkcyjne](/pl/docs/deployment). |
+| `max_failures` | liczba całkowita | `5` | Limit kolejnych nieudanych rozruchów jednego workera w trybach Worker i Dispatcher. Po osiągnięciu limitu worker kończy działanie jako niezdrowy. Udany rozruch zeruje licznik. Tryb Classic ignoruje ten klucz. `0` wyłącza limit. Zobacz [Model procesów](/pl/docs/process-model#nadzor). |
 | `request_terminate_timeout_secs` | liczba całkowita | `0` | Limit czasu rzeczywistego dla jednego żądania. Rapira kończy i wymienia workera, który przekroczy ten limit. `0` wyłącza tę kontrolę. |
 
 ## Sekcja `[grpc]` {#grpc}

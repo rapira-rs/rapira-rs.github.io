@@ -166,6 +166,8 @@ Reset this state at the start or end of the handler. Also reset request state in
 
 After five failed boots in sequence, Rapira logs `worker keeps failing to boot; flagged unhealthy`, and the worker exits. The master starts a new worker after a delay. At server start, if no worker of the pool has booted or served a request, the server stops with [exit code](/docs/cli#exit-codes) 70 instead. See [Process model](/docs/process-model) for worker supervision.
 
+**The script fails at its first request.** Rapira also counts a failure when the script receives exactly one request and then ends with a non-zero exit status. A fatal error sets exit status 255. Rapira runs the script again immediately. Failed boots and these failures use one count, and a script that receives a second request resets it. After five failures in sequence, Rapira logs `worker keeps failing at its first unit; flagged unhealthy`, and the worker exits. The master starts a new worker after a delay, and the server keeps running.
+
 **An uncaught exception affects one request, not the worker.** If the handler throws an exception, Rapira first calls the callback that `set_exception_handler()` registered. If no callback handles the exception, Rapira returns `500`, unless the handler already sent the response head. In both cases, the loop continues. A call to `exit()` or `die()` in the handler ends only the current request, and Rapira sends the output as the response. A fatal error ends the worker script, and Rapira runs the script again with a new initialization.
 
 **Work after the response.** `rapira_finish_request()` sends the response before the handler ends. The handler can then do more work, for example write an audit record. See [HTTP](/docs/http) for more information.

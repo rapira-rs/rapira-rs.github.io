@@ -51,7 +51,8 @@ master 每秒执行一次维护。worker 退出时，master 也会立即处理�
 
 - **替换 worker。** worker 正常退出后，master 立即替换它。worker 崩溃或以不健康状态退出后，替换延迟从 100 ms 开始。每次连续故障后延迟翻倍，最大为 25.6 秒。worker 运行至少 10 秒会重置延迟。
 - **启动失败。** 在 Worker 和 Dispatcher 模式下，如果入口脚本在收到请求前结束，则启动失败。worker 随后最多等待 5 秒，然后再次运行入口脚本。等待期间到达的请求会收到 HTTP `503` 或 gRPC `UNAVAILABLE`。连续五次启动失败后，worker 以不健康状态退出。
-- **启动失败时 master 停止。** 如果不健康的 worker 退出，master 以退出码 70 停止。仅当进程池没有成功的请求，也没有空闲或活动的 worker 时，此规则才适用。在其他所有情况下，master 在替换延迟后替换 worker。worker 崩溃永远不会使 master 停止。
+- **第一个请求时的失败。** 如果应用实例恰好收到一个请求，然后入口脚本以非零退出状态结束，该应用实例也算失败。致命错误将退出状态设为 255。worker 随后不等待，再次运行入口脚本。这些失败和启动失败使用同一个计数：连续五次失败后，无论失败属于哪种类型，worker 都以不健康状态退出。收到第二个请求的应用实例会重置该计数。
+- **启动失败时 master 停止。** 如果不健康的 worker 退出，master 以退出码 70 停止。仅当进程池没有成功的请求，也没有空闲或活动的 worker 时，此规则才适用。在其他所有情况下，master 在替换延迟后替换 worker。第一个请求时的失败不会使 master 停止，因为应用已完成启动。worker 崩溃永远不会使 master 停止。
 - **请求限制。** 在 Worker 和 Dispatcher 模式下，`http.pool.max_requests` 限制一个应用实例的请求数。在处理 `max_requests + 1` 到大约 `1.5 × max_requests` 之间的随机数量请求后，worker 重启它的应用。worker 进程、它的连接和它的队列保持不变。下一个请求等待应用启动。随机范围可以避免同时重启。Classic 模式忽略此设置，因为每个请求都在新的 PHP 请求中运行。
 - **请求超时。** 使用 `http.pool.request_terminate_timeout_secs` 时，如果 worker 的当前请求超过限制，master 向它发送 `SIGTERM`。如果在下一次维护时 worker 仍处于活动状态，master 发送 `SIGKILL`。然后 master 立即替换该 worker。master 在停止期间不应用此超时。
 - **内存限制。** 除停止期间外，master 每秒检查每个 worker 的 RSS，并在超过 `http.pool.max_memory_mb` 时发送一次 `SIGQUIT`。worker 停止接受新连接；现有连接可以在排空超时内收到下一个请求的响应。超过此超时的响应可能被截断。master 在 worker 退出后启动替代进程，退出会释放 PHP 内外的内存。应用重启后 RSS 可能仍然很高，因为 PHP 会保留部分已释放的内存以便重用。

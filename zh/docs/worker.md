@@ -166,6 +166,8 @@ if (\Rapira\get_mode() === \Rapira\Mode::Worker) {
 
 连续五次启动失败后，Rapira 记录 `worker keeps failing to boot; flagged unhealthy`，worker 退出。master 在延迟后启动新的 worker。服务器启动时，如果进程池中没有 worker 完成启动或处理过请求，服务器改为以[退出码](/zh/docs/cli#退出码) 70 停止。有关 worker 监管，请参阅[进程模型](/zh/docs/process-model)。
 
+**脚本在第一个请求时失败。**如果脚本恰好收到一个请求，然后以非零退出状态结束，Rapira 也会计为一次失败。致命错误将退出状态设为 255。Rapira 立即再次运行脚本。启动失败和这些失败使用同一个计数，脚本收到第二个请求会重置该计数。连续五次失败后，Rapira 记录 `worker keeps failing at its first unit; flagged unhealthy`，worker 退出。master 在延迟后启动新的 worker，服务器继续运行。
+
 **未捕获的异常影响一个请求，不影响 worker。**如果 handler 抛出异常，Rapira 先调用 `set_exception_handler()` 注册的回调。如果没有回调处理该异常，Rapira 返回 `500`，除非 handler 已经发送响应头。在这两种情况下，循环都会继续。handler 中调用 `exit()` 或 `die()` 只结束当前请求，Rapira 将输出作为响应发送。致命错误会结束 worker 脚本，Rapira 以新的初始化再次运行脚本。
 
 **响应后的工作。**`rapira_finish_request()` 在 handler 结束前发送响应。之后，handler 可以执行更多工作，例如写入审计记录。有关详细信息，请参阅 [HTTP](/zh/docs/http)。

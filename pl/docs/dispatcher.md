@@ -99,7 +99,7 @@ Podczas zatrzymania Rapira zamyka dyspozytora. Gdy dyspozytor jest zamknięty, a
 Nieprzechwycony wyjątek lub błąd krytyczny kończy skrypt wejściowy. Rapira wtedy ponownie uruchamia skrypt wejściowy w tym samym workerze. Klient otwartej wymiany otrzymuje odpowiedź błędu lub niekompletną odpowiedź.
 
 ::: question Co się dzieje, gdy skrypt wejściowy zakończy się przed `ClosedException`?
-Jeśli skrypt odebrał co najmniej jedno żądanie, Rapira ponownie uruchamia skrypt wejściowy w tym samym workerze. Jeśli skrypt zakończył się przed odebraniem żądania, Rapira liczy nieudany rozruch. Jeśli żądanie przyjdzie w ciągu pięciu sekund, Rapira odpowiada na nie kodem `503`. Następnie Rapira ponownie uruchamia skrypt. Po pięciu kolejnych nieudanych rozruchach worker kończy działanie jako niesprawny.
+Jeśli skrypt odebrał co najmniej jedno żądanie, Rapira ponownie uruchamia skrypt wejściowy w tym samym workerze. Jeśli skrypt odebrał dokładnie jedno żądanie i zakończył się z niezerowym statusem wyjścia, Rapira także liczy niepowodzenie. Jeśli skrypt zakończył się przed odebraniem żądania, Rapira liczy nieudany rozruch. Jeśli żądanie przyjdzie w ciągu pięciu sekund, Rapira odpowiada na nie kodem `503`. Następnie Rapira ponownie uruchamia skrypt. Po pięciu kolejnych niepowodzeniach worker kończy działanie jako niesprawny.
 :::
 
 ## Żądanie

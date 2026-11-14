@@ -99,7 +99,7 @@ During a stop, Rapira closes the dispatcher. When the dispatcher is closed and i
 An uncaught exception or a fatal error ends the entry script. Rapira then runs the entry script again in the same worker. The client of the open exchange gets an error response or an incomplete response.
 
 ::: question What happens when the entry script ends before `ClosedException`?
-If the script received at least one request, Rapira runs the entry script again in the same worker. If the script ended before it received a request, Rapira counts a start failure. If a request arrives within five seconds, Rapira answers it with `503`. Then Rapira runs the script again. After five consecutive start failures, the worker exits as unhealthy.
+If the script received at least one request, Rapira runs the entry script again in the same worker. If the script received exactly one request and ended with a non-zero exit status, Rapira also counts a failure. If the script ended before it received a request, Rapira counts a start failure. If a request arrives within five seconds, Rapira answers it with `503`. Then Rapira runs the script again. After five consecutive failures, the worker exits as unhealthy.
 :::
 
 ## The request

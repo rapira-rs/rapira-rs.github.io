@@ -99,7 +99,7 @@ Durante una parada, Rapira cierra el dispatcher. Cuando el dispatcher está cerr
 Una excepción no capturada o un error fatal termina el script de entrada. Después, Rapira ejecuta de nuevo el script de entrada en el mismo worker. El cliente del exchange abierto recibe una respuesta de error o una respuesta incompleta.
 
 ::: question ¿Qué ocurre cuando el script de entrada termina antes de `ClosedException`?
-Si el script recibió al menos una petición, Rapira ejecuta de nuevo el script de entrada en el mismo worker. Si el script terminó antes de recibir una petición, Rapira cuenta un fallo de arranque. Si llega una petición en un plazo de cinco segundos, Rapira la responde con `503`. Después, Rapira ejecuta de nuevo el script. Después de cinco fallos de arranque consecutivos, el worker sale como no saludable.
+Si el script recibió al menos una petición, Rapira ejecuta de nuevo el script de entrada en el mismo worker. Si el script recibió exactamente una petición y terminó con un estado de salida distinto de cero, Rapira también cuenta un fallo. Si el script terminó antes de recibir una petición, Rapira cuenta un fallo de arranque. Si llega una petición en un plazo de cinco segundos, Rapira la responde con `503`. Después, Rapira ejecuta de nuevo el script. Después de cinco fallos consecutivos, el worker sale como no saludable.
 :::
 
 ## La petición

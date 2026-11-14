@@ -106,17 +106,21 @@ A second `SIGTERM` or `SIGINT` skips the wait and forces the exit immediately. S
 
 ### A reload restarts the apps
 
-`SIGUSR2` or `SIGHUP` restarts the app in each worker of each pool. The worker ends the PHP request of the app and runs the entry script again in the same process. The listener, the connections, and the queued requests stay. The old app serves the requests that wait in the queue before the signal. Later requests go to the new app.
+`SIGUSR2` or `SIGHUP` restarts the app in each worker of each pool. The worker ends the PHP request of the app and runs the entry script again in the same process. Before the script runs, the worker resolves the symbolic links in the entry script path and changes its working directory to the script directory. The listener, the connections, and the queued requests stay. The old app serves the requests that wait in the queue before the signal. Later requests go to the new app.
 
-In Classic mode, each request runs the entry script in a new PHP request, so new code takes effect without a reload. Worker and Dispatcher modes keep the application in memory. Reload the pool after each deployment in these modes. With `opcache.validate_timestamps = 0`, a reload does not load new code in any mode, because the workers use the OPcache memory of the master. Restart Rapira in this case. See [deployment](/docs/deployment) for more information.
+In Classic mode, each request runs the entry script in a new PHP request. Thus, a changed file takes effect without a reload, except with `opcache.validate_timestamps = 0`. A deployment that switches a symbolic link in the entry script path needs a reload in all modes, Classic mode included. Worker and Dispatcher modes keep the application in memory. Reload the pool after each deployment in these modes. See [deployment](/docs/deployment) for more information.
 
-Each worker restarts its app on its own. When all workers restart at the same time, each queue waits for one app start. A client does not see the restart, except for this wait.
+A reload empties OPcache, so the apps load the new code also when `opcache.validate_timestamps = 0`. The `manual_restarts` value of `opcache_get_status()` counts these reloads. After a reload, the first requests compile their PHP files again. Requests run without OPcache until the longest request that was active at the reload ends. In Classic mode, a request that starts after its worker received the reload runs the new code, and active requests end with the old code.
+
+Each worker restarts its app on its own. In Worker and Dispatcher modes with OPcache, most workers start the app two times during a reload. Thus, the code before the worker loop runs two times. When all workers restart at the same time, each queue waits only for the app starts of its own worker. A client does not see the restart, except for this wait.
 
 The master ignores a reload signal during a stop. It does not log the ignored signal.
 
 ::: info
-A reload restarts the apps but not the processes. The workers keep the same initialized engine. Restart Rapira to apply changes to the binary or to files that the master reads, such as `rapira.toml` and `php.ini`.
+A reload restarts the apps but not the processes. The workers keep the same initialized engine. Restart Rapira to apply changes to the binary or to files that the master reads, such as `rapira.toml` and `php.ini`. Also restart it after a change to a file that `opcache.preload` loads.
 :::
+
+OPcache schedules a restart when app code calls `opcache_reset()` or when the cache is full. Rapira then reloads every pool and logs one warning record. No worker process stops, and no connection closes. Under Rapira, the default of `opcache.force_restart_timeout` is 0, and a value in `php.ini` replaces it. With a value above 0, OPcache can kill a worker whose request runs longer than this time during an OPcache restart, also during a reload. Keep the value 0.
 
 ### Writing status to the log
 

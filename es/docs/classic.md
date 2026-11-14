@@ -15,7 +15,7 @@ Los objetos y los datos de una petición no pueden afectar a una petición poste
 
 La aplicación inicializa el autoloader, la configuración, el contenedor y las rutas en cada petición. Consulta [modos de ejecución](/es/docs/execution-modes) para más información.
 
-Cada worker usa el directorio del script de entrada como directorio de trabajo. El cambio que hace `chdir()` en una petición se mantiene para las peticiones posteriores del mismo worker, hasta que el worker termina. Si una petición cambia el directorio de trabajo, restáuralo antes de que termine la petición.
+Cada worker usa el directorio del script de entrada como directorio de trabajo. El worker resuelve los enlaces simbólicos de la ruta del script de entrada y establece este directorio cuando arranca y en cada recarga. El cambio que hace `chdir()` en una petición se mantiene para las peticiones posteriores del mismo worker, hasta la siguiente recarga. Si una petición cambia el directorio de trabajo, restáuralo antes de que termine la petición.
 
 Rapira no proporciona la función `fastcgi_finish_request()` de php-fpm. Usa `rapira_finish_request()` para enviar la respuesta antes de que termine el script. Consulta [HTTP](/es/docs/http) para más información.
 
@@ -67,6 +67,19 @@ La tabla `[http.uploads]` solo se aplica al modo Dispatcher. Rapira no arranca s
 Cada petición PHP elimina el estado de la aplicación. OPcache conserva el bytecode compilado entre peticiones. El proceso maestro inicia PHP antes de crear los workers, así que todos los workers usan el mismo segmento de memoria compartida de OPcache. Con OPcache activado, las peticiones posteriores usan el bytecode almacenado, y PHP no vuelve a compilar los scripts que no cambian. Consulta [puesta en producción](/es/docs/deployment) para configurar OPcache.
 
 Cada worker procesa una petición a la vez. `http.pool.processes` establece el número de workers, que también es el máximo de peticiones simultáneas. Consulta el [modelo de procesos](/es/docs/process-model) para más información.
+
+## Respuestas grandes
+
+Rapira mantiene la respuesta completa de un script Classic en la memoria del worker. Envía la respuesta cuando el script termina o cuando el script llama a `rapira_finish_request()`. La función `flush()` de PHP no envía datos al cliente.
+
+El worker necesita memoria para la respuesta completa. Mientras el cuerpo crece, el worker puede usar hasta aproximadamente tres veces el tamaño de la respuesta. El worker mantiene la respuesta en memoria hasta que el cliente la recibe, y puede empezar la siguiente petición durante ese tiempo. Por tanto, una descarga de 600 MB usa más de 600 MB de memoria en un worker. Cuando el cuerpo almacenado supera 1 GiB, Rapira detiene la petición y el cliente recibe una respuesta incompleta.
+
+Para archivos grandes y flujos largos, usa una de estas alternativas:
+
+- [Modo Dispatcher](/es/docs/dispatcher). `Exchange::writeBody()` con `$eos = false` envía cada parte cuando el script la escribe. `Exchange::sendFile()` envía un archivo desde el disco, y el worker no mantiene el archivo en memoria. Consulta [Enviar un archivo](/es/docs/dispatcher#enviar-un-archivo).
+- Un proxy inverso que envía el archivo. El script define un campo de respuesta y no envía cuerpo, por ejemplo el campo [`X-Accel-Redirect`](https://nginx.org/en/docs/http/ngx_http_core_module.html#internal) de nginx. Rapira envía este campo al proxy sin cambios. El proxy lee el archivo y lo envía al cliente.
+
+Consulta [Transmisión de la respuesta](/es/docs/http#transmision-de-la-respuesta) para más información.
 
 ## Elegir entre Classic y Worker
 

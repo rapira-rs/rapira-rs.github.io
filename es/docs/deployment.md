@@ -75,7 +75,7 @@ En PHP 8.4, OPcache es un archivo `opcache.so` independiente. Cárgalo con una l
 
 Un `http.pool.entrypoint` relativo usa como base el **directorio del archivo de configuración**. Por tanto, `entrypoint = "index.php"` significa `/etc/rapira/index.php` en esta estructura. Usa una ruta absoluta para el script de entrada en producción. `supervisor.pidfile` usa la misma regla de resolución.
 
-Cada worker cambia su directorio de trabajo al directorio del script de entrada antes de ejecutar PHP. Las operaciones de archivos de PHP con rutas relativas usan ese directorio. PHP no busca `php.ini` en el directorio de trabajo, por lo que debes definir `PHPRC`. El ajuste `WorkingDirectory=` solo se aplica al maestro. El maestro lo usa como base para una ruta `CONFIG` relativa y para una ruta de escucha `unix:` relativa. Consulta [Configuración](/es/docs/configuration) para ver todas las claves y sus valores predeterminados.
+Cada vez que un worker arranca o reinicia su aplicación, resuelve los enlaces simbólicos de la ruta del script de entrada y entra en el directorio del script de entrada. Las operaciones de archivos de PHP con rutas relativas usan ese directorio. PHP no busca `php.ini` en el directorio de trabajo, por lo que debes definir `PHPRC`. El ajuste `WorkingDirectory=` solo se aplica al maestro. El maestro lo usa como base para una ruta `CONFIG` relativa y para una ruta de escucha `unix:` relativa. Consulta [Configuración](/es/docs/configuration) para ver todas las claves y sus valores predeterminados.
 
 ## Proxy inverso
 
@@ -121,8 +121,14 @@ Solo el maestro escribe el pidfile. Elimina el archivo durante una salida contro
 
 Las conexiones tienen un plazo de drenaje más corto: el tiempo límite de control menos el menor valor entre cinco segundos y la mitad de ese límite. El plazo predeterminado es de 25 segundos. Las respuestas que superen este plazo pueden interrumpirse durante la parada.
 
+Un despliegue puede poner cada versión de la aplicación en su propio directorio y cambiar un enlace simbólico de la ruta del script de entrada al directorio nuevo. Una recarga después del cambio mueve cada worker de cada pool a la versión nueva: el código, el directorio de trabajo y la raíz predeterminada de sendfile. Recarga Rapira inmediatamente después del cambio. Antes de la recarga, una aplicación que arranca por otra causa, por ejemplo después de `max_requests`, arranca en la versión nueva. Por tanto, el pool ejecuta dos versiones hasta la recarga.
+
+Una recarga vacía OPcache, así que también carga el código PHP nuevo cuando `opcache.validate_timestamps = 0`. Hasta que termina la petición más larga que estaba activa en el momento de la recarga, las peticiones se ejecutan sin OPcache y vuelven a compilar sus archivos. En los modos Worker y Dispatcher, la mayoría de los workers arrancan la aplicación dos veces, así que el código antes del bucle del worker se ejecuta dos veces.
+
 ::: warning Lo que una recarga no hace
-Una recarga reinicia las aplicaciones, pero no los procesos. El maestro conserva el binario de Rapira y los ajustes de `rapira.toml` y `php.ini`. También conserva el conjunto de descriptores de gRPC, el archivo de tokens de `[grpc.auth]` y la memoria compartida de OPcache. Reinicia Rapira después de cambiar uno de estos archivos. Reinícialo también cuando `opcache.validate_timestamps = 0`. Una recarga no sustituye los opcodes en caché con esta configuración.
+Una recarga reinicia las aplicaciones, pero no los procesos. El maestro conserva el binario de Rapira y los ajustes de `rapira.toml` y `php.ini`. También conserva el conjunto de descriptores de gRPC y el archivo de tokens de `[grpc.auth]`. Reinicia Rapira después de cambiar uno de estos archivos. Reinícialo también después de cambiar un archivo que carga `opcache.preload`. PHP carga estos archivos una vez, cuando arranca el maestro.
+
+Cuando `opcache.restrict_api` está definido, una recarga no vacía OPcache. Con este ajuste y `opcache.validate_timestamps = 0`, reinicia Rapira después de cada despliegue. Con este ajuste, una aplicación que arranca mientras un reinicio de OPcache está pendiente se ejecuta sin OPcache hasta su siguiente arranque.
 :::
 
 ## Registros

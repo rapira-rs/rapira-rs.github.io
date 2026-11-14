@@ -24,7 +24,7 @@ description: "框架 worker 循环、请求状态、常驻状态、错误处理�
 
 一个代码库可以使用两种模式。保留 `public/index.php`。将 `worker.php` 添加到项目根目录。`http.pool.mode` 选择执行模式，`http.pool.entrypoint` 选择脚本。如果 Worker 模式迁移失败，Classic 模式仍然可用。
 
-每个 worker 使用入口脚本所在目录作为工作目录。因此，`worker.php` 中的相对文件路径基于项目根目录解析。`public/index.php` 中的相对文件路径基于 `public/` 解析。PHP 代码中的 `chdir()` 调用保持有效，直到 worker 进程退出。
+每个 worker 使用入口脚本所在目录作为工作目录。因此，`worker.php` 中的相对文件路径基于项目根目录解析。`public/index.php` 中的相对文件路径基于 `public/` 解析。PHP 代码中的 `chdir()` 调用保持有效，直到下一次应用启动，例如重载或达到 `max_requests` 后的重启。在 Classic 模式下，它保持有效，直到下一次重载。
 
 ## Worker 循环
 
@@ -157,7 +157,7 @@ Rapira 在创建 worker 之前在 master 中启动一次 PHP。OPcache 创建一
 
 在 PHP 8.4 上，OPcache 是单独的 `opcache.so` 文件，需要在 `php.ini` 中添加 `zend_extension` 行。请参阅 [php.ini](/zh/docs/intro/installation#php-ini)。
 
-在生产环境中，`opcache.validate_timestamps = 0` 会删除每个请求的文件检查。此设置会阻止自动缓存失效。OPcache 段属于 master，并在 worker 替换期间保留。因此，部署需要完整重启。有关步骤，请参阅[生产环境部署](/zh/docs/deployment)。
+在生产环境中，`opcache.validate_timestamps = 0` 会删除每个请求的文件检查。此设置会阻止自动缓存失效。OPcache 段属于 master，并在 worker 替换期间保留。重载会清空缓存，因此部署后的重载会加载新代码。`opcache.preload` 加载的文件需要完整重启。有关步骤，请参阅[生产环境部署](/zh/docs/deployment)。
 
 在开发期间，常驻应用不会再次读取初始化代码。此行为与 OPcache 无关。更改 worker 脚本或已初始化服务后，按 Ctrl-C。然后再次运行 `rapira serve rapira.toml`。
 

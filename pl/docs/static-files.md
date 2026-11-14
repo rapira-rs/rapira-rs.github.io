@@ -90,7 +90,7 @@ Każdy proces workera przechowuje w pamięci pliki, które serwuje. Cache nie je
 - Cache nie przechowuje pliku większego niż 256 KiB. Taki plik przy każdym żądaniu idzie strumieniem z dysku.
 - Każdy worker przechowuje najwyżej 16 MiB. Dlatego cache może użyć 16 MiB pamięci na każdy proces z `http.pool.processes`.
 
-Po jednej sekundzie następne żądanie pliku wykonuje na nim `stat`. Worker zachowuje wpis, gdy czas modyfikacji i długość są takie same. W przeciwnym razie odczytuje plik ponownie. Rapira przestaje serwować usunięty plik najpóźniej po jednej sekundzie.
+Po jednej sekundzie następne żądanie pliku wykonuje na nim `stat`. Worker zachowuje wpis, gdy numer urządzenia, numer i-węzła, czas modyfikacji i długość są takie same. W przeciwnym razie odczytuje plik ponownie. Rapira przestaje serwować usunięty plik najpóźniej po jednej sekundzie.
 
 Pełny cache nadal serwuje swoje wpisy. Najpierw usuwa wygasłe wpisy. Jeśli nadal jest pełny, nie zapisuje nowego pliku.
 
@@ -99,5 +99,5 @@ Nowy proces workera zaczyna z pustym cache'em. Dlatego wymiana workera lub resta
 Katalog główny musi używać lokalnego nośnika. Middleware wykonuje `stat` i `open` w wątku, który obsługuje żądania. Wolny system plików opóźnia inne połączenia w tym workerze.
 
 ::: question Dlaczego cache nie wykrywa mojego zmienionego pliku?
-Cache porównuje tylko czas modyfikacji i długość pliku. `ETag` zawiera te same wartości. Cache nie wykrywa zastąpienia, które zachowuje obie wartości. Zmiana uprawnień też zachowuje wpis. Aby usunąć wpis, usuń plik, zmień jego czas modyfikacji lub uruchom Rapirę ponownie.
+Cache porównuje numer urządzenia, numer i-węzła, czas modyfikacji i długość pliku. Nie wykrywa zmiany pliku w miejscu, która zachowuje czas modyfikacji i długość. `ETag` zawiera tylko czas modyfikacji i długość. Gdy zmiana nazwy zastępuje plik nowym plikiem o tych samych dwóch wartościach, klient, który sprawdza aktualność swojej kopii, zachowuje starą kopię. Zmiana uprawnień też zachowuje wpis. Aby usunąć wpis, usuń plik, zmień jego czas modyfikacji lub uruchom Rapirę ponownie.
 :::

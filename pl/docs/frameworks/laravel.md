@@ -186,7 +186,7 @@ max_requests = 500
 
 `max_requests` uruchamia ponownie aplikację po losowej liczbie żądań większej niż ta wartość, ale nie większej niż 1,5 tej wartości. Ogranicza wpływ wycieku pamięci, ale go nie naprawia. Zobacz [Model procesów](/pl/docs/process-model).
 
-W trybach Worker i Dispatcher kod aplikacji pozostaje w pamięci. Po wdrożeniu wyślij `SIGUSR2` do procesu nadrzędnego, aby uruchomić ponownie aplikacje. Przy `opcache.validate_timestamps = 0` zamiast tego uruchom Rapirę ponownie. Zobacz [Wdrożenie produkcyjne](/pl/docs/deployment).
+W trybach Worker i Dispatcher kod aplikacji pozostaje w pamięci. Po wdrożeniu wyślij `SIGUSR2` do procesu nadrzędnego, aby uruchomić ponownie aplikacje. To przeładowanie opróżnia OPcache, więc wczytuje nowy kod także przy `opcache.validate_timestamps = 0`. Uruchom Rapirę ponownie po zmianie pliku, który wczytuje `opcache.preload`. Zobacz [Wdrożenie produkcyjne](/pl/docs/deployment).
 
 ## Programowanie
 

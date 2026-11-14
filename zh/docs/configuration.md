@@ -126,7 +126,7 @@ http = "warn"
 
 ### `[http.sendfile]` 表
 
-sendfile 根目录是 `sendFile()` 可以读取的目录。Rapira 把根目录和请求的路径解析为规范路径。它拒绝根目录之外的路径。
+sendfile 根目录是 `sendFile()` 可以读取的目录。Rapira 把根目录和请求的路径解析为规范路径。它拒绝根目录之外的路径。Rapira 在每个应用实例第一次调用 `sendFile()` 时为该实例解析根目录。因此，根目录会在下一次应用启动时（例如重载）跟随符号链接的切换。
 
 `sendFile()` 是 `Rapira\Http\Exchange` 的方法。只有 Dispatcher 模式把 exchange 交给脚本。因此，此表只影响 Dispatcher 模式。Classic 和 Worker 模式接受此表，但不使用它。
 
@@ -134,7 +134,7 @@ sendfile 根目录是 `sendFile()` 可以读取的目录。Rapira 把根目录�
 | --- | --- | --- | --- |
 | `root` | 字符串 | `http.pool.entrypoint` 所在的目录 | `sendFile()` 唯一可以读取的目录。相对路径按配置文件所在的目录解析。 |
 
-如果启动时根目录不存在，Rapira 记录一条警告，`sendFile()` 拒绝所有路径。请在启动服务器之前创建此目录。
+如果应用实例第一次调用 `sendFile()` 时根目录不存在，Rapira 记录一条警告。随后，`sendFile()` 在该应用实例中拒绝所有路径。稍后创建的根目录在下一次应用启动后生效，例如重载后。请在启动服务器之前创建此目录。
 
 ### `[http.uploads]` 表
 

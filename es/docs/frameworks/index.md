@@ -24,7 +24,7 @@ Las pruebas ejecutaron estas aplicaciones en Linux con un proceso worker. Las af
 
 Un código base puede usar ambos modos. Conserva `public/index.php`. Añade `worker.php` a la raíz del proyecto. `http.pool.mode` selecciona el modo de ejecución y `http.pool.entrypoint` selecciona el script. El modo Classic sigue disponible si falla la migración al modo Worker.
 
-Cada worker usa el directorio de su script de entrada como directorio de trabajo. Por tanto, las rutas de archivo relativas en `worker.php` se resuelven respecto a la raíz del proyecto. Las rutas de archivo relativas en `public/index.php` se resuelven respecto a `public/`. Una llamada a `chdir()` en el código PHP permanece en vigor hasta que el proceso worker termina.
+Cada worker usa el directorio de su script de entrada como directorio de trabajo. Por tanto, las rutas de archivo relativas en `worker.php` se resuelven respecto a la raíz del proyecto. Las rutas de archivo relativas en `public/index.php` se resuelven respecto a `public/`. Una llamada a `chdir()` en el código PHP permanece en vigor hasta el siguiente arranque de la aplicación, por ejemplo una recarga o un reinicio después de `max_requests`. En el modo Classic, permanece en vigor hasta la siguiente recarga.
 
 ## Bucle de Worker
 
@@ -157,7 +157,7 @@ Rapira inicia PHP una vez en el maestro antes de crear workers. OPcache crea un 
 
 En PHP 8.4, OPcache es un archivo `opcache.so` separado que necesita una línea `zend_extension` en `php.ini`. Consulta [php.ini](/es/docs/intro/installation#php-ini).
 
-En producción, `opcache.validate_timestamps = 0` elimina la comprobación de archivos de cada petición. Este ajuste impide la invalidación automática de la caché. El segmento de OPcache pertenece al maestro y permanece durante la sustitución de workers. Por tanto, un despliegue requiere un reinicio completo. Consulta [En producción](/es/docs/deployment) para ver la secuencia.
+En producción, `opcache.validate_timestamps = 0` elimina la comprobación de archivos de cada petición. Este ajuste impide la invalidación automática de la caché. El segmento de OPcache pertenece al maestro y permanece durante la sustitución de workers. Una recarga vacía la caché, así que una recarga después de un despliegue carga el código nuevo. Los archivos que carga `opcache.preload` necesitan un reinicio completo. Consulta [En producción](/es/docs/deployment) para ver la secuencia.
 
 Durante el desarrollo, una aplicación persistente no vuelve a leer su código de inicialización. Este comportamiento no depende de OPcache. Después de cambiar el script del worker o los servicios iniciados, pulsa Ctrl-C. Después, vuelve a ejecutar `rapira serve rapira.toml`.
 

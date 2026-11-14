@@ -164,7 +164,7 @@ Rapira devuelve `400` para un cuerpo mal formado. Devuelve `413` cuando el cuerp
 
 ## Enviar un archivo
 
-`sendFile()` lee solo archivos dentro de la raíz de sendfile. La raíz predeterminada es el directorio de `http.pool.entrypoint`. Rapira resuelve los enlaces simbólicos antes de comparar la ruta con la raíz. Consulta [La tabla `[http.sendfile]`](/es/docs/configuration#la-tabla-http-sendfile) para establecer la raíz.
+`sendFile()` lee solo archivos dentro de la raíz de sendfile. La raíz predeterminada es el directorio de `http.pool.entrypoint`. Rapira resuelve los enlaces simbólicos antes de comparar la ruta con la raíz. Resuelve la raíz otra vez para cada instancia de la aplicación, así que la raíz sigue un cambio de enlace simbólico en el siguiente arranque de la aplicación. Consulta [La tabla `[http.sendfile]`](/es/docs/configuration#la-tabla-http-sendfile) para establecer la raíz.
 
 El host abre el archivo. PHP `open_basedir` no restringe esta operación. La raíz de sendfile configurada restringe la ruta.
 

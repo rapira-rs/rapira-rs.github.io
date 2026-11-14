@@ -126,7 +126,7 @@ Pamięć podręczną plików i inne szczegóły opisuje strona [Pliki statyczne]
 
 ### Tabela `[http.sendfile]`
 
-Katalog sendfile to katalog, który `sendFile()` może czytać. Rapira sprowadza ten katalog i żądaną ścieżkę do ścieżek kanonicznych. Odrzuca ścieżkę spoza tego katalogu.
+Katalog sendfile to katalog, który `sendFile()` może czytać. Rapira sprowadza ten katalog i żądaną ścieżkę do ścieżek kanonicznych. Odrzuca ścieżkę spoza tego katalogu. Rapira sprowadza ten katalog do ścieżki kanonicznej osobno dla każdej instancji aplikacji, przy pierwszym wywołaniu `sendFile()` w tej instancji. Dlatego katalog podąża za przełączeniem dowiązania symbolicznego przy następnym starcie aplikacji, na przykład przy przeładowaniu.
 
 `sendFile()` jest metodą `Rapira\Http\Exchange`. Tylko tryb Dispatcher przekazuje skryptowi obiekt wymiany. Dlatego ta tabela dotyczy tylko trybu Dispatcher. Tryby Classic i Worker przyjmują ją, ale jej nie używają.
 
@@ -134,7 +134,7 @@ Katalog sendfile to katalog, który `sendFile()` może czytać. Rapira sprowadza
 | --- | --- | --- | --- |
 | `root` | tekst | katalog `http.pool.entrypoint` | Jedyny katalog, który `sendFile()` może czytać. Ścieżka względna używa katalogu pliku konfiguracyjnego jako podstawy. |
 
-Jeśli katalog nie istnieje przy starcie, Rapira zapisuje ostrzeżenie w logu, a `sendFile()` odrzuca każdą ścieżkę. Utwórz katalog, zanim uruchomisz serwer.
+Jeśli katalog nie istnieje przy pierwszym wywołaniu `sendFile()` w instancji aplikacji, Rapira zapisuje ostrzeżenie w logu. `sendFile()` odrzuca wtedy każdą ścieżkę w tej instancji. Katalog utworzony później działa po następnym starcie aplikacji, na przykład po przeładowaniu. Utwórz katalog, zanim uruchomisz serwer.
 
 ### Tabela `[http.uploads]`
 

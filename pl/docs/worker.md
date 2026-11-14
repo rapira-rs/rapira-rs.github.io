@@ -62,7 +62,7 @@ Pozostałe klucze opisuje [Konfiguracja](/pl/docs/configuration).
 - **Zwraca `true`** po każdym żądaniu. Zwraca `false`, gdy worker zaczyna się zatrzymywać lub uruchamia aplikację ponownie. Zakończ pętlę i skrypt, gdy funkcja zwróci `false`.
 - **Wywołuj ją tylko z pętli najwyższego poziomu skryptu.** Wywołanie z wnętrza handlera rzuca `\Error`. Nie wywołuj jej z funkcji shutdown ani z destruktora.
 
-Żądanie w trybie Worker odpowiada jednej iteracji pętli `while`. Przed każdym wywołaniem handlera Rapira ponownie wypełnia zmienne superglobalne. Po wywołaniu Rapira uruchamia funkcje shutdown żądania, opróżnia bufory wyjścia i zamyka sesję. Wartości, które skrypt przechowuje poza handlerem, pozostają w pamięci.
+Żądanie w trybie Worker odpowiada jednej iteracji pętli `while`. Przed każdym wywołaniem handlera Rapira ponownie wypełnia zmienne superglobalne. Po wywołaniu Rapira uruchamia funkcje shutdown żądania, opróżnia bufory wyjścia i zamyka sesję. Rapira wysyła odpowiedź po tych krokach. Wartości, które skrypt przechowuje poza handlerem, pozostają w pamięci.
 
 Przed pierwszym wywołaniem `handle_request()` `$_SERVER` zawiera środowisko procesu i ścieżkę skryptu wejściowego, tak jak pod PHP CLI. Pełną listę zawierają [Tryby wykonania](/pl/docs/execution-modes).
 
@@ -86,6 +86,8 @@ Obiekty utworzone **poza** handlerem pozostają do końca cyklu workera. Przykł
 Wartości utworzone **wewnątrz** handlera należą do jednego żądania. PHP zwalnia je po powrocie handlera i usunięciu ostatnich referencji.
 
 Skrypt workera określa czas życia stanu. Umieść stan aplikacji przed pętlą. Umieść stan żądania w handlerze albo wyzeruj go przed następnym żądaniem.
+
+Otwieraj `php://input` wewnątrz handlera w każdym żądaniu. Strumień `php://input` otwarty we wcześniejszym żądaniu lub podczas inicjalizacji może zwrócić treść późniejszego żądania albo zakończyć proces workera.
 
 ::: warning
 Stan globalny również pozostaje między żądaniami. Przykłady to właściwości statyczne, singletony, rejestry i zmiany `ini_set()`. php-fpm odrzuca te wartości na końcu każdego żądania. Worker Rapiry je zachowuje.
@@ -121,6 +123,21 @@ Obiekty używają innej reguły. Rapira nie uruchamia wszystkich destruktorów n
 ::: question Dlaczego funkcja shutdown z inicjalizacji nie uruchamia się po pierwszym żądaniu?
 PHP przechowuje funkcje shutdown w stanie żądania. Zamknięcie żądania wywołuje funkcje, a następnie zwalnia listę. Przy pierwszym wywołaniu `handle_request()` Rapira usuwa i zapisuje rejestracje inicjalizacji, więc każde żądanie ma tylko własne rejestracje. Na końcu cyklu Rapira przywraca zapisaną listę i dodaje rejestracje utworzone po pętli.
 :::
+
+Wyjątek z funkcji shutdown żądania jest nieprzechwyconym wyjątkiem, więc otrzymuje go callback zarejestrowany przez `set_exception_handler()`. Jeśli żaden callback nie obsłuży wyjątku, Rapira zapisuje rekord logu z błędem i zwraca `500`. Jeśli wysyłanie już się rozpoczęło, Rapira zamiast tego ucina odpowiedź. Pętla działa dalej, ale PHP nie uruchamia późniejszych funkcji shutdown tego żądania.
+
+## Duże odpowiedzi
+
+Rapira przechowuje pełną odpowiedź handlera w trybie Worker w pamięci workera. Wysyła odpowiedź po powrocie handlera lub gdy handler wywoła `rapira_finish_request()`. Funkcja PHP `flush()` nie wysyła danych do klienta.
+
+Worker potrzebuje pamięci na pełną odpowiedź. Gdy treść rośnie, worker może użyć do około trzykrotności rozmiaru odpowiedzi. Worker przechowuje odpowiedź w pamięci, dopóki klient jej nie odbierze, i w tym czasie może rozpocząć następne żądanie. Dlatego pobieranie 600 MB zajmuje ponad 600 MB pamięci w jednym workerze. Gdy buforowana treść przekroczy 1 GiB, Rapira zatrzymuje żądanie, a klient otrzymuje niekompletną odpowiedź.
+
+Dla dużych plików i długich strumieni użyj jednej z tych możliwości:
+
+- [Tryb Dispatcher](/pl/docs/dispatcher). `Exchange::writeBody()` z `$eos = false` wysyła każdą część, gdy skrypt ją zapisze. `Exchange::sendFile()` wysyła plik z dysku, a worker nie przechowuje pliku w pamięci. Zobacz [Wysyłanie pliku](/pl/docs/dispatcher#wysyłanie-pliku).
+- Reverse proxy, które wysyła plik. Handler ustawia pole odpowiedzi i nie wysyła treści, na przykład pole [`X-Accel-Redirect`](https://nginx.org/en/docs/http/ngx_http_core_module.html#internal) serwera nginx. Rapira przekazuje to pole do proxy bez zmian. Proxy czyta plik i wysyła go do klienta.
+
+Więcej informacji zawiera [Przesyłanie odpowiedzi](/pl/docs/http#przesyłanie-odpowiedzi).
 
 ## Tylko w trybie Worker
 

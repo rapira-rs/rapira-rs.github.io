@@ -75,7 +75,7 @@ On PHP 8.4, OPcache is a separate `opcache.so` file. Load it with a `zend_extens
 
 A relative `http.pool.entrypoint` uses the **configuration file directory** as its base. In this layout, `entrypoint = "index.php"` means `/etc/rapira/index.php`. Use an absolute entry point path in production. `supervisor.pidfile` uses the same resolution rule.
 
-Each worker changes its working directory to the directory of the entry point before it runs PHP. PHP file operations with relative paths use that directory. PHP does not search the working directory for `php.ini`, so set `PHPRC`. The `WorkingDirectory=` setting applies only to the master. The master uses it as the base for a relative `CONFIG` path and a relative `unix:` listen path. See [Configuration](/docs/configuration) for all keys and defaults.
+Each time a worker starts or restarts its app, it resolves the symbolic links in the entry point path and enters the entry point directory. PHP file operations with relative paths use that directory. PHP does not search the working directory for `php.ini`, so set `PHPRC`. The `WorkingDirectory=` setting applies only to the master. The master uses it as the base for a relative `CONFIG` path and a relative `unix:` listen path. See [Configuration](/docs/configuration) for all keys and defaults.
 
 ## Reverse proxy
 
@@ -121,8 +121,14 @@ Only the master writes the pidfile. It removes the file during a controlled exit
 
 Connections have a shorter drain budget: the control timeout minus the smaller of five seconds or half the timeout. The default budget is 25 seconds. Responses that exceed this budget can be cut short during shutdown.
 
+A deployment can put each application version in its own directory and switch a symbolic link in the entry point path to the new directory. A reload after the switch moves every worker of every pool to the new version: the code, the working directory, and the default sendfile root. Reload Rapira immediately after the switch. Before the reload, an app that starts for another cause, for example after `max_requests`, starts in the new version. Thus, the pool runs two versions until the reload.
+
+A reload empties OPcache, so it also loads the new PHP code when `opcache.validate_timestamps = 0`. Until the longest request that was active at the reload ends, requests run without OPcache and compile their files again. In Worker and Dispatcher modes, most workers start the app two times, so the code before the worker loop runs two times.
+
 ::: warning What a reload does not do
-A reload restarts the apps but not the processes. The master keeps the Rapira binary and the settings from `rapira.toml` and `php.ini`. It also keeps the gRPC descriptor set, the `[grpc.auth]` tokens file, and the OPcache shared memory. Restart Rapira after you change one of these files. Also restart it when `opcache.validate_timestamps = 0`. A reload does not replace the cached opcodes in this configuration.
+A reload restarts the apps but not the processes. The master keeps the Rapira binary and the settings from `rapira.toml` and `php.ini`. It also keeps the gRPC descriptor set and the `[grpc.auth]` tokens file. Restart Rapira after you change one of these files. Also restart it after you change a file that `opcache.preload` loads. PHP loads these files one time, when the master starts.
+
+When `opcache.restrict_api` is set, a reload does not empty OPcache. With this setting and `opcache.validate_timestamps = 0`, restart Rapira after each deployment. With this setting, an app that starts while an OPcache restart is pending runs without OPcache until its next start.
 :::
 
 ## Logs

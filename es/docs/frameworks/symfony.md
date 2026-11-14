@@ -179,7 +179,7 @@ Inicia el servidor con `APP_ENV=prod`:
 APP_ENV=prod rapira serve rapira.toml
 ```
 
-Después de un despliegue, envía `SIGUSR2` al maestro para reiniciar las aplicaciones. Con `opcache.validate_timestamps = 0`, reinicia Rapira. Consulta [En producción](/es/docs/deployment).
+Después de un despliegue, envía `SIGUSR2` al maestro para reiniciar las aplicaciones. Esta recarga vacía OPcache, así que carga el código nuevo también cuando `opcache.validate_timestamps = 0`. Reinicia Rapira después de cambiar un archivo que carga `opcache.preload`. Consulta [En producción](/es/docs/deployment).
 
 ## Reinicio del estado entre peticiones
 

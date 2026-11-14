@@ -164,7 +164,7 @@ Rapira returns `400` for a malformed body. It returns `413` when the body exceed
 
 ## Send a file
 
-`sendFile()` reads only files below the sendfile root. The default root is the directory of `http.pool.entrypoint`. Rapira resolves symbolic links before it compares the path with the root. See [The `[http.sendfile]` table](/docs/configuration#the-http-sendfile-table) to set the root.
+`sendFile()` reads only files below the sendfile root. The default root is the directory of `http.pool.entrypoint`. Rapira resolves symbolic links before it compares the path with the root. It resolves the root again for each app instance, so the root follows a symbolic link switch at the next app start. See [The `[http.sendfile]` table](/docs/configuration#the-http-sendfile-table) to set the root.
 
 The host opens the file. PHP `open_basedir` does not restrict this operation. The configured sendfile root restricts the path.
 

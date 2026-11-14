@@ -75,7 +75,7 @@ W PHP 8.4 OPcache jest osobnym plikiem `opcache.so`. Załaduj go wierszem `zend_
 
 Względny `http.pool.entrypoint` używa **katalogu pliku konfiguracyjnego** jako podstawy. Dlatego `entrypoint = "index.php"` w tym układzie oznacza `/etc/rapira/index.php`. W środowisku produkcyjnym użyj bezwzględnej ścieżki skryptu wejściowego. `supervisor.pidfile` używa tej samej reguły.
 
-Każdy worker zmienia katalog roboczy na katalog skryptu wejściowego, zanim uruchomi PHP. Operacje PHP na plikach ze ścieżkami względnymi używają tego katalogu. PHP nie szuka `php.ini` w katalogu roboczym, dlatego ustaw `PHPRC`. Ustawienie `WorkingDirectory=` dotyczy tylko procesu nadrzędnego. Proces nadrzędny używa go jako podstawy dla względnej ścieżki `CONFIG` i względnej ścieżki nasłuchu `unix:`. Wszystkie klucze i wartości domyślne zawiera [Konfiguracja](/pl/docs/configuration).
+Za każdym razem, gdy worker uruchamia aplikację lub uruchamia ją ponownie, rozwiązuje dowiązania symboliczne w ścieżce skryptu wejściowego i przechodzi do katalogu skryptu wejściowego. Operacje PHP na plikach ze ścieżkami względnymi używają tego katalogu. PHP nie szuka `php.ini` w katalogu roboczym, dlatego ustaw `PHPRC`. Ustawienie `WorkingDirectory=` dotyczy tylko procesu nadrzędnego. Proces nadrzędny używa go jako podstawy dla względnej ścieżki `CONFIG` i względnej ścieżki nasłuchu `unix:`. Wszystkie klucze i wartości domyślne zawiera [Konfiguracja](/pl/docs/configuration).
 
 ## Reverse proxy
 
@@ -121,8 +121,14 @@ Tylko proces nadrzędny zapisuje pidfile. Usuwa go podczas kontrolowanego zakoń
 
 Połączenia mają krótszy czas na zakończenie: limit sterowania pomniejszony o mniejszą z wartości: pięć sekund lub połowę limitu. Domyślnie jest to 25 sekund. Odpowiedzi, które przekroczą ten czas, mogą zostać przerwane podczas zatrzymywania.
 
+Wdrożenie może umieścić każdą wersję aplikacji w osobnym katalogu i przełączyć dowiązanie symboliczne w ścieżce skryptu wejściowego na nowy katalog. Przeładowanie po przełączeniu przenosi każdego workera każdej puli do nowej wersji: kod, katalog roboczy i domyślny katalog główny sendfile. Przeładuj Rapirę natychmiast po przełączeniu. Przed przeładowaniem aplikacja, która uruchamia się z innego powodu, na przykład po `max_requests`, uruchamia się w nowej wersji. Dlatego pula działa w dwóch wersjach aż do przeładowania.
+
+Przeładowanie opróżnia OPcache, więc wczytuje nowy kod PHP także przy `opcache.validate_timestamps = 0`. Dopóki nie zakończy się najdłuższe żądanie, które było aktywne w chwili przeładowania, żądania działają bez OPcache i ponownie kompilują swoje pliki. W trybach Worker i Dispatcher większość workerów uruchamia aplikację dwa razy, więc kod przed pętlą workera działa dwa razy.
+
 ::: warning Czego przeładowanie nie zmienia
-Przeładowanie uruchamia ponownie aplikacje, ale nie procesy. Proces nadrzędny zachowuje plik binarny Rapiry oraz ustawienia z `rapira.toml` i `php.ini`. Zachowuje też zbiór deskryptorów gRPC, plik tokenów `[grpc.auth]` i pamięć współdzieloną OPcache. Uruchom Rapirę ponownie po zmianie jednego z tych plików. Uruchom ją ponownie także przy `opcache.validate_timestamps = 0`. W tej konfiguracji przeładowanie nie zastępuje zapisanych kodów operacji.
+Przeładowanie uruchamia ponownie aplikacje, ale nie procesy. Proces nadrzędny zachowuje plik binarny Rapiry oraz ustawienia z `rapira.toml` i `php.ini`. Zachowuje też zbiór deskryptorów gRPC i plik tokenów `[grpc.auth]`. Uruchom Rapirę ponownie po zmianie jednego z tych plików. Uruchom ją ponownie także po zmianie pliku, który wczytuje `opcache.preload`. PHP wczytuje te pliki jeden raz, przy starcie procesu nadrzędnego.
+
+Gdy ustawiono `opcache.restrict_api`, przeładowanie nie opróżnia OPcache. Przy tym ustawieniu i `opcache.validate_timestamps = 0` uruchom Rapirę ponownie po każdym wdrożeniu. Przy tym ustawieniu aplikacja, która uruchamia się, gdy ponowne uruchomienie OPcache czeka na wykonanie, działa bez OPcache do swojego następnego startu.
 :::
 
 ## Logi

@@ -129,7 +129,7 @@ El servidor HTTP envía una respuesta de error cuando una petición no llega a P
 
 Rapira envía estos estados sin los dos campos:
 
-- `503` cuando un worker no puede iniciar su script de entrada. Después de cada inicio fallido, el worker responde a una petición en cola con este estado.
+- `503` cuando un worker no puede iniciar su script de entrada. Durante la espera antes del siguiente inicio, el worker responde a cada petición con este estado.
 - `502` cuando PHP establece un estado final menor que `200`, como `101`.
 - `500` cuando un script de Dispatcher libera un exchange antes de que Rapira envíe las cabeceras de la respuesta.
 

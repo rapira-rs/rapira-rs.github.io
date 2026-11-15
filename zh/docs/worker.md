@@ -162,7 +162,7 @@ if (\Rapira\get_mode() === \Rapira\Mode::Worker) {
 
 **无法完成的请求。**当前请求运行时，worker 无法处理其他请求。`http.pool.request_terminate_timeout_secs` 限制一个请求从开始到结束的总时间。请求超过此限制时，Rapira 停止该 worker 并启动新的 worker。有关此键和 `http.pool.max_requests`，请参阅[配置](/zh/docs/configuration)。有关停止顺序，请参阅[进程模型](/zh/docs/process-model)。
 
-**初始化失败。**worker 脚本必须调用 `handle_request()` 并收到请求。初始化期间未捕获的异常可能在此之前结束脚本。Rapira 将此计为一次启动失败。然后 worker 等待，在等待期间以 `503` 回答每个请求，并再次运行脚本。等待时间从 100 ms 开始，每次连续启动失败后翻倍，最大为 5 秒。
+**初始化失败。**worker 脚本必须调用 `handle_request()` 并收到请求。初始化期间未捕获的异常可能在此之前结束脚本。Rapira 将此计为一次启动失败。然后 worker 等待，在等待期间以 `503` 回答每个请求，并再次运行脚本。等待时间从 500 ms 开始，每次连续启动失败后翻倍，最大为 5 秒。
 
 连续 `http.pool.max_failures` 次（默认 5 次）启动失败后，Rapira 记录 `worker keeps failing to boot; flagged unhealthy`，worker 退出。使用 `max_failures = 0` 时，worker 没有限制。master 在延迟后启动新的 worker。服务器启动时，如果进程池中没有 worker 完成启动或处理过请求，服务器改为以[退出码](/zh/docs/cli#退出码) 70 停止。有关 worker 监管，请参阅[进程模型](/zh/docs/process-model)。
 

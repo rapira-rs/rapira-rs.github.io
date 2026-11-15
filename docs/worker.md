@@ -162,7 +162,7 @@ Reset this state at the start or end of the handler. Also reset request state in
 
 **Requests that do not finish.** A worker cannot handle another request while its current request runs. `http.pool.request_terminate_timeout_secs` limits the elapsed time of one request. When a request exceeds the limit, Rapira stops the worker and starts a new one. See [Configuration](/docs/configuration) for this key and `http.pool.max_requests`. See [Process model](/docs/process-model) for the stop sequence.
 
-**Initialization fails.** The worker script must call `handle_request()` and receive a request. An uncaught exception during initialization can end the script before that. Rapira counts this as a failed boot. The worker then waits, answers each request with `503` during the wait, and runs the script again. The wait starts at 100 ms, doubles after each failed boot in sequence, and stops at 5 seconds.
+**Initialization fails.** The worker script must call `handle_request()` and receive a request. An uncaught exception during initialization can end the script before that. Rapira counts this as a failed boot. The worker then waits, answers each request with `503` during the wait, and runs the script again. The wait starts at 500 ms, doubles after each failed boot in sequence, and stops at 5 seconds.
 
 After `http.pool.max_failures` failed boots in sequence, 5 by default, Rapira logs `worker keeps failing to boot; flagged unhealthy`, and the worker exits. With `max_failures = 0`, the worker has no limit. The master starts a new worker after a delay. At server start, if no worker of the pool has booted or served a request, the server stops with [exit code](/docs/cli#exit-codes) 70 instead. See [Process model](/docs/process-model) for worker supervision.
 

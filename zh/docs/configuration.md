@@ -57,6 +57,9 @@ max_memory_mb = 0                     # Replaces a worker when its RSS exceeds t
 max_boot_failures = 5                 # Stops a worker after this count of consecutive boot failures. Zero disables the limit.
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
 
+[http.pool.env]                       # Optional. Sets environment variables for each worker of the pool.
+APP_ENV = "prod"
+
 [grpc]
 listen = "127.0.0.1:50051"
 descriptor_set = "api.binpb"          # Required. A FileDescriptorSet with its imports.
@@ -168,6 +171,25 @@ worker 运行 PHP。此表定义它们运行什么、运行多少个，以及 ma
 | `max_memory_mb` | 整数 | `0` | 一个 worker 进程的常驻内存（RSS）限制，单位 MiB。master 每秒检查一次每个 worker 的 RSS。master 平稳地停止超过限制的 worker，并启动一个新 worker。此键适用于所有模式。`0` 禁用此限制。请参阅[生产环境部署](/zh/docs/deployment)。 |
 | `max_boot_failures` | 整数 | `5` | Worker 和 Dispatcher 模式下一个 worker 的连续启动失败次数限制。达到限制后，worker 以不健康状态退出。一次成功的启动会重置计数。Classic 模式忽略此键。`0` 禁用此限制。请参阅[进程模型](/zh/docs/process-model#监管)。 |
 | `request_terminate_timeout_secs` | 整数 | `0` | 单个请求的墙钟时间上限。Rapira 终止并替换超过此上限的 worker。`0` 禁用此检查。 |
+| `[http.pool.env]` | 名称 → 字符串的表 | 空 | 进程池中每个 worker 的环境变量。请参阅 [`[http.pool.env]` 表](#http-pool-env)。 |
+
+### `[http.pool.env]` 表 {#http-pool-env}
+
+此可选表为 HTTP 进程池的每个 worker 设置环境变量。每个键是一个变量名，每个值是一个字符串。其他类型的值（例如整数）会阻止初始化。Rapira 不会展开值中的 `$VAR` 或 `${VAR}`。
+
+```toml
+[http.pool.env]
+APP_ENV = "prod"
+APP_DEBUG = "0"
+```
+
+master 在启动时、fork 出 worker 之前检查此表。空名称、包含 `=` 或 NUL 的名称，以及包含 NUL 的值会阻止初始化。错误会标识该键。fork 之后，每个 worker 在其 PHP 线程启动之前，将这些变量设置到它的进程环境中。此表中的变量会替换同名的继承变量，worker 保留其他继承的变量。gRPC worker 不会获得这些变量，HTTP worker 也不会获得 `[grpc.pool.env]` 中的变量。
+
+`getenv()` 和[第一个请求之前的 `$_SERVER`](/zh/docs/execution-modes#第一个请求之前的-server) 会显示这些变量。只有当 `variables_order` 包含 `E` 时，`$_ENV` 才显示它们。PHP 启动的子进程（例如通过 `proc_open()` 或 `exec()` 启动的进程）会继承它们。
+
+在 Classic 和 Worker 模式下，每个请求的 `$_SERVER` 包含这些变量，不包含其他环境变量。同名的请求变量会替换此表中的变量。例如，设置 `SERVER_SOFTWARE = "x"` 时，请求得到 `$_SERVER['SERVER_SOFTWARE'] === 'Rapira'`，而 `getenv('SERVER_SOFTWARE')` 返回 `'x'`。在 Dispatcher 模式下，`$_SERVER` 保留第一个请求之前的值，因此它包含完整的进程环境。
+
+master 在 fork 出 worker 之前解析 `php.ini`，并运行一次 PHP 模块启动（`MINIT`）。因此，`php.ini` 中的 `${VAR}` 和在模块启动时读取变量的扩展看不到这些变量。在此表中，进程在启动时读取的变量（例如 `LD_PRELOAD` 或 `MIMALLOC_*`）不起作用。
 
 ## `[grpc]` 小节 {#grpc}
 
@@ -197,7 +219,7 @@ master 在 fork 出 worker 前加载描述符集。以下错误会阻止初始�
 
 ### `[grpc.pool]` 表 {#grpc-pool}
 
-此表使用 [HTTP 进程池的键和默认值](#http-pool)，且必须提供 `entrypoint` 并设置 `mode = "dispatcher"`。Classic 和 Worker 模式会被拒绝。worker 数量、回收和进程看门狗独立作用于此进程池。
+此表使用 [HTTP 进程池的键和默认值](#http-pool)，且必须提供 `entrypoint` 并设置 `mode = "dispatcher"`。Classic 和 Worker 模式会被拒绝。worker 数量、回收和进程看门狗独立作用于此进程池。`[grpc.pool.env]` 表设置 gRPC worker 的环境变量，规则与 [HTTP 进程池的 `env` 表](#http-pool-env)相同。
 
 HTTP 和 gRPC 可以同时运行。每个监听器使用自己的进程池和入口脚本。master 在启动时读取一次描述符集和令牌文件。请重启 Rapira 以加载更改后的文件。重载会保留旧的文件。
 
@@ -249,6 +271,8 @@ HTTP 和 gRPC 可以同时运行。每个监听器使用自己的进程池和入
 Rapira 只接受文档中的表和键。例如，`[htttp]` 或 `lissten = ":8000"` 会导致初始化失败。错误会标识未知名称。每个键属于一个表。例如，`max_requests` 属于 `[http.pool]`，`pidfile` 属于 `[supervisor]`。
 
 Rapira 还会验证值。它拒绝不支持的值，不会使用默认值替换。例如，它拒绝 `level = "verbose"` 和 `format = "pretty"`。worker 数量、请求体大小和上传上限必须至少为 1。每个 `*_secs` 键的范围是 1 到 `86400`。只有 `request_terminate_timeout_secs` 还接受 `0`。
+
+进程池的 `env` 表接受每个变量名作为键。Rapira 拒绝空名称、包含 `=` 或 NUL 的名称，以及包含 NUL 的值。
 
 ::: warning
 Rapira 只在启动时读取配置文件。使用 `SIGHUP` 或 `SIGUSR2` 重载时不会再次读取它。请重启 Rapira 以应用更改后的文件。

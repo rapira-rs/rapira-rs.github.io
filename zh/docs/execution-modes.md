@@ -44,7 +44,7 @@ worker 脚本和它的循环见 [Worker 模式](/zh/docs/worker)。请求与响�
 
 ## 第一个请求之前的 `$_SERVER`
 
-在 Worker 和 Dispatcher 模式下，入口脚本在第一个请求之前启动。此时，Rapira 按照 PHP CLI 执行 `php entrypoint.php` 时的方式填充 `$_SERVER`。
+在 Worker 和 Dispatcher 模式下，入口脚本在第一个请求之前启动。此时，Rapira 按照 PHP CLI 执行 `php entrypoint.php` 时的方式填充 `$_SERVER`。进程环境包含[进程池 `env` 表](/zh/docs/configuration#http-pool-env)中的变量。
 
 | 键 | 值 |
 | --- | --- |
@@ -57,7 +57,7 @@ worker 脚本和它的循环见 [Worker 模式](/zh/docs/worker)。请求与响�
 
 当 `variables_order` 包含 `S` 时，`$_SERVER` 获得环境变量。只有当 `variables_order` 包含 `E` 时，`$_ENV` 才获得环境变量。生产值 `GPCS` 不包含 `E`。入口脚本路径会替换同名的环境变量，例如 `SCRIPT_FILENAME`。全局变量 `$argv` 和 `$argc` 包含与 `$_SERVER` 相同的值。
 
-在 Dispatcher 模式下，`$_SERVER` 保留这些值，直到入口脚本再次启动。请求数据在请求对象中。在 Worker 模式下，Rapira 为每个请求用请求数据重新填充 `$_SERVER`。请求值不包含环境变量，`SCRIPT_NAME` 包含带前导斜杠的入口脚本名称。
+在 Dispatcher 模式下，`$_SERVER` 保留这些值，直到入口脚本再次启动。请求数据在请求对象中。在 Worker 模式下，Rapira 为每个请求用请求数据重新填充 `$_SERVER`。请求值包含[进程池 `env` 表](/zh/docs/configuration#http-pool-env)中的变量，不包含其他环境变量。`SCRIPT_NAME` 包含带前导斜杠的入口脚本名称。在 Classic 模式下，每个请求的 `$_SERVER` 也包含进程池 `env` 表中的变量，不包含其他环境变量。
 
 ## 在运行时读出模式
 

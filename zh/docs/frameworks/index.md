@@ -59,7 +59,7 @@ while (\Rapira\handle_request($handler)) {
 
 在 handler 内部，Rapira 将 `SCRIPT_NAME` 设置为 `/worker.php`，因为 `worker.php` 是入口脚本。`DOCUMENT_ROOT` 包含脚本目录。`REQUEST_URI` 包含客户端路径。Symfony 和 Yii3 使用这些值正确路由请求和生成 URL。生成的 URL 不包含 `worker.php`。集成其他框架前，请检查它是否使用 `SCRIPT_NAME` 而不是 `REQUEST_URI` 生成 URL。
 
-在第一个请求之前，`$_SERVER` 包含进程环境。此时，`SCRIPT_NAME` 包含脚本的绝对路径，`DOCUMENT_ROOT` 为空。请求的 `$_SERVER` 不包含进程环境。请在循环前读取环境变量，或者在 handler 中使用 `getenv()`。不要在循环前根据 `$_SERVER` 计算 URL 前缀。请参阅[第一个请求之前的 `$_SERVER`](/zh/docs/execution-modes#第一个请求之前的-server)。
+在第一个请求之前，`$_SERVER` 包含进程环境。此时，`SCRIPT_NAME` 包含脚本的绝对路径，`DOCUMENT_ROOT` 为空。请求的 `$_SERVER` 只包含进程环境中来自[进程池 `env` 表](/zh/docs/configuration#http-pool-env)的变量。请在循环前读取环境变量，或者在 handler 中使用 `getenv()`。不要在循环前根据 `$_SERVER` 计算 URL 前缀。请参阅[第一个请求之前的 `$_SERVER`](/zh/docs/execution-modes#第一个请求之前的-server)。
 
 ## 单请求状态与常驻状态
 
@@ -67,7 +67,7 @@ Rapira 为每个请求重建左列中的所有内容。普通 PHP 代码可以�
 
 | 每个请求的新内容 | 在请求之间保留的内容 |
 | ---------------- | -------------------- |
-| `$_GET`、`$_POST`、`$_SERVER`、`$_COOKIE`：Rapira 使用请求数据重新填充它们。`$_SERVER` 不包含进程环境 | Composer 自动加载器及其加载的每个类 |
+| `$_GET`、`$_POST`、`$_SERVER`、`$_COOKIE`：Rapira 使用请求数据重新填充它们。`$_SERVER` 只包含进程环境中来自进程池 `env` 表的变量 | Composer 自动加载器及其加载的每个类 |
 | `php://input`：原始请求体、`CONTENT_TYPE` 和 `CONTENT_LENGTH` | `static` 属性和变量，它们在请求之间保留值 |
 | `$_FILES` 和上传的临时文件 | 循环前创建的对象，例如容器、内核和应用 |
 | 会话数据：`session_start()`、请求 cookie 和响应 `Set-Cookie` 字段 | 打开的资源：数据库连接、缓存客户端和流 |
@@ -97,7 +97,7 @@ Rapira 为每个请求启动新的 `max_execution_time` 计时器。worker 等�
 
 Rapira 不会为每个请求重建 `$_ENV`。代码在循环前写入 `$_ENV` 的值会保留到 worker 脚本重新启动为止。在循环前加载环境配置。不要在 `$_ENV` 中存储请求数据。
 
-更改 `$_ENV` 不会更改进程环境。当 `getenv()` 或子进程必须看到某个值时，请使用 `putenv()`。在生产环境中，请在服务 unit、容器或编排器中设置环境变量。
+更改 `$_ENV` 不会更改进程环境。当 `getenv()` 或子进程必须看到某个值时，请使用 `putenv()`。在生产环境中，请在服务 unit、容器、编排器或[进程池 `env` 表](/zh/docs/configuration#http-pool-env)中设置环境变量。
 :::
 
 ## 错误处理

@@ -113,7 +113,7 @@ Rapira 会保留 `$_ENV`，直到 worker 重新运行脚本。它不会为每个
 
 `usePutenv()` 将 Dotenv 值写入进程环境。Symfony `%env(...)%` 无需此调用即可读取保留的 `$_ENV` 值。Rapira 在每个进程中运行一个 NTS PHP 解释器。PHP 不会从并发线程调用 `putenv()`。
 
-在生产环境中，请通过 systemd、容器运行时或编排器设置环境变量。仅在开发期间使用 `.env`。
+在生产环境中，请通过 systemd、容器运行时、编排器或 [`[http.pool.env]` 表](/zh/docs/configuration#http-pool-env)设置环境变量。仅在开发期间使用 `.env`。
 
 ## 启动 Rapira
 
@@ -177,6 +177,13 @@ request_terminate_timeout_secs = 30
 
 ```bash
 APP_ENV=prod rapira serve rapira.toml
+```
+
+你也可以在 `rapira.toml` 中为 worker 设置 `APP_ENV`：
+
+```toml
+[http.pool.env]
+APP_ENV = "prod"
 ```
 
 部署后，向 master 发送 `SIGUSR2` 以重启应用。这次重载会清空 OPcache，因此在 `opcache.validate_timestamps = 0` 时它也会加载新代码。更改 `opcache.preload` 加载的文件后，请重启 Rapira。请参阅[生产环境部署](/zh/docs/deployment)。

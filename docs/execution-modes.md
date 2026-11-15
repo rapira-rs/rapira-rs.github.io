@@ -44,7 +44,7 @@ See [Dispatcher mode](/docs/dispatcher) for the loop, the request and response A
 
 ## `$_SERVER` before the first request
 
-In Worker and Dispatcher modes, the entry script starts before the first request. At that time, Rapira fills `$_SERVER` as the PHP CLI does for `php entrypoint.php`.
+In Worker and Dispatcher modes, the entry script starts before the first request. At that time, Rapira fills `$_SERVER` as the PHP CLI does for `php entrypoint.php`. The process environment includes the variables from the [pool `env` table](/docs/configuration#http-pool-env).
 
 | Key | Value |
 | --- | --- |
@@ -57,7 +57,7 @@ In Worker and Dispatcher modes, the entry script starts before the first request
 
 `$_SERVER` gets the environment variables when `variables_order` contains `S`. `$_ENV` gets them only when `variables_order` contains `E`. The production value `GPCS` does not contain `E`. The entry script path replaces an environment variable with the same name, such as `SCRIPT_FILENAME`. The `$argv` and `$argc` globals contain the same values as `$_SERVER`.
 
-In Dispatcher mode, `$_SERVER` keeps these values until the entry script starts again. Request data is in the request object. In Worker mode, Rapira refills `$_SERVER` with request data for each request. The request values do not contain the environment variables, and `SCRIPT_NAME` contains the entry script name with a leading slash.
+In Dispatcher mode, `$_SERVER` keeps these values until the entry script starts again. Request data is in the request object. In Worker mode, Rapira refills `$_SERVER` with request data for each request. The request values contain the variables from the [pool `env` table](/docs/configuration#http-pool-env) and no other environment variable. `SCRIPT_NAME` contains the entry script name with a leading slash. In Classic mode, the `$_SERVER` of each request also contains the pool `env` variables and no other environment variable.
 
 ## Reading the mode at runtime
 

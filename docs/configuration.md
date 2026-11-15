@@ -57,6 +57,9 @@ max_memory_mb = 0                     # Replaces a worker when its RSS exceeds t
 max_boot_failures = 5                 # Stops a worker after this count of consecutive boot failures. Zero disables the limit.
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
 
+[http.pool.env]                       # Optional. Sets environment variables for each worker of the pool.
+APP_ENV = "prod"
+
 [grpc]
 listen = "127.0.0.1:50051"
 descriptor_set = "api.binpb"          # Required. A FileDescriptorSet with its imports.
@@ -168,6 +171,25 @@ The `http` plugin owns this PHP worker pool. The gRPC listener uses a separate `
 | `max_memory_mb` | integer | `0` | The resident set size (RSS) limit of one worker process, in MiB. The master checks the RSS of each worker once each second. It stops a worker above the limit gracefully and starts a new worker. This key applies in all modes. `0` disables the limit. See [Running in production](/docs/deployment). |
 | `max_boot_failures` | integer | `5` | The limit of consecutive boot failures of one worker in Worker and Dispatcher modes. At the limit, the worker exits as unhealthy. A boot that succeeds resets the count. Classic mode ignores this key. `0` disables the limit. See [Process model](/docs/process-model#supervision). |
 | `request_terminate_timeout_secs` | integer | `0` | Wall-clock limit for one request. Rapira terminates and replaces a worker that exceeds this limit. `0` disables the check. |
+| `[http.pool.env]` | table of name → string | empty | Environment variables for each worker of the pool. See [The `[http.pool.env]` table](#http-pool-env). |
+
+### The `[http.pool.env]` table {#http-pool-env}
+
+This optional table sets environment variables for each worker of the HTTP pool. Each key is a variable name, and each value is a string. A value of another type, such as an integer, stops initialization. Rapira does not expand `$VAR` or `${VAR}` in a value.
+
+```toml
+[http.pool.env]
+APP_ENV = "prod"
+APP_DEBUG = "0"
+```
+
+The master checks the table at start, before it forks the workers. An empty name, a name that contains `=` or NUL, and a value that contains NUL stop initialization. The error names the key. After the fork, each worker sets these variables in its process environment before its PHP thread starts. A variable of the table replaces an inherited variable with the same name, and the worker keeps the other inherited variables. The gRPC workers do not get these variables, and the HTTP workers do not get the variables of `[grpc.pool.env]`.
+
+`getenv()` and the [`$_SERVER` before the first request](/docs/execution-modes#server-before-the-first-request) show these variables. `$_ENV` shows them only when `variables_order` contains `E`. Child processes that PHP starts, for example with `proc_open()` or `exec()`, inherit them.
+
+In Classic and Worker modes, the `$_SERVER` of each request contains these variables and no other environment variable. A request variable with the same name replaces a variable of the table. For example, with `SERVER_SOFTWARE = "x"`, a request gets `$_SERVER['SERVER_SOFTWARE'] === 'Rapira'`, and `getenv('SERVER_SOFTWARE')` returns `'x'`. In Dispatcher mode, `$_SERVER` keeps its values from before the first request, so it contains the complete process environment.
+
+The master parses `php.ini` and runs the PHP module startup (`MINIT`) once, before it forks the workers. So `${VAR}` in `php.ini` and an extension that reads a variable at module startup do not see these variables. In this table, variables that a process reads when it starts, such as `LD_PRELOAD` or `MIMALLOC_*`, have no effect.
 
 ## The `[grpc]` section {#grpc}
 
@@ -197,7 +219,7 @@ The `auth` interceptor accepts a call only with a valid bearer token. PHP does n
 
 ### The `[grpc.pool]` table {#grpc-pool}
 
-This table uses the [HTTP pool keys and defaults](#http-pool), with a required `entrypoint` and `mode = "dispatcher"`. Classic and Worker modes are rejected. The worker count, recycling, and the process watchdog apply to this pool independently.
+This table uses the [HTTP pool keys and defaults](#http-pool), with a required `entrypoint` and `mode = "dispatcher"`. Classic and Worker modes are rejected. The worker count, recycling, and the process watchdog apply to this pool independently. The `[grpc.pool.env]` table sets the environment variables of the gRPC workers, with the same rules as the [HTTP pool `env` table](#http-pool-env).
 
 HTTP and gRPC can run together. Each listener uses its own pool and entrypoint. The master reads the descriptor set and the tokens file once at start. Restart Rapira to load a changed file. A reload keeps the old files.
 
@@ -249,6 +271,8 @@ A `[log.targets]` key uses letters, digits, `_`, `:`, `.`, or `-`. It must start
 Rapira accepts only documented tables and keys. For example, `[htttp]` or `lissten = ":8000"` causes initialization to fail. The error identifies the unknown name. Each key belongs to one table. For example, `max_requests` belongs to `[http.pool]`, and `pidfile` belongs to `[supervisor]`.
 
 Rapira also validates values. It rejects unsupported values and does not replace them with defaults. For example, it rejects `level = "verbose"` and `format = "pretty"`. Worker counts, body sizes, and upload limits must be at least 1. Each `*_secs` key must be 1 through `86400`. Only `request_terminate_timeout_secs` also accepts `0`.
+
+The `env` table of a pool accepts each variable name as a key. Rapira rejects an empty name, a name that contains `=` or NUL, and a value that contains NUL.
 
 ::: warning
 Rapira reads the configuration file only at start. A reload with `SIGHUP` or `SIGUSR2` does not read it again. Restart Rapira to apply a changed file.

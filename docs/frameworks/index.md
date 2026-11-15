@@ -59,7 +59,7 @@ The script contains these operations:
 
 Inside the handler, Rapira sets `SCRIPT_NAME` to `/worker.php` because `worker.php` is the entry script. `DOCUMENT_ROOT` contains the script directory. `REQUEST_URI` contains the client path. Symfony and Yii3 routed requests and generated URLs correctly with these values. The generated URLs did not contain `worker.php`. Before you integrate another framework, check whether it builds URLs from `SCRIPT_NAME` instead of `REQUEST_URI`.
 
-Before the first request, `$_SERVER` contains the process environment. At that time, `SCRIPT_NAME` contains the absolute script path, and `DOCUMENT_ROOT` is empty. The `$_SERVER` of a request does not contain the process environment. Read environment variables before the loop, or use `getenv()` in the handler. Do not calculate a URL prefix from `$_SERVER` before the loop. See [`$_SERVER` before the first request](/docs/execution-modes#server-before-the-first-request).
+Before the first request, `$_SERVER` contains the process environment. At that time, `SCRIPT_NAME` contains the absolute script path, and `DOCUMENT_ROOT` is empty. From the process environment, the `$_SERVER` of a request contains only the variables from the [pool `env` table](/docs/configuration#http-pool-env). Read environment variables before the loop, or use `getenv()` in the handler. Do not calculate a URL prefix from `$_SERVER` before the loop. See [`$_SERVER` before the first request](/docs/execution-modes#server-before-the-first-request).
 
 ## Per-request and resident state
 
@@ -67,7 +67,7 @@ Rapira rebuilds everything in the left column for every request. Ordinary PHP co
 
 | New for every request | Remains between requests |
 | ----------------------- | ---------------------- |
-| `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE`: Rapira refills them with request data. `$_SERVER` does not contain the process environment | The Composer autoloader and each class that it loaded |
+| `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE`: Rapira refills them with request data. From the process environment, `$_SERVER` contains only the variables from the pool `env` table | The Composer autoloader and each class that it loaded |
 | `php://input`: the raw request body, `CONTENT_TYPE`, and `CONTENT_LENGTH` | `static` properties and variables, which keep values across requests |
 | `$_FILES` and the uploaded temporary files | Objects created before the loop, such as the container, kernel, and application |
 | Session data: `session_start()`, the request cookie, and the response `Set-Cookie` field | Open resources: database handles, cache clients, streams |
@@ -97,7 +97,7 @@ Register request shutdown functions inside the handler. Examples include metric 
 
 Rapira does not rebuild `$_ENV` for each request. Values that code writes to `$_ENV` before the loop stay until the worker script restarts. Load environment configuration before the loop. Do not store request data in `$_ENV`.
 
-A change to `$_ENV` does not change the process environment. Use `putenv()` when `getenv()` or child processes must see a value. In production, set environment variables in the service unit, container, or orchestrator.
+A change to `$_ENV` does not change the process environment. Use `putenv()` when `getenv()` or child processes must see a value. In production, set environment variables in the service unit, container, orchestrator, or [pool `env` table](/docs/configuration#http-pool-env).
 :::
 
 ## Error handling

@@ -44,7 +44,7 @@ Pętlę, API żądania i odpowiedzi oraz wyjątki opisuje [tryb Dispatcher](/pl/
 
 ## `$_SERVER` przed pierwszym żądaniem
 
-W trybach Worker i Dispatcher skrypt wejściowy startuje przed pierwszym żądaniem. W tym momencie Rapira wypełnia `$_SERVER` tak jak PHP CLI dla `php entrypoint.php`.
+W trybach Worker i Dispatcher skrypt wejściowy startuje przed pierwszym żądaniem. W tym momencie Rapira wypełnia `$_SERVER` tak jak PHP CLI dla `php entrypoint.php`. Środowisko procesu zawiera zmienne z [tabeli `env` puli](/pl/docs/configuration#http-pool-env).
 
 | Klucz | Wartość |
 | --- | --- |
@@ -57,7 +57,7 @@ W trybach Worker i Dispatcher skrypt wejściowy startuje przed pierwszym żądan
 
 `$_SERVER` otrzymuje zmienne środowiskowe, gdy `variables_order` zawiera `S`. `$_ENV` otrzymuje je tylko wtedy, gdy `variables_order` zawiera `E`. Wartość produkcyjna `GPCS` nie zawiera `E`. Ścieżka skryptu wejściowego zastępuje zmienną środowiskową o tej samej nazwie, na przykład `SCRIPT_FILENAME`. Zmienne globalne `$argv` i `$argc` zawierają te same wartości co `$_SERVER`.
 
-W trybie Dispatcher `$_SERVER` zachowuje te wartości do ponownego startu skryptu wejściowego. Dane żądania znajdują się w obiekcie żądania. W trybie Worker Rapira ponownie wypełnia `$_SERVER` danymi żądania dla każdego żądania. Wartości żądania nie zawierają zmiennych środowiskowych, a `SCRIPT_NAME` zawiera nazwę skryptu wejściowego z początkowym ukośnikiem.
+W trybie Dispatcher `$_SERVER` zachowuje te wartości do ponownego startu skryptu wejściowego. Dane żądania znajdują się w obiekcie żądania. W trybie Worker Rapira ponownie wypełnia `$_SERVER` danymi żądania dla każdego żądania. Wartości żądania zawierają zmienne z [tabeli `env` puli](/pl/docs/configuration#http-pool-env) i nie zawierają innych zmiennych środowiskowych. `SCRIPT_NAME` zawiera nazwę skryptu wejściowego z początkowym ukośnikiem. W trybie Classic `$_SERVER` każdego żądania także zawiera zmienne `env` puli i nie zawiera innych zmiennych środowiskowych.
 
 ## Odczyt trybu w trakcie pracy
 

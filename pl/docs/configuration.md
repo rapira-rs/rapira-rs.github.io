@@ -57,6 +57,9 @@ max_memory_mb = 0                     # Replaces a worker when its RSS exceeds t
 max_boot_failures = 5                 # Stops a worker after this count of consecutive boot failures. Zero disables the limit.
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
 
+[http.pool.env]                       # Optional. Sets environment variables for each worker of the pool.
+APP_ENV = "prod"
+
 [grpc]
 listen = "127.0.0.1:50051"
 descriptor_set = "api.binpb"          # Required. A FileDescriptorSet with its imports.
@@ -168,6 +171,25 @@ Wtyczka `http` zarządza tą pulą workerów PHP. Nasłuch gRPC używa osobnej t
 | `max_memory_mb` | liczba całkowita | `0` | Limit pamięci rezydentnej (RSS) jednego procesu workera w MiB. Proces nadrzędny sprawdza RSS każdego workera raz na sekundę. Łagodnie zatrzymuje workera powyżej limitu i uruchamia nowego workera. Klucz działa we wszystkich trybach. `0` wyłącza limit. Zobacz [Wdrożenie produkcyjne](/pl/docs/deployment). |
 | `max_boot_failures` | liczba całkowita | `5` | Limit kolejnych nieudanych rozruchów jednego workera w trybach Worker i Dispatcher. Po osiągnięciu limitu worker kończy działanie jako niezdrowy. Udany rozruch zeruje licznik. Tryb Classic ignoruje ten klucz. `0` wyłącza limit. Zobacz [Model procesów](/pl/docs/process-model#nadzor). |
 | `request_terminate_timeout_secs` | liczba całkowita | `0` | Limit czasu rzeczywistego dla jednego żądania. Rapira kończy i wymienia workera, który przekroczy ten limit. `0` wyłącza tę kontrolę. |
+| `[http.pool.env]` | tabela nazwa → tekst | pusta | Zmienne środowiskowe dla każdego workera puli. Zobacz [Tabela `[http.pool.env]`](#http-pool-env). |
+
+### Tabela `[http.pool.env]` {#http-pool-env}
+
+Ta opcjonalna tabela ustawia zmienne środowiskowe dla każdego workera puli HTTP. Każdy klucz jest nazwą zmiennej, a każda wartość jest tekstem. Wartość innego typu, na przykład liczba całkowita, zatrzymuje inicjalizację. Rapira nie rozwija `$VAR` ani `${VAR}` w wartości.
+
+```toml
+[http.pool.env]
+APP_ENV = "prod"
+APP_DEBUG = "0"
+```
+
+Proces nadrzędny sprawdza tabelę przy starcie, przed forkowaniem workerów. Pusta nazwa, nazwa zawierająca `=` lub NUL oraz wartość zawierająca NUL zatrzymują inicjalizację. Błąd wskazuje klucz. Po forku każdy worker ustawia te zmienne w swoim środowisku procesu, zanim wystartuje jego wątek PHP. Zmienna z tabeli zastępuje odziedziczoną zmienną o tej samej nazwie, a worker zachowuje pozostałe odziedziczone zmienne. Workery gRPC nie otrzymują tych zmiennych, a workery HTTP nie otrzymują zmiennych z `[grpc.pool.env]`.
+
+`getenv()` i [`$_SERVER` przed pierwszym żądaniem](/pl/docs/execution-modes#server-przed-pierwszym-zadaniem) pokazują te zmienne. `$_ENV` pokazuje je tylko wtedy, gdy `variables_order` zawiera `E`. Procesy potomne, które uruchamia PHP, na przykład przez `proc_open()` lub `exec()`, dziedziczą je.
+
+W trybach Classic i Worker `$_SERVER` każdego żądania zawiera te zmienne i nie zawiera innych zmiennych środowiskowych. Zmienna żądania o tej samej nazwie zastępuje zmienną z tabeli. Na przykład przy `SERVER_SOFTWARE = "x"` żądanie otrzymuje `$_SERVER['SERVER_SOFTWARE'] === 'Rapira'`, a `getenv('SERVER_SOFTWARE')` zwraca `'x'`. W trybie Dispatcher `$_SERVER` zachowuje wartości sprzed pierwszego żądania, więc zawiera całe środowisko procesu.
+
+Proces nadrzędny analizuje `php.ini` i wykonuje start modułów PHP (`MINIT`) raz, przed forkowaniem workerów. Dlatego `${VAR}` w `php.ini` i rozszerzenie, które czyta zmienną podczas startu modułu, nie widzą tych zmiennych. W tej tabeli zmienne, które proces czyta przy swoim starcie, na przykład `LD_PRELOAD` lub `MIMALLOC_*`, nie działają.
 
 ## Sekcja `[grpc]` {#grpc}
 
@@ -197,7 +219,7 @@ Interceptor `auth` przyjmuje wywołanie tylko z prawidłowym tokenem bearer. PHP
 
 ### Tabela `[grpc.pool]` {#grpc-pool}
 
-Ta tabela używa [kluczy i wartości domyślnych puli HTTP](#http-pool), z wymaganym `entrypoint` i `mode = "dispatcher"`. Tryby Classic i Worker są odrzucane. Liczba workerów, wymiana workerów i nadzór nad czasem działania procesów dotyczą tej puli niezależnie.
+Ta tabela używa [kluczy i wartości domyślnych puli HTTP](#http-pool), z wymaganym `entrypoint` i `mode = "dispatcher"`. Tryby Classic i Worker są odrzucane. Liczba workerów, wymiana workerów i nadzór nad czasem działania procesów dotyczą tej puli niezależnie. Tabela `[grpc.pool.env]` ustawia zmienne środowiskowe workerów gRPC według tych samych zasad co [tabela `env` puli HTTP](#http-pool-env).
 
 HTTP i gRPC mogą działać razem. Każdy nasłuch używa własnej puli i skryptu wejściowego. Proces nadrzędny wczytuje zestaw deskryptorów i plik tokenów raz, przy starcie. Uruchom ponownie Rapirę, aby wczytać zmieniony plik. Przeładowanie zachowuje stare pliki.
 
@@ -249,6 +271,8 @@ Klucz `[log.targets]` może zawierać litery, cyfry, `_`, `:`, `.` i `-`. Musi z
 Rapira akceptuje tylko udokumentowane tabele i klucze. Na przykład `[htttp]` albo `lissten = ":8000"` zatrzymuje inicjalizację. Błąd wskazuje nieznaną nazwę. Każdy klucz należy do jednej tabeli. Na przykład `max_requests` należy do `[http.pool]`, a `pidfile` do `[supervisor]`.
 
 Rapira sprawdza również wartości. Odrzuca nieobsługiwane wartości i nie zastępuje ich wartościami domyślnymi. Na przykład odrzuca `level = "verbose"` i `format = "pretty"`. Liczby workerów, rozmiary treści i limity przesyłanych plików muszą wynosić co najmniej 1. Każdy klucz `*_secs` musi mieć wartość od 1 do `86400`. Tylko `request_terminate_timeout_secs` przyjmuje też `0`.
+
+Tabela `env` puli przyjmuje każdą nazwę zmiennej jako klucz. Rapira odrzuca pustą nazwę, nazwę zawierającą `=` lub NUL oraz wartość zawierającą NUL.
 
 ::: warning
 Rapira czyta plik konfiguracyjny tylko przy starcie. Przeładowanie przez `SIGHUP` lub `SIGUSR2` nie czyta go ponownie. Uruchom ponownie Rapirę, aby zastosować zmieniony plik.

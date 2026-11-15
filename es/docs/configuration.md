@@ -57,6 +57,9 @@ max_memory_mb = 0                     # Replaces a worker when its RSS exceeds t
 max_boot_failures = 5                 # Stops a worker after this count of consecutive boot failures. Zero disables the limit.
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
 
+[http.pool.env]                       # Optional. Sets environment variables for each worker of the pool.
+APP_ENV = "prod"
+
 [grpc]
 listen = "127.0.0.1:50051"
 descriptor_set = "api.binpb"          # Required. A FileDescriptorSet with its imports.
@@ -168,6 +171,25 @@ El plugin `http` es dueño de este pool de workers PHP. La escucha gRPC usa una 
 | `max_memory_mb` | entero | `0` | El límite de memoria residente (RSS) de un proceso worker, en MiB. El maestro comprueba la RSS de cada worker una vez por segundo. Detiene de forma ordenada un worker por encima del límite e inicia un worker nuevo. Esta clave se aplica en todos los modos. `0` desactiva el límite. Consulta [En producción](/es/docs/deployment). |
 | `max_boot_failures` | entero | `5` | El límite de arranques fallidos consecutivos de un worker en los modos Worker y Dispatcher. Al llegar al límite, el worker termina como unhealthy. Un arranque correcto reinicia el contador. El modo Classic ignora esta clave. `0` desactiva el límite. Consulta [Modelo de procesos](/es/docs/process-model#supervision). |
 | `request_terminate_timeout_secs` | entero | `0` | El límite de tiempo real para una petición. Rapira termina y sustituye un worker que supera este límite. `0` desactiva la comprobación. |
+| `[http.pool.env]` | tabla de nombre → cadena | vacía | Las variables de entorno de cada worker del pool. Consulta [La tabla `[http.pool.env]`](#http-pool-env). |
+
+### La tabla `[http.pool.env]` {#http-pool-env}
+
+Esta tabla opcional define variables de entorno para cada worker del pool HTTP. Cada clave es un nombre de variable, y cada valor es una cadena. Un valor de otro tipo, como un entero, impide la inicialización. Rapira no expande `$VAR` ni `${VAR}` en un valor.
+
+```toml
+[http.pool.env]
+APP_ENV = "prod"
+APP_DEBUG = "0"
+```
+
+El maestro comprueba la tabla al arrancar, antes de crear los workers con fork. Un nombre vacío, un nombre que contiene `=` o NUL y un valor que contiene NUL impiden la inicialización. El error identifica la clave. Después del fork, cada worker define estas variables en el entorno de su proceso antes de que arranque su hilo PHP. Una variable de la tabla sustituye a una variable heredada con el mismo nombre, y el worker conserva las demás variables heredadas. Los workers gRPC no reciben estas variables, y los workers HTTP no reciben las variables de `[grpc.pool.env]`.
+
+`getenv()` y el [`$_SERVER` antes de la primera petición](/es/docs/execution-modes#server-antes-de-la-primera-peticion) muestran estas variables. `$_ENV` las muestra solo cuando `variables_order` contiene `E`. Los procesos secundarios que PHP inicia, por ejemplo con `proc_open()` o `exec()`, las heredan.
+
+En los modos Classic y Worker, el `$_SERVER` de cada petición contiene estas variables y ninguna otra variable de entorno. Una variable de la petición con el mismo nombre sustituye a una variable de la tabla. Por ejemplo, con `SERVER_SOFTWARE = "x"`, una petición recibe `$_SERVER['SERVER_SOFTWARE'] === 'Rapira'`, y `getenv('SERVER_SOFTWARE')` devuelve `'x'`. En modo Dispatcher, `$_SERVER` conserva sus valores de antes de la primera petición, así que contiene el entorno completo del proceso.
+
+El maestro analiza `php.ini` y ejecuta el inicio de los módulos de PHP (`MINIT`) una vez, antes de crear los workers con fork. Por tanto, `${VAR}` en `php.ini` y una extensión que lee una variable al iniciar el módulo no ven estas variables. En esta tabla, las variables que un proceso lee al arrancar, como `LD_PRELOAD` o `MIMALLOC_*`, no tienen efecto.
 
 ## La sección `[grpc]` {#grpc}
 
@@ -197,7 +219,7 @@ El interceptor `auth` acepta una llamada solo con un token bearer válido. PHP n
 
 ### La tabla `[grpc.pool]` {#grpc-pool}
 
-Esta tabla usa las [claves y los valores predeterminados del pool HTTP](#http-pool), con un `entrypoint` obligatorio y `mode = "dispatcher"`. Se rechazan los modos Classic y Worker. El número de workers, el reciclaje y el mecanismo de vigilancia del proceso se aplican a este pool de forma independiente.
+Esta tabla usa las [claves y los valores predeterminados del pool HTTP](#http-pool), con un `entrypoint` obligatorio y `mode = "dispatcher"`. Se rechazan los modos Classic y Worker. El número de workers, el reciclaje y el mecanismo de vigilancia del proceso se aplican a este pool de forma independiente. La tabla `[grpc.pool.env]` define las variables de entorno de los workers gRPC, con las mismas reglas que la [tabla `env` del pool HTTP](#http-pool-env).
 
 HTTP y gRPC pueden ejecutarse juntos. Cada escucha usa su propio pool y script de entrada. El maestro lee el descriptor set y el archivo de tokens una vez al arrancar. Reinicia Rapira para cargar un archivo modificado. Una recarga conserva los archivos anteriores.
 
@@ -249,6 +271,8 @@ Una clave de `[log.targets]` puede usar letras, dígitos, `_`, `:`, `.` y `-`. D
 Rapira solo acepta las tablas y claves documentadas. Por ejemplo, `[htttp]` o `lissten = ":8000"` impiden la inicialización. El error identifica el nombre desconocido. Cada clave pertenece a una tabla. Por ejemplo, `max_requests` pertenece a `[http.pool]` y `pidfile` pertenece a `[supervisor]`.
 
 Rapira también valida los valores. Rechaza los valores no admitidos en lugar de usar los predeterminados. Por ejemplo, rechaza `level = "verbose"` y `format = "pretty"`. El número de workers, los tamaños de cuerpo y los límites de carga deben ser como mínimo 1. Cada clave `*_secs` debe estar entre 1 y `86400`. Solo `request_terminate_timeout_secs` acepta también `0`.
+
+La tabla `env` de un pool acepta cada nombre de variable como clave. Rapira rechaza un nombre vacío, un nombre que contiene `=` o NUL y un valor que contiene NUL.
 
 ::: warning
 Rapira lee el archivo de configuración solo al arrancar. Una recarga con `SIGHUP` o `SIGUSR2` no lo vuelve a leer. Reinicia Rapira para aplicar un archivo modificado.

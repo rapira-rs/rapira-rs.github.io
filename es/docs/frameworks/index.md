@@ -59,7 +59,7 @@ El script contiene estas operaciones:
 
 Dentro del handler, Rapira establece `SCRIPT_NAME` en `/worker.php` porque `worker.php` es el script de entrada. `DOCUMENT_ROOT` contiene el directorio del script. `REQUEST_URI` contiene la ruta del cliente. Symfony y Yii3 enrutaron las peticiones y generaron URL correctas con estos valores. Las URL generadas no contenían `worker.php`. Antes de integrar otro framework, comprueba si crea URL desde `SCRIPT_NAME` en lugar de `REQUEST_URI`.
 
-Antes de la primera petición, `$_SERVER` contiene el entorno del proceso. En ese momento, `SCRIPT_NAME` contiene la ruta absoluta del script y `DOCUMENT_ROOT` está vacío. El `$_SERVER` de una petición no contiene el entorno del proceso. Lee las variables de entorno antes del bucle o usa `getenv()` en el handler. No calcules un prefijo de URL desde `$_SERVER` antes del bucle. Consulta [`$_SERVER` antes de la primera petición](/es/docs/execution-modes#server-antes-de-la-primera-peticion).
+Antes de la primera petición, `$_SERVER` contiene el entorno del proceso. En ese momento, `SCRIPT_NAME` contiene la ruta absoluta del script y `DOCUMENT_ROOT` está vacío. Del entorno del proceso, el `$_SERVER` de una petición contiene solo las variables de la [tabla `env` del pool](/es/docs/configuration#http-pool-env). Lee las variables de entorno antes del bucle o usa `getenv()` en el handler. No calcules un prefijo de URL desde `$_SERVER` antes del bucle. Consulta [`$_SERVER` antes de la primera petición](/es/docs/execution-modes#server-antes-de-la-primera-peticion).
 
 ## Estado por petición y estado residente
 
@@ -67,7 +67,7 @@ Rapira reconstruye todo lo de la columna izquierda para cada petición. El códi
 
 | Nuevo para cada petición | Permanece entre peticiones |
 | ------------------------ | ------------------------- |
-| `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE`: Rapira las rellena con los datos de la petición. `$_SERVER` no contiene el entorno del proceso | El autoloader de Composer y cada clase que ha cargado |
+| `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE`: Rapira las rellena con los datos de la petición. Del entorno del proceso, `$_SERVER` contiene solo las variables de la tabla `env` del pool | El autoloader de Composer y cada clase que ha cargado |
 | `php://input`: el cuerpo sin procesar de la petición, `CONTENT_TYPE` y `CONTENT_LENGTH` | Las propiedades y variables `static`, que conservan sus valores entre peticiones |
 | `$_FILES` y los archivos temporales subidos | Los objetos creados antes del bucle, como el contenedor, el kernel y la aplicación |
 | Datos de sesión: `session_start()`, la cookie de la petición y el campo de respuesta `Set-Cookie` | Recursos abiertos: conexiones de base de datos, clientes de caché y streams |
@@ -97,7 +97,7 @@ Registra dentro del handler las funciones de shutdown de cada petición. Algunos
 
 Rapira no reconstruye `$_ENV` para cada petición. Los valores que el código escribe en `$_ENV` antes del bucle permanecen hasta que el script del worker se reinicia. Carga la configuración del entorno antes del bucle. No guardes datos de peticiones en `$_ENV`.
 
-Un cambio en `$_ENV` no cambia el entorno del proceso. Usa `putenv()` cuando `getenv()` o los procesos secundarios deban ver un valor. En producción, define las variables de entorno en la unidad de servicio, el contenedor o el orquestador.
+Un cambio en `$_ENV` no cambia el entorno del proceso. Usa `putenv()` cuando `getenv()` o los procesos secundarios deban ver un valor. En producción, define las variables de entorno en la unidad de servicio, el contenedor, el orquestador o la [tabla `env` del pool](/es/docs/configuration#http-pool-env).
 :::
 
 ## Manejo de errores

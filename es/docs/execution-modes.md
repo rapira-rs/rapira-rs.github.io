@@ -44,7 +44,7 @@ Consulta [Modo Dispatcher](/es/docs/dispatcher) para ver el bucle, la API de pet
 
 ## `$_SERVER` antes de la primera petición
 
-En los modos Worker y Dispatcher, el script de entrada arranca antes de la primera petición. En ese momento, Rapira rellena `$_SERVER` igual que PHP CLI para `php entrypoint.php`.
+En los modos Worker y Dispatcher, el script de entrada arranca antes de la primera petición. En ese momento, Rapira rellena `$_SERVER` igual que PHP CLI para `php entrypoint.php`. El entorno del proceso incluye las variables de la [tabla `env` del pool](/es/docs/configuration#http-pool-env).
 
 | Clave | Valor |
 | --- | --- |
@@ -57,7 +57,7 @@ En los modos Worker y Dispatcher, el script de entrada arranca antes de la prime
 
 `$_SERVER` recibe las variables de entorno cuando `variables_order` contiene `S`. `$_ENV` las recibe solo cuando `variables_order` contiene `E`. El valor de producción `GPCS` no contiene `E`. La ruta del script de entrada sustituye a una variable de entorno con el mismo nombre, como `SCRIPT_FILENAME`. Las variables globales `$argv` y `$argc` contienen los mismos valores que `$_SERVER`.
 
-En modo Dispatcher, `$_SERVER` conserva estos valores hasta que el script de entrada arranca de nuevo. Los datos de la petición están en el objeto de petición. En modo Worker, Rapira vuelve a rellenar `$_SERVER` con los datos de cada petición. Los valores de la petición no contienen las variables de entorno, y `SCRIPT_NAME` contiene el nombre del script de entrada con una barra inicial.
+En modo Dispatcher, `$_SERVER` conserva estos valores hasta que el script de entrada arranca de nuevo. Los datos de la petición están en el objeto de petición. En modo Worker, Rapira vuelve a rellenar `$_SERVER` con los datos de cada petición. Los valores de la petición contienen las variables de la [tabla `env` del pool](/es/docs/configuration#http-pool-env) y ninguna otra variable de entorno. `SCRIPT_NAME` contiene el nombre del script de entrada con una barra inicial. En modo Classic, el `$_SERVER` de cada petición también contiene las variables de la tabla `env` del pool y ninguna otra variable de entorno.
 
 ## Leer el modo en tiempo de ejecución
 

@@ -113,7 +113,7 @@ Na przykład dodaj `usePutenv()`, jeśli kod aplikacji musi odczytać wartości 
 
 `usePutenv()` zapisuje wartości Dotenv w środowisku procesu. Symfony `%env(...)%` może odczytać zachowane wartości `$_ENV` bez tego wywołania. Rapira uruchamia jeden interpreter NTS PHP w każdym procesie. PHP nie wywołuje `putenv()` ze współbieżnych wątków.
 
-W środowisku produkcyjnym ustaw zmienne przez systemd, środowisko uruchomieniowe kontenerów albo orkiestrator. Używaj `.env` tylko podczas programowania.
+W środowisku produkcyjnym ustaw zmienne przez systemd, środowisko uruchomieniowe kontenerów, orkiestrator albo [tabelę `[http.pool.env]`](/pl/docs/configuration#http-pool-env). Używaj `.env` tylko podczas programowania.
 
 ## Uruchamianie Rapiry
 
@@ -177,6 +177,13 @@ Uruchom serwer z `APP_ENV=prod`:
 
 ```bash
 APP_ENV=prod rapira serve rapira.toml
+```
+
+Możesz też ustawić `APP_ENV` dla workerów w `rapira.toml`:
+
+```toml
+[http.pool.env]
+APP_ENV = "prod"
 ```
 
 Po wdrożeniu wyślij `SIGUSR2` do procesu nadrzędnego, aby uruchomić ponownie aplikacje. To przeładowanie opróżnia OPcache, więc wczytuje nowy kod także przy `opcache.validate_timestamps = 0`. Uruchom Rapirę ponownie po zmianie pliku, który wczytuje `opcache.preload`. Zobacz [Wdrożenie produkcyjne](/pl/docs/deployment).

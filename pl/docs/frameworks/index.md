@@ -59,7 +59,7 @@ Skrypt wykonuje te operacje:
 
 Wewnątrz handlera Rapira ustawia `SCRIPT_NAME` na `/worker.php`, ponieważ `worker.php` jest skryptem wejściowym. `DOCUMENT_ROOT` zawiera katalog skryptu. `REQUEST_URI` zawiera ścieżkę klienta. Symfony i Yii3 poprawnie kierowały żądania oraz tworzyły adresy URL z tymi wartościami. Utworzone adresy URL nie zawierały `worker.php`. Przed integracją innego frameworka sprawdź, czy tworzy adresy URL z `SCRIPT_NAME` zamiast z `REQUEST_URI`.
 
-Przed pierwszym żądaniem `$_SERVER` zawiera środowisko procesu. W tym czasie `SCRIPT_NAME` zawiera bezwzględną ścieżkę skryptu, a `DOCUMENT_ROOT` jest pusty. `$_SERVER` żądania nie zawiera środowiska procesu. Odczytaj zmienne środowiskowe przed pętlą albo użyj `getenv()` w handlerze. Nie obliczaj prefiksu adresu URL z `$_SERVER` przed pętlą. Więcej informacji zawiera sekcja [`$_SERVER` przed pierwszym żądaniem](/pl/docs/execution-modes#server-przed-pierwszym-zadaniem).
+Przed pierwszym żądaniem `$_SERVER` zawiera środowisko procesu. W tym czasie `SCRIPT_NAME` zawiera bezwzględną ścieżkę skryptu, a `DOCUMENT_ROOT` jest pusty. `$_SERVER` żądania zawiera ze środowiska procesu tylko zmienne z [tabeli `env` puli](/pl/docs/configuration#http-pool-env). Odczytaj zmienne środowiskowe przed pętlą albo użyj `getenv()` w handlerze. Nie obliczaj prefiksu adresu URL z `$_SERVER` przed pętlą. Więcej informacji zawiera sekcja [`$_SERVER` przed pierwszym żądaniem](/pl/docs/execution-modes#server-przed-pierwszym-zadaniem).
 
 ## Stan pojedynczego żądania i stan rezydentny
 
@@ -67,7 +67,7 @@ Rapira odtwarza wszystko w lewej kolumnie przy każdym żądaniu. Zwykły kod PH
 
 | Nowe dla każdego żądania | Pozostaje między żądaniami |
 | ------------------------ | -------------------------- |
-| `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE`: Rapira wypełnia je danymi żądania. `$_SERVER` nie zawiera środowiska procesu | Autoloader Composera i każda wczytana przez niego klasa |
+| `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE`: Rapira wypełnia je danymi żądania. `$_SERVER` zawiera ze środowiska procesu tylko zmienne z tabeli `env` puli | Autoloader Composera i każda wczytana przez niego klasa |
 | `php://input`: nieprzetworzona treść żądania, `CONTENT_TYPE` i `CONTENT_LENGTH` | Właściwości i zmienne `static`, które zachowują wartości między żądaniami |
 | `$_FILES` i przesłane pliki tymczasowe | Obiekty utworzone przed pętlą, na przykład kontener, kernel i aplikacja |
 | Dane sesji: `session_start()`, cookie żądania i pole odpowiedzi `Set-Cookie` | Otwarte zasoby: połączenia z bazą danych, klienty pamięci podręcznej, strumienie |
@@ -97,7 +97,7 @@ Funkcje shutdown dla żądania rejestruj wewnątrz handlera. Dotyczy to na przyk
 
 Rapira nie odtwarza `$_ENV` przy każdym żądaniu. Wartości, które kod zapisuje w `$_ENV` przed pętlą, pozostają do ponownego uruchomienia skryptu workera. Wczytaj konfigurację środowiska przed pętlą. Nie zapisuj danych żądania w `$_ENV`.
 
-Zmiana `$_ENV` nie zmienia środowiska procesu. Użyj `putenv()`, gdy `getenv()` lub procesy potomne muszą widzieć wartość. W środowisku produkcyjnym ustaw zmienne w jednostce usługi, kontenerze lub orkiestratorze.
+Zmiana `$_ENV` nie zmienia środowiska procesu. Użyj `putenv()`, gdy `getenv()` lub procesy potomne muszą widzieć wartość. W środowisku produkcyjnym ustaw zmienne w jednostce usługi, kontenerze, orkiestratorze lub [tabeli `env` puli](/pl/docs/configuration#http-pool-env).
 :::
 
 ## Obsługa błędów

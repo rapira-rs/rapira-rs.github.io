@@ -129,7 +129,7 @@ The HTTP server sends an error response when a request does not reach PHP or PHP
 
 Rapira sends these statuses without the two fields:
 
-- `503` when a worker fails to start its entry script. After each failed start, the worker answers one queued request with this status.
+- `503` when a worker fails to start its entry script. During the wait before the next start, the worker answers each request with this status.
 - `502` when PHP sets a final status below `200`, such as `101`.
 - `500` when a Dispatcher script releases an exchange before Rapira sends the response head.
 

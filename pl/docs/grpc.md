@@ -110,7 +110,7 @@ mode = "dispatcher"
 processes = 2
 ```
 
-`descriptor_set` używa katalogu pliku konfiguracyjnego jako podstawy. Konfiguracja obsługująca tylko gRPC nie wymaga sekcji `[http]`.
+Względna ścieżka `descriptor_set` używa katalogu pliku konfiguracyjnego jako podstawy. Klucz przyjmuje też adres URL: zobacz [Wczytywanie zestawu deskryptorów z adresu URL](#descriptor-set-url). Konfiguracja obsługująca tylko gRPC nie wymaga sekcji `[http]`.
 
 Uruchom serwer z `app/`:
 
@@ -323,9 +323,31 @@ Po przekroczeniu terminu klient otrzymuje `DEADLINE_EXCEEDED`, a `isCancelled()`
 
 Limit `receive()` określa, jak długo PHP czeka na nową pracę. Jest niezależny od terminu zakończenia wywołania. `grpc.pool.request_terminate_timeout_secs` nadzoruje czas działania procesu. Zastępuje workera, gdy wywołanie trwa dłużej niż limit.
 
+## Wczytywanie zestawu deskryptorów z adresu URL {#descriptor-set-url}
+
+`descriptor_set` to ścieżka lub adres URL. Wartość, która zaczyna się od `http://` lub `https://`, jest adresem URL, tak jak w przypadku [wejścia obrazu Buf](https://buf.build/docs/reference/inputs/#image-formats). Każda inna wartość jest ścieżką.
+
+```toml
+[grpc]
+descriptor_set = "https://schemas.example.com/billing/v42/api.binpb"
+```
+
+Proces nadrzędny pobiera zestaw jednym żądaniem GET przy starcie, przed forkowaniem workerów. Nieudane pobranie zatrzymuje start z kodem wyjścia 1. Rapira nie ponawia pobrania i nie przechowuje lokalnej kopii zestawu.
+
+- Treść odpowiedzi musi być binarnym zestawem. Rapira nie dekoduje skompresowanego zestawu ani zestawu w formacie JSON.
+- Pobieranie podąża za najwyżej 10 przekierowaniami. Status odpowiedzi 400 lub wyższy zatrzymuje start.
+- HTTPS używa systemowego magazynu certyfikatów. Ustaw `SSL_CERT_FILE` lub `SSL_CERT_DIR`, aby użyć innego magazynu, na przykład dla prywatnego urzędu certyfikacji.
+- Rapira wysyła część userinfo adresu URL (`https://user:password@host/api.binpb`) jako poświadczenia HTTP Basic. Pobieranie nie ma innego ustawienia uwierzytelniania. Wpisy logu pokazują adres URL bez części userinfo i bez zapytania.
+- Pobieranie używa proxy, które wskazuje `ALL_PROXY`, `HTTPS_PROXY` lub `HTTP_PROXY`. `NO_PROXY` zawiera listę hostów, które nie wymagają proxy.
+- Połączenie, nagłówek odpowiedzi i treść mają osobne limity czasu, każdy po 30 sekund. Maksymalny rozmiar zestawu to 64 MiB.
+
+::: warning
+Rapira nie sprawdza zawartości zestawu za pomocą sumy kontrolnej ani podpisu. Użyj adresu URL `https://` hosta, któremu ufasz. Umieść wersję w ścieżce adresu URL, aby każda instancja wczytała ten sam zestaw.
+:::
+
 ## Usługi i refleksja
 
-Proces nadrzędny wczytuje zestaw deskryptorów przed forkowaniem workerów. Nieprawidłowy zestaw, brak importowanych plików lub nieznana usługa wskazana w konfiguracji uniemożliwiają uruchomienie. Uruchom ponownie Rapirę po zmianie zestawu deskryptorów. Przeładowanie zachowuje wczytany zestaw.
+Proces nadrzędny wczytuje zestaw deskryptorów przed forkowaniem workerów. Nieprawidłowy zestaw, nieudane pobranie, brak importowanych plików lub nieznana usługa wskazana w konfiguracji uniemożliwiają uruchomienie. Uruchom ponownie Rapirę po zmianie zestawu deskryptorów. Przeładowanie zachowuje wczytany zestaw.
 
 Domyślnie pula obsługuje usługi z plików, których nie importuje żaden inny plik zestawu. Plik importowany przez inny plik jest zależnością, na przykład `google/longrunning/operations.proto`. Jego usługi nie są obsługiwane. Ustaw `grpc.services`, aby wskazać obsługiwane usługi, na przykład `["billing.v1.InvoiceService"]`. Użyj tego klucza, gdy kilka instancji Rapira współdzieli jeden zestaw, lub aby obsłużyć usługę z importowanego pliku.
 

@@ -58,7 +58,7 @@ request_terminate_timeout_secs = 0    # Replaces a worker when one request excee
 
 [grpc]
 listen = "127.0.0.1:50051"
-descriptor_set = "api.binpb"          # Required. A FileDescriptorSet with its imports.
+descriptor_set = "api.binpb"          # Required. A path or an http(s) URL of a FileDescriptorSet with its imports.
 services = ["example.v1.Echo"]        # Optional. Default: the services of the files that no other file imports.
 reflection = false
 default_timeout_secs = 30             # Optional. Deadline of a call without a client timeout.
@@ -173,7 +173,7 @@ Ta sekcja włącza unarne wywołania gRPC, gRPC-Web i Connect na jednym nasłuch
 | Klucz | Typ | Domyślnie | Znaczenie |
 | --- | --- | --- | --- |
 | `listen` | tekst | `"127.0.0.1:50051"` | Adres TCP lub ścieżka gniazda `unix:`. Używa tej samej składni adresu co `http.listen`. |
-| `descriptor_set` | tekst | brak, wymagane | Ścieżka binarnego `google.protobuf.FileDescriptorSet`, który zawiera wszystkie importowane pliki. Zbuduj go poleceniem `buf build --as-file-descriptor-set` lub `protoc --include_imports`. |
+| `descriptor_set` | tekst | brak, wymagane | Ścieżka lub adres URL binarnego `google.protobuf.FileDescriptorSet`, który zawiera wszystkie importowane pliki. Wartość, która zaczyna się od `http://` lub `https://`, jest adresem URL, a proces nadrzędny pobiera zestaw przy starcie: zobacz [Wczytywanie zestawu deskryptorów z adresu URL](/pl/docs/grpc#descriptor-set-url). Zbuduj zestaw poleceniem `buf build --as-file-descriptor-set` lub `protoc --include_imports`. |
 | `services` | lista tekstów | nieustawione | W pełni kwalifikowane nazwy obsługiwanych usług. Gdy klucz nie jest ustawiony, pula obsługuje usługi z plików, których nie importuje żaden inny plik zestawu. Lista nie może być pusta. |
 | `reflection` | logiczny | `false` | Włącza usługi `grpc.reflection.v1` i `v1alpha`. |
 | `default_timeout_secs` | liczba całkowita | nieustawione | Termin zakończenia wywołania, dla którego klient nie podał limitu czasu. Gdy klucz nie jest ustawiony, takie wywołanie nie ma terminu zakończenia. |
@@ -182,7 +182,7 @@ Ta sekcja włącza unarne wywołania gRPC, gRPC-Web i Connect na jednym nasłuch
 | `keepalive_timeout_secs` | liczba całkowita | `10` | Czas, przez który Rapira czeka na odpowiedź na PING. Jeśli odpowiedź nie nadejdzie w tym czasie, Rapira zamyka połączenie. Zakres to od 1 do `86400`. |
 | `interceptors` | lista tekstów | pusta | Interceptory, które działają przed PHP, w kolejności listy. Dostępne jest tylko `"auth"`. Rapira odrzuca powtórzone nazwy, nieznane nazwy i nazwy bez tabeli konfiguracji. Odrzuca też tabelę `[grpc.auth]`, której lista nie wymienia. |
 
-Proces nadrzędny wczytuje zestaw deskryptorów przed forkowaniem workerów. Te błędy zatrzymują inicjalizację: zestaw, którego Rapira nie może odczytać lub zdekodować, zestaw bez importowanych plików i zestaw bez usługi do obsługi. Zatrzymuje ją też wpis `services`, którego nie ma w zestawie, powtórzony wpis oraz wpis, który wskazuje usługę health lub refleksji. `default_timeout_secs` nie może być większe niż `max_timeout_secs`.
+Proces nadrzędny wczytuje zestaw deskryptorów przed forkowaniem workerów. Te błędy zatrzymują inicjalizację: zestaw, którego Rapira nie może odczytać, pobrać lub zdekodować, zestaw bez importowanych plików i zestaw bez usługi do obsługi. Zatrzymuje ją też wpis `services`, którego nie ma w zestawie, powtórzony wpis oraz wpis, który wskazuje usługę health lub refleksji. `default_timeout_secs` nie może być większe niż `max_timeout_secs`.
 
 ### Tabela `[grpc.auth]` {#grpc-auth}
 
@@ -196,7 +196,7 @@ Interceptor `auth` przyjmuje wywołanie tylko z prawidłowym tokenem bearer. PHP
 
 Ta tabela używa [kluczy i wartości domyślnych puli HTTP](#http-pool), z wymaganym `entrypoint` i `mode = "dispatcher"`. Tryby Classic i Worker są odrzucane. Liczba workerów, wymiana workerów i nadzór nad czasem działania procesów dotyczą tej puli niezależnie.
 
-HTTP i gRPC mogą działać razem. Każdy nasłuch używa własnej puli i skryptu wejściowego. Proces nadrzędny wczytuje zestaw deskryptorów i plik tokenów raz, przy starcie. Uruchom ponownie Rapirę, aby wczytać zmieniony plik. Przeładowanie zachowuje stare pliki.
+HTTP i gRPC mogą działać razem. Każdy nasłuch używa własnej puli i skryptu wejściowego. Proces nadrzędny wczytuje zestaw deskryptorów i plik tokenów raz, przy starcie. Uruchom ponownie Rapirę, aby wczytać zmieniony plik lub zmieniony zestaw pod adresem URL. Przeładowanie zachowuje stare dane.
 
 ## Sekcja `[observability]` {#observability}
 
@@ -253,7 +253,7 @@ Rapira czyta plik konfiguracyjny tylko przy starcie. Przeładowanie przez `SIGHU
 
 ## Ścieżki względne
 
-Ścieżki systemu plików obejmują skrypty wejściowe obu pul, `grpc.descriptor_set`, `grpc.auth.tokens_file`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root` i `http.uploads.dir`. Każda ścieżka względna używa katalogu pliku konfiguracyjnego jako podstawy. Na przykład ustaw `entrypoint = "app/worker.php"` w `/etc/rapira/rapira.toml`. Rapira użyje wtedy `/etc/rapira/app/worker.php`.
+Ścieżki systemu plików obejmują skrypty wejściowe obu pul, `grpc.descriptor_set`, `grpc.auth.tokens_file`, `supervisor.pidfile`, `http.static.root`, `http.sendfile.root` i `http.uploads.dir`. Każda ścieżka względna używa katalogu pliku konfiguracyjnego jako podstawy. Na przykład ustaw `entrypoint = "app/worker.php"` w `/etc/rapira/rapira.toml`. Rapira użyje wtedy `/etc/rapira/app/worker.php`. Wartość `grpc.descriptor_set`, która zaczyna się od `http://` lub `https://`, jest adresem URL, a nie ścieżką.
 
 Względna ścieżka nasłuchu `unix:` używa katalogu roboczego procesu Rapiry jako podstawy. Dla gniazda uniksowego użyj ścieżki bezwzględnej.
 

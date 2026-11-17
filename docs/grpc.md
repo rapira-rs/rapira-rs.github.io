@@ -110,7 +110,7 @@ mode = "dispatcher"
 processes = 2
 ```
 
-`descriptor_set` uses the configuration file directory as its base. A gRPC-only configuration needs no `[http]` section.
+A relative `descriptor_set` path uses the configuration file directory as its base. The key also accepts a URL: see [Load the descriptor set from a URL](#descriptor-set-url). A gRPC-only configuration needs no `[http]` section.
 
 Start the server from `app/`:
 
@@ -323,9 +323,31 @@ When the deadline expires, the client gets `DEADLINE_EXCEEDED`, and `isCancelled
 
 The `receive()` timeout sets how long PHP waits for new work. It is not related to a call deadline. `grpc.pool.request_terminate_timeout_secs` is a process watchdog. It replaces a worker when a call runs longer than the limit.
 
+## Load the descriptor set from a URL {#descriptor-set-url}
+
+`descriptor_set` is a path or a URL. A value that starts with `http://` or `https://` is a URL, as for a [Buf image input](https://buf.build/docs/reference/inputs/#image-formats). Each other value is a path.
+
+```toml
+[grpc]
+descriptor_set = "https://schemas.example.com/billing/v42/api.binpb"
+```
+
+The master downloads the set with one GET request at start, before it forks the workers. A download that fails stops the start with exit code 1. Rapira does not try the download again, and it keeps no local copy of the set.
+
+- The response body must be the binary set. Rapira does not decode a compressed set or a JSON set.
+- The download follows a maximum of 10 redirects. A response status of 400 or above stops the start.
+- HTTPS uses the certificate store of the system. Set `SSL_CERT_FILE` or `SSL_CERT_DIR` to use a different store, for example for a private certificate authority.
+- Rapira sends the userinfo of the URL (`https://user:password@host/api.binpb`) as HTTP Basic credentials. The download has no other authentication setting. Log messages show the URL without its userinfo and its query.
+- The download uses the proxy that `ALL_PROXY`, `HTTPS_PROXY`, or `HTTP_PROXY` names. `NO_PROXY` lists the hosts that need no proxy.
+- The connection, the response head, and the body each have a time limit of 30 seconds. The maximum size of the set is 64 MiB.
+
+::: warning
+Rapira does not check the content of the set against a checksum or a signature. Use an `https://` URL of a host that you trust. Put a version in the URL path, so that each instance loads the same set.
+:::
+
 ## Services and reflection
 
-The master loads the descriptor set before it forks the workers. An invalid set, missing imports, or an unknown configured service prevents startup. Restart Rapira after you change the descriptor set. A reload keeps the loaded set.
+The master loads the descriptor set before it forks the workers. An invalid set, a download that fails, missing imports, or an unknown configured service prevents startup. Restart Rapira after you change the descriptor set. A reload keeps the loaded set.
 
 By default, the pool serves the services of the files that no other file in the set imports. A file that another file imports is a dependency, for example `google/longrunning/operations.proto`. Its services are not served. Set `grpc.services` to name the served services, for example `["billing.v1.InvoiceService"]`. Use this key when several Rapira instances share one set, or to serve a service of an imported file.
 

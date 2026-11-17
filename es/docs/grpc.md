@@ -110,7 +110,7 @@ mode = "dispatcher"
 processes = 2
 ```
 
-`descriptor_set` usa como base el directorio del archivo de configuración. Una configuración que solo usa gRPC no necesita la sección `[http]`.
+Una ruta relativa de `descriptor_set` usa como base el directorio del archivo de configuración. La clave también acepta una URL: consulta [Cargar el descriptor set desde una URL](#descriptor-set-url). Una configuración que solo usa gRPC no necesita la sección `[http]`.
 
 Inicia el servidor desde `app/`:
 
@@ -323,9 +323,31 @@ Cuando vence el plazo, el cliente recibe `DEADLINE_EXCEEDED` e `isCancelled()` d
 
 El tiempo de espera de `receive()` establece cuánto espera PHP por trabajo nuevo. No está relacionado con el plazo de una llamada. `grpc.pool.request_terminate_timeout_secs` es un mecanismo de vigilancia del proceso. Sustituye un worker cuando una llamada dura más que el límite.
 
+## Cargar el descriptor set desde una URL {#descriptor-set-url}
+
+`descriptor_set` es una ruta o una URL. Un valor que empieza por `http://` o `https://` es una URL, como en una [entrada de imagen de Buf](https://buf.build/docs/reference/inputs/#image-formats). Cualquier otro valor es una ruta.
+
+```toml
+[grpc]
+descriptor_set = "https://schemas.example.com/billing/v42/api.binpb"
+```
+
+El maestro descarga el conjunto con una petición GET al arrancar, antes de crear los workers con fork. Una descarga fallida detiene el arranque con el código de salida 1. Rapira no repite la descarga y no guarda una copia local del conjunto.
+
+- El cuerpo de la respuesta debe ser el conjunto binario. Rapira no decodifica un conjunto comprimido ni un conjunto JSON.
+- La descarga sigue un máximo de 10 redirecciones. Un estado de respuesta de 400 o superior detiene el arranque.
+- HTTPS usa el almacén de certificados del sistema. Define `SSL_CERT_FILE` o `SSL_CERT_DIR` para usar otro almacén, por ejemplo para una autoridad de certificación privada.
+- Rapira envía la información de usuario de la URL (`https://user:password@host/api.binpb`) como credenciales HTTP Basic. La descarga no tiene otro ajuste de autenticación. Los mensajes de registro muestran la URL sin la información de usuario y sin la consulta.
+- La descarga usa el proxy que indica `ALL_PROXY`, `HTTPS_PROXY` o `HTTP_PROXY`. `NO_PROXY` enumera los hosts que no necesitan proxy.
+- La conexión, las cabeceras de la respuesta y el cuerpo tienen cada uno un límite de tiempo de 30 segundos. El tamaño máximo del conjunto es de 64 MiB.
+
+::: warning
+Rapira no comprueba el contenido del conjunto con una suma de comprobación ni con una firma. Usa una URL `https://` de un host en el que confíes. Pon una versión en la ruta de la URL, para que cada instancia cargue el mismo conjunto.
+:::
+
 ## Servicios y reflexión
 
-El maestro carga el descriptor set antes de crear los workers con fork. Un conjunto no válido, la falta de importaciones o un servicio configurado desconocido impiden el arranque. Reinicia Rapira después de cambiar el descriptor set. Una recarga conserva el conjunto cargado.
+El maestro carga el descriptor set antes de crear los workers con fork. Un conjunto no válido, una descarga fallida, la falta de importaciones o un servicio configurado desconocido impiden el arranque. Reinicia Rapira después de cambiar el descriptor set. Una recarga conserva el conjunto cargado.
 
 Por defecto, el pool atiende los servicios de los archivos que ningún otro archivo del conjunto importa. Un archivo que otro archivo importa es una dependencia, por ejemplo `google/longrunning/operations.proto`. Sus servicios no se atienden. Define `grpc.services` para nombrar los servicios atendidos, por ejemplo `["billing.v1.InvoiceService"]`. Usa esta clave cuando varias instancias de Rapira comparten un mismo conjunto, o para atender un servicio de un archivo importado.
 

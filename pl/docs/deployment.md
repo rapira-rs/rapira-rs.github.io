@@ -126,7 +126,7 @@ Wdrożenie może umieścić każdą wersję aplikacji w osobnym katalogu i prze�
 Przeładowanie opróżnia OPcache, więc wczytuje nowy kod PHP także przy `opcache.validate_timestamps = 0`. Dopóki nie zakończy się najdłuższe żądanie, które było aktywne w chwili przeładowania, żądania działają bez OPcache i ponownie kompilują swoje pliki. W trybach Worker i Dispatcher większość workerów uruchamia aplikację dwa razy, więc kod przed pętlą workera działa dwa razy.
 
 ::: warning Czego przeładowanie nie zmienia
-Przeładowanie uruchamia ponownie aplikacje, ale nie procesy. Proces nadrzędny zachowuje plik binarny Rapiry oraz ustawienia z `rapira.toml` i `php.ini`. Zachowuje też zbiór deskryptorów gRPC i plik tokenów `[grpc.auth]`. Uruchom Rapirę ponownie po zmianie jednego z tych plików. Uruchom ją ponownie także po zmianie pliku, który wczytuje `opcache.preload`. PHP wczytuje te pliki jeden raz, przy starcie procesu nadrzędnego.
+Przeładowanie uruchamia ponownie aplikacje, ale nie procesy. Proces nadrzędny zachowuje plik binarny Rapiry oraz ustawienia z `rapira.toml` i `php.ini`. Zachowuje też zbiór deskryptorów gRPC i plik tokenów `[grpc.auth]`. Przeładowanie nie pobiera ponownie zbioru deskryptorów z jego adresu URL. Uruchom Rapirę ponownie po zmianie jednego z tych plików. Uruchom ją ponownie także po zmianie pliku, który wczytuje `opcache.preload`. PHP wczytuje te pliki jeden raz, przy starcie procesu nadrzędnego.
 
 Gdy ustawiono `opcache.restrict_api`, przeładowanie nie opróżnia OPcache. Przy tym ustawieniu i `opcache.validate_timestamps = 0` uruchom Rapirę ponownie po każdym wdrożeniu. Przy tym ustawieniu aplikacja, która uruchamia się, gdy ponowne uruchomienie OPcache czeka na wykonanie, działa bez OPcache do swojego następnego startu.
 :::

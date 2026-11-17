@@ -58,7 +58,7 @@ request_terminate_timeout_secs = 0    # Replaces a worker when one request excee
 
 [grpc]
 listen = "127.0.0.1:50051"
-descriptor_set = "api.binpb"          # Required. A FileDescriptorSet with its imports.
+descriptor_set = "api.binpb"          # Required. A path or an http(s) URL of a FileDescriptorSet with its imports.
 services = ["example.v1.Echo"]        # Optional. Default: the services of the files that no other file imports.
 reflection = false
 default_timeout_secs = 30             # Optional. Deadline of a call without a client timeout.
@@ -173,7 +173,7 @@ worker 运行 PHP。此表定义它们运行什么、运行多少个，以及 ma
 | 键 | 类型 | 默认值 | 含义 |
 | --- | --- | --- | --- |
 | `listen` | 字符串 | `"127.0.0.1:50051"` | TCP 地址或 `unix:` 套接字路径。使用与 `http.listen` 相同的地址语法。 |
-| `descriptor_set` | 字符串 | 无，必填 | 二进制 `google.protobuf.FileDescriptorSet` 的路径，该文件包含所有导入的文件。使用 `buf build --as-file-descriptor-set` 或 `protoc --include_imports` 构建它。 |
+| `descriptor_set` | 字符串 | 无，必填 | 二进制 `google.protobuf.FileDescriptorSet` 的路径或 URL，该文件包含所有导入的文件。以 `http://` 或 `https://` 开头的值是 URL，master 在启动时下载它：请参阅[从 URL 加载描述符集](/zh/docs/grpc#descriptor-set-url)。使用 `buf build --as-file-descriptor-set` 或 `protoc --include_imports` 构建描述符集。 |
 | `services` | 字符串列表 | 未设置 | 所提供服务的完全限定名称。未设置时，进程池提供集合中未被其他文件导入的文件里的服务。列表不能为空。 |
 | `reflection` | 布尔值 | `false` | 启用 `grpc.reflection.v1` 和 `v1alpha` 服务。 |
 | `default_timeout_secs` | 整数 | 未设置 | 没有客户端超时的调用的截止时间。未设置时，此类调用没有截止时间。 |
@@ -182,7 +182,7 @@ worker 运行 PHP。此表定义它们运行什么、运行多少个，以及 ma
 | `keepalive_timeout_secs` | 整数 | `10` | Rapira 等待 PING 应答的时间。如果在此时间内没有应答，Rapira 关闭连接。范围是 1 到 `86400`。 |
 | `interceptors` | 字符串列表 | 空 | 在 PHP 之前运行的拦截器，按列表顺序运行。只有 `"auth"` 可用。Rapira 拒绝重复的名称、未知的名称和没有配置表的名称。它也拒绝列表中没有列出的 `[grpc.auth]` 表。 |
 
-master 在 fork 出 worker 前加载描述符集。以下错误会阻止初始化：Rapira 无法读取或解码的描述符集、不含其导入文件的描述符集，以及没有可提供服务的描述符集。不在描述符集中的 `services` 条目、重复的条目，以及指向健康检查服务或反射服务的条目也会阻止初始化。`default_timeout_secs` 不能大于 `max_timeout_secs`。
+master 在 fork 出 worker 前加载描述符集。以下错误会阻止初始化：Rapira 无法读取、下载或解码的描述符集、不含其导入文件的描述符集，以及没有可提供服务的描述符集。不在描述符集中的 `services` 条目、重复的条目，以及指向健康检查服务或反射服务的条目也会阻止初始化。`default_timeout_secs` 不能大于 `max_timeout_secs`。
 
 ### `[grpc.auth]` 表 {#grpc-auth}
 
@@ -196,7 +196,7 @@ master 在 fork 出 worker 前加载描述符集。以下错误会阻止初始�
 
 此表使用 [HTTP 进程池的键和默认值](#http-pool)，且必须提供 `entrypoint` 并设置 `mode = "dispatcher"`。Classic 和 Worker 模式会被拒绝。worker 数量、回收和进程看门狗独立作用于此进程池。
 
-HTTP 和 gRPC 可以同时运行。每个监听器使用自己的进程池和入口脚本。master 在启动时读取一次描述符集和令牌文件。请重启 Rapira 以加载更改后的文件。重载会保留旧的文件。
+HTTP 和 gRPC 可以同时运行。每个监听器使用自己的进程池和入口脚本。master 在启动时加载一次描述符集和令牌文件。请重启 Rapira 以加载更改后的文件或 URL 上更改后的描述符集。重载会保留旧的数据。
 
 ## `[observability]` 小节 {#observability}
 
@@ -253,7 +253,7 @@ Rapira 只在启动时读取配置文件。使用 `SIGHUP` 或 `SIGUSR2` 重载�
 
 ## 相对路径
 
-文件系统路径包括两个进程池的入口脚本、`grpc.descriptor_set`、`grpc.auth.tokens_file`、`supervisor.pidfile`、`http.static.root`、`http.sendfile.root` 和 `http.uploads.dir`。每个相对路径都以配置文件目录为基准。例如，在 `/etc/rapira/rapira.toml` 中设置 `entrypoint = "app/worker.php"`。Rapira 随后使用 `/etc/rapira/app/worker.php`。
+文件系统路径包括两个进程池的入口脚本、`grpc.descriptor_set`、`grpc.auth.tokens_file`、`supervisor.pidfile`、`http.static.root`、`http.sendfile.root` 和 `http.uploads.dir`。每个相对路径都以配置文件目录为基准。例如，在 `/etc/rapira/rapira.toml` 中设置 `entrypoint = "app/worker.php"`。Rapira 随后使用 `/etc/rapira/app/worker.php`。以 `http://` 或 `https://` 开头的 `grpc.descriptor_set` 值是 URL，不是路径。
 
 相对的 `unix:` 监听路径以 Rapira 进程的工作目录为基准。请为 Unix socket 使用绝对路径。
 

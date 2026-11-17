@@ -55,7 +55,7 @@ Rapira does the download itself. The application image contains no descriptor se
 ## How the download works
 
 - Rapira sends a GET request and follows a maximum of 10 redirects. A response status of 400 or above stops the start.
-- HTTPS uses the certificate store of the system. `SSL_CERT_FILE` and `SSL_CERT_DIR` select a different store, for example for a private certificate authority.
+- HTTPS uses the certificate store of the system. On Linux, `SSL_CERT_FILE` and `SSL_CERT_DIR` replace that store, for example for a private certificate authority. On macOS, the store is the keychain, and the two variables have no effect.
 - Rapira sends the userinfo of the URL (`https://user:password@host/api.binpb`) as HTTP Basic credentials. Log messages show the URL without its userinfo and its query.
 - The download uses the proxy that `ALL_PROXY`, `HTTPS_PROXY`, or `HTTP_PROXY` names.
 - The connection, the response head, and the body each have a time limit of 30 seconds. The maximum size of the set is 64 MiB.
@@ -66,7 +66,7 @@ The URL form moves one dependency from the build to the start of each instance. 
 
 - The start needs the schema host. If the download fails, Rapira exits with code 1. It does not try again, and it keeps no local copy. Your process supervisor or orchestrator must start it again. Instances that run are not affected, because they do not download the set again.
 - A changed set needs a restart. A reload keeps the loaded set. If you replace the file at a URL, instances with different start times can use different sets. Put a version in the URL path, and change the URL for each schema release.
-- Rapira does not verify the content. It checks no checksum and no signature. Use HTTPS and a host that you trust. With `http://`, each host on the network path can change the set.
+- Rapira does not verify the content. It checks no checksum and no signature. Use HTTPS and a host that you trust. With `http://`, each host on the network path can change the set. Rapira also follows a redirect from an `https://` URL to an `http://` URL.
 - Authentication is simple. Rapira can send HTTP Basic credentials from the userinfo of the URL. The query of the URL can also hold credentials, as in a pre-signed URL. Rapira cannot send a bearer token, and it cannot sign a request for a cloud storage API. A pre-signed URL has an expiry time, and a start after that time fails. The credentials are in `rapira.toml`, so protect that file.
 - The format is fixed. The response body must be the binary set. Buf can also read a compressed image such as `image.binpb.gz`, but Rapira cannot.
 - Rapira does not use a schema registry API. It sends a plain GET request. Export the set from the registry, and upload it to a host that answers a GET request.

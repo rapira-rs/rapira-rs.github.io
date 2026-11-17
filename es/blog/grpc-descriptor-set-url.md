@@ -55,7 +55,7 @@ El propio Rapira hace la descarga. La imagen de la aplicación no contiene ning�
 ## Cómo funciona la descarga
 
 - Rapira envía una petición GET y sigue un máximo de 10 redirecciones. Un estado de respuesta de 400 o superior detiene el arranque.
-- HTTPS usa el almacén de certificados del sistema. `SSL_CERT_FILE` y `SSL_CERT_DIR` seleccionan otro almacén, por ejemplo para una autoridad de certificación privada.
+- HTTPS usa el almacén de certificados del sistema. En Linux, `SSL_CERT_FILE` y `SSL_CERT_DIR` sustituyen ese almacén, por ejemplo para una autoridad de certificación privada. En macOS, el almacén es el llavero (keychain), y las dos variables no tienen efecto.
 - Rapira envía la información de usuario de la URL (`https://user:password@host/api.binpb`) como credenciales HTTP Basic. Los mensajes de registro muestran la URL sin la información de usuario y sin la consulta.
 - La descarga usa el proxy que indica `ALL_PROXY`, `HTTPS_PROXY` o `HTTP_PROXY`.
 - La conexión, las cabeceras de la respuesta y el cuerpo tienen cada uno un límite de tiempo de 30 segundos. El tamaño máximo del conjunto es de 64 MiB.
@@ -66,7 +66,7 @@ La forma URL mueve una dependencia de la compilación al arranque de cada instan
 
 - El arranque necesita el host del esquema. Si la descarga falla, Rapira termina con el código de salida 1. No lo intenta otra vez y no guarda una copia local. Tu supervisor de procesos o tu orquestador debe iniciarlo otra vez. Las instancias en ejecución no se ven afectadas, porque no vuelven a descargar el conjunto.
 - Un conjunto modificado necesita un reinicio. Una recarga conserva el conjunto cargado. Si sustituyes el archivo en una URL, las instancias con horas de arranque distintas pueden usar conjuntos distintos. Pon una versión en la ruta de la URL y cambia la URL en cada versión del esquema.
-- Rapira no verifica el contenido. No comprueba ninguna suma de comprobación ni ninguna firma. Usa HTTPS y un host en el que confíes. Con `http://`, cada host del camino de red puede cambiar el conjunto.
+- Rapira no verifica el contenido. No comprueba ninguna suma de comprobación ni ninguna firma. Usa HTTPS y un host en el que confíes. Con `http://`, cada host del camino de red puede cambiar el conjunto. Rapira también sigue una redirección de una URL `https://` a una URL `http://`.
 - La autenticación es simple. Rapira puede enviar credenciales HTTP Basic desde la información de usuario de la URL. La consulta de la URL también puede contener credenciales, como en una URL prefirmada. Rapira no puede enviar un token bearer y no puede firmar una petición para la API de un almacenamiento en la nube. Una URL prefirmada tiene una hora de caducidad, y un arranque después de esa hora falla. Las credenciales están en `rapira.toml`, así que protege ese archivo.
 - El formato es fijo. El cuerpo de la respuesta debe ser el conjunto binario. Buf también puede leer una imagen comprimida como `image.binpb.gz`, pero Rapira no.
 - Rapira no usa la API de un registro de esquemas. Envía una petición GET simple. Exporta el conjunto desde el registro y súbelo a un host que responda a una petición GET.

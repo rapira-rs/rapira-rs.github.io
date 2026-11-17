@@ -335,8 +335,8 @@ descriptor_set = "https://schemas.example.com/billing/v42/api.binpb"
 The master process downloads the set with a GET request at start, before it forks the workers. A download that fails stops the start with exit code 1. Rapira does not try the download again, and it keeps no local copy of the set.
 
 - The response body must be the binary set. Rapira does not decode a compressed set or a JSON set.
-- The download follows a maximum of 10 redirects. A response status of 400 or above stops the start.
-- HTTPS uses the certificate store of the system. Set `SSL_CERT_FILE` or `SSL_CERT_DIR` to use a different store, for example for a private certificate authority.
+- The download follows a maximum of 10 redirects. It also follows a redirect from an `https://` URL to an `http://` URL. A response status of 400 or above stops the start.
+- HTTPS uses the certificate store of the system. On Linux, set `SSL_CERT_FILE` or `SSL_CERT_DIR` to replace that store, for example for a private certificate authority. On macOS, the store is the keychain, and the two variables have no effect.
 - Rapira sends the userinfo of the URL (`https://user:password@host/api.binpb`) as HTTP Basic credentials. The download has no other authentication setting. Log messages show the URL without its userinfo and its query.
 - The download uses the proxy that `ALL_PROXY`, `HTTPS_PROXY`, or `HTTP_PROXY` names. `NO_PROXY` lists the hosts that need no proxy.
 - The connection, the response head, and the body each have a time limit of 30 seconds. The maximum size of the set is 64 MiB.

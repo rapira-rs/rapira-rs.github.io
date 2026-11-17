@@ -335,8 +335,8 @@ descriptor_set = "https://schemas.example.com/billing/v42/api.binpb"
 Proces nadrzędny pobiera zestaw za pomocą żądania GET przy starcie, przed forkowaniem workerów. Nieudane pobranie zatrzymuje start z kodem wyjścia 1. Rapira nie ponawia pobrania i nie przechowuje lokalnej kopii zestawu.
 
 - Treść odpowiedzi musi być binarnym zestawem. Rapira nie dekoduje skompresowanego zestawu ani zestawu w formacie JSON.
-- Pobieranie podąża za najwyżej 10 przekierowaniami. Status odpowiedzi 400 lub wyższy zatrzymuje start.
-- HTTPS używa systemowego magazynu certyfikatów. Ustaw `SSL_CERT_FILE` lub `SSL_CERT_DIR`, aby użyć innego magazynu, na przykład dla prywatnego urzędu certyfikacji.
+- Pobieranie podąża za najwyżej 10 przekierowaniami. Podąża też za przekierowaniem z adresu URL `https://` na adres URL `http://`. Status odpowiedzi 400 lub wyższy zatrzymuje start.
+- HTTPS używa systemowego magazynu certyfikatów. Na Linuksie ustaw `SSL_CERT_FILE` lub `SSL_CERT_DIR`, aby zastąpić ten magazyn, na przykład dla prywatnego urzędu certyfikacji. Na macOS magazynem jest pęk kluczy, a te dwie zmienne nie mają wpływu.
 - Rapira wysyła część userinfo adresu URL (`https://user:password@host/api.binpb`) jako poświadczenia HTTP Basic. Pobieranie nie ma innego ustawienia uwierzytelniania. Wpisy logu pokazują adres URL bez części userinfo i bez zapytania.
 - Pobieranie używa proxy, które wskazuje `ALL_PROXY`, `HTTPS_PROXY` lub `HTTP_PROXY`. `NO_PROXY` zawiera listę hostów, które nie wymagają proxy.
 - Połączenie, nagłówek odpowiedzi i treść mają osobne limity czasu, każdy po 30 sekund. Maksymalny rozmiar zestawu to 64 MiB.

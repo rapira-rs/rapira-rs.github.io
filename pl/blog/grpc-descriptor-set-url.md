@@ -55,7 +55,7 @@ Rapira sama wykonuje pobieranie. Obraz aplikacji nie zawiera zestawu deskryptor�
 ## Jak działa pobieranie
 
 - Rapira wysyła żądanie GET i podąża za najwyżej 10 przekierowaniami. Status odpowiedzi 400 lub wyższy zatrzymuje start.
-- HTTPS używa systemowego magazynu certyfikatów. `SSL_CERT_FILE` i `SSL_CERT_DIR` wybierają inny magazyn, na przykład dla prywatnego urzędu certyfikacji.
+- HTTPS używa systemowego magazynu certyfikatów. Na Linuksie `SSL_CERT_FILE` i `SSL_CERT_DIR` zastępują ten magazyn, na przykład dla prywatnego urzędu certyfikacji. Na macOS magazynem jest pęk kluczy, a te dwie zmienne nie mają wpływu.
 - Rapira wysyła część userinfo adresu URL (`https://user:password@host/api.binpb`) jako poświadczenia HTTP Basic. Wpisy logu pokazują adres URL bez części userinfo i bez zapytania.
 - Pobieranie używa proxy, które wskazuje `ALL_PROXY`, `HTTPS_PROXY` lub `HTTP_PROXY`.
 - Połączenie, nagłówek odpowiedzi i treść mają osobne limity czasu, każdy po 30 sekund. Maksymalny rozmiar zestawu to 64 MiB.
@@ -66,7 +66,7 @@ Forma URL przenosi jedną zależność z budowania na start każdej instancji. P
 
 - Start wymaga hosta schematu. Jeśli pobieranie się nie uda, Rapira kończy działanie z kodem 1. Nie ponawia próby i nie przechowuje lokalnej kopii. Supervisor procesów lub orkiestrator musi uruchomić ją ponownie. Błąd nie dotyczy działających instancji, ponieważ nie pobierają one zestawu ponownie.
 - Zmieniony zestaw wymaga ponownego uruchomienia. Przeładowanie zachowuje wczytany zestaw. Jeśli zastąpisz plik pod adresem URL, instancje uruchomione w różnym czasie mogą używać różnych zestawów. Umieść wersję w ścieżce adresu URL i zmieniaj adres URL przy każdym wydaniu schematu.
-- Rapira nie weryfikuje zawartości. Nie sprawdza sumy kontrolnej ani podpisu. Użyj HTTPS i hosta, któremu ufasz. Przy `http://` każdy host na ścieżce sieciowej może zmienić zestaw.
+- Rapira nie weryfikuje zawartości. Nie sprawdza sumy kontrolnej ani podpisu. Użyj HTTPS i hosta, któremu ufasz. Przy `http://` każdy host na ścieżce sieciowej może zmienić zestaw. Rapira podąża też za przekierowaniem z adresu URL `https://` na adres URL `http://`.
 - Uwierzytelnianie jest proste. Rapira może wysłać poświadczenia HTTP Basic z części userinfo adresu URL. Zapytanie adresu URL też może zawierać poświadczenia, jak we wstępnie podpisanym adresie URL. Rapira nie może wysłać tokena bearer ani podpisać żądania do API magazynu w chmurze. Wstępnie podpisany adres URL ma czas wygaśnięcia, a uruchomienie po tym czasie kończy się błędem. Poświadczenia są w `rapira.toml`, więc chroń ten plik.
 - Format jest stały. Treść odpowiedzi musi być binarnym zestawem. Buf potrafi też odczytać skompresowany obraz, na przykład `image.binpb.gz`, ale Rapira tego nie potrafi.
 - Rapira nie używa API rejestru schematów. Wysyła zwykłe żądanie GET. Wyeksportuj zestaw z rejestru i wyślij go na host, który odpowiada na żądanie GET.

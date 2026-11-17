@@ -335,8 +335,8 @@ descriptor_set = "https://schemas.example.com/billing/v42/api.binpb"
 El proceso maestro descarga el conjunto con una petición GET al arrancar, antes de crear los workers con fork. Una descarga fallida detiene el arranque con el código de salida 1. Rapira no repite la descarga y no guarda una copia local del conjunto.
 
 - El cuerpo de la respuesta debe ser el conjunto binario. Rapira no decodifica un conjunto comprimido ni un conjunto JSON.
-- La descarga sigue un máximo de 10 redirecciones. Un estado de respuesta de 400 o superior detiene el arranque.
-- HTTPS usa el almacén de certificados del sistema. Define `SSL_CERT_FILE` o `SSL_CERT_DIR` para usar otro almacén, por ejemplo para una autoridad de certificación privada.
+- La descarga sigue un máximo de 10 redirecciones. También sigue una redirección de una URL `https://` a una URL `http://`. Un estado de respuesta de 400 o superior detiene el arranque.
+- HTTPS usa el almacén de certificados del sistema. En Linux, define `SSL_CERT_FILE` o `SSL_CERT_DIR` para sustituir ese almacén, por ejemplo para una autoridad de certificación privada. En macOS, el almacén es el llavero (keychain), y las dos variables no tienen efecto.
 - Rapira envía la información de usuario de la URL (`https://user:password@host/api.binpb`) como credenciales HTTP Basic. La descarga no tiene otro ajuste de autenticación. Los mensajes de registro muestran la URL sin la información de usuario y sin la consulta.
 - La descarga usa el proxy que indica `ALL_PROXY`, `HTTPS_PROXY` o `HTTP_PROXY`. `NO_PROXY` enumera los hosts que no necesitan proxy.
 - La conexión, las cabeceras de la respuesta y el cuerpo tienen cada uno un límite de tiempo de 30 segundos. El tamaño máximo del conjunto es de 64 MiB.

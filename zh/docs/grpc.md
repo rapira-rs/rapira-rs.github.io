@@ -335,8 +335,8 @@ descriptor_set = "https://schemas.example.com/billing/v42/api.binpb"
 master 进程在启动时通过 GET 请求下载描述符集，此操作在 fork 出 worker 之前完成。下载失败会使启动停止，退出码为 1。Rapira 不会再次尝试下载，也不保留描述符集的本地副本。
 
 - 响应体必须是二进制描述符集。Rapira 不解码压缩的描述符集或 JSON 格式的描述符集。
-- 下载最多跟随 10 次重定向。响应状态码为 400 或更高时，启动停止。
-- HTTPS 使用系统的证书存储。设置 `SSL_CERT_FILE` 或 `SSL_CERT_DIR` 以使用其他证书存储，例如用于私有证书颁发机构。
+- 下载最多跟随 10 次重定向。它也会跟随从 `https://` URL 到 `http://` URL 的重定向。响应状态码为 400 或更高时，启动停止。
+- HTTPS 使用系统的证书存储。在 Linux 上，设置 `SSL_CERT_FILE` 或 `SSL_CERT_DIR` 以替换该证书存储，例如用于私有证书颁发机构。在 macOS 上，证书存储是钥匙串，这两个变量不起作用。
 - Rapira 将 URL 中的用户信息（`https://user:password@host/api.binpb`）作为 HTTP Basic 凭据发送。下载没有其他身份验证设置。日志消息中显示的 URL 不含用户信息和查询部分。
 - 下载使用 `ALL_PROXY`、`HTTPS_PROXY` 或 `HTTP_PROXY` 指定的代理。`NO_PROXY` 列出不需要代理的主机。
 - 连接、响应头和响应体各有 30 秒的时间限制。描述符集的最大大小为 64 MiB。

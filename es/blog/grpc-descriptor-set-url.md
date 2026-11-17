@@ -31,7 +31,7 @@ Una ruta relativa usa como base el directorio de `rapira.toml`. El archivo debe 
 - Monta el conjunto desde un volumen o un ConfigMap. Un ConfigMap [no puede contener más de 1 MiB](https://kubernetes.io/docs/concepts/configuration/configmap/#motivation).
 - Descarga el conjunto en un [init container](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/) o en un script de entrypoint.
 
-Con los dos primeros métodos, el arranque no necesita la red. Con el tercer método, el arranque necesita el host del archivo, como con la forma URL. Cuando el conjunto está en la imagen, el conjunto y el código de la aplicación se despliegan como un único artefacto. El coste es un paso más para cada servicio: una etapa de compilación con `buf` o `protoc`, o un script que obtiene el archivo.
+Con los dos primeros métodos, Rapira lee un archivo local al arrancar y no envía ninguna petición. Con el tercer método, el arranque necesita el host del archivo, como con la forma URL. Cuando el conjunto está en la imagen, el conjunto y el código de la aplicación se despliegan como un único artefacto. El coste es un paso más para cada servicio: una etapa de compilación con `buf` o `protoc`, o un script que obtiene el archivo.
 
 ## La forma URL
 

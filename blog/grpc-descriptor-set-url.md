@@ -31,7 +31,7 @@ A relative path uses the directory of `rapira.toml` as its base. The file must b
 - Mount the set from a volume or a ConfigMap. A ConfigMap [cannot hold more than 1 MiB](https://kubernetes.io/docs/concepts/configuration/configmap/#motivation).
 - Download the set in an [init container](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/) or in an entrypoint script.
 
-With the first two methods, the start needs no network. With the third method, the start needs the host of the file, as with the URL form. When the set is in the image, the set and the application code deploy as one artifact. The cost is one more step for each service: a build stage with `buf` or `protoc`, or a script that gets the file.
+With the first two methods, Rapira reads a local file at start and sends no request. With the third method, the start needs the host of the file, as with the URL form. When the set is in the image, the set and the application code deploy as one artifact. The cost is one more step for each service: a build stage with `buf` or `protoc`, or a script that gets the file.
 
 ## The URL form
 

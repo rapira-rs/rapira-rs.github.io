@@ -31,7 +31,7 @@ descriptor_set = "api.binpb"
 - Zamontuj zestaw z woluminu lub obiektu ConfigMap. ConfigMap [nie może zawierać więcej niż 1 MiB](https://kubernetes.io/docs/concepts/configuration/configmap/#motivation).
 - Pobierz zestaw w [kontenerze init](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/) lub w skrypcie entrypoint.
 
-Przy dwóch pierwszych sposobach start nie wymaga sieci. Przy trzecim sposobie start wymaga hosta pliku, tak jak w formie URL. Gdy zestaw jest w obrazie, zestaw i kod aplikacji są wdrażane jako jeden artefakt. Kosztem jest jeden dodatkowy krok dla każdej usługi: etap budowania z `buf` lub `protoc` albo skrypt, który pobiera plik.
+Przy dwóch pierwszych sposobach Rapira odczytuje lokalny plik przy starcie i nie wysyła żadnego żądania. Przy trzecim sposobie start wymaga hosta pliku, tak jak w formie URL. Gdy zestaw jest w obrazie, zestaw i kod aplikacji są wdrażane jako jeden artefakt. Kosztem jest jeden dodatkowy krok dla każdej usługi: etap budowania z `buf` lub `protoc` albo skrypt, który pobiera plik.
 
 ## Forma URL
 

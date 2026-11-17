@@ -31,7 +31,7 @@ descriptor_set = "api.binpb"
 - 从卷或 ConfigMap 挂载描述符集。ConfigMap [不能保存超过 1 MiB 的数据](https://kubernetes.io/docs/concepts/configuration/configmap/#motivation)。
 - 在 [Init 容器](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/)或 entrypoint 脚本中下载描述符集。
 
-使用前两种方法时，启动不需要网络。使用第三种方法时，启动需要文件所在的主机，与 URL 形式相同。当描述符集位于镜像中时，描述符集和应用代码作为一个制品部署。代价是每个服务多一个步骤：使用 `buf` 或 `protoc` 的构建阶段，或获取文件的脚本。
+使用前两种方法时，Rapira 在启动时读取本地文件，不发送任何请求。使用第三种方法时，启动需要文件所在的主机，与 URL 形式相同。当描述符集位于镜像中时，描述符集和应用代码作为一个制品部署。代价是每个服务多一个步骤：使用 `buf` 或 `protoc` 的构建阶段，或获取文件的脚本。
 
 ## URL 形式
 

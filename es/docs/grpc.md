@@ -342,7 +342,7 @@ El proceso maestro descarga el conjunto con una petición GET al arrancar, antes
 - La conexión, las cabeceras de la respuesta y el cuerpo tienen cada uno un límite de tiempo de 30 segundos. El tamaño máximo del conjunto es de 64 MiB.
 
 ::: warning
-Rapira no comprueba el contenido del conjunto con una suma de comprobación ni con una firma. Usa una URL `https://` de un host en el que confíes. No sustituyas el conjunto en una URL: pon una versión en la ruta de la URL y usa una URL nueva para cada cambio del conjunto. Así, cada instancia carga el mismo conjunto.
+Rapira no comprueba el contenido del conjunto con una suma de comprobación ni con una firma. Usa una URL `https://` de un host en el que confíes. Asegúrate de que el host no redirige a una URL `http://`: con `http://`, cada host del camino de red puede cambiar el conjunto. No sustituyas el conjunto en una URL: pon una versión en la ruta de la URL y usa una URL nueva para cada cambio del conjunto. Así, cada instancia carga el mismo conjunto.
 :::
 
 ## Servicios y reflexión

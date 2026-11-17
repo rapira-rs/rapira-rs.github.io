@@ -342,7 +342,7 @@ The master process downloads the set with a GET request at start, before it fork
 - The connection, the response head, and the body each have a time limit of 30 seconds. The maximum size of the set is 64 MiB.
 
 ::: warning
-Rapira does not check the content of the set against a checksum or a signature. Use an `https://` URL of a host that you trust. Do not replace the set at a URL: put a version in the URL path, and use a new URL for each change of the set. Then each instance loads the same set.
+Rapira does not check the content of the set against a checksum or a signature. Use an `https://` URL of a host that you trust. Make sure that the host does not redirect to an `http://` URL: with `http://`, each host on the network path can change the set. Do not replace the set at a URL: put a version in the URL path, and use a new URL for each change of the set. Then each instance loads the same set.
 :::
 
 ## Services and reflection

@@ -342,7 +342,7 @@ Proces nadrzędny pobiera zestaw za pomocą żądania GET przy starcie, przed fo
 - Połączenie, nagłówek odpowiedzi i treść mają osobne limity czasu, każdy po 30 sekund. Maksymalny rozmiar zestawu to 64 MiB.
 
 ::: warning
-Rapira nie sprawdza zawartości zestawu za pomocą sumy kontrolnej ani podpisu. Użyj adresu URL `https://` hosta, któremu ufasz. Nie zastępuj zestawu pod adresem URL: umieść wersję w ścieżce adresu URL i użyj nowego adresu URL dla każdej zmiany zestawu. Wtedy każda instancja wczyta ten sam zestaw.
+Rapira nie sprawdza zawartości zestawu za pomocą sumy kontrolnej ani podpisu. Użyj adresu URL `https://` hosta, któremu ufasz. Upewnij się, że host nie przekierowuje na adres URL `http://`: przy `http://` każdy host na ścieżce sieciowej może zmienić zestaw. Nie zastępuj zestawu pod adresem URL: umieść wersję w ścieżce adresu URL i użyj nowego adresu URL dla każdej zmiany zestawu. Wtedy każda instancja wczyta ten sam zestaw.
 :::
 
 ## Usługi i refleksja

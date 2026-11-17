@@ -31,7 +31,7 @@ descriptor_set = "api.binpb"
 - Zamontuj zestaw z woluminu lub obiektu ConfigMap. ConfigMap [nie może zawierać więcej niż 1 MiB](https://kubernetes.io/docs/concepts/configuration/configmap/#motivation).
 - Pobierz zestaw w [kontenerze init](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/) lub w skrypcie entrypoint.
 
-Ta forma nie zależy od sieci przy starcie. Gdy zestaw jest w obrazie, zestaw i kod aplikacji zawsze mają tę samą wersję. Kosztem jest jeden dodatkowy krok dla każdej usługi: etap budowania z `buf` lub `protoc` albo skrypt, który pobiera plik.
+Przy dwóch pierwszych sposobach start nie wymaga sieci. Przy trzecim sposobie start wymaga hosta pliku, tak jak w formie URL. Gdy zestaw jest w obrazie, zestaw i kod aplikacji są wdrażane jako jeden artefakt. Kosztem jest jeden dodatkowy krok dla każdej usługi: etap budowania z `buf` lub `protoc` albo skrypt, który pobiera plik.
 
 ## Forma URL
 
@@ -40,7 +40,7 @@ Ta forma nie zależy od sieci przy starcie. Gdy zestaw jest w obrazie, zestaw i 
 descriptor_set = "https://schemas.example.com/billing/v42/api.binpb"
 ```
 
-Wartość, która zaczyna się od `http://` lub `https://`, jest adresem URL. Proces nadrzędny pobiera zestaw jednym żądaniem GET przy starcie. [Wejścia obrazów Buf](https://buf.build/docs/reference/inputs/#image-formats) przyjmują zdalną lokalizację w ten sam sposób.
+Wartość, która zaczyna się od `http://` lub `https://`, jest adresem URL. Proces nadrzędny pobiera zestaw za pomocą żądania GET przy starcie. [Wejścia obrazów Buf](https://buf.build/docs/reference/inputs/#image-formats) przyjmują zdalną lokalizację w ten sam sposób.
 
 Ta forma pozwala przechowywać zestawy deskryptorów wszystkich usług w jednym miejscu. Potok CI repozytorium `.proto` buduje każdy zestaw jeden raz:
 
@@ -54,7 +54,7 @@ Rapira sama wykonuje pobieranie. Obraz aplikacji nie zawiera zestawu deskryptor�
 
 ## Jak działa pobieranie
 
-- Rapira wysyła jedno żądanie GET i podąża za najwyżej 10 przekierowaniami. Status odpowiedzi 400 lub wyższy zatrzymuje start.
+- Rapira wysyła żądanie GET i podąża za najwyżej 10 przekierowaniami. Status odpowiedzi 400 lub wyższy zatrzymuje start.
 - HTTPS używa systemowego magazynu certyfikatów. `SSL_CERT_FILE` i `SSL_CERT_DIR` wybierają inny magazyn, na przykład dla prywatnego urzędu certyfikacji.
 - Rapira wysyła część userinfo adresu URL (`https://user:password@host/api.binpb`) jako poświadczenia HTTP Basic. Wpisy logu pokazują adres URL bez części userinfo i bez zapytania.
 - Pobieranie używa proxy, które wskazuje `ALL_PROXY`, `HTTPS_PROXY` lub `HTTP_PROXY`.

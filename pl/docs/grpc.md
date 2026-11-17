@@ -332,7 +332,7 @@ Limit `receive()` określa, jak długo PHP czeka na nową pracę. Jest niezależ
 descriptor_set = "https://schemas.example.com/billing/v42/api.binpb"
 ```
 
-Proces nadrzędny pobiera zestaw jednym żądaniem GET przy starcie, przed forkowaniem workerów. Nieudane pobranie zatrzymuje start z kodem wyjścia 1. Rapira nie ponawia pobrania i nie przechowuje lokalnej kopii zestawu.
+Proces nadrzędny pobiera zestaw za pomocą żądania GET przy starcie, przed forkowaniem workerów. Nieudane pobranie zatrzymuje start z kodem wyjścia 1. Rapira nie ponawia pobrania i nie przechowuje lokalnej kopii zestawu.
 
 - Treść odpowiedzi musi być binarnym zestawem. Rapira nie dekoduje skompresowanego zestawu ani zestawu w formacie JSON.
 - Pobieranie podąża za najwyżej 10 przekierowaniami. Status odpowiedzi 400 lub wyższy zatrzymuje start.
@@ -342,7 +342,7 @@ Proces nadrzędny pobiera zestaw jednym żądaniem GET przy starcie, przed forko
 - Połączenie, nagłówek odpowiedzi i treść mają osobne limity czasu, każdy po 30 sekund. Maksymalny rozmiar zestawu to 64 MiB.
 
 ::: warning
-Rapira nie sprawdza zawartości zestawu za pomocą sumy kontrolnej ani podpisu. Użyj adresu URL `https://` hosta, któremu ufasz. Umieść wersję w ścieżce adresu URL, aby każda instancja wczytała ten sam zestaw.
+Rapira nie sprawdza zawartości zestawu za pomocą sumy kontrolnej ani podpisu. Użyj adresu URL `https://` hosta, któremu ufasz. Nie zastępuj zestawu pod adresem URL: umieść wersję w ścieżce adresu URL i użyj nowego adresu URL dla każdej zmiany zestawu. Wtedy każda instancja wczyta ten sam zestaw.
 :::
 
 ## Usługi i refleksja

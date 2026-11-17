@@ -31,7 +31,7 @@ A relative path uses the directory of `rapira.toml` as its base. The file must b
 - Mount the set from a volume or a ConfigMap. A ConfigMap [cannot hold more than 1 MiB](https://kubernetes.io/docs/concepts/configuration/configmap/#motivation).
 - Download the set in an [init container](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/) or in an entrypoint script.
 
-This form has no network dependency at start. When the set is in the image, the set and the application code always have the same version. The cost is one more step for each service: a build stage with `buf` or `protoc`, or a script that gets the file.
+With the first two methods, the start needs no network. With the third method, the start needs the host of the file, as with the URL form. When the set is in the image, the set and the application code deploy as one artifact. The cost is one more step for each service: a build stage with `buf` or `protoc`, or a script that gets the file.
 
 ## The URL form
 
@@ -40,7 +40,7 @@ This form has no network dependency at start. When the set is in the image, the 
 descriptor_set = "https://schemas.example.com/billing/v42/api.binpb"
 ```
 
-A value that starts with `http://` or `https://` is a URL. The master downloads the set with one GET request at start. [Buf image inputs](https://buf.build/docs/reference/inputs/#image-formats) accept a remote location in the same way.
+A value that starts with `http://` or `https://` is a URL. The master downloads the set with a GET request at start. [Buf image inputs](https://buf.build/docs/reference/inputs/#image-formats) accept a remote location in the same way.
 
 With this form, you can keep the descriptor sets of all services in one location. The pipeline of the `.proto` repository builds each set one time:
 
@@ -54,7 +54,7 @@ Rapira does the download itself. The application image contains no descriptor se
 
 ## How the download works
 
-- Rapira sends one GET request and follows a maximum of 10 redirects. A response status of 400 or above stops the start.
+- Rapira sends a GET request and follows a maximum of 10 redirects. A response status of 400 or above stops the start.
 - HTTPS uses the certificate store of the system. `SSL_CERT_FILE` and `SSL_CERT_DIR` select a different store, for example for a private certificate authority.
 - Rapira sends the userinfo of the URL (`https://user:password@host/api.binpb`) as HTTP Basic credentials. Log messages show the URL without its userinfo and its query.
 - The download uses the proxy that `ALL_PROXY`, `HTTPS_PROXY`, or `HTTP_PROXY` names.

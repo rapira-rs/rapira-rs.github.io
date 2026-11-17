@@ -332,7 +332,7 @@ The `receive()` timeout sets how long PHP waits for new work. It is not related 
 descriptor_set = "https://schemas.example.com/billing/v42/api.binpb"
 ```
 
-The master downloads the set with one GET request at start, before it forks the workers. A download that fails stops the start with exit code 1. Rapira does not try the download again, and it keeps no local copy of the set.
+The master downloads the set with a GET request at start, before it forks the workers. A download that fails stops the start with exit code 1. Rapira does not try the download again, and it keeps no local copy of the set.
 
 - The response body must be the binary set. Rapira does not decode a compressed set or a JSON set.
 - The download follows a maximum of 10 redirects. A response status of 400 or above stops the start.
@@ -342,7 +342,7 @@ The master downloads the set with one GET request at start, before it forks the 
 - The connection, the response head, and the body each have a time limit of 30 seconds. The maximum size of the set is 64 MiB.
 
 ::: warning
-Rapira does not check the content of the set against a checksum or a signature. Use an `https://` URL of a host that you trust. Put a version in the URL path, so that each instance loads the same set.
+Rapira does not check the content of the set against a checksum or a signature. Use an `https://` URL of a host that you trust. Do not replace the set at a URL: put a version in the URL path, and use a new URL for each change of the set. Then each instance loads the same set.
 :::
 
 ## Services and reflection

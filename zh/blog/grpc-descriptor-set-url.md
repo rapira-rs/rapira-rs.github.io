@@ -31,7 +31,7 @@ descriptor_set = "api.binpb"
 - 从卷或 ConfigMap 挂载描述符集。ConfigMap [不能保存超过 1 MiB 的数据](https://kubernetes.io/docs/concepts/configuration/configmap/#motivation)。
 - 在 [Init 容器](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/)或 entrypoint 脚本中下载描述符集。
 
-此形式在启动时不依赖网络。当描述符集位于镜像中时，描述符集和应用代码的版本始终相同。代价是每个服务多一个步骤：使用 `buf` 或 `protoc` 的构建阶段，或获取文件的脚本。
+使用前两种方法时，启动不需要网络。使用第三种方法时，启动需要文件所在的主机，与 URL 形式相同。当描述符集位于镜像中时，描述符集和应用代码作为一个制品部署。代价是每个服务多一个步骤：使用 `buf` 或 `protoc` 的构建阶段，或获取文件的脚本。
 
 ## URL 形式
 
@@ -40,7 +40,7 @@ descriptor_set = "api.binpb"
 descriptor_set = "https://schemas.example.com/billing/v42/api.binpb"
 ```
 
-以 `http://` 或 `https://` 开头的值是 URL。master 在启动时用一个 GET 请求下载描述符集。[Buf 镜像输入](https://buf.build/docs/reference/inputs/#image-formats)以相同方式接受远程位置。
+以 `http://` 或 `https://` 开头的值是 URL。master 在启动时通过 GET 请求下载描述符集。[Buf 镜像输入](https://buf.build/docs/reference/inputs/#image-formats)以相同方式接受远程位置。
 
 使用此形式，可以把所有服务的描述符集放在一个位置。`.proto` 仓库的流水线将每个描述符集构建一次：
 
@@ -54,7 +54,7 @@ Rapira 自己完成下载。应用镜像不包含描述符集，也不包含构�
 
 ## 下载如何工作
 
-- Rapira 发送一个 GET 请求，最多跟随 10 次重定向。响应状态码为 400 或更高时，启动停止。
+- Rapira 发送 GET 请求，最多跟随 10 次重定向。响应状态码为 400 或更高时，启动停止。
 - HTTPS 使用系统的证书存储。`SSL_CERT_FILE` 和 `SSL_CERT_DIR` 选择其他证书存储，例如用于私有证书颁发机构。
 - Rapira 将 URL 中的用户信息（`https://user:password@host/api.binpb`）作为 HTTP Basic 凭据发送。日志消息中显示的 URL 不含用户信息和查询部分。
 - 下载使用 `ALL_PROXY`、`HTTPS_PROXY` 或 `HTTP_PROXY` 指定的代理。

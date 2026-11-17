@@ -332,7 +332,7 @@ The `receive()` timeout sets how long PHP waits for new work. It is not related 
 descriptor_set = "https://schemas.example.com/billing/v42/api.binpb"
 ```
 
-The master downloads the set with a GET request at start, before it forks the workers. A download that fails stops the start with exit code 1. Rapira does not try the download again, and it keeps no local copy of the set.
+The master process downloads the set with a GET request at start, before it forks the workers. A download that fails stops the start with exit code 1. Rapira does not try the download again, and it keeps no local copy of the set.
 
 - The response body must be the binary set. Rapira does not decode a compressed set or a JSON set.
 - The download follows a maximum of 10 redirects. A response status of 400 or above stops the start.
@@ -347,7 +347,7 @@ Rapira does not check the content of the set against a checksum or a signature. 
 
 ## Services and reflection
 
-The master loads the descriptor set before it forks the workers. An invalid set, a download that fails, missing imports, or an unknown configured service prevents startup. Restart Rapira after you change the descriptor set. A reload keeps the loaded set.
+The master process loads the descriptor set before it forks the workers. An invalid set, a download that fails, missing imports, or an unknown configured service prevents startup. Restart Rapira after you change the descriptor set. A reload keeps the loaded set.
 
 By default, the pool serves the services of the files that no other file in the set imports. A file that another file imports is a dependency, for example `google/longrunning/operations.proto`. Its services are not served. Set `grpc.services` to name the served services, for example `["billing.v1.InvoiceService"]`. Use this key when several Rapira instances share one set, or to serve a service of an imported file.
 

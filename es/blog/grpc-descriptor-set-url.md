@@ -16,7 +16,7 @@ La forma URL necesita una versión de Rapira posterior a la 0.9.2.
 
 ## Qué hace Rapira con el conjunto
 
-Rapira usa el conjunto para encontrar los servicios y sus métodos, para convertir los mensajes JSON de Connect y para responder a las peticiones de reflexión. El maestro carga el conjunto una vez al arrancar, antes de crear los workers con fork. Un conjunto que Rapira no puede cargar impide el arranque. Rapira no necesita el ejecutable `protoc` para esto.
+Rapira usa el conjunto para encontrar los servicios y sus métodos, para convertir los mensajes JSON de Connect y para responder a las peticiones de reflexión. El proceso maestro carga el conjunto una vez al arrancar, antes de crear los workers con fork. Un conjunto que Rapira no puede cargar impide el arranque. Rapira no necesita el ejecutable `protoc` para esto.
 
 ## La forma de ruta
 
@@ -40,7 +40,7 @@ Con los dos primeros métodos, el arranque no necesita la red. Con el tercer mé
 descriptor_set = "https://schemas.example.com/billing/v42/api.binpb"
 ```
 
-Un valor que empieza por `http://` o `https://` es una URL. El maestro descarga el conjunto con una petición GET al arrancar. Las [entradas de imagen de Buf](https://buf.build/docs/reference/inputs/#image-formats) aceptan una ubicación remota de la misma forma.
+Un valor que empieza por `http://` o `https://` es una URL. El proceso maestro descarga el conjunto con una petición GET al arrancar. Las [entradas de imagen de Buf](https://buf.build/docs/reference/inputs/#image-formats) aceptan una ubicación remota de la misma forma.
 
 Con esta forma, puedes guardar los descriptor sets de todos los servicios en una ubicación. El pipeline del repositorio de `.proto` genera cada conjunto una vez:
 

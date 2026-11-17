@@ -332,7 +332,7 @@ El tiempo de espera de `receive()` establece cuánto espera PHP por trabajo nuev
 descriptor_set = "https://schemas.example.com/billing/v42/api.binpb"
 ```
 
-El maestro descarga el conjunto con una petición GET al arrancar, antes de crear los workers con fork. Una descarga fallida detiene el arranque con el código de salida 1. Rapira no repite la descarga y no guarda una copia local del conjunto.
+El proceso maestro descarga el conjunto con una petición GET al arrancar, antes de crear los workers con fork. Una descarga fallida detiene el arranque con el código de salida 1. Rapira no repite la descarga y no guarda una copia local del conjunto.
 
 - El cuerpo de la respuesta debe ser el conjunto binario. Rapira no decodifica un conjunto comprimido ni un conjunto JSON.
 - La descarga sigue un máximo de 10 redirecciones. Un estado de respuesta de 400 o superior detiene el arranque.
@@ -347,7 +347,7 @@ Rapira no comprueba el contenido del conjunto con una suma de comprobación ni c
 
 ## Servicios y reflexión
 
-El maestro carga el descriptor set antes de crear los workers con fork. Un conjunto no válido, una descarga fallida, la falta de importaciones o un servicio configurado desconocido impiden el arranque. Reinicia Rapira después de cambiar el descriptor set. Una recarga conserva el conjunto cargado.
+El proceso maestro carga el descriptor set antes de crear los workers con fork. Un conjunto no válido, una descarga fallida, la falta de importaciones o un servicio configurado desconocido impiden el arranque. Reinicia Rapira después de cambiar el descriptor set. Una recarga conserva el conjunto cargado.
 
 Por defecto, el pool atiende los servicios de los archivos que ningún otro archivo del conjunto importa. Un archivo que otro archivo importa es una dependencia, por ejemplo `google/longrunning/operations.proto`. Sus servicios no se atienden. Define `grpc.services` para nombrar los servicios atendidos, por ejemplo `["billing.v1.InvoiceService"]`. Usa esta clave cuando varias instancias de Rapira comparten un mismo conjunto, o para atender un servicio de un archivo importado.
 

@@ -16,7 +16,7 @@ URL 形式需要高于 0.9.2 的 Rapira 版本。
 
 ## Rapira 如何使用描述符集
 
-Rapira 使用描述符集查找服务及其方法、转换 Connect JSON 消息，以及响应反射请求。master 在启动时加载一次描述符集，此操作在 fork 出 worker 之前完成。Rapira 无法加载的描述符集会使启动停止。此过程不需要 `protoc` 可执行文件。
+Rapira 使用描述符集查找服务及其方法、转换 Connect JSON 消息，以及响应反射请求。master 进程在启动时加载一次描述符集，此操作在 fork 出 worker 之前完成。Rapira 无法加载的描述符集会使启动停止。此过程不需要 `protoc` 可执行文件。
 
 ## 路径形式
 
@@ -40,7 +40,7 @@ descriptor_set = "api.binpb"
 descriptor_set = "https://schemas.example.com/billing/v42/api.binpb"
 ```
 
-以 `http://` 或 `https://` 开头的值是 URL。master 在启动时通过 GET 请求下载描述符集。[Buf 镜像输入](https://buf.build/docs/reference/inputs/#image-formats)以相同方式接受远程位置。
+以 `http://` 或 `https://` 开头的值是 URL。master 进程在启动时通过 GET 请求下载描述符集。[Buf 镜像输入](https://buf.build/docs/reference/inputs/#image-formats)以相同方式接受远程位置。
 
 使用此形式，可以把所有服务的描述符集放在一个位置。`.proto` 仓库的流水线将每个描述符集构建一次：
 

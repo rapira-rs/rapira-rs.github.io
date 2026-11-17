@@ -173,7 +173,7 @@ Esta sección activa llamadas unarias gRPC, gRPC-Web y Connect en una sola escuc
 | Clave | Tipo | Por defecto | Significado |
 | --- | --- | --- | --- |
 | `listen` | cadena | `"127.0.0.1:50051"` | Dirección TCP o ruta de socket `unix:`. Usa la misma sintaxis de dirección que `http.listen`. |
-| `descriptor_set` | cadena | ninguna, obligatoria | Ruta o URL de un `google.protobuf.FileDescriptorSet` binario que contiene todos los archivos importados. Un valor que empieza por `http://` o `https://` es una URL, y el maestro descarga el conjunto al arrancar: consulta [Cargar el descriptor set desde una URL](/es/docs/grpc#descriptor-set-url). Genera el conjunto con `buf build --as-file-descriptor-set` o `protoc --include_imports`. |
+| `descriptor_set` | cadena | ninguna, obligatoria | Ruta o URL de un `google.protobuf.FileDescriptorSet` binario que contiene todos los archivos importados. Un valor que empieza por `http://` o `https://` es una URL, y el proceso maestro descarga el conjunto al arrancar: consulta [Cargar el descriptor set desde una URL](/es/docs/grpc#descriptor-set-url). Genera el conjunto con `buf build --as-file-descriptor-set` o `protoc --include_imports`. |
 | `services` | lista de cadenas | sin definir | Nombres completos de los servicios atendidos. Si no se define, el pool atiende los servicios de los archivos que ningún otro archivo del conjunto importa. La lista no puede estar vacía. |
 | `reflection` | booleano | `false` | Activa los servicios `grpc.reflection.v1` y `v1alpha`. |
 | `default_timeout_secs` | entero | sin definir | Plazo de una llamada que no tiene tiempo de espera del cliente. Si no se define, esa llamada no tiene plazo. |
@@ -182,7 +182,7 @@ Esta sección activa llamadas unarias gRPC, gRPC-Web y Connect en una sola escuc
 | `keepalive_timeout_secs` | entero | `10` | El tiempo que Rapira espera la respuesta al PING. Si no llega ninguna respuesta en este tiempo, Rapira cierra la conexión. El rango es de 1 a `86400`. |
 | `interceptors` | lista de cadenas | vacía | Los interceptores que se ejecutan antes que PHP, en el orden de la lista. Solo `"auth"` está disponible. Rapira rechaza los nombres duplicados, los nombres desconocidos y los nombres sin tabla de configuración. También rechaza una tabla `[grpc.auth]` que la lista no nombra. |
 
-El maestro carga el descriptor set antes de crear los workers con fork. Estos errores impiden la inicialización: un conjunto que Rapira no puede leer, no puede descargar o no puede decodificar, un conjunto sin sus importaciones y un conjunto sin ningún servicio que atender. También la impiden una entrada de `services` que no está en el conjunto, una entrada duplicada y una entrada que nombra el servicio de salud o el de reflexión. `default_timeout_secs` no puede ser mayor que `max_timeout_secs`.
+El proceso maestro carga el descriptor set antes de crear los workers con fork. Estos errores impiden la inicialización: un conjunto que Rapira no puede leer, no puede descargar o no puede decodificar, un conjunto sin sus importaciones y un conjunto sin ningún servicio que atender. También la impiden una entrada de `services` que no está en el conjunto, una entrada duplicada y una entrada que nombra el servicio de salud o el de reflexión. `default_timeout_secs` no puede ser mayor que `max_timeout_secs`.
 
 ### La tabla `[grpc.auth]` {#grpc-auth}
 
@@ -196,7 +196,7 @@ El interceptor `auth` acepta una llamada solo con un token bearer válido. PHP n
 
 Esta tabla usa las [claves y los valores predeterminados del pool HTTP](#http-pool), con un `entrypoint` obligatorio y `mode = "dispatcher"`. Se rechazan los modos Classic y Worker. El número de workers, el reciclaje y el mecanismo de vigilancia del proceso se aplican a este pool de forma independiente.
 
-HTTP y gRPC pueden ejecutarse juntos. Cada escucha usa su propio pool y script de entrada. El maestro carga el descriptor set y el archivo de tokens una vez al arrancar. Reinicia Rapira para cargar un archivo modificado o un conjunto modificado en una URL. Una recarga conserva los datos anteriores.
+HTTP y gRPC pueden ejecutarse juntos. Cada escucha usa su propio pool y script de entrada. El proceso maestro carga el descriptor set y el archivo de tokens una vez al arrancar. Reinicia Rapira para cargar un archivo modificado o un conjunto modificado en una URL. Una recarga conserva los datos anteriores.
 
 ## La sección `[observability]` {#observability}
 

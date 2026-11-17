@@ -16,7 +16,7 @@ The URL form needs a Rapira version later than 0.9.2.
 
 ## What Rapira does with the set
 
-Rapira uses the set to find the services and their methods, to convert Connect JSON messages, and to answer reflection requests. The master loads the set one time at start, before it forks the workers. A set that Rapira cannot load stops the start. Rapira needs no `protoc` executable for this.
+Rapira uses the set to find the services and their methods, to convert Connect JSON messages, and to answer reflection requests. The master process loads the set one time at start, before it forks the workers. A set that Rapira cannot load stops the start. Rapira needs no `protoc` executable for this.
 
 ## The path form
 
@@ -40,7 +40,7 @@ With the first two methods, the start needs no network. With the third method, t
 descriptor_set = "https://schemas.example.com/billing/v42/api.binpb"
 ```
 
-A value that starts with `http://` or `https://` is a URL. The master downloads the set with a GET request at start. [Buf image inputs](https://buf.build/docs/reference/inputs/#image-formats) accept a remote location in the same way.
+A value that starts with `http://` or `https://` is a URL. The master process downloads the set with a GET request at start. [Buf image inputs](https://buf.build/docs/reference/inputs/#image-formats) accept a remote location in the same way.
 
 With this form, you can keep the descriptor sets of all services in one location. The pipeline of the `.proto` repository builds each set one time:
 

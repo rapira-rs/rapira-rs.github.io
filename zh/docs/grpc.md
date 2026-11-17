@@ -332,7 +332,7 @@ grpcurl -plaintext -max-time 2 -d '{"text":"hello"}' 127.0.0.1:50051 example.v1.
 descriptor_set = "https://schemas.example.com/billing/v42/api.binpb"
 ```
 
-master 在启动时通过 GET 请求下载描述符集，此操作在 fork 出 worker 之前完成。下载失败会使启动停止，退出码为 1。Rapira 不会再次尝试下载，也不保留描述符集的本地副本。
+master 进程在启动时通过 GET 请求下载描述符集，此操作在 fork 出 worker 之前完成。下载失败会使启动停止，退出码为 1。Rapira 不会再次尝试下载，也不保留描述符集的本地副本。
 
 - 响应体必须是二进制描述符集。Rapira 不解码压缩的描述符集或 JSON 格式的描述符集。
 - 下载最多跟随 10 次重定向。响应状态码为 400 或更高时，启动停止。
@@ -347,7 +347,7 @@ Rapira 不使用校验和或签名检查描述符集的内容。请使用你信�
 
 ## 服务和反射
 
-master 在 fork 出 worker 前加载描述符集。描述符集无效、下载失败、缺少导入文件或配置了未知服务，都会阻止启动。更改描述符集后，请重启 Rapira。重载会保留已加载的描述符集。
+master 进程在 fork 出 worker 前加载描述符集。描述符集无效、下载失败、缺少导入文件或配置了未知服务，都会阻止启动。更改描述符集后，请重启 Rapira。重载会保留已加载的描述符集。
 
 默认情况下，进程池提供集合中未被其他文件导入的文件里的服务。被其他文件导入的文件是依赖项，例如 `google/longrunning/operations.proto`。其中的服务不会被提供。设置 `grpc.services` 以指定所提供的服务，例如 `["billing.v1.InvoiceService"]`。当多个 Rapira 实例共用一个描述符集，或需要提供某个导入文件中的服务时，请使用此键。
 

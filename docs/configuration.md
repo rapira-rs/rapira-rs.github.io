@@ -173,7 +173,7 @@ This section enables unary gRPC, gRPC-Web, and Connect calls on one listener. Se
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `listen` | string | `"127.0.0.1:50051"` | TCP address or `unix:` socket path. Uses the same address syntax as `http.listen`. |
-| `descriptor_set` | string | none, required | Path or URL of a binary `google.protobuf.FileDescriptorSet` that contains every imported file. A value that starts with `http://` or `https://` is a URL, and the master downloads it at start. See [Load the descriptor set from a URL](/docs/grpc#descriptor-set-url). Build the set with `buf build --as-file-descriptor-set` or `protoc --include_imports`. |
+| `descriptor_set` | string | none, required | Path or URL of a binary `google.protobuf.FileDescriptorSet` that contains every imported file. A value that starts with `http://` or `https://` is a URL, and the master process downloads it at start. See [Load the descriptor set from a URL](/docs/grpc#descriptor-set-url). Build the set with `buf build --as-file-descriptor-set` or `protoc --include_imports`. |
 | `services` | list of strings | unset | Fully qualified names of the served services. When unset, the pool serves the services of the files that no other file in the set imports. The list must not be empty. |
 | `reflection` | boolean | `false` | Enables the `grpc.reflection.v1` and `v1alpha` services. |
 | `default_timeout_secs` | integer | unset | Deadline of a call that has no client timeout. When unset, such a call has no deadline. |
@@ -182,7 +182,7 @@ This section enables unary gRPC, gRPC-Web, and Connect calls on one listener. Se
 | `keepalive_timeout_secs` | integer | `10` | The time that Rapira waits for the PING answer. If no answer arrives in this time, Rapira closes the connection. The range is 1 through `86400`. |
 | `interceptors` | list of strings | empty | Interceptors that run before PHP, in list order. Only `"auth"` is available. Rapira rejects duplicate names, unknown names, and names without a configuration table. It also rejects a `[grpc.auth]` table that the list does not name. |
 
-The master loads the descriptor set before it forks the workers. These errors stop initialization: a set that Rapira cannot read, download, or decode, a set without its imports, and a set with no service to serve. A `services` entry that is not in the set, a duplicate entry, and an entry that names the health or reflection service also stop it. `default_timeout_secs` must not be larger than `max_timeout_secs`.
+The master process loads the descriptor set before it forks the workers. These errors stop initialization: a set that Rapira cannot read, download, or decode, a set without its imports, and a set with no service to serve. A `services` entry that is not in the set, a duplicate entry, and an entry that names the health or reflection service also stop it. `default_timeout_secs` must not be larger than `max_timeout_secs`.
 
 ### The `[grpc.auth]` table {#grpc-auth}
 
@@ -196,7 +196,7 @@ The `auth` interceptor accepts a call only with a valid bearer token. PHP does n
 
 This table uses the [HTTP pool keys and defaults](#http-pool), with a required `entrypoint` and `mode = "dispatcher"`. Classic and Worker modes are rejected. The worker count, recycling, and the process watchdog apply to this pool independently.
 
-HTTP and gRPC can run together. Each listener uses its own pool and entrypoint. The master loads the descriptor set and the tokens file once at start. Restart Rapira to load a changed file or a changed set at a URL. A reload keeps the old data.
+HTTP and gRPC can run together. Each listener uses its own pool and entrypoint. The master process loads the descriptor set and the tokens file once at start. Restart Rapira to load a changed file or a changed set at a URL. A reload keeps the old data.
 
 ## The `[observability]` section {#observability}
 

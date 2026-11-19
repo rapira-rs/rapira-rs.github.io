@@ -9,7 +9,7 @@ description: "生产环境的 systemd unit、配置结构、反向代理、重�
 
 Rapira 不定义部署结构。它不要求特定配置路径或进程监管器。本页为其他文档定义一个约定。请先按照[安装](/zh/docs/intro/installation)安装二进制文件。
 
-Rapira 也提供 `ghcr.io/rapira-rs/rapira` 容器镜像。使用 `COPY --from` 将其文件复制到应用镜像。容器使用其运行时的重启策略，而不是 systemd unit。其他配置设置不变。更多信息请参阅 [Docker](/zh/docs/intro/installation#docker)。
+Rapira 也提供 `ghcr.io/rapira-rs/rapira` 容器镜像。镜像包含 PHP，你只需将应用添加到镜像中。容器使用其运行时的重启策略，而不是 systemd unit。其他配置设置不变。更多信息请参阅 [Docker](/zh/docs/intro/installation#docker)。
 
 ## 一份 systemd unit
 

@@ -55,19 +55,14 @@ Usa esta compilación solo para desarrollo local. Usa Linux para producción.
 
 ## Docker {#docker}
 
-La imagen `ghcr.io/rapira-rs/rapira` contiene solo Rapira y `libphp.so`. Copia sus archivos en la imagen de tu aplicación:
+La imagen `ghcr.io/rapira-rs/rapira` contiene Rapira, PHP y extensiones comunes de PHP. Añade tu aplicación a la imagen:
 
 ```dockerfile
-FROM php:8.5-cli-trixie
-COPY --from=ghcr.io/rapira-rs/rapira:php8.5 / /
-RUN apt-get update \
-    && xargs -r apt-get install -y --no-install-recommends < /usr/local/share/rapira/debian-packages.txt \
-    && rm -rf /var/lib/apt/lists/*
+FROM ghcr.io/rapira-rs/rapira:php8.5
 COPY . /app
-CMD ["rapira", "serve", "/app/rapira.toml"]
 ```
 
-Cada etiqueta indica su versión de PHP, por ejemplo `php8.4`, `php8.5` o `nightly-php8.5`. Consulta [Docker](/es/docs/intro/installation#docker) para ver todas las etiquetas.
+Cada etiqueta indica su versión de PHP, por ejemplo `php8.4`, `php8.5`, `php8.6` o `nightly-php8.5`. Consulta [Docker](/es/docs/intro/installation#docker) para ver todas las etiquetas y las imágenes de PHP.
 
 </DownloadCard>
 

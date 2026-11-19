@@ -55,19 +55,14 @@ Używaj tej kompilacji tylko do lokalnego developmentu. Na produkcji używaj Lin
 
 ## Docker {#docker}
 
-Obraz `ghcr.io/rapira-rs/rapira` zawiera tylko Rapirę i `libphp.so`. Skopiuj jego pliki do obrazu swojej aplikacji:
+Obraz `ghcr.io/rapira-rs/rapira` zawiera Rapirę, PHP i popularne rozszerzenia PHP. Dodaj swoją aplikację do obrazu:
 
 ```dockerfile
-FROM php:8.5-cli-trixie
-COPY --from=ghcr.io/rapira-rs/rapira:php8.5 / /
-RUN apt-get update \
-    && xargs -r apt-get install -y --no-install-recommends < /usr/local/share/rapira/debian-packages.txt \
-    && rm -rf /var/lib/apt/lists/*
+FROM ghcr.io/rapira-rs/rapira:php8.5
 COPY . /app
-CMD ["rapira", "serve", "/app/rapira.toml"]
 ```
 
-Każdy tag wskazuje wersję PHP, na przykład `php8.4`, `php8.5` lub `nightly-php8.5`. Wszystkie tagi opisuje sekcja [Docker](/pl/docs/intro/installation#docker).
+Każdy tag wskazuje wersję PHP, na przykład `php8.4`, `php8.5`, `php8.6` lub `nightly-php8.5`. Wszystkie tagi i obrazy PHP opisuje sekcja [Docker](/pl/docs/intro/installation#docker).
 
 </DownloadCard>
 

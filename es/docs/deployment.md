@@ -9,7 +9,7 @@ Una instalación de producción debe mantener Rapira disponible después de los 
 
 Rapira no define una estructura de despliegue. Tampoco requiere una ruta de configuración o un supervisor de procesos específicos. Esta página establece la convención que usa el resto de la documentación. Instala primero el binario según [Instalación](/es/docs/intro/installation).
 
-Rapira también está disponible como imagen `ghcr.io/rapira-rs/rapira`. Copia sus archivos en la imagen de la aplicación mediante `COPY --from`. Un contenedor usa la política de reinicio de su runtime en lugar de la unidad de systemd. Los demás ajustes de configuración no cambian. Consulta [Docker](/es/docs/intro/installation#docker) para obtener más información.
+Rapira también está disponible como imagen `ghcr.io/rapira-rs/rapira`. La imagen contiene PHP, y tú añades tu aplicación a ella. Un contenedor usa la política de reinicio de su runtime en lugar de la unidad de systemd. Los demás ajustes de configuración no cambian. Consulta [Docker](/es/docs/intro/installation#docker) para obtener más información.
 
 ## Una unidad de systemd
 

@@ -55,19 +55,14 @@ const labels = {
 
 ## Docker {#docker}
 
-镜像 `ghcr.io/rapira-rs/rapira` 只包含 Rapira 和 `libphp.so`。把它的文件复制到你的应用镜像中：
+镜像 `ghcr.io/rapira-rs/rapira` 包含 Rapira、PHP 和常用的 PHP 扩展。请将你的应用添加到镜像中：
 
 ```dockerfile
-FROM php:8.5-cli-trixie
-COPY --from=ghcr.io/rapira-rs/rapira:php8.5 / /
-RUN apt-get update \
-    && xargs -r apt-get install -y --no-install-recommends < /usr/local/share/rapira/debian-packages.txt \
-    && rm -rf /var/lib/apt/lists/*
+FROM ghcr.io/rapira-rs/rapira:php8.5
 COPY . /app
-CMD ["rapira", "serve", "/app/rapira.toml"]
 ```
 
-每个标签都标明 PHP 版本，例如 `php8.4`、`php8.5` 或 `nightly-php8.5`。全部标签见 [Docker](/zh/docs/intro/installation#docker)。
+每个标签都标明 PHP 版本，例如 `php8.4`、`php8.5`、`php8.6` 或 `nightly-php8.5`。全部标签和 PHP 镜像见 [Docker](/zh/docs/intro/installation#docker)。
 
 </DownloadCard>
 

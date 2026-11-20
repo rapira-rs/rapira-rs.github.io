@@ -9,7 +9,7 @@ Production deployments must keep Rapira available after restarts and code change
 
 Rapira does not define a deployment layout. It does not require a specific configuration path or process supervisor. This page establishes the convention that the other documentation uses. Install the binary first, as described in [Installation](/docs/intro/installation).
 
-Rapira is also available as the `ghcr.io/rapira-rs/rapira` container image. Copy its files into an application image with `COPY --from`. A container uses the restart policy of its runtime instead of the systemd unit. The other configuration settings do not change. See [Docker](/docs/intro/installation#docker) for more information.
+Rapira is also available as the `ghcr.io/rapira-rs/rapira` container image. The image contains PHP, and you add your application to it. A container uses the restart policy of its runtime instead of the systemd unit. The other configuration settings do not change. See [Docker](/docs/intro/installation#docker) for more information.
 
 ## A systemd unit
 

@@ -174,19 +174,14 @@ grep rapira-v0.9.0-php8.5-macos-aarch64.tar.gz rapira-v0.9.0-SHA256SUMS.txt | sh
 
 ## Docker
 
-La imagen de contenedor `ghcr.io/rapira-rs/rapira` contiene el binario `rapira` y su `libphp.so`. La imagen usa `FROM scratch` y no tiene sistema base, shell ni entrypoint. No se puede ejecutar por sí sola. Copia sus archivos en una imagen de la aplicación:
+La imagen de contenedor `ghcr.io/rapira-rs/rapira` contiene Rapira, PHP NTS y extensiones comunes de PHP sobre Debian Trixie. Añade tu aplicación a la imagen:
 
 ```dockerfile
-FROM php:8.5-cli-trixie
-COPY --from=ghcr.io/rapira-rs/rapira:php8.5 / /
-RUN apt-get update \
-    && xargs -r apt-get install -y --no-install-recommends < /usr/local/share/rapira/debian-packages.txt \
-    && rm -rf /var/lib/apt/lists/*
+FROM ghcr.io/rapira-rs/rapira:php8.5
 COPY . /app
-CMD ["rapira", "serve", "/app/rapira.toml"]
 ```
 
-El directorio de la aplicación contiene un `rapira.toml`:
+La imagen inicia `rapira serve /app/rapira.toml`. El directorio de la aplicación contiene un `rapira.toml`:
 
 ```toml
 [http]
@@ -197,26 +192,28 @@ entrypoint = "/app/public/index.php"
 mode = "classic"
 ```
 
-La imagen contiene `/usr/local/bin/rapira`, `/usr/local/lib/libphp.so` y OPcache. En PHP 8.4, OPcache es un `opcache.so` separado con un archivo ini. En PHP 8.5, forma parte de `libphp.so`.
+La imagen contiene `/usr/local/bin/rapira` y PHP en `/usr/local`, con `/usr/local/lib/libphp.so`. La variable de entorno `PHP_VERSION` contiene la versión de parche de PHP. En PHP 8.4, OPcache es un `opcache.so` separado con un archivo INI que lo activa. En PHP 8.5 y PHP 8.6, OPcache forma parte de `libphp.so`.
 
-La imagen también incluye `bcmath`, `intl`, `pdo_pgsql`, `pgsql`, `igbinary` y `redis` como módulos compartidos con archivos INI que los activan. Redis admite la serialización igbinary.
+Todas las imágenes incluyen `bcmath`, `intl`, `mbstring`, `pdo_pgsql`, `pgsql` y `sodium`. Las imágenes de PHP 8.4 y PHP 8.5 también incluyen `igbinary` y `redis`. Redis admite la serialización igbinary. Ningún release de `igbinary` ni de `redis` compila en PHP 8.6, por eso las imágenes de PHP 8.6 no los incluyen.
 
-El directorio `/usr/local/share/rapira` contiene dos archivos más. `PHP_VERSION.txt` contiene la versión de parche de PHP incluida. `debian-packages.txt` enumera los paquetes necesarios para ejecutar `libphp` y sus extensiones compartidas. Instala estos paquetes en la imagen de la aplicación, incluso cuando la imagen base contiene PHP.
+La imagen conserva los comandos auxiliares de la imagen oficial de PHP: `docker-php-ext-install`, `docker-php-ext-enable`, `docker-php-ext-configure`, `docker-php-source` y `docker-php-entrypoint`. Añade otras extensiones con `docker-php-ext-install`:
 
-La compilación de la imagen usa `libphp.so` de `php:8.4-cli-trixie` o `php:8.5-cli-trixie`. Añade las seis extensiones compartidas indicadas arriba. Añade otras extensiones en la imagen base de la aplicación. En una imagen base de PHP, `docker-php-ext-install` compila contra la misma `libphp.so`.
+```dockerfile
+FROM ghcr.io/rapira-rs/rapira:php8.5
+RUN docker-php-ext-install pdo_mysql
+COPY . /app
+```
 
-::: question ¿Por qué la imagen se construye `FROM scratch`?
-Una imagen scratch contiene solo los archivos que la compilación copia en ella. Por eso, `COPY --from=ghcr.io/rapira-rs/rapira:php8.5 / /` copia solo los archivos de Rapira. Tú eliges la imagen base de la aplicación.
-:::
+Las imágenes de PHP 8.6 no tienen los comandos `pecl` ni `pear`, igual que la imagen oficial de PHP 8.6.
 
 Cada etiqueta identifica su versión menor de PHP. Estas etiquetas admiten amd64 y arm64:
 
 | Etiqueta | A qué apunta |
 | --- | --- |
-| `X.Y.Z-php8.4`, `X.Y.Z-php8.5` | Una compilación de un release. La etiqueta no se mueve nunca. |
-| `X.Y-php8.4`, `X.Y-php8.5` | El release estable más reciente con esa versión `X.Y`. |
-| `php8.4`, `php8.5` | El release estable más reciente. |
-| `nightly-php8.4`, `nightly-php8.5` | La compilación nightly más reciente. |
+| `X.Y.Z-php8.4`, `X.Y.Z-php8.5`, `X.Y.Z-php8.6` | Un release. Para el release más reciente, una actualización de PHP mueve esta etiqueta a una nueva compilación. |
+| `X.Y-php8.4`, `X.Y-php8.5`, `X.Y-php8.6` | El release estable más reciente con esa versión `X.Y`. |
+| `php8.4`, `php8.5`, `php8.6` | El release estable más reciente. |
+| `nightly-php8.4`, `nightly-php8.5`, `nightly-php8.6` | La compilación nightly más reciente. |
 
 El registro también contiene etiquetas para una sola arquitectura, como `X.Y.Z-php8.5-amd64` y `X.Y.Z-php8.5-arm64`.
 
@@ -225,6 +222,24 @@ No hay etiqueta `latest`. Cada compilación de Rapira usa las cabeceras de una s
 ::: question ¿A qué apunta una etiqueta nightly?
 Cada ejecución correcta de CI en `main` construye imágenes a partir de ese commit. La compilación recibe una etiqueta inmutable `X.Y.Z-nightly.<short-sha>-php8.5`. `X.Y.Z` es la versión del repositorio. `<short-sha>` son los siete primeros caracteres del identificador del commit. La etiqueta `nightly-php8.5` apunta a esa compilación. El registro conserva las diez compilaciones nightly más recientes.
 :::
+
+### Imágenes de PHP
+
+La imagen de Rapira usa la imagen de PHP `ghcr.io/rapira-rs/php:<minor>-nts` como base. Las imágenes de PHP vienen del repositorio [rapira-rs/docker](https://github.com/rapira-rs/docker). Una imagen de PHP contiene PHP y las extensiones de PHP de la imagen oficial de PHP. No contiene Rapira ni las demás extensiones de la imagen de Rapira. Cada versión menor de PHP tiene una imagen NTS y una imagen thread-safe (ZTS) sobre Debian Trixie, Debian Bookworm, Alpine 3.24 y Alpine 3.23. Rapira solo funciona con PHP NTS, por eso la imagen de Rapira usa la imagen NTS sobre Debian Trixie.
+
+Las imágenes de PHP admiten amd64 y arm64. En las etiquetas, `<suite>` es `trixie`, `bookworm`, `alpine3.24` o `alpine3.23`, y `<variant>` es `nts` o `zts`:
+
+| Etiqueta | A qué apunta |
+| --- | --- |
+| `X.Y-<suite>-<variant>` | La compilación más reciente de esa versión menor de PHP, por ejemplo `8.5-alpine3.24-nts`. |
+| `X.Y.Z-<suite>-<variant>` | La compilación más reciente de un release de parche de PHP, por ejemplo `8.5.13-alpine3.24-nts`. |
+| `X.Y-<variant>`, `X.Y.Z-<variant>` | La misma imagen que la etiqueta `trixie`, por ejemplo `8.5-nts`. |
+
+La compilación obtiene PHP de la etiqueta de release firmada de php-src y verifica la etiqueta con las claves de los release managers de PHP. Sigue la receta de la imagen oficial de PHP. Cada imagen de PHP incluye `libphp.so`. Las imágenes oficiales de PHP 8.6 son solo ZTS, pero estas imágenes de PHP también tienen compilaciones NTS de PHP 8.6.
+
+### Actualizaciones con los releases de PHP
+
+Un workflow de GitHub Actions comprueba las etiquetas de release de php-src cada 15 minutos. Cuando una versión menor de PHP recibe un nuevo release de parche, el workflow construye las imágenes de PHP de esa versión menor. Después, un segundo workflow construye de nuevo el release más reciente de Rapira sobre la nueva imagen de PHP NTS y mueve sus etiquetas. Las imágenes de PHP también se construyen de nuevo una vez por semana para instalar las actualizaciones de paquetes. Así, las imágenes reciben las correcciones de PHP y de paquetes sin un nuevo release de Rapira.
 
 ## La compilación de libphp
 

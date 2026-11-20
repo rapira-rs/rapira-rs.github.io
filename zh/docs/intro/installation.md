@@ -174,19 +174,14 @@ grep rapira-v0.9.0-php8.5-macos-aarch64.tar.gz rapira-v0.9.0-SHA256SUMS.txt | sh
 
 ## Docker
 
-`ghcr.io/rapira-rs/rapira` 容器镜像包含 `rapira` 二进制文件及其 `libphp.so`。镜像使用 `FROM scratch`，没有基础系统、shell 或 entrypoint。它不能单独运行。请将它的文件复制到应用镜像中：
+`ghcr.io/rapira-rs/rapira` 容器镜像基于 Debian Trixie，包含 Rapira、NTS PHP 和常用的 PHP 扩展。请将你的应用添加到镜像中：
 
 ```dockerfile
-FROM php:8.5-cli-trixie
-COPY --from=ghcr.io/rapira-rs/rapira:php8.5 / /
-RUN apt-get update \
-    && xargs -r apt-get install -y --no-install-recommends < /usr/local/share/rapira/debian-packages.txt \
-    && rm -rf /var/lib/apt/lists/*
+FROM ghcr.io/rapira-rs/rapira:php8.5
 COPY . /app
-CMD ["rapira", "serve", "/app/rapira.toml"]
 ```
 
-应用目录包含一个 `rapira.toml`：
+镜像启动 `rapira serve /app/rapira.toml`。应用目录包含一个 `rapira.toml`：
 
 ```toml
 [http]
@@ -197,26 +192,28 @@ entrypoint = "/app/public/index.php"
 mode = "classic"
 ```
 
-镜像包含 `/usr/local/bin/rapira`、`/usr/local/lib/libphp.so` 和 OPcache。在 PHP 8.4 上，OPcache 是独立的 `opcache.so`，并附带一个 ini 文件。在 PHP 8.5 上，它是 `libphp.so` 的一部分。
+镜像包含 `/usr/local/bin/rapira`，以及位于 `/usr/local` 的 PHP，其中包括 `/usr/local/lib/libphp.so`。环境变量 `PHP_VERSION` 记录 PHP 的补丁版本。在 PHP 8.4 上，OPcache 是独立的 `opcache.so`，并附带一个启用它的 INI 文件。在 PHP 8.5 和 PHP 8.6 上，OPcache 是 `libphp.so` 的一部分。
 
-镜像还包含 `bcmath`、`intl`、`pdo_pgsql`、`pgsql`、`igbinary` 和 `redis` 共享模块，以及启用这些模块的 INI 文件。Redis 支持 igbinary 序列化。
+所有镜像都包含 `bcmath`、`intl`、`mbstring`、`pdo_pgsql`、`pgsql` 和 `sodium`。PHP 8.4 和 PHP 8.5 镜像还包含 `igbinary` 和 `redis`。Redis 支持 igbinary 序列化。`igbinary` 和 `redis` 的任何发布版本都无法在 PHP 8.6 上编译，因此 PHP 8.6 镜像不包含它们。
 
-`/usr/local/share/rapira` 目录还包含两个文件。`PHP_VERSION.txt` 记录随附 PHP 的补丁版本。`debian-packages.txt` 列出 `libphp` 及其共享扩展所需的运行时软件包。请在应用镜像中安装这些软件包，即使基础镜像已包含 PHP。
+镜像保留了官方 PHP 镜像的辅助命令：`docker-php-ext-install`、`docker-php-ext-enable`、`docker-php-ext-configure`、`docker-php-source` 和 `docker-php-entrypoint`。使用 `docker-php-ext-install` 添加其他扩展：
 
-镜像构建使用 `php:8.4-cli-trixie` 或 `php:8.5-cli-trixie` 中的 `libphp.so`，并添加上述六个共享扩展。请在应用的基础镜像中添加其他扩展。在 PHP 基础镜像中，`docker-php-ext-install` 会针对同一份 `libphp.so` 编译扩展。
+```dockerfile
+FROM ghcr.io/rapira-rs/rapira:php8.5
+RUN docker-php-ext-install pdo_mysql
+COPY . /app
+```
 
-::: question 为什么镜像使用 `FROM scratch` 构建？
-scratch 镜像只包含构建复制到其中的文件。因此，`COPY --from=ghcr.io/rapira-rs/rapira:php8.5 / /` 只复制 Rapira 文件。应用的基础镜像由你选择。
-:::
+PHP 8.6 镜像没有 `pecl` 和 `pear` 命令，这与官方 PHP 8.6 镜像相同。
 
 每个标签都标明其 PHP 次版本。这些标签支持 amd64 和 arm64：
 
 | 标签 | 指向什么 |
 | --- | --- |
-| `X.Y.Z-php8.4`、`X.Y.Z-php8.5` | 一个发布构建。此标签永不移动。 |
-| `X.Y-php8.4`、`X.Y-php8.5` | 该 `X.Y` 版本的最新稳定发布。 |
-| `php8.4`、`php8.5` | 最新的稳定发布。 |
-| `nightly-php8.4`、`nightly-php8.5` | 最新的 nightly 构建。 |
+| `X.Y.Z-php8.4`、`X.Y.Z-php8.5`、`X.Y.Z-php8.6` | 一个发布。对于最新的发布，PHP 更新会将此标签移到新的构建。 |
+| `X.Y-php8.4`、`X.Y-php8.5`、`X.Y-php8.6` | 该 `X.Y` 版本的最新稳定发布。 |
+| `php8.4`、`php8.5`、`php8.6` | 最新的稳定发布。 |
+| `nightly-php8.4`、`nightly-php8.5`、`nightly-php8.6` | 最新的 nightly 构建。 |
 
 registry 还包含特定架构的标签，例如 `X.Y.Z-php8.5-amd64` 和 `X.Y.Z-php8.5-arm64`。
 
@@ -225,6 +222,24 @@ registry 还包含特定架构的标签，例如 `X.Y.Z-php8.5-amd64` 和 `X.Y.Z
 ::: question nightly 标签指向什么？
 `main` 上每次成功的 CI 运行都会从该提交构建镜像。此构建获得一个不可变的标签 `X.Y.Z-nightly.<short-sha>-php8.5`。`X.Y.Z` 是仓库版本。`<short-sha>` 是提交标识符的前七个字符。`nightly-php8.5` 标签指向此构建。registry 保留最新的十个 nightly 构建。
 :::
+
+### PHP 镜像
+
+Rapira 镜像以 PHP 镜像 `ghcr.io/rapira-rs/php:<minor>-nts` 为基础。PHP 镜像来自 [rapira-rs/docker](https://github.com/rapira-rs/docker) 仓库。PHP 镜像包含 PHP 和官方 PHP 镜像中的 PHP 扩展，不包含 Rapira，也不包含 Rapira 镜像的其他扩展。每个 PHP 次版本都有基于 Debian Trixie、Debian Bookworm、Alpine 3.24 和 Alpine 3.23 的 NTS 镜像和线程安全（ZTS）镜像。Rapira 只能在 NTS PHP 上运行，因此 Rapira 镜像使用基于 Debian Trixie 的 NTS 镜像。
+
+PHP 镜像支持 amd64 和 arm64。标签中的 `<suite>` 为 `trixie`、`bookworm`、`alpine3.24` 或 `alpine3.23`，`<variant>` 为 `nts` 或 `zts`：
+
+| 标签 | 指向什么 |
+| --- | --- |
+| `X.Y-<suite>-<variant>` | 该 PHP 次版本最新的构建，例如 `8.5-alpine3.24-nts`。 |
+| `X.Y.Z-<suite>-<variant>` | 一个 PHP 补丁发布的最新构建，例如 `8.5.13-alpine3.24-nts`。 |
+| `X.Y-<variant>`、`X.Y.Z-<variant>` | 与 `trixie` 标签相同的镜像，例如 `8.5-nts`。 |
+
+构建从 php-src 已签名的发布标签获取 PHP，并使用 PHP 发布经理的密钥验证该标签。构建遵循官方 PHP 镜像的配方。每个 PHP 镜像都包含 `libphp.so`。官方 PHP 8.6 镜像只有 ZTS 版本，而这些 PHP 镜像也提供 PHP 8.6 的 NTS 构建。
+
+### PHP 发布后的更新
+
+一个 GitHub Actions workflow 每 15 分钟检查一次 php-src 的发布标签。当某个 PHP 次版本有新的补丁发布时，workflow 会构建该次版本的 PHP 镜像。然后另一个 workflow 在新的 NTS PHP 镜像上重新构建最新的 Rapira 发布，并移动其标签。PHP 镜像还会每周重新构建一次，以安装软件包更新。因此，镜像无需新的 Rapira 发布即可获得 PHP 和软件包的修复。
 
 ## libphp 构建
 

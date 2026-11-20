@@ -225,21 +225,21 @@ Cada ejecución correcta de CI en `main` construye imágenes a partir de ese com
 
 ### Imágenes de PHP
 
-La imagen de Rapira usa la imagen de PHP `ghcr.io/rapira-rs/php:<minor>-nts` como base. Una imagen de PHP contiene PHP y las extensiones de PHP de la imagen de Rapira, pero no Rapira. Cada versión menor de PHP también tiene una imagen thread-safe (ZTS), `ghcr.io/rapira-rs/php:<minor>-zts`. Rapira solo funciona con PHP NTS, por eso ninguna imagen de Rapira usa una imagen ZTS. Las imágenes ZTS no incluyen `redis`, porque redis 6.3.0 no es seguro en PHP ZTS.
+La imagen de Rapira usa la imagen de PHP `ghcr.io/rapira-rs/php:<minor>-nts` como base. Las imágenes de PHP vienen del repositorio [rapira-rs/docker](https://github.com/rapira-rs/docker). Una imagen de PHP contiene PHP y las extensiones de PHP de la imagen oficial de PHP. No contiene Rapira ni las demás extensiones de la imagen de Rapira. Cada versión menor de PHP tiene una imagen NTS y una imagen thread-safe (ZTS) sobre Debian Trixie, Debian Bookworm, Alpine 3.24 y Alpine 3.23. Rapira solo funciona con PHP NTS, por eso la imagen de Rapira usa la imagen NTS sobre Debian Trixie.
 
-Las imágenes de PHP admiten amd64 y arm64:
+Las imágenes de PHP admiten amd64 y arm64. En las etiquetas, `<suite>` es `trixie`, `bookworm`, `alpine3.24` o `alpine3.23`, y `<variant>` es `nts` o `zts`:
 
 | Etiqueta | A qué apunta |
 | --- | --- |
-| `8.4-nts`, `8.5-nts`, `8.6-nts` | La compilación NTS más reciente de esa versión menor de PHP. |
-| `8.4-zts`, `8.5-zts`, `8.6-zts` | La compilación ZTS más reciente de esa versión menor de PHP. |
-| `X.Y.Z-nts`, `X.Y.Z-zts` | La compilación más reciente de un release de parche de PHP, por ejemplo `8.5.13-nts`. |
+| `X.Y-<suite>-<variant>` | La compilación más reciente de esa versión menor de PHP, por ejemplo `8.5-alpine3.24-nts`. |
+| `X.Y.Z-<suite>-<variant>` | La compilación más reciente de un release de parche de PHP, por ejemplo `8.5.13-alpine3.24-nts`. |
+| `X.Y-<variant>`, `X.Y.Z-<variant>` | La misma imagen que la etiqueta `trixie`, por ejemplo `8.5-nts`. |
 
-La compilación obtiene PHP de la etiqueta de release firmada de php-src y verifica la etiqueta con las claves de los release managers de PHP. Sigue la receta de Debian Trixie de la imagen oficial de PHP.
+La compilación obtiene PHP de la etiqueta de release firmada de php-src y verifica la etiqueta con las claves de los release managers de PHP. Sigue la receta de la imagen oficial de PHP. Cada imagen de PHP incluye `libphp.so`. Las imágenes oficiales de PHP 8.6 son solo ZTS, pero estas imágenes de PHP también tienen compilaciones NTS de PHP 8.6.
 
 ### Actualizaciones con los releases de PHP
 
-Un workflow de GitHub Actions comprueba las etiquetas de release de php-src cada 15 minutos. Cuando una versión menor de PHP recibe un nuevo release de parche, el workflow construye las dos imágenes de PHP de esa versión menor. Después construye de nuevo el release más reciente de Rapira sobre la nueva imagen de PHP NTS y mueve sus etiquetas. El workflow también construye de nuevo las imágenes de PHP una vez por semana para instalar las actualizaciones de paquetes de Debian. Así, las imágenes reciben las correcciones de PHP y de Debian sin un nuevo release de Rapira.
+Un workflow de GitHub Actions comprueba las etiquetas de release de php-src cada 15 minutos. Cuando una versión menor de PHP recibe un nuevo release de parche, el workflow construye las imágenes de PHP de esa versión menor. Después, un segundo workflow construye de nuevo el release más reciente de Rapira sobre la nueva imagen de PHP NTS y mueve sus etiquetas. Las imágenes de PHP también se construyen de nuevo una vez por semana para instalar las actualizaciones de paquetes. Así, las imágenes reciben las correcciones de PHP y de paquetes sin un nuevo release de Rapira.
 
 ## La compilación de libphp
 

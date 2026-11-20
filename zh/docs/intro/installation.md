@@ -225,21 +225,21 @@ registry 还包含特定架构的标签，例如 `X.Y.Z-php8.5-amd64` 和 `X.Y.Z
 
 ### PHP 镜像
 
-Rapira 镜像以 PHP 镜像 `ghcr.io/rapira-rs/php:<minor>-nts` 为基础。PHP 镜像包含 PHP 和 Rapira 镜像中的 PHP 扩展，但不包含 Rapira。每个 PHP 次版本还有一个线程安全（ZTS）镜像 `ghcr.io/rapira-rs/php:<minor>-zts`。Rapira 只能在 NTS PHP 上运行，因此没有 Rapira 镜像使用 ZTS 镜像。ZTS 镜像不包含 `redis`，因为 redis 6.3.0 在 ZTS PHP 上不安全。
+Rapira 镜像以 PHP 镜像 `ghcr.io/rapira-rs/php:<minor>-nts` 为基础。PHP 镜像来自 [rapira-rs/docker](https://github.com/rapira-rs/docker) 仓库。PHP 镜像包含 PHP 和官方 PHP 镜像中的 PHP 扩展，不包含 Rapira，也不包含 Rapira 镜像的其他扩展。每个 PHP 次版本都有基于 Debian Trixie、Debian Bookworm、Alpine 3.24 和 Alpine 3.23 的 NTS 镜像和线程安全（ZTS）镜像。Rapira 只能在 NTS PHP 上运行，因此 Rapira 镜像使用基于 Debian Trixie 的 NTS 镜像。
 
-PHP 镜像支持 amd64 和 arm64：
+PHP 镜像支持 amd64 和 arm64。标签中的 `<suite>` 为 `trixie`、`bookworm`、`alpine3.24` 或 `alpine3.23`，`<variant>` 为 `nts` 或 `zts`：
 
 | 标签 | 指向什么 |
 | --- | --- |
-| `8.4-nts`、`8.5-nts`、`8.6-nts` | 该 PHP 次版本最新的 NTS 构建。 |
-| `8.4-zts`、`8.5-zts`、`8.6-zts` | 该 PHP 次版本最新的 ZTS 构建。 |
-| `X.Y.Z-nts`、`X.Y.Z-zts` | 一个 PHP 补丁发布的最新构建，例如 `8.5.13-nts`。 |
+| `X.Y-<suite>-<variant>` | 该 PHP 次版本最新的构建，例如 `8.5-alpine3.24-nts`。 |
+| `X.Y.Z-<suite>-<variant>` | 一个 PHP 补丁发布的最新构建，例如 `8.5.13-alpine3.24-nts`。 |
+| `X.Y-<variant>`、`X.Y.Z-<variant>` | 与 `trixie` 标签相同的镜像，例如 `8.5-nts`。 |
 
-构建从 php-src 已签名的发布标签获取 PHP，并使用 PHP 发布经理的密钥验证该标签。构建遵循官方 PHP 镜像的 Debian Trixie 配方。
+构建从 php-src 已签名的发布标签获取 PHP，并使用 PHP 发布经理的密钥验证该标签。构建遵循官方 PHP 镜像的配方。每个 PHP 镜像都包含 `libphp.so`。官方 PHP 8.6 镜像只有 ZTS 版本，而这些 PHP 镜像也提供 PHP 8.6 的 NTS 构建。
 
 ### PHP 发布后的更新
 
-一个 GitHub Actions workflow 每 15 分钟检查一次 php-src 的发布标签。当某个 PHP 次版本有新的补丁发布时，workflow 会构建该次版本的两个 PHP 镜像。然后它在新的 NTS PHP 镜像上重新构建最新的 Rapira 发布，并移动其标签。workflow 还会每周重新构建一次 PHP 镜像，以安装 Debian 软件包更新。因此，镜像无需新的 Rapira 发布即可获得 PHP 和 Debian 的修复。
+一个 GitHub Actions workflow 每 15 分钟检查一次 php-src 的发布标签。当某个 PHP 次版本有新的补丁发布时，workflow 会构建该次版本的 PHP 镜像。然后另一个 workflow 在新的 NTS PHP 镜像上重新构建最新的 Rapira 发布，并移动其标签。PHP 镜像还会每周重新构建一次，以安装软件包更新。因此，镜像无需新的 Rapira 发布即可获得 PHP 和软件包的修复。
 
 ## libphp 构建
 

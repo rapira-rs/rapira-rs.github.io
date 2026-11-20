@@ -225,21 +225,21 @@ Każdy udany przebieg CI na `main` buduje obrazy z tego commita. Build dostaje n
 
 ### Obrazy PHP
 
-Obraz Rapiry używa obrazu PHP `ghcr.io/rapira-rs/php:<minor>-nts` jako obrazu bazowego. Obraz PHP zawiera PHP i rozszerzenia PHP z obrazu Rapiry, ale nie zawiera Rapiry. Każda wersja pomocnicza PHP ma też obraz bezpieczny wątkowo (ZTS), `ghcr.io/rapira-rs/php:<minor>-zts`. Rapira działa tylko na PHP NTS, dlatego żaden obraz Rapiry nie używa obrazu ZTS. Obrazy ZTS nie zawierają `redis`, ponieważ redis 6.3.0 nie jest bezpieczny na PHP ZTS.
+Obraz Rapiry używa obrazu PHP `ghcr.io/rapira-rs/php:<minor>-nts` jako obrazu bazowego. Obrazy PHP pochodzą z repozytorium [rapira-rs/docker](https://github.com/rapira-rs/docker). Obraz PHP zawiera PHP i rozszerzenia PHP oficjalnego obrazu PHP. Nie zawiera Rapiry ani pozostałych rozszerzeń obrazu Rapiry. Każda wersja pomocnicza PHP ma obraz NTS i obraz bezpieczny wątkowo (ZTS) w wariantach Debian Trixie, Debian Bookworm, Alpine 3.24 i Alpine 3.23. Rapira działa tylko na PHP NTS, dlatego obraz Rapiry używa obrazu NTS z Debianem Trixie.
 
-Obrazy PHP obsługują amd64 i arm64:
+Obrazy PHP obsługują amd64 i arm64. W tagach `<suite>` to `trixie`, `bookworm`, `alpine3.24` lub `alpine3.23`, a `<variant>` to `nts` lub `zts`:
 
 | Tag | Na co wskazuje |
 | --- | --- |
-| `8.4-nts`, `8.5-nts`, `8.6-nts` | Najnowszy build NTS tej wersji pomocniczej PHP. |
-| `8.4-zts`, `8.5-zts`, `8.6-zts` | Najnowszy build ZTS tej wersji pomocniczej PHP. |
-| `X.Y.Z-nts`, `X.Y.Z-zts` | Najnowszy build jednego wydania poprawkowego PHP, na przykład `8.5.13-nts`. |
+| `X.Y-<suite>-<variant>` | Najnowszy build tej wersji pomocniczej PHP, na przykład `8.5-alpine3.24-nts`. |
+| `X.Y.Z-<suite>-<variant>` | Najnowszy build jednego wydania poprawkowego PHP, na przykład `8.5.13-alpine3.24-nts`. |
+| `X.Y-<variant>`, `X.Y.Z-<variant>` | Ten sam obraz co tag `trixie`, na przykład `8.5-nts`. |
 
-Build pobiera PHP z podpisanego tagu wydania php-src i weryfikuje tag kluczami menedżerów wydań PHP. Korzysta z przepisu Debian Trixie oficjalnego obrazu PHP.
+Build pobiera PHP z podpisanego tagu wydania php-src i weryfikuje tag kluczami menedżerów wydań PHP. Korzysta z przepisu oficjalnego obrazu PHP. Każdy obraz PHP zawiera `libphp.so`. Oficjalne obrazy PHP 8.6 są tylko ZTS, ale te obrazy PHP mają też buildy NTS PHP 8.6.
 
 ### Aktualizacje po wydaniach PHP
 
-Workflow GitHub Actions sprawdza tagi wydań php-src co 15 minut. Gdy wersja pomocnicza PHP dostaje nowe wydanie poprawkowe, workflow buduje dwa obrazy PHP tej wersji pomocniczej. Następnie buduje ponownie najnowsze wydanie Rapiry na nowym obrazie PHP NTS i przenosi jego tagi. Workflow buduje też ponownie obrazy PHP raz w tygodniu, aby zainstalować aktualizacje pakietów Debiana. Dzięki temu obrazy dostają poprawki PHP i Debiana bez nowego wydania Rapiry.
+Workflow GitHub Actions sprawdza tagi wydań php-src co 15 minut. Gdy wersja pomocnicza PHP dostaje nowe wydanie poprawkowe, workflow buduje obrazy PHP tej wersji pomocniczej. Następnie drugi workflow buduje ponownie najnowsze wydanie Rapiry na nowym obrazie PHP NTS i przenosi jego tagi. Obrazy PHP są też budowane ponownie raz w tygodniu, aby zainstalować aktualizacje pakietów. Dzięki temu obrazy dostają poprawki PHP i pakietów bez nowego wydania Rapiry.
 
 ## Kompilacja libphp
 

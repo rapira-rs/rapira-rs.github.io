@@ -225,21 +225,21 @@ Each successful CI run on `main` builds images from that commit. The build gets 
 
 ### PHP images
 
-The Rapira image uses the PHP image `ghcr.io/rapira-rs/php:<minor>-nts` as its base. A PHP image contains PHP and the PHP extensions of the Rapira image, but not Rapira. Each PHP minor version also has a thread-safe (ZTS) image, `ghcr.io/rapira-rs/php:<minor>-zts`. Rapira runs only on NTS PHP, so no Rapira image uses a ZTS image. The ZTS images do not include `redis`, because redis 6.3.0 is not safe on ZTS PHP.
+The Rapira image uses the PHP image `ghcr.io/rapira-rs/php:<minor>-nts` as its base. The PHP images come from the [rapira-rs/docker](https://github.com/rapira-rs/docker) repository. A PHP image contains PHP and the PHP extensions of the official PHP image. It does not contain Rapira or the other extensions of the Rapira image. Each PHP minor version has an NTS image and a thread-safe (ZTS) image on Debian Trixie, Debian Bookworm, Alpine 3.24, and Alpine 3.23. Rapira runs only on NTS PHP, so the Rapira image uses the NTS image on Debian Trixie.
 
-The PHP images support amd64 and arm64:
+The PHP images support amd64 and arm64. In the tags, `<suite>` is `trixie`, `bookworm`, `alpine3.24`, or `alpine3.23`, and `<variant>` is `nts` or `zts`:
 
 | Tag | What it points at |
 | --- | --- |
-| `8.4-nts`, `8.5-nts`, `8.6-nts` | The newest NTS build of that PHP minor version. |
-| `8.4-zts`, `8.5-zts`, `8.6-zts` | The newest ZTS build of that PHP minor version. |
-| `X.Y.Z-nts`, `X.Y.Z-zts` | The newest build of one PHP patch release, for example `8.5.13-nts`. |
+| `X.Y-<suite>-<variant>` | The newest build of that PHP minor version, for example `8.5-alpine3.24-nts`. |
+| `X.Y.Z-<suite>-<variant>` | The newest build of one PHP patch release, for example `8.5.13-alpine3.24-nts`. |
+| `X.Y-<variant>`, `X.Y.Z-<variant>` | The same image as the `trixie` tag, for example `8.5-nts`. |
 
-The build gets PHP from the signed php-src release tag and verifies the tag with the keys of the PHP release managers. It follows the Debian Trixie recipe of the official PHP image.
+The build gets PHP from the signed php-src release tag and verifies the tag with the keys of the PHP release managers. It follows the recipe of the official PHP image. Each PHP image includes `libphp.so`. The official PHP 8.6 images are ZTS only, but these PHP images also have NTS builds of PHP 8.6.
 
 ### Updates on PHP releases
 
-A GitHub Actions workflow checks the php-src release tags every 15 minutes. When a PHP minor version gets a new patch release, the workflow builds the two PHP images of that minor version. Then it builds the newest Rapira release again on the new NTS PHP image and moves its tags. The workflow also builds the PHP images again one time each week to install Debian package updates. Thus, the images get PHP and Debian fixes without a new Rapira release.
+A GitHub Actions workflow checks the php-src release tags every 15 minutes. When a PHP minor version gets a new patch release, the workflow builds the PHP images of that minor version. Then a second workflow builds the newest Rapira release again on the new NTS PHP image and moves its tags. The PHP images are also built again one time each week to install package updates. Thus, the images get PHP and package fixes without a new Rapira release.
 
 ## The libphp build
 

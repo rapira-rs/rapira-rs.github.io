@@ -130,7 +130,7 @@ kill -USR2 "$(cat /run/rapira/rapira.pid)"
 
 设置了 `opcache.restrict_api` 时，重载不会清空 OPcache。使用此设置且 `opcache.validate_timestamps = 0` 时，请在每次部署后重启 Rapira。使用此设置时，在 OPcache 重启待执行期间启动的应用会在没有 OPcache 的情况下运行，直到它下一次启动。
 
-使用 `opcache.file_cache` 且 `opcache.validate_timestamps = 0` 时，重载和重启都不会加载已更改文件的新代码。重载只清空 OPcache 的共享内存。之后 OPcache 从文件缓存读取旧脚本，并且不检查文件时间。替换文件后，请清空 `opcache.file_cache` 目录。然后重载或重启 Rapira。也可以将每个版本部署到新目录。
+使用 `opcache.file_cache` 且 `opcache.validate_timestamps = 0` 时，重载和重启都不会加载已更改文件的新代码。重载只清空 OPcache 的共享内存。之后 OPcache 从文件缓存读取旧脚本，并且不检查文件时间。替换文件后，请清空 `opcache.file_cache` 目录。然后重载或重启 Rapira。也可以将每个版本部署到新目录，使每个已更改的文件都有新路径。
 :::
 
 ## 日志

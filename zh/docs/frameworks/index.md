@@ -157,7 +157,7 @@ Rapira 在创建 worker 之前在 master 中启动一次 PHP。OPcache 创建一
 
 在 PHP 8.4 上，OPcache 是单独的 `opcache.so` 文件，需要在 `php.ini` 中添加 `zend_extension` 行。请参阅 [php.ini](/zh/docs/intro/installation#php-ini)。
 
-在生产环境中，`opcache.validate_timestamps = 0` 会删除每个请求的文件检查。此设置会阻止自动缓存失效。OPcache 段属于 master，并在 worker 替换期间保留。重载会清空缓存，因此部署后的重载会加载新代码。`opcache.preload` 加载的文件需要完整重启。有关步骤，请参阅[生产环境部署](/zh/docs/deployment)。
+在生产环境中，`opcache.validate_timestamps = 0` 会删除每个请求的文件检查。此设置会阻止自动缓存失效。OPcache 段属于 master，并在 worker 替换期间保留。重载会清空缓存，因此部署后的重载会加载新代码（设置了 `opcache.file_cache` 时除外）。`opcache.preload` 加载的文件需要完整重启。有关步骤，请参阅[生产环境部署](/zh/docs/deployment)。
 
 在开发期间，常驻应用不会再次读取初始化代码。此行为与 OPcache 无关。更改 worker 脚本或已初始化服务后，按 Ctrl-C。然后再次运行 `rapira serve rapira.toml`。
 

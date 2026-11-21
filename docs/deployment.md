@@ -123,12 +123,14 @@ Connections have a shorter drain budget: the control timeout minus the smaller o
 
 A deployment can put each application version in its own directory and switch a symbolic link in the entry point path to the new directory. A reload after the switch moves every worker of every pool to the new version: the code, the working directory, and the default sendfile root. Reload Rapira immediately after the switch. Before the reload, an app that starts for another cause, for example after `max_requests`, starts in the new version. Thus, the pool runs two versions until the reload.
 
-A reload empties OPcache, so it also loads the new PHP code when `opcache.validate_timestamps = 0`. Until the longest request that was active at the reload ends, requests run without OPcache and compile their files again. In Worker and Dispatcher modes, most workers start the app two times, so the code before the worker loop runs two times.
+A reload empties OPcache, so it also loads the new PHP code when `opcache.validate_timestamps = 0`, unless `opcache.file_cache` is set. Until the longest request that was active at the reload ends, requests run without OPcache and compile their files again. In Worker and Dispatcher modes, most workers start the app two times, so the code before the worker loop runs two times.
 
 ::: warning What a reload does not do
 A reload restarts the apps but not the processes. The master keeps the Rapira binary and the settings from `rapira.toml` and `php.ini`. It also keeps the gRPC descriptor set and the `[grpc.auth]` tokens file. Restart Rapira after you change one of these files. Also restart it after you change a file that `opcache.preload` loads. PHP loads these files one time, when the master starts.
 
 When `opcache.restrict_api` is set, a reload does not empty OPcache. With this setting and `opcache.validate_timestamps = 0`, restart Rapira after each deployment. With this setting, an app that starts while an OPcache restart is pending runs without OPcache until its next start.
+
+With `opcache.file_cache` and `opcache.validate_timestamps = 0`, a reload and a restart do not load the new code of a changed file. A reload empties only the shared memory of OPcache. OPcache then reads the old script from the file cache and does not check the file time. After you replace the files, empty the `opcache.file_cache` directory. Then reload or restart Rapira. As an alternative, deploy each release to a new directory, so that each changed file gets a new path.
 :::
 
 ## Logs

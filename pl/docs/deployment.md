@@ -123,12 +123,14 @@ Połączenia mają krótszy czas na zakończenie: limit sterowania pomniejszony 
 
 Wdrożenie może umieścić każdą wersję aplikacji w osobnym katalogu i przełączyć dowiązanie symboliczne w ścieżce skryptu wejściowego na nowy katalog. Przeładowanie po przełączeniu przenosi każdego workera każdej puli do nowej wersji: kod, katalog roboczy i domyślny katalog główny sendfile. Przeładuj Rapirę natychmiast po przełączeniu. Przed przeładowaniem aplikacja, która uruchamia się z innego powodu, na przykład po `max_requests`, uruchamia się w nowej wersji. Dlatego pula działa w dwóch wersjach aż do przeładowania.
 
-Przeładowanie opróżnia OPcache, więc wczytuje nowy kod PHP także przy `opcache.validate_timestamps = 0`. Dopóki nie zakończy się najdłuższe żądanie, które było aktywne w chwili przeładowania, żądania działają bez OPcache i ponownie kompilują swoje pliki. W trybach Worker i Dispatcher większość workerów uruchamia aplikację dwa razy, więc kod przed pętlą workera działa dwa razy.
+Przeładowanie opróżnia OPcache, więc wczytuje nowy kod PHP także przy `opcache.validate_timestamps = 0`, chyba że ustawiono `opcache.file_cache`. Dopóki nie zakończy się najdłuższe żądanie, które było aktywne w chwili przeładowania, żądania działają bez OPcache i ponownie kompilują swoje pliki. W trybach Worker i Dispatcher większość workerów uruchamia aplikację dwa razy, więc kod przed pętlą workera działa dwa razy.
 
 ::: warning Czego przeładowanie nie zmienia
 Przeładowanie uruchamia ponownie aplikacje, ale nie procesy. Proces nadrzędny zachowuje plik binarny Rapiry oraz ustawienia z `rapira.toml` i `php.ini`. Zachowuje też zbiór deskryptorów gRPC i plik tokenów `[grpc.auth]`. Uruchom Rapirę ponownie po zmianie jednego z tych plików. Uruchom ją ponownie także po zmianie pliku, który wczytuje `opcache.preload`. PHP wczytuje te pliki jeden raz, przy starcie procesu nadrzędnego.
 
 Gdy ustawiono `opcache.restrict_api`, przeładowanie nie opróżnia OPcache. Przy tym ustawieniu i `opcache.validate_timestamps = 0` uruchom Rapirę ponownie po każdym wdrożeniu. Przy tym ustawieniu aplikacja, która uruchamia się, gdy ponowne uruchomienie OPcache czeka na wykonanie, działa bez OPcache do swojego następnego startu.
+
+Przy `opcache.file_cache` i `opcache.validate_timestamps = 0` ani przeładowanie, ani ponowne uruchomienie nie wczytuje nowego kodu zmienionego pliku. Przeładowanie opróżnia tylko pamięć współdzieloną OPcache. Potem OPcache czyta stary skrypt z pamięci podręcznej plików i nie sprawdza czasu modyfikacji pliku. Po podmianie plików opróżnij katalog `opcache.file_cache`. Następnie przeładuj lub uruchom ponownie Rapirę. Możesz też wdrażać każdą wersję do nowego katalogu, tak aby każdy zmieniony plik miał nową ścieżkę.
 :::
 
 ## Logi

@@ -110,7 +110,7 @@ kill -TERM $(cat /run/rapira.pid)   # Stop after current requests finish.
 
 在 Classic 模式下，每个请求都在新的 PHP 请求中运行入口脚本。因此，更改的文件无需重载即可生效，`opcache.validate_timestamps = 0` 时除外。切换入口脚本路径中符号链接的部署在所有模式下都需要重载，包括 Classic 模式。Worker 和 Dispatcher 模式将应用保留在内存中。在这些模式下，每次部署后都要重载进程池。更多内容见[部署](/zh/docs/deployment)。
 
-重载会清空 OPcache，因此在 `opcache.validate_timestamps = 0` 时应用也会加载新代码。`opcache_get_status()` 的 `manual_restarts` 值会统计这些重载。重载后，最初的请求会重新编译其 PHP 文件。在重载时处于活动状态的最长请求结束之前，请求在没有 OPcache 的情况下运行。在 Classic 模式下，在 worker 收到重载之后开始的请求运行新代码，活动的请求以旧代码结束。
+重载会清空 OPcache，因此在 `opcache.validate_timestamps = 0` 时应用也会加载新代码。`opcache_get_status()` 的 `manual_restarts` 值会统计这些重载。重载后，最初的请求会重新编译其 PHP 文件。在重载时处于活动状态的最长请求结束之前，请求在没有 OPcache 的情况下运行。在 Classic 模式下，在 worker 收到重载之后开始的请求运行新代码，活动的请求以旧代码结束。使用 `opcache.file_cache` 且 `opcache.validate_timestamps = 0` 时，在任何模式下重载都不会加载已更改文件的新代码，参见[部署](/zh/docs/deployment)。
 
 每个 worker 各自重启它的应用。在启用 OPcache 的 Worker 和 Dispatcher 模式下，大多数 worker 在一次重载期间会启动应用两次。因此，worker 循环之前的代码会运行两次。所有 worker 同时重启时，每个队列只等待它自己的 worker 的应用启动。除了这次等待，客户端不会察觉重启。
 

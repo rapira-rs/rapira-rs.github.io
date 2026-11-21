@@ -9,7 +9,7 @@ Rapira compiles from source on Linux and macOS. A source build can support platf
 
 ## When to build from source
 
-- **No prebuilt binary supports the platform.** Examples include an uncommon CPU architecture and a musl-based distribution such as Alpine.
+- **No prebuilt binary supports the platform.** An example is an uncommon CPU architecture.
 - **The distribution is older than the package requirements.** Release binaries require glibc 2.34 or newer. The oldest supported systems are Debian 12, Ubuntu 22.04, and RHEL 9.
 - **The application requires other PHP extensions.** Release builds include SQLite, PostgreSQL through `pdo_pgsql` and `pgsql`, `bcmath`, `intl`, `igbinary`, and `redis`. See [Installation](/docs/intro/installation) for the complete extension list. Build with another PHP when the application requires extensions such as `pdo_mysql` or `gd`.
 - **You modify Rapira** or need a change that is not in a release.
@@ -36,7 +36,6 @@ Several distributions package the embed SAPI already:
 sudo apt install php8.4-dev libphp8.4-embed   # Debian/Ubuntu (deb.sury.org / ppa:ondrej)
 sudo dnf install php-devel php-embedded       # Fedora
 sudo pacman -S php php-embed                  # Arch
-sudo apk add php84-dev php84-embed            # Alpine
 ```
 
 ::: warning macOS has no packaged embed SAPI
@@ -88,11 +87,10 @@ The `make` targets do not add `igbinary` and `redis`. Release CI compiles both i
 
 ### The plain `libphp.so` name
 
-The build links `-lphp`. It searches only `lib` and `lib64` under the PHP prefix. One of these directories must contain `libphp.so`, or `libphp.dylib` on macOS. Debian and Ubuntu provide only the versioned `libphp8.4.so`. Alpine puts `libphp.so` in `lib/phpXX`, which the build does not search. Create a link with the required name in the prefix `lib` or `lib64` directory:
+The build links `-lphp`. It searches only `lib` and `lib64` under the PHP prefix. One of these directories must contain `libphp.so`, or `libphp.dylib` on macOS. Debian and Ubuntu provide only the versioned `libphp8.4.so`. Create a link with the required name in the prefix `lib` or `lib64` directory:
 
 ```bash
 sudo ln -sf /usr/lib/libphp8.4.so /usr/lib/libphp.so        # Debian/Ubuntu
-sudo ln -sf /usr/lib/php84/libphp.so /usr/lib/libphp.so     # Alpine
 ```
 
 Without root access, put the link in a user directory. Configure the linker and loader to use it:
@@ -123,7 +121,7 @@ PHP_CONFIG=$HOME/.local/php-nts/bin/php-config cargo build --release
 ```
 
 ::: tip
-Run `make test` to validate the build configuration. It finds the PHP library in `lib`, `lib64`, or `lib/phpXX` under the PHP prefix. It accepts plain and versioned library names, and it creates the plain name that the linker requires.
+Run `make test` to validate the build configuration. The `make` targets run on Fedora. They find a plain `libphp.so` in `lib64` or `lib` under the PHP prefix, and they put its directory on `LD_LIBRARY_PATH`.
 :::
 
 ## Running the binary you built

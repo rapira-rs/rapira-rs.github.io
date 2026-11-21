@@ -9,7 +9,7 @@ Rapira kompiluje się ze źródeł na Linuksie i macOS. Budowanie ze źródeł m
 
 ## Kiedy budować ze źródeł
 
-- **Żadna gotowa binarka nie obsługuje platformy.** Przykłady to nietypowa architektura procesora i dystrybucja oparta na musl, na przykład Alpine.
+- **Żadna gotowa binarka nie obsługuje platformy.** Przykładem jest nietypowa architektura procesora.
 - **Twoja dystrybucja jest starsza, niż obsługują pakiety.** Binarki z wydań wymagają glibc 2.34 lub nowszej. Najstarsze obsługiwane systemy to Debian 12, Ubuntu 22.04 i RHEL 9.
 - **Aplikacja wymaga innych rozszerzeń PHP.** Wydania zawierają SQLite, PostgreSQL przez `pdo_pgsql` i `pgsql`, `bcmath`, `intl`, `igbinary` oraz `redis`. Pełna lista rozszerzeń znajduje się na stronie [Instalacja](/pl/docs/intro/installation). Zbuduj Rapirę z innym PHP, gdy aplikacja wymaga rozszerzeń takich jak `pdo_mysql` lub `gd`.
 - **Zmieniasz Rapirę** albo potrzebujesz zmiany, której nie ma w wydaniu.
@@ -36,7 +36,6 @@ Kilka dystrybucji ma SAPI embed gotowe w pakietach:
 sudo apt install php8.4-dev libphp8.4-embed   # Debian/Ubuntu (deb.sury.org / ppa:ondrej)
 sudo dnf install php-devel php-embedded       # Fedora
 sudo pacman -S php php-embed                  # Arch
-sudo apk add php84-dev php84-embed            # Alpine
 ```
 
 ::: warning Na macOS nie ma gotowego pakietu z SAPI embed
@@ -88,11 +87,10 @@ Cele `make` nie dodają `igbinary` i `redis`. CI dla wydań kompiluje oba rozsze
 
 ### Nazwa `libphp.so` bez wersji
 
-Proces budowania łączy bibliotekę przez `-lphp`. Przeszukuje tylko katalogi `lib` i `lib64` w prefiksie PHP. Jeden z tych katalogów musi zawierać `libphp.so` lub `libphp.dylib` na macOS. Debian i Ubuntu dostarczają tylko wersjonowany plik `libphp8.4.so`. Alpine umieszcza `libphp.so` w katalogu `lib/phpXX`, którego proces budowania nie przeszukuje. Utwórz dowiązanie z wymaganą nazwą w katalogu `lib` lub `lib64` prefiksu:
+Proces budowania łączy bibliotekę przez `-lphp`. Przeszukuje tylko katalogi `lib` i `lib64` w prefiksie PHP. Jeden z tych katalogów musi zawierać `libphp.so` lub `libphp.dylib` na macOS. Debian i Ubuntu dostarczają tylko wersjonowany plik `libphp8.4.so`. Utwórz dowiązanie z wymaganą nazwą w katalogu `lib` lub `lib64` prefiksu:
 
 ```bash
 sudo ln -sf /usr/lib/libphp8.4.so /usr/lib/libphp.so        # Debian/Ubuntu
-sudo ln -sf /usr/lib/php84/libphp.so /usr/lib/libphp.so     # Alpine
 ```
 
 Bez uprawnień roota umieść dowiązanie w katalogu użytkownika. Skonfiguruj linker i loader, aby go używały:
@@ -123,7 +121,7 @@ PHP_CONFIG=$HOME/.local/php-nts/bin/php-config cargo build --release
 ```
 
 ::: tip
-Uruchom `make test`, aby sprawdzić konfigurację budowania. Polecenie znajduje bibliotekę PHP w `lib`, `lib64` lub `lib/phpXX` w prefiksie PHP. Akceptuje nazwy bez wersji i wersjonowane. Tworzy też nazwę bez wersji, której wymaga linker.
+Uruchom `make test`, aby sprawdzić konfigurację budowania. Cele `make` działają na Fedorze. Znajdują plik `libphp.so` bez wersji w `lib64` lub `lib` w prefiksie PHP i dodają jego katalog do `LD_LIBRARY_PATH`.
 :::
 
 ## Uruchamianie zbudowanej binarki

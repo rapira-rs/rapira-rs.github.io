@@ -9,7 +9,7 @@ Rapira 可以在 Linux 和 macOS 上从源码编译。源码构建可以支持�
 
 ## 什么时候需要从源码构建
 
-- **没有支持该平台的预编译二进制文件**。例如不常见的 CPU 架构，以及 Alpine 这类基于 musl 的发行版。
+- **没有支持该平台的预编译二进制文件**。例如不常见的 CPU 架构。
 - **发行版比软件包的要求更旧**。发布的二进制文件需要 glibc 2.34 或更新版本。支持的最旧系统是 Debian 12、Ubuntu 22.04 和 RHEL 9。
 - **应用需要其他 PHP 扩展**。发布构建包含 SQLite、通过 `pdo_pgsql` 和 `pgsql` 提供的 PostgreSQL 支持，以及 `bcmath`、`intl`、`igbinary` 和 `redis`。完整扩展列表请参阅[安装](/zh/docs/intro/installation)。如果应用需要 `pdo_mysql` 或 `gd` 等扩展，请使用另一份 PHP 构建。
 - **你要修改 Rapira**，或者需要还没有发布的更改。
@@ -36,7 +36,6 @@ Rapira 将 PHP 解释器链接到自己的进程中，不使用 socket。PHP 必
 sudo apt install php8.4-dev libphp8.4-embed   # Debian/Ubuntu (deb.sury.org / ppa:ondrej)
 sudo dnf install php-devel php-embedded       # Fedora
 sudo pacman -S php php-embed                  # Arch
-sudo apk add php84-dev php84-embed            # Alpine
 ```
 
 ::: warning macOS 没有 embed SAPI 软件包
@@ -88,11 +87,10 @@ make install
 
 ### 不带版本号的 `libphp.so` 名称
 
-构建链接 `-lphp`。它只搜索 PHP 前缀下的 `lib` 和 `lib64`。其中一个目录必须包含 `libphp.so`，在 macOS 上为 `libphp.dylib`。Debian 和 Ubuntu 只提供带版本号的 `libphp8.4.so`。Alpine 将 `libphp.so` 放在 `lib/phpXX` 中，构建不搜索该目录。请在前缀的 `lib` 或 `lib64` 目录中创建所需名称的链接：
+构建链接 `-lphp`。它只搜索 PHP 前缀下的 `lib` 和 `lib64`。其中一个目录必须包含 `libphp.so`，在 macOS 上为 `libphp.dylib`。Debian 和 Ubuntu 只提供带版本号的 `libphp8.4.so`。请在前缀的 `lib` 或 `lib64` 目录中创建所需名称的链接：
 
 ```bash
 sudo ln -sf /usr/lib/libphp8.4.so /usr/lib/libphp.so        # Debian/Ubuntu
-sudo ln -sf /usr/lib/php84/libphp.so /usr/lib/libphp.so     # Alpine
 ```
 
 没有 root 权限时，请将链接放在用户目录中。然后配置链接器和加载器使用它：
@@ -123,7 +121,7 @@ PHP_CONFIG=$HOME/.local/php-nts/bin/php-config cargo build --release
 ```
 
 ::: tip
-运行 `make test` 验证构建配置。它在 PHP 前缀下的 `lib`、`lib64` 或 `lib/phpXX` 中查找 PHP 库。它接受不带版本号和带版本号的库名称，并创建链接器需要的不带版本号的名称。
+运行 `make test` 验证构建配置。`make` 目标在 Fedora 上运行。它们在 PHP 前缀下的 `lib64` 或 `lib` 中查找不带版本号的 `libphp.so`，并将其所在目录加入 `LD_LIBRARY_PATH`。
 :::
 
 ## 运行你构建的二进制文件

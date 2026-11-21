@@ -123,12 +123,14 @@ kill -USR2 "$(cat /run/rapira/rapira.pid)"
 
 部署可以将每个应用版本放在单独的目录中，并将入口脚本路径中的符号链接切换到新目录。切换后的重载会将每个进程池的每个 worker 移到新版本：代码、工作目录和默认的 sendfile 根目录。切换后请立即重载 Rapira。在重载之前，因其他原因启动的应用（例如达到 `max_requests` 后）会在新版本中启动。因此，在重载之前，进程池会运行两个版本。
 
-重载会清空 OPcache，因此在 `opcache.validate_timestamps = 0` 时它也会加载新的 PHP 代码。在重载时处于活动状态的最长请求结束之前，请求在没有 OPcache 的情况下运行，并重新编译其文件。在 Worker 和 Dispatcher 模式下，大多数 worker 会启动应用两次，因此 worker 循环之前的代码会运行两次。
+重载会清空 OPcache，因此在 `opcache.validate_timestamps = 0` 时它也会加载新的 PHP 代码（设置了 `opcache.file_cache` 时除外）。在重载时处于活动状态的最长请求结束之前，请求在没有 OPcache 的情况下运行，并重新编译其文件。在 Worker 和 Dispatcher 模式下，大多数 worker 会启动应用两次，因此 worker 循环之前的代码会运行两次。
 
 ::: warning 重载不会做的事
 重载会重启应用，但不会替换进程。master 保留 Rapira 二进制文件以及 `rapira.toml` 和 `php.ini` 中的设置。它还保留 gRPC 描述符集和 `[grpc.auth]` 令牌文件。更改其中任一文件后，请重启 Rapira。更改 `opcache.preload` 加载的文件后，也请重启 Rapira。PHP 只在 master 启动时加载这些文件一次。
 
 设置了 `opcache.restrict_api` 时，重载不会清空 OPcache。使用此设置且 `opcache.validate_timestamps = 0` 时，请在每次部署后重启 Rapira。使用此设置时，在 OPcache 重启待执行期间启动的应用会在没有 OPcache 的情况下运行，直到它下一次启动。
+
+使用 `opcache.file_cache` 且 `opcache.validate_timestamps = 0` 时，重载和重启都不会加载已更改文件的新代码。重载只清空 OPcache 的共享内存。之后 OPcache 从文件缓存读取旧脚本，并且不检查文件时间。请在重载前清空 `opcache.file_cache` 目录。也可以将每个版本部署到新目录。
 :::
 
 ## 日志

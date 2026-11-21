@@ -157,7 +157,7 @@ Rapira starts PHP once in the master before it creates workers. OPcache creates 
 
 On PHP 8.4, OPcache is a separate `opcache.so` file that needs a `zend_extension` line in `php.ini`. See [php.ini](/docs/intro/installation#php-ini).
 
-In production, `opcache.validate_timestamps = 0` removes the file check from each request. This setting prevents automatic cache invalidation. The OPcache segment belongs to the master and remains during worker replacement. A reload empties the cache, so a reload after a deployment loads the new code. Files that `opcache.preload` loads need a complete restart. See [running in production](/docs/deployment) for the sequence.
+In production, `opcache.validate_timestamps = 0` removes the file check from each request. This setting prevents automatic cache invalidation. The OPcache segment belongs to the master and remains during worker replacement. A reload empties the cache, so a reload after a deployment loads the new code, unless `opcache.file_cache` is set. Files that `opcache.preload` loads need a complete restart. See [running in production](/docs/deployment) for the sequence.
 
 During development, a persistent application does not read its initialization code again. This behavior does not depend on OPcache. After changes to the worker script or initialized services, press Ctrl-C. Then run `rapira serve rapira.toml` again.
 

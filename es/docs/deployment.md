@@ -123,12 +123,14 @@ Las conexiones tienen un plazo de drenaje más corto: el tiempo límite de contr
 
 Un despliegue puede poner cada versión de la aplicación en su propio directorio y cambiar un enlace simbólico de la ruta del script de entrada al directorio nuevo. Una recarga después del cambio mueve cada worker de cada pool a la versión nueva: el código, el directorio de trabajo y la raíz predeterminada de sendfile. Recarga Rapira inmediatamente después del cambio. Antes de la recarga, una aplicación que arranca por otra causa, por ejemplo después de `max_requests`, arranca en la versión nueva. Por tanto, el pool ejecuta dos versiones hasta la recarga.
 
-Una recarga vacía OPcache, así que también carga el código PHP nuevo cuando `opcache.validate_timestamps = 0`. Hasta que termina la petición más larga que estaba activa en el momento de la recarga, las peticiones se ejecutan sin OPcache y vuelven a compilar sus archivos. En los modos Worker y Dispatcher, la mayoría de los workers arrancan la aplicación dos veces, así que el código antes del bucle del worker se ejecuta dos veces.
+Una recarga vacía OPcache, así que también carga el código PHP nuevo cuando `opcache.validate_timestamps = 0`, salvo si `opcache.file_cache` está definido. Hasta que termina la petición más larga que estaba activa en el momento de la recarga, las peticiones se ejecutan sin OPcache y vuelven a compilar sus archivos. En los modos Worker y Dispatcher, la mayoría de los workers arrancan la aplicación dos veces, así que el código antes del bucle del worker se ejecuta dos veces.
 
 ::: warning Lo que una recarga no hace
 Una recarga reinicia las aplicaciones, pero no los procesos. El maestro conserva el binario de Rapira y los ajustes de `rapira.toml` y `php.ini`. También conserva el conjunto de descriptores de gRPC y el archivo de tokens de `[grpc.auth]`. Reinicia Rapira después de cambiar uno de estos archivos. Reinícialo también después de cambiar un archivo que carga `opcache.preload`. PHP carga estos archivos una vez, cuando arranca el maestro.
 
 Cuando `opcache.restrict_api` está definido, una recarga no vacía OPcache. Con este ajuste y `opcache.validate_timestamps = 0`, reinicia Rapira después de cada despliegue. Con este ajuste, una aplicación que arranca mientras un reinicio de OPcache está pendiente se ejecuta sin OPcache hasta su siguiente arranque.
+
+Con `opcache.file_cache` y `opcache.validate_timestamps = 0`, ni una recarga ni un reinicio cargan el código nuevo de un archivo cambiado. Una recarga solo vacía la memoria compartida de OPcache. Después, OPcache lee el script antiguo de la caché de archivos y no comprueba la fecha del archivo. Antes de la recarga, vacía el directorio de `opcache.file_cache`. Como alternativa, despliega cada versión en un directorio nuevo.
 :::
 
 ## Registros

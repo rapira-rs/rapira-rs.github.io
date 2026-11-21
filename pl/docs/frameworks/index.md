@@ -157,7 +157,7 @@ Rapira uruchamia PHP raz w procesie nadrzędnym przed utworzeniem workerów. OPc
 
 W PHP 8.4 OPcache jest osobnym plikiem `opcache.so`, który wymaga wiersza `zend_extension` w `php.ini`. Więcej informacji zawiera sekcja [php.ini](/pl/docs/intro/installation#php-ini).
 
-W środowisku produkcyjnym `opcache.validate_timestamps = 0` wyłącza sprawdzanie plików dla każdego żądania. To ustawienie wyłącza automatyczne unieważnianie pamięci podręcznej. Segment OPcache należy do procesu nadrzędnego i pozostaje podczas wymiany workerów. Przeładowanie opróżnia pamięć podręczną, więc przeładowanie po wdrożeniu wczytuje nowy kod. Pliki, które wczytuje `opcache.preload`, wymagają pełnego ponownego uruchomienia. Sekwencję opisuje [wdrożenie produkcyjne](/pl/docs/deployment).
+W środowisku produkcyjnym `opcache.validate_timestamps = 0` wyłącza sprawdzanie plików dla każdego żądania. To ustawienie wyłącza automatyczne unieważnianie pamięci podręcznej. Segment OPcache należy do procesu nadrzędnego i pozostaje podczas wymiany workerów. Przeładowanie opróżnia pamięć podręczną, więc przeładowanie po wdrożeniu wczytuje nowy kod, chyba że ustawiono `opcache.file_cache`. Pliki, które wczytuje `opcache.preload`, wymagają pełnego ponownego uruchomienia. Sekwencję opisuje [wdrożenie produkcyjne](/pl/docs/deployment).
 
 Podczas programowania trwała aplikacja nie czyta ponownie kodu inicjalizacji. To zachowanie nie zależy od OPcache. Po zmianie skryptu workera lub zainicjalizowanych usług naciśnij Ctrl-C. Następnie ponownie uruchom `rapira serve rapira.toml`.
 

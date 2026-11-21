@@ -130,7 +130,7 @@ Una recarga reinicia las aplicaciones, pero no los procesos. El maestro conserva
 
 Cuando `opcache.restrict_api` está definido, una recarga no vacía OPcache. Con este ajuste y `opcache.validate_timestamps = 0`, reinicia Rapira después de cada despliegue. Con este ajuste, una aplicación que arranca mientras un reinicio de OPcache está pendiente se ejecuta sin OPcache hasta su siguiente arranque.
 
-Con `opcache.file_cache` y `opcache.validate_timestamps = 0`, ni una recarga ni un reinicio cargan el código nuevo de un archivo cambiado. Una recarga solo vacía la memoria compartida de OPcache. Después, OPcache lee el script antiguo de la caché de archivos y no comprueba la fecha del archivo. Antes de la recarga, vacía el directorio de `opcache.file_cache`. Como alternativa, despliega cada versión en un directorio nuevo.
+Con `opcache.file_cache` y `opcache.validate_timestamps = 0`, ni una recarga ni un reinicio cargan el código nuevo de un archivo cambiado. Una recarga solo vacía la memoria compartida de OPcache. Después, OPcache lee el script antiguo de la caché de archivos y no comprueba la fecha del archivo. Después de reemplazar los archivos, vacía el directorio de `opcache.file_cache`. Luego, recarga o reinicia Rapira. Como alternativa, despliega cada versión en un directorio nuevo.
 :::
 
 ## Registros

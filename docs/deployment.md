@@ -130,7 +130,7 @@ A reload restarts the apps but not the processes. The master keeps the Rapira bi
 
 When `opcache.restrict_api` is set, a reload does not empty OPcache. With this setting and `opcache.validate_timestamps = 0`, restart Rapira after each deployment. With this setting, an app that starts while an OPcache restart is pending runs without OPcache until its next start.
 
-With `opcache.file_cache` and `opcache.validate_timestamps = 0`, a reload and a restart do not load the new code of a changed file. A reload empties only the shared memory of OPcache. OPcache then reads the old script from the file cache and does not check the file time. Before the reload, empty the `opcache.file_cache` directory. As an alternative, deploy each release to a new directory.
+With `opcache.file_cache` and `opcache.validate_timestamps = 0`, a reload and a restart do not load the new code of a changed file. A reload empties only the shared memory of OPcache. OPcache then reads the old script from the file cache and does not check the file time. After you replace the files, empty the `opcache.file_cache` directory. Then reload or restart Rapira. As an alternative, deploy each release to a new directory.
 :::
 
 ## Logs

@@ -130,7 +130,7 @@ Przeładowanie uruchamia ponownie aplikacje, ale nie procesy. Proces nadrzędny 
 
 Gdy ustawiono `opcache.restrict_api`, przeładowanie nie opróżnia OPcache. Przy tym ustawieniu i `opcache.validate_timestamps = 0` uruchom Rapirę ponownie po każdym wdrożeniu. Przy tym ustawieniu aplikacja, która uruchamia się, gdy ponowne uruchomienie OPcache czeka na wykonanie, działa bez OPcache do swojego następnego startu.
 
-Przy `opcache.file_cache` i `opcache.validate_timestamps = 0` ani przeładowanie, ani ponowne uruchomienie nie wczytuje nowego kodu zmienionego pliku. Przeładowanie opróżnia tylko pamięć współdzieloną OPcache. Potem OPcache czyta stary skrypt z pamięci podręcznej plików i nie sprawdza czasu modyfikacji pliku. Przed przeładowaniem opróżnij katalog `opcache.file_cache`. Możesz też wdrażać każdą wersję do nowego katalogu.
+Przy `opcache.file_cache` i `opcache.validate_timestamps = 0` ani przeładowanie, ani ponowne uruchomienie nie wczytuje nowego kodu zmienionego pliku. Przeładowanie opróżnia tylko pamięć współdzieloną OPcache. Potem OPcache czyta stary skrypt z pamięci podręcznej plików i nie sprawdza czasu modyfikacji pliku. Po podmianie plików opróżnij katalog `opcache.file_cache`. Następnie przeładuj lub uruchom ponownie Rapirę. Możesz też wdrażać każdą wersję do nowego katalogu.
 :::
 
 ## Logi

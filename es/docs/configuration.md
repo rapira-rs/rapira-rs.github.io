@@ -56,6 +56,7 @@ max_requests = 0                      # Restarts the app after this request coun
 max_memory_mb = 0                     # Replaces a worker when its RSS exceeds this size. Zero disables the limit.
 max_boot_failures = 5                 # Stops a worker after this count of consecutive boot failures. Zero disables the limit.
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
+execution_clock = "wall"              # The clock of max_execution_time. Use "wall" or "cpu". Default: "wall".
 
 [http.pool.env]                       # Optional. Sets environment variables for each worker of the pool.
 APP_ENV = "prod"
@@ -82,6 +83,7 @@ max_requests = 0
 max_memory_mb = 0
 max_boot_failures = 5
 request_terminate_timeout_secs = 0
+execution_clock = "wall"
 
 [observability]                       # Optional. Starts one process without PHP for metrics and probes.
 listen = "127.0.0.1:9180"             # Required.
@@ -171,6 +173,7 @@ El plugin `http` es dueño de este pool de workers PHP. La escucha gRPC usa una 
 | `max_memory_mb` | entero | `0` | El límite de memoria residente (RSS) de un proceso worker, en MiB. El maestro comprueba la RSS de cada worker una vez por segundo. Detiene de forma ordenada un worker por encima del límite e inicia un worker nuevo. Esta clave se aplica en todos los modos. `0` desactiva el límite. Consulta [En producción](/es/docs/deployment). |
 | `max_boot_failures` | entero | `5` | El límite de arranques fallidos consecutivos de un worker en los modos Worker y Dispatcher. Al llegar al límite, el worker termina como unhealthy. Un arranque correcto reinicia el contador. El modo Classic ignora esta clave. `0` desactiva el límite. Consulta [Modelo de procesos](/es/docs/process-model#supervision). |
 | `request_terminate_timeout_secs` | entero | `0` | El límite de tiempo real para una petición. Rapira termina y sustituye un worker que supera este límite. `0` desactiva la comprobación. |
+| `execution_clock` | `"wall"` \| `"cpu"` | `"wall"` | El reloj del límite `max_execution_time` de PHP. `wall` cuenta el tiempo real de una petición. `cpu` cuenta solo el tiempo de CPU del hilo del worker, por lo que `sleep()` y una espera a una base de datos no cuentan. La clave tiene efecto solo en Linux con una compilación de PHP que tiene temporizadores por hilo. |
 | `[http.pool.env]` | tabla de nombre → cadena | vacía | Las variables de entorno de cada worker del pool. Consulta [La tabla `[http.pool.env]`](#http-pool-env). |
 
 ### La tabla `[http.pool.env]` {#http-pool-env}

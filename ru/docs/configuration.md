@@ -56,6 +56,7 @@ max_requests = 0                      # Restarts the app after this request coun
 max_memory_mb = 0                     # Replaces a worker when its RSS exceeds this size. Zero disables the limit.
 max_boot_failures = 5                 # Stops a worker after this count of consecutive boot failures. Zero disables the limit.
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
+execution_clock = "wall"              # The clock of max_execution_time. Use "wall" or "cpu". Default: "wall".
 
 [http.pool.env]                       # Optional. Sets environment variables for each worker of the pool.
 APP_ENV = "prod"
@@ -82,6 +83,7 @@ max_requests = 0
 max_memory_mb = 0
 max_boot_failures = 5
 request_terminate_timeout_secs = 0
+execution_clock = "wall"
 
 [observability]                       # Optional. Starts one process without PHP for metrics and probes.
 listen = "127.0.0.1:9180"             # Required.
@@ -171,6 +173,7 @@ Middleware `static` может вернуть файл до того, как PHP
 | `max_memory_mb` | целое | `0` | Предел резидентной памяти (RSS) одного процесса воркера в МиБ. Мастер проверяет RSS каждого воркера раз в секунду. Мастер корректно останавливает воркер выше предела и запускает новый воркер. Ключ действует во всех режимах. `0` отключает предел. Смотрите раздел [Запуск в продакшене](/ru/docs/deployment). |
 | `max_boot_failures` | целое | `5` | Предел последовательных сбоев запуска одного воркера в режимах Worker и Dispatcher. При достижении предела воркер завершается в нерабочем состоянии. Успешный запуск сбрасывает счётчик. Режим Classic игнорирует этот ключ. `0` отключает предел. Смотрите раздел [Модель процессов](/ru/docs/process-model#контроль-воркеров). |
 | `request_terminate_timeout_secs` | целое | `0` | Предел реального времени для одного запроса. Rapira завершает и заменяет воркер, который превышает этот предел. `0` отключает проверку. |
+| `execution_clock` | `"wall"` \| `"cpu"` | `"wall"` | Часы лимита PHP `max_execution_time`. `wall` считает реальное время запроса. `cpu` считает только процессорное время потока воркера, поэтому `sleep()` и ожидание базы данных не учитываются. Ключ действует только в Linux со сборкой PHP, в которой есть таймеры для каждого потока. |
 | `[http.pool.env]` | таблица «имя → строка» | пусто | Переменные окружения для каждого воркера пула. Смотрите раздел [Таблица `[http.pool.env]`](#http-pool-env). |
 
 ### Таблица `[http.pool.env]` {#http-pool-env}

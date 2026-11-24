@@ -75,7 +75,7 @@ Rapira rebuilds everything in the left column for every request. Ordinary PHP co
 | Shutdown functions registered **inside** the handler | `$_ENV` values loaded before the loop |
 | The `max_execution_time` clock, re-armed for each request | |
 
-Rapira starts a new `max_execution_time` timer for each request. The time that a worker waits for a request does not count toward this limit.
+Rapira starts a new `max_execution_time` timer for each request. The time that a worker waits for a request does not count toward this limit. The [`execution_clock`](/docs/configuration#http-pool) pool key selects the clock of this timer.
 
 The following three behaviors apply to a persistent worker.
 

@@ -75,7 +75,7 @@ Rapira reconstruye todo lo de la columna izquierda para cada petición. El códi
 | Funciones de shutdown registradas **dentro** del handler | Los valores de `$_ENV` cargados antes del bucle |
 | El reloj de `max_execution_time`, que se reinicia para cada petición | |
 
-Rapira inicia un temporizador de `max_execution_time` nuevo para cada petición. El tiempo que un worker espera una petición no cuenta para este límite.
+Rapira inicia un temporizador de `max_execution_time` nuevo para cada petición. El tiempo que un worker espera una petición no cuenta para este límite. La clave de pool [`execution_clock`](/es/docs/configuration#http-pool) selecciona el reloj de este temporizador.
 
 Los tres comportamientos siguientes se aplican a un worker persistente.
 

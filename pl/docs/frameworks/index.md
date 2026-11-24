@@ -75,7 +75,7 @@ Rapira odtwarza wszystko w lewej kolumnie przy każdym żądaniu. Zwykły kod PH
 | Funkcje shutdown zarejestrowane **wewnątrz** handlera | Wartości `$_ENV` wczytane przed pętlą |
 | Zegar `max_execution_time`, uruchamiany ponownie dla każdego żądania | |
 
-Rapira uruchamia nowy zegar `max_execution_time` dla każdego żądania. Czas, w którym worker czeka na żądanie, nie wlicza się do tego limitu.
+Rapira uruchamia nowy zegar `max_execution_time` dla każdego żądania. Czas, w którym worker czeka na żądanie, nie wlicza się do tego limitu. Klucz puli [`execution_clock`](/pl/docs/configuration#http-pool) wybiera, jaki czas mierzy ten zegar.
 
 Trzy opisane niżej zachowania dotyczą rezydentnego workera.
 

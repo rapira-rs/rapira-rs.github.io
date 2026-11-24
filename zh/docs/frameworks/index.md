@@ -75,7 +75,7 @@ Rapira 为每个请求重建左列中的所有内容。普通 PHP 代码可以�
 | 在 handler **内部**注册的 shutdown 函数 | 循环前加载的 `$_ENV` 值 |
 | 为每个请求重新启动的 `max_execution_time` 计时器 | |
 
-Rapira 为每个请求启动新的 `max_execution_time` 计时器。worker 等待请求的时间不计入此限制。
+Rapira 为每个请求启动新的 `max_execution_time` 计时器。worker 等待请求的时间不计入此限制。进程池键 [`execution_clock`](/zh/docs/configuration#http-pool) 选择此计时器使用的时钟。
 
 下面三种行为适用于常驻的 worker 进程。
 

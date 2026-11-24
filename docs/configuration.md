@@ -56,6 +56,7 @@ max_requests = 0                      # Restarts the app after this request coun
 max_memory_mb = 0                     # Replaces a worker when its RSS exceeds this size. Zero disables the limit.
 max_boot_failures = 5                 # Stops a worker after this count of consecutive boot failures. Zero disables the limit.
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
+execution_clock = "wall"              # The clock of max_execution_time. Use "wall" or "cpu". Default: "wall".
 
 [http.pool.env]                       # Optional. Sets environment variables for each worker of the pool.
 APP_ENV = "prod"
@@ -82,6 +83,7 @@ max_requests = 0
 max_memory_mb = 0
 max_boot_failures = 5
 request_terminate_timeout_secs = 0
+execution_clock = "wall"
 
 [observability]                       # Optional. Starts one process without PHP for metrics and probes.
 listen = "127.0.0.1:9180"             # Required.
@@ -171,6 +173,7 @@ The `http` plugin owns this PHP worker pool. The gRPC listener uses a separate `
 | `max_memory_mb` | integer | `0` | The resident set size (RSS) limit of one worker process, in MiB. The master checks the RSS of each worker once each second. It stops a worker above the limit gracefully and starts a new worker. This key applies in all modes. `0` disables the limit. See [Running in production](/docs/deployment). |
 | `max_boot_failures` | integer | `5` | The limit of consecutive boot failures of one worker in Worker and Dispatcher modes. At the limit, the worker exits as unhealthy. A boot that succeeds resets the count. Classic mode ignores this key. `0` disables the limit. See [Process model](/docs/process-model#supervision). |
 | `request_terminate_timeout_secs` | integer | `0` | Wall-clock limit for one request. Rapira terminates and replaces a worker that exceeds this limit. `0` disables the check. |
+| `execution_clock` | `"wall"` \| `"cpu"` | `"wall"` | The clock of the PHP `max_execution_time` limit. `wall` counts the elapsed time of a request. `cpu` counts only the CPU time of the worker thread, so `sleep()` and a wait for a database do not count. The key has an effect only on Linux with a PHP build that has per-thread timers. |
 | `[http.pool.env]` | table of name → string | empty | Environment variables for each worker of the pool. See [The `[http.pool.env]` table](#http-pool-env). |
 
 ### The `[http.pool.env]` table {#http-pool-env}

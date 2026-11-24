@@ -56,6 +56,7 @@ max_requests = 0                      # Restarts the app after this request coun
 max_memory_mb = 0                     # Replaces a worker when its RSS exceeds this size. Zero disables the limit.
 max_boot_failures = 5                 # Stops a worker after this count of consecutive boot failures. Zero disables the limit.
 request_terminate_timeout_secs = 0    # Replaces a worker when one request exceeds this time. Zero disables the limit.
+execution_clock = "wall"              # The clock of max_execution_time. Use "wall" or "cpu". Default: "wall".
 
 [http.pool.env]                       # Optional. Sets environment variables for each worker of the pool.
 APP_ENV = "prod"
@@ -82,6 +83,7 @@ max_requests = 0
 max_memory_mb = 0
 max_boot_failures = 5
 request_terminate_timeout_secs = 0
+execution_clock = "wall"
 
 [observability]                       # Optional. Starts one process without PHP for metrics and probes.
 listen = "127.0.0.1:9180"             # Required.
@@ -171,6 +173,7 @@ worker 运行 PHP。此表定义它们运行什么、运行多少个，以及 ma
 | `max_memory_mb` | 整数 | `0` | 一个 worker 进程的常驻内存（RSS）限制，单位 MiB。master 每秒检查一次每个 worker 的 RSS。master 平稳地停止超过限制的 worker，并启动一个新 worker。此键适用于所有模式。`0` 禁用此限制。请参阅[生产环境部署](/zh/docs/deployment)。 |
 | `max_boot_failures` | 整数 | `5` | Worker 和 Dispatcher 模式下一个 worker 的连续启动失败次数限制。达到限制后，worker 以不健康状态退出。一次成功的启动会重置计数。Classic 模式忽略此键。`0` 禁用此限制。请参阅[进程模型](/zh/docs/process-model#监管)。 |
 | `request_terminate_timeout_secs` | 整数 | `0` | 单个请求的墙钟时间上限。Rapira 终止并替换超过此上限的 worker。`0` 禁用此检查。 |
+| `execution_clock` | `"wall"` \| `"cpu"` | `"wall"` | PHP `max_execution_time` 限制使用的时钟。`wall` 计入请求的墙钟时间。`cpu` 只计入 worker 线程的 CPU 时间，因此 `sleep()` 和等待数据库的时间不计入。此键仅在 Linux 上且 PHP 构建具有每线程计时器时生效。 |
 | `[http.pool.env]` | 名称 → 字符串的表 | 空 | 进程池中每个 worker 的环境变量。请参阅 [`[http.pool.env]` 表](#http-pool-env)。 |
 
 ### `[http.pool.env]` 表 {#http-pool-env}

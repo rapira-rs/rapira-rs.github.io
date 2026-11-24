@@ -158,7 +158,7 @@ W parametrze `name` lub `filename` ujętym w cudzysłów w polu `content-disposi
 
 Znak `\` na końcu wartości w cudzysłowie maskuje cudzysłów zamykający. Przeglądarka wysyła taką wartość dla nazwy pola lub nazwy pliku, która kończy się znakiem `\`. Rapira zwraca wtedy `400` albo wczytuje kolejne parametry do wartości.
 
-Rapira zapisuje każdą część z plikiem do pliku tymczasowego w podkatalogu `rapira-spool-<pid>` katalogu `http.uploads.dir`. `UploadedFile::$tmpPath` zawiera ścieżkę tego pliku. Rapira usuwa pliki tymczasowe po zakończeniu odpowiedzi. Aby zachować plik, przenieś go przez `rename()` przed zakończeniem odpowiedzi.
+Rapira zapisuje każdą część z plikiem do pliku tymczasowego w numerowanym podkatalogu katalogu `rapira-spool-<pid>` w `http.uploads.dir`. `UploadedFile::$tmpPath` zawiera ścieżkę tego pliku. Rapira usuwa pliki tymczasowe po zakończeniu odpowiedzi. Aby zachować plik, przenieś go przez `rename()` przed zakończeniem odpowiedzi.
 
 Dla nieprawidłowej treści Rapira zwraca `400`. Gdy treść przekracza limit, zwraca `413`. Skrypt nie otrzymuje tych żądań. Limity opisuje [Tabela `[http.uploads]`](/pl/docs/configuration#tabela-http-uploads).
 

@@ -142,7 +142,7 @@ The `[http.uploads]` table sets limits for host-side `multipart/form-data` parsi
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `dir` | string | the system temp directory | Storage directory for file parts. A relative path uses the configuration file directory as its base. Rapira creates and checks this directory. Each worker creates a `rapira-spool-<pid>` subdirectory and removes it during shutdown. |
+| `dir` | string | the system temp directory | Storage directory for file parts. A relative path uses the configuration file directory as its base. Rapira creates and checks this directory. The server process creates one `rapira-spool-<pid>` subdirectory and removes it during shutdown. Rapira puts the file parts into numbered subdirectories of it. |
 | `max_file_size_mb` | integer | `2` | Largest single file part, in MiB. |
 | `max_field_size_kb` | integer | `256` | Largest single field part, in KiB. |
 | `max_files` | integer | `20` | File parts permitted in one request. |

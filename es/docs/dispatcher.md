@@ -158,7 +158,7 @@ Dentro de un parámetro `name` o `filename` entre comillas de `content-dispositi
 
 Una `\` al final de un valor entre comillas escapa la comilla de cierre. Un navegador envía un valor así para un nombre de campo o un nombre de archivo que termina en `\`. Rapira devuelve entonces `400`, o lee los parámetros siguientes como parte del valor.
 
-Rapira escribe cada parte de archivo en un archivo temporal en el subdirectorio `rapira-spool-<pid>` de `http.uploads.dir`. `UploadedFile::$tmpPath` contiene la ruta de este archivo. Rapira elimina los archivos temporales cuando la respuesta finaliza. Para conservar un archivo, muévelo con `rename()` antes de que la respuesta finalice.
+Rapira escribe cada parte de archivo en un archivo temporal en un subdirectorio numerado de `rapira-spool-<pid>`, dentro de `http.uploads.dir`. `UploadedFile::$tmpPath` contiene la ruta de este archivo. Rapira elimina los archivos temporales cuando la respuesta finaliza. Para conservar un archivo, muévelo con `rename()` antes de que la respuesta finalice.
 
 Rapira devuelve `400` para un cuerpo mal formado. Devuelve `413` cuando el cuerpo supera un límite. El script no recibe estas peticiones. Consulta [La tabla `[http.uploads]`](/es/docs/configuration#la-tabla-http-uploads) para ver los límites.
 

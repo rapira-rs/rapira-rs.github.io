@@ -158,7 +158,7 @@ rapira serve rapira.toml
 
 带引号的值末尾的 `\` 会转义结束引号。字段名或文件名以 `\` 结尾时，浏览器会发送这样的值。此时 Rapira 返回 `400`，或将后面的参数读入该值。
 
-Rapira 将每个文件部分写入 `http.uploads.dir` 的 `rapira-spool-<pid>` 子目录中的临时文件。`UploadedFile::$tmpPath` 包含此文件的路径。响应结束时，Rapira 删除临时文件。要保留文件，请在响应结束前用 `rename()` 移动它。
+Rapira 将每个文件部分写入临时文件，该文件位于 `http.uploads.dir` 中 `rapira-spool-<pid>` 的一个带编号的子目录内。`UploadedFile::$tmpPath` 包含此文件的路径。响应结束时，Rapira 删除临时文件。要保留文件，请在响应结束前用 `rename()` 移动它。
 
 对于格式错误的请求体，Rapira 返回 `400`。请求体超过限制时，它返回 `413`。脚本不会收到这些请求。限制请参阅[`[http.uploads]` 表](/zh/docs/configuration#http-uploads-表)。
 

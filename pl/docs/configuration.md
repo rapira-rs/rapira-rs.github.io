@@ -142,7 +142,7 @@ Tabela `[http.uploads]` ustawia limity parsowania `multipart/form-data` po stron
 
 | Klucz | Typ | Domyślnie | Znaczenie |
 | --- | --- | --- | --- |
-| `dir` | tekst | katalog tymczasowy systemu | Katalog na części plikowe. Ścieżka względna używa katalogu pliku konfiguracyjnego jako podstawy. Rapira tworzy i sprawdza ten katalog. Każdy worker tworzy podkatalog `rapira-spool-<pid>` i usuwa go podczas zamykania. |
+| `dir` | tekst | katalog tymczasowy systemu | Katalog na części plikowe. Ścieżka względna używa katalogu pliku konfiguracyjnego jako podstawy. Rapira tworzy i sprawdza ten katalog. Proces serwera tworzy jeden podkatalog `rapira-spool-<pid>` i usuwa go podczas zamykania. Rapira umieszcza części plikowe w jego numerowanych podkatalogach. |
 | `max_file_size_mb` | liczba całkowita | `2` | Największa pojedyncza część plikowa, w MiB. |
 | `max_field_size_kb` | liczba całkowita | `256` | Największa pojedyncza część z polem, w KiB. |
 | `max_files` | liczba całkowita | `20` | Dozwolona liczba części plikowych w jednym żądaniu. |

@@ -142,7 +142,7 @@ La tabla `[http.uploads]` define los límites del análisis de `multipart/form-d
 
 | Clave | Tipo | Por defecto | Significado |
 | --- | --- | --- | --- |
-| `dir` | cadena | el directorio temporal del sistema | El directorio de almacenamiento de las partes de tipo archivo. Una ruta relativa usa como base el directorio del archivo de configuración. Rapira crea y comprueba este directorio. Cada worker crea un subdirectorio `rapira-spool-<pid>` y lo elimina al terminar. |
+| `dir` | cadena | el directorio temporal del sistema | El directorio de almacenamiento de las partes de tipo archivo. Una ruta relativa usa como base el directorio del archivo de configuración. Rapira crea y comprueba este directorio. El proceso del servidor crea un subdirectorio `rapira-spool-<pid>` y lo elimina al terminar. Rapira coloca las partes de tipo archivo en subdirectorios numerados dentro de él. |
 | `max_file_size_mb` | entero | `2` | La parte de tipo archivo más grande, en MiB. |
 | `max_field_size_kb` | entero | `256` | La parte de tipo campo más grande, en KiB. |
 | `max_files` | entero | `20` | Las partes de tipo archivo permitidas en una petición. |

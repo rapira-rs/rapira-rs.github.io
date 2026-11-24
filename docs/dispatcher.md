@@ -158,7 +158,7 @@ Inside a quoted `name` or `filename` parameter of `content-disposition`, Rapira 
 
 A `\` at the end of a quoted value escapes the closing quote. A browser sends such a value for a field name or a file name that ends with `\`. Rapira then returns `400`, or it reads the next parameters into the value.
 
-Rapira writes each file part to a temporary file in the `rapira-spool-<pid>` subdirectory of `http.uploads.dir`. `UploadedFile::$tmpPath` contains the path of this file. Rapira deletes the temporary files when the response ends. To keep a file, move it with `rename()` before the response ends.
+Rapira writes each file part to a temporary file in a numbered subdirectory of `rapira-spool-<pid>` in `http.uploads.dir`. `UploadedFile::$tmpPath` contains the path of this file. Rapira deletes the temporary files when the response ends. To keep a file, move it with `rename()` before the response ends.
 
 Rapira returns `400` for a malformed body. It returns `413` when the body exceeds a limit. The script does not get these requests. See [The `[http.uploads]` table](/docs/configuration#the-http-uploads-table) for the limits.
 

@@ -18,7 +18,7 @@ HTTP 进程池使用三种执行模式之一运行 PHP。[gRPC 进程池](./grpc
 
 ## Classic
 
-每个请求都在新的 PHP 请求中运行入口脚本，其行为与 php-fpm 相同。Rapira 填充超全局变量，运行脚本，发送响应，然后删除请求状态。持久连接和扩展状态会保留，因为它们存在于 worker 进程中。
+每个请求都在新的 PHP 请求中运行入口脚本，其行为与 php-fpm 相同。Rapira 填充超全局变量，运行脚本，发送响应，然后删除请求状态。持久连接和扩展状态会保留在 worker 线程中。
 
 用 Rapira 替换 php-fpm 时，现有应用可以在不更改代码的情况下运行。Rapira 将 PHP 嵌入服务器进程，不使用 FastCGI。
 
@@ -28,7 +28,7 @@ HTTP 进程池使用三种执行模式之一运行 PHP。[gRPC 进程池](./grpc
 
 Worker 模式使用与 Classic 相同的请求和响应接口。应用读取超全局变量，并可以使用 `echo` 输出响应。worker 脚本初始化应用一次，然后进入循环。对于每个请求，Rapira 重新填充超全局变量并运行处理函数。脚本在循环外创建的对象保持可用。
 
-初始化为每个 worker 运行一次，而不是为每个请求运行一次。这可以减少请求时间。但是，静态属性、单例和全局状态会保留到下一个请求。设置 [`http.pool.max_requests`](/zh/docs/configuration)，在处理一定数量的请求后替换 worker。这可以限制内存泄漏的影响。
+初始化为每个 worker 运行一次，而不是为每个请求运行一次。这可以减少请求时间。但是，静态属性、单例和全局状态会保留到下一个请求。设置 [`http.pool.max_requests`](/zh/docs/configuration)，在处理一定数量的请求后回收应用实例。这可以限制内存泄漏的影响。
 
 worker 脚本和它的循环见 [Worker 模式](/zh/docs/worker)。请求与响应的处理方式见 [HTTP](/zh/docs/http)。
 
@@ -38,7 +38,7 @@ worker 脚本和它的循环见 [Worker 模式](/zh/docs/worker)。请求与响�
 
 应用可以将请求对象传给函数或中间件。Rapira 在此模式下不填充超全局变量。读取超全局变量的应用需要 Worker 模式，或者需要一个把请求数据复制到这些变量的适配器。`echo` 和其他 PHP 输出不会发给客户端。Rapira 把这些输出以 `info` 级别写入 `php` 目标的日志。
 
-每个 worker 一次处理一个工作单元。再次调用 `receive()` 之前，先完成当前单元。要同时处理更多请求，请增大 `http.pool.processes`。
+每个 worker 一次处理一个工作单元。再次调用 `receive()` 之前，先完成当前单元。要同时处理更多请求，请增大 `http.pool.workers`。
 
 循环、请求与响应 API 以及异常见 [Dispatcher 模式](/zh/docs/dispatcher)。gRPC 调用 API 见 [gRPC](/zh/docs/grpc)。
 
@@ -48,7 +48,7 @@ worker 脚本和它的循环见 [Worker 模式](/zh/docs/worker)。请求与响�
 
 | 键 | 值 |
 | --- | --- |
-| 每个进程环境变量 | 环境中的值 |
+| 每个进程池和进程环境变量 | 来自[进程池 env 表](/zh/docs/configuration#http-pool-env)或启动环境的值 |
 | `PHP_SELF`、`SCRIPT_NAME`、`SCRIPT_FILENAME`、`PATH_TRANSLATED` | 入口脚本的绝对路径 |
 | `DOCUMENT_ROOT` | 空字符串 |
 | `REQUEST_TIME`、`REQUEST_TIME_FLOAT` | 入口脚本的启动时间 |
@@ -57,11 +57,11 @@ worker 脚本和它的循环见 [Worker 模式](/zh/docs/worker)。请求与响�
 
 当 `variables_order` 包含 `S` 时，`$_SERVER` 获得环境变量。只有当 `variables_order` 包含 `E` 时，`$_ENV` 才获得环境变量。生产值 `GPCS` 不包含 `E`。入口脚本路径会替换同名的环境变量，例如 `SCRIPT_FILENAME`。全局变量 `$argv` 和 `$argc` 包含与 `$_SERVER` 相同的值。
 
-在 Dispatcher 模式下，`$_SERVER` 保留这些值，直到入口脚本再次启动。请求数据在请求对象中。在 Worker 模式下，Rapira 为每个请求用请求数据重新填充 `$_SERVER`。请求值不包含环境变量，`SCRIPT_NAME` 包含带前导斜杠的入口脚本名称。
+在 Dispatcher 模式下，`$_SERVER` 保留这些值，直到入口脚本再次启动。请求数据在请求对象中。在 Worker 模式下，Rapira 为每个请求用 [`[http.pool.env]`](/zh/docs/configuration#http-pool-env) 条目和请求数据重新填充 `$_SERVER`。请求变量覆盖同名的进程池条目，`SCRIPT_NAME` 包含带前导斜杠的入口脚本名称。在 Classic 模式下，每个请求的 `$_SERVER` 也包含 `[http.pool.env]` 变量，不包含其他环境变量。
 
 ## 在运行时读出模式
 
-`Rapira\get_mode()` 将进程模式作为 `Rapira\Mode` 枚举 case 返回。case 包括 `Classic`、`Worker` 和 `Dispatcher`。case 是该 worker 所属进程池的模式，进程运行期间不会更改。此函数不接受参数，也不抛出异常。入口脚本可以使用它支持多个模式。
+`Rapira\get_mode()` 将进程池模式作为 `Rapira\Mode` 枚举 case 返回。case 包括 `Classic`、`Worker` 和 `Dispatcher`。case 是该 worker 所属进程池的模式，服务器运行期间不会更改。此函数不接受参数，也不抛出异常。入口脚本可以使用它支持多个模式。
 
 ```php
 <?php
@@ -78,7 +78,7 @@ match (\Rapira\get_mode()) {
 };
 ```
 
-::: question 为什么进程跑起来之后模式就不会变了？
+::: question 为什么服务器运行期间模式不会更改？
 Rapira 在启动解释器之前读取进程池的模式。该 worker 中的每个请求都返回相同的 case。重载不会再次读取 `rapira.toml`。要更改模式，请重启 Rapira。
 :::
 

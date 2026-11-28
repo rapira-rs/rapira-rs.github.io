@@ -11,11 +11,13 @@ El modo Classic ejecuta un script de entrada PHP normal. Puede ser el mismo arch
 
 Cada petición tiene un ciclo de petición PHP completo. El ciclo incluye la inicialización de la petición, la ejecución del script de entrada y el cierre de la petición. PHP elimina el estado de la petición antes de la siguiente petición. Este estado incluye las variables globales, las propiedades estáticas, el contenedor de inyección de dependencias y el mapa de identidad del ORM.
 
-Los objetos y los datos de una petición no pueden afectar a una petición posterior. Parte del estado permanece en el proceso worker: las conexiones persistentes, el estado de las extensiones y el directorio de trabajo. Las aplicaciones que no admiten procesos persistentes pueden ejecutarse en modo Classic.
+Los objetos y los datos de una petición no pueden afectar a una petición posterior. Parte del estado permanece en el hilo del worker: las conexiones persistentes y el estado de las extensiones. Las aplicaciones que no admiten workers persistentes pueden ejecutarse en modo Classic.
 
 La aplicación inicializa el autoloader, la configuración, el contenedor y las rutas en cada petición. Consulta [modos de ejecución](/es/docs/execution-modes) para más información.
 
-Cada worker usa el directorio del script de entrada como directorio de trabajo. El worker resuelve los enlaces simbólicos de la ruta del script de entrada y establece este directorio cuando arranca y en cada recarga. El cambio que hace `chdir()` en una petición se mantiene para las peticiones posteriores del mismo worker, hasta la siguiente recarga. Si una petición cambia el directorio de trabajo, restáuralo antes de que termine la petición.
+Cada petición Classic empieza en el directorio resuelto del script de entrada. Al final de una petición, PHP restaura el directorio guardado antes de ejecutar el script de entrada (normalmente el directorio donde se inició Rapira) y después ejecuta los callbacks de shutdown y los destructores finales. Usa una ruta absoluta en el código de shutdown, por ejemplo `__DIR__ . '/var/last.log'`. En una compilación NTS, una llamada a `chdir()` durante el shutdown puede afectar al directorio de shutdown de la petición siguiente.
+
+En ZTS, cada hilo de PHP tiene su propio directorio de trabajo. `proc_open()` sin un `$cwd` inicia el proceso hijo en el directorio donde se inició Rapira; pasa `getcwd()` como `$cwd` para usar el directorio de la aplicación. `exec()`, `shell_exec()` y `popen()` usan el directorio de trabajo de PHP.
 
 Rapira no proporciona la función `fastcgi_finish_request()` de php-fpm. Usa `rapira_finish_request()` para enviar la respuesta antes de que termine el script. Consulta [HTTP](/es/docs/http) para más información.
 
@@ -64,9 +66,9 @@ La tabla `[http.uploads]` solo se aplica al modo Dispatcher. Rapira no arranca s
 
 ## OPcache
 
-Cada petición PHP elimina el estado de la aplicación. OPcache conserva el bytecode compilado entre peticiones. El proceso maestro inicia PHP antes de crear los workers, así que todos los workers usan el mismo segmento de memoria compartida de OPcache. Con OPcache activado, las peticiones posteriores usan el bytecode almacenado, y PHP no vuelve a compilar los scripts que no cambian. Consulta [puesta en producción](/es/docs/deployment) para configurar OPcache.
+Cada petición PHP elimina el estado de la aplicación. OPcache conserva el bytecode compilado entre peticiones. Rapira inicializa PHP una vez antes de que arranquen los workers, así que todos los hilos de worker comparten la misma memoria de OPcache. Con OPcache activado, las peticiones posteriores usan el bytecode almacenado, y PHP no vuelve a compilar los scripts que no cambian. Consulta [puesta en producción](/es/docs/deployment) para configurar OPcache.
 
-Cada worker procesa una petición a la vez. `http.pool.processes` establece el número de workers, que también es el máximo de peticiones simultáneas. Consulta el [modelo de procesos](/es/docs/process-model) para más información.
+Cada worker procesa una petición a la vez. `http.pool.workers` establece el número de workers, que también es el máximo de peticiones simultáneas. Consulta el [modelo de procesos](/es/docs/process-model) para más información.
 
 ## Respuestas grandes
 
@@ -83,7 +85,7 @@ Consulta [Transmisión de la respuesta](/es/docs/http#transmision-de-la-respuest
 
 ## Elegir entre Classic y Worker
 
-Usa el modo Classic si la aplicación no puede mantener el estado con seguridad entre peticiones. Por ejemplo, algunas aplicaciones y bibliotecas de terceros guardan datos de la petición en propiedades estáticas. El modo Classic también reduce los cambios en la aplicación al migrar desde php-fpm. Usa el modo [Worker](/es/docs/worker) si la aplicación admite un proceso persistente. El modo Worker elimina la inicialización de la aplicación de cada petición. Consulta [modos de ejecución](/es/docs/execution-modes) para ver los tres modos.
+Usa el modo Classic si la aplicación no puede mantener el estado con seguridad entre peticiones. Por ejemplo, algunas aplicaciones y bibliotecas de terceros guardan datos de la petición en propiedades estáticas. El modo Classic también reduce los cambios en la aplicación al migrar desde php-fpm. Usa el modo [Worker](/es/docs/worker) si la aplicación admite un worker persistente. El modo Worker elimina la inicialización de la aplicación de cada petición. Consulta [modos de ejecución](/es/docs/execution-modes) para ver los tres modos.
 
 ::: info
 `Rapira\handle_request()` lanza `Rapira\Exception\NotInWorkerModeError` en modo Classic. Un script Classic termina con su petición y no puede ejecutar un bucle de peticiones.

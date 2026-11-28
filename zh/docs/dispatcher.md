@@ -6,7 +6,7 @@ faqLevel: 2
 
 # Dispatcher 模式
 
-Dispatcher 模式与 [Worker 模式](/zh/docs/worker)一样，使 PHP 进程在请求之间保持活动。脚本初始化应用一次，然后通过 API 调用取得每个请求。Rapira 不为请求填充超全局变量。脚本读取请求对象，并通过方法调用写入响应。
+Dispatcher 模式与 [Worker 模式](/zh/docs/worker)一样，使 PHP 应用在每个 worker 线程上在请求之间保持活动。脚本初始化应用一次，然后通过 API 调用取得每个请求。Rapira 不为请求填充超全局变量。脚本读取请求对象，并通过方法调用写入响应。
 
 本页是 HTTP dispatcher 的编程指南。要比较各模式，请参阅[执行模式](/zh/docs/execution-modes)。gRPC 进程池也使用 Dispatcher 模式。gRPC 调用 API 请参阅 [gRPC](/zh/docs/grpc)。
 
@@ -75,11 +75,11 @@ rapira serve rapira.toml
 | `getInfo(): HttpDispatcherInfo` | 返回 `pendingCount()` 和 `activeCount()`。`pendingCount()` 是此 worker 队列中的请求数，`activeCount()` 为 `0` 或 `1`。 |
 | `name(): string` | 返回 `http`。 |
 
-`receive()` 在等待期间阻塞 PHP 线程。等待期间，worker 不使用 CPU。PHP 的 `max_execution_time` 计时器不计算此等待，并为每个请求重新开始计时。如果客户端在请求到达 PHP 之前离开，Rapira 跳过该排队的请求。
+`receive()` 在等待期间阻塞 PHP 线程。等待期间，worker 不使用 CPU。PHP 的 `max_execution_time` 计时器在等待请求或响应流空间时暂停，并为每个请求重新开始计时。在支持按线程计时器的 Linux 上，设置 `http.pool.execution_clock = "cpu"` 可只计算 worker 线程的 CPU 时间。如果客户端在请求到达 PHP 之前离开，Rapira 跳过该排队的请求。
 
 ## 一次一个 exchange
 
-每个 worker 一次处理一个 exchange。在再次调用 `receive()` 或 `tryReceive()` 之前，请结束当前 exchange 的响应。否则，该调用抛出 `\Error`。Fiber 不改变此规则。要同时处理更多请求，请增大 `http.pool.processes`。
+每个 worker 一次处理一个 exchange。在再次调用 `receive()` 或 `tryReceive()` 之前，请结束当前 exchange 的响应。否则，该调用抛出 `\Error`。Fiber 不改变此规则。要同时处理更多请求，请增大 `http.pool.workers`。
 
 以下调用结束响应：
 
@@ -90,16 +90,16 @@ rapira serve rapira.toml
 
 使用 `$eos = false` 发送 `Content-Length` 声明的全部字节不会终结 exchange。请在下次接收调用前终结它。完整响应交付后关闭连接不会取消 exchange。PHP 仍可终结它。完整交付前断开连接可能会取消它。
 
-`http.pool.request_terminate_timeout_secs` 从 `receive()` 或 `tryReceive()` 返回时开始计时。worker 超过此时限时，Rapira 终止并替换该 worker。此键请参阅[配置](/zh/docs/configuration#http-pool)。
+`http.pool.request_terminate_timeout_secs` 从 `receive()` 或 `tryReceive()` 返回时开始计时。到达限制时，看门狗中断 PHP 并唤醒阻塞的响应写入。如果进程池中的所有 worker 在 5 秒宽限期后仍保持阻塞，Rapira 以退出码 `124` 退出。此键请参阅[配置](/zh/docs/configuration#http-pool)。
 
 ## 循环如何结束
 
-停止期间，Rapira 关闭 dispatcher。当 dispatcher 已关闭且其队列为空时，`receive()` 和 `tryReceive()` 抛出 `Rapira\Exception\ClosedException`。在 `http.pool.max_requests` 之后或重载时，dispatcher 会立即对当前应用实例关闭。队列中的请求等待同一 worker 中的下一个应用实例。之后的每次调用都会再次抛出该异常。请捕获此异常，退出循环，并让入口脚本结束。
+停止期间，Rapira 关闭 dispatcher。当 dispatcher 已关闭且其队列为空时，`receive()` 和 `tryReceive()` 抛出 `Rapira\Exception\ClosedException`。在 `http.pool.max_requests` 之后或重载时，dispatcher 会立即对当前应用实例关闭。队列中的请求等待同一 worker 线程上的下一个应用实例。之后的每次调用都会再次抛出该异常。请捕获此异常，退出循环，并让入口脚本结束。
 
-未捕获的异常或致命错误会结束入口脚本。然后 Rapira 在同一个 worker 中再次运行入口脚本。打开的 exchange 的客户端收到错误响应或不完整的响应。
+未捕获的异常或致命错误会结束入口脚本。然后 Rapira 在同一个 worker 线程上再次运行入口脚本。打开的 exchange 的客户端收到错误响应或不完整的响应。
 
 ::: question 入口脚本在 `ClosedException` 之前结束时会发生什么？
-如果脚本至少接收了一个请求，Rapira 在同一个 worker 中再次运行入口脚本。如果脚本在接收请求之前结束，Rapira 记为一次启动失败。如果在五秒内有请求到达，Rapira 用 `503` 回答该请求。然后 Rapira 再次运行脚本。连续五次启动失败后，worker 以不健康状态退出。
+如果脚本至少接收了一个请求，Rapira 在同一个 worker 线程上再次运行入口脚本。如果脚本在接收请求之前结束，Rapira 记为一次启动失败。重试延迟从 500 ms 开始，每次连续失败后翻倍，并在 5 秒处封顶。等待期间到达的请求不会提前触发下一次启动；当进程池中没有就绪的 worker 时，排队的请求收到 `503`。启动成功后会重置失败计数和延迟。如果 worker 在其进程池处理任何请求之前达到 `http.pool.max_boot_failures`（默认 `5`），服务器以退出码 `70` 退出。
 :::
 
 ## 请求
@@ -158,13 +158,13 @@ rapira serve rapira.toml
 
 带引号的值末尾的 `\` 会转义结束引号。字段名或文件名以 `\` 结尾时，浏览器会发送这样的值。此时 Rapira 返回 `400`，或将后面的参数读入该值。
 
-Rapira 将每个文件部分写入 `http.uploads.dir` 的 `rapira-spool-<pid>` 子目录中的临时文件。`UploadedFile::$tmpPath` 包含此文件的路径。响应结束时，Rapira 删除临时文件。要保留文件，请在响应结束前用 `rename()` 移动它。
+Rapira 将每个文件部分写入 `http.uploads.dir` 中 `rapira-spool-<pid>` 下的一个带编号子目录里的临时文件。`UploadedFile::$tmpPath` 包含此文件的路径。响应结束时，Rapira 删除临时文件。要保留文件，请在响应结束前用 `rename()` 移动它。
 
 对于格式错误的请求体，Rapira 返回 `400`。请求体超过限制时，它返回 `413`。脚本不会收到这些请求。限制请参阅[`[http.uploads]` 表](/zh/docs/configuration#http-uploads-表)。
 
 ## 发送文件
 
-`sendFile()` 只读取 sendfile 根目录下的文件。默认根目录是 `http.pool.entrypoint` 所在的目录。Rapira 先解析符号链接，再将路径与根目录比较。Rapira 为每个应用实例重新解析根目录，因此根目录会在下一次应用启动时跟随符号链接的切换。要设置根目录，请参阅[`[http.sendfile]` 表](/zh/docs/configuration#http-sendfile-表)。
+`sendFile()` 只读取 sendfile 根目录下的文件。默认根目录是 `http.pool.entrypoint` 所在的目录。相对的 `sendFile()` 路径从 PHP 工作目录开始，`chdir()` 调用对同一应用实例的后续 exchange 生效。Rapira 先解析符号链接，再将路径与根目录比较。Rapira 为每个应用实例重新解析根目录，因此根目录会在下一次应用启动时跟随符号链接的切换。要设置根目录，请参阅[`[http.sendfile]` 表](/zh/docs/configuration#http-sendfile-表)。
 
 文件由宿主打开。PHP `open_basedir` 不限制此操作。配置的 sendfile 根目录限制文件路径。
 
@@ -193,7 +193,7 @@ $exchange->sendFile(__DIR__ . '/files/report.pdf');
 | --- | --- | --- |
 | `Rapira\Exception\ClosedException` | `receive()`、`tryReceive()` | Rapira 关闭了 dispatcher。不会再有请求到达当前应用实例。 |
 | `Rapira\Exception\TimeoutException` | `receive()` | 在等待时限之前没有请求到达。 |
-| `Rapira\Exception\NoDispatcherError` | `\Rapira\get_dispatcher()` | 进程不在 Dispatcher 模式下运行。 |
+| `Rapira\Exception\NoDispatcherError` | `\Rapira\get_dispatcher()` | 进程池不在 Dispatcher 模式下运行。 |
 | `Rapira\Exception\WorkDiscardedException` | 写入方法 | Rapira 在 PHP 终结 exchange 前取消了它。 |
 | `Rapira\Exception\AlreadyFinalizedError` | `writeBody()`、`sendFile()`、`writeTrailers()`、`flush()` | 响应已经结束。 |
 | `Rapira\Http\Exception\HeadAlreadyWrittenError` | `writeHead()` | 头部已经设置，或响应已经结束。 |

@@ -15,7 +15,7 @@ Kod aplikacji się nie zmienia. Skrypt workera zastępuje `public/index.php`. Ta
 - **Symfony 7.4** (`symfony/framework-bundle` v7.4.15), testy w `dev` i `prod`
 - **Symfony 8.1** (`symfony/framework-bundle` v8.1.2), testy w `dev`
 
-Obie aplikacje bazowe używały pakietu `symfony/skeleton` i jednego workera. Obie używały **tego samego `worker.php`** bez warunków wersji. Testy obejmowały routing, błędy, żądania, sesje, upload plików i 200 kolejnych żądań. Przykłady na tej stronie używają formatu konfiguracji v0.9.
+Obie aplikacje bazowe używały pakietu `symfony/skeleton` i jednego workera. Obie używały **tego samego `worker.php`** bez warunków wersji. Testy obejmowały routing, błędy, żądania, sesje, upload plików i 200 kolejnych żądań. Przykłady na tej stronie używają formatu konfiguracji v0.10.
 :::
 
 ## Zachowanie w trybie Worker
@@ -26,7 +26,7 @@ Przy każdym żądaniu handler tworzy `Request` ze zmiennych superglobalnych, kt
 
 Sesje używają natywnych funkcji sesji PHP. Żądanie, które używa sesji, wywołuje `session_start()`, a odpowiedź zawiera ciasteczko sesji. Następne żądanie czyta zapisaną sesję. Testy potwierdziły, że osobni klienci otrzymują osobne sesje.
 
-Każdy proces workera ma jeden kernel. Workery nie dzielą obiektów aplikacji. Liczbę workerów i nadzór nad nimi opisuje [Model procesów](/pl/docs/process-model).
+Każdy wątek workera ma jeden kernel. Workery nie dzielą obiektów aplikacji. Liczbę workerów i zarządzanie pulą opisuje [Model procesów](/pl/docs/process-model).
 
 ## Wymagania wstępne
 
@@ -103,7 +103,7 @@ Po `$kernel->reboot(null)` pobierz nowy kontener przez `$kernel->getContainer()`
 
 Rapira zachowuje `$_ENV` do ponownego uruchomienia skryptu workera. Nie odtwarza tej zmiennej superglobalnej przy każdym żądaniu. Wartości wczytane przez `bootEnv()` przed pętlą pozostają dostępne podczas późniejszych żądań. To zachowanie działa także z `variables_order = "GPCS"` i `auto_globals_jit = On`.
 
-Przed pierwszym żądaniem `$_SERVER` zawiera środowisko procesu. Dotenv nie zastępuje zmiennej, którą `$_SERVER` lub `$_ENV` już zawiera. Dlatego zmienna środowiskowa ma pierwszeństwo przed tą samą zmienną w `.env`, także z `variables_order = "GPCS"`.
+Przed pierwszym żądaniem `$_SERVER` zawiera środowisko startowe i środowisko puli. Dotenv nie zastępuje zmiennej, którą `$_SERVER` lub `$_ENV` już zawiera. Dlatego zmienna środowiskowa ma pierwszeństwo przed tą samą zmienną w `.env`, także z `variables_order = "GPCS"`.
 
 Na przykład dodaj `usePutenv()`, jeśli kod aplikacji musi odczytać wartości Dotenv przez `getenv()`:
 
@@ -111,9 +111,9 @@ Na przykład dodaj `usePutenv()`, jeśli kod aplikacji musi odczytać wartości 
 (new Dotenv())->usePutenv()->bootEnv(__DIR__ . '/.env');
 ```
 
-`usePutenv()` zapisuje wartości Dotenv w środowisku procesu. Symfony `%env(...)%` może odczytać zachowane wartości `$_ENV` bez tego wywołania. Rapira uruchamia jeden interpreter NTS PHP w każdym procesie. PHP nie wywołuje `putenv()` ze współbieżnych wątków.
+`usePutenv()` zapisuje wartości Dotenv w lokalnej dla wątku warstwie `putenv()` Rapiry bez zmiany środowiska procesu systemu operacyjnego, więc jest to bezpieczne między współbieżnymi wątkami workerów ZTS. Symfony `%env(...)%` może odczytać wartości `$_ENV` bez tego wywołania. Symfony Process przekazuje do procesów potomnych tylko klucze obecne w `$_SERVER` lub `$_ENV`; dodaj nazwy takie jak `PATH` lub `HOME` do `[http.pool.env]` albo uwzględnij `E` w `variables_order`, jeśli procesy potomne ich potrzebują.
 
-W środowisku produkcyjnym ustaw zmienne przez systemd, środowisko uruchomieniowe kontenerów albo orkiestrator. Używaj `.env` tylko podczas programowania.
+W środowisku produkcyjnym ustaw zmienne środowiskowe w [`[http.pool.env]`](/pl/docs/configuration#http-pool-env), systemd, środowisku uruchomieniowym kontenerów albo orkiestratorze. Używaj `.env` tylko podczas programowania.
 
 ## Uruchamianie Rapiry
 
@@ -166,12 +166,12 @@ listen = "127.0.0.1:8000"
 [http.pool]
 entrypoint = "worker.php"
 mode = "worker"
-processes = 4
+workers = 4
 max_requests = 500
 request_terminate_timeout_secs = 30
 ```
 
-`max_requests` uruchamia ponownie aplikację po losowej liczbie żądań większej niż ta wartość, ale nie większej niż 1,5 tej wartości. Ogranicza wpływ wycieku pamięci, ale go nie naprawia. `request_terminate_timeout_secs` zatrzymuje workera, gdy jedno żądanie działa dłużej niż ten limit. Ponownie uruchomiona aplikacja lub nowy worker ponownie inicjalizuje kernel. Względny `entrypoint` używa katalogu pliku konfiguracji jako bazy. Wszystkie ustawienia opisuje [Konfiguracja](/pl/docs/configuration).
+`max_requests` uruchamia ponownie aplikację po losowej liczbie żądań większej niż ta wartość, ale nie większej niż 1,5 tej wartości. Ogranicza wpływ wycieku pamięci, ale go nie naprawia. `request_terminate_timeout_secs` ustawia limit watchdoga czasu rzeczywistego, który przerywa PHP, gdy jedno żądanie trwa dłużej niż ten limit. Ponownie uruchomiona aplikacja ponownie inicjalizuje kernel. Względny `entrypoint` używa katalogu pliku konfiguracji jako bazy. Wszystkie ustawienia opisuje [Konfiguracja](/pl/docs/configuration).
 
 Uruchom serwer z `APP_ENV=prod`:
 
@@ -179,7 +179,14 @@ Uruchom serwer z `APP_ENV=prod`:
 APP_ENV=prod rapira serve rapira.toml
 ```
 
-Po wdrożeniu wyślij `SIGUSR2` do procesu nadrzędnego, aby uruchomić ponownie aplikacje. To przeładowanie opróżnia OPcache, więc wczytuje nowy kod także przy `opcache.validate_timestamps = 0`. Uruchom Rapirę ponownie po zmianie pliku, który wczytuje `opcache.preload`. Zobacz [Wdrożenie produkcyjne](/pl/docs/deployment).
+Możesz też ustawić `APP_ENV` w [`[http.pool.env]`](/pl/docs/configuration#http-pool-env) w `rapira.toml`:
+
+```toml
+[http.pool.env]
+APP_ENV = "prod"
+```
+
+Po wdrożeniu wyślij `SIGUSR2` do serwera, aby przeładować aplikacje. To przeładowanie opróżnia OPcache, więc wczytuje nowy kod także przy `opcache.validate_timestamps = 0`, chyba że ustawiono `opcache.file_cache`. Uruchom Rapirę ponownie po zmianie pliku, który wczytuje `opcache.preload`. Zobacz [Wdrożenie produkcyjne](/pl/docs/deployment).
 
 ## Zerowanie stanu między żądaniami
 

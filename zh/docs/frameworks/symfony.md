@@ -15,7 +15,7 @@ Symfony 支持常驻 worker。应用初始化内核，向其传递 `Request`，�
 - **Symfony 7.4**（`symfony/framework-bundle` v7.4.15），在 `dev` 和 `prod` 下测试
 - **Symfony 8.1**（`symfony/framework-bundle` v8.1.2），在 `dev` 下测试
 
-两个基础应用都使用 `symfony/skeleton` 包和一个 worker。两者都使用**同一个 `worker.php`**，没有版本条件。测试覆盖了路由、错误、请求、session、上传和 200 个连续请求。本页示例使用 v0.9 配置格式。
+两个基础应用都使用 `symfony/skeleton` 包和一个 worker。两者都使用**同一个 `worker.php`**，没有版本条件。测试覆盖了路由、错误、请求、session、上传和 200 个连续请求。本页示例使用 v0.10 配置格式。
 :::
 
 ## Worker 模式下的行为
@@ -26,7 +26,7 @@ Symfony 支持常驻 worker。应用初始化内核，向其传递 `Request`，�
 
 session 使用原生 PHP session 函数。使用 session 的请求调用 `session_start()`，响应包含 session cookie。下一个请求读取已存储的 session。测试确认不同客户端得到不同的 session。
 
-每个 worker 进程有一个内核。worker 之间不共享应用对象。有关 worker 数量和监管，请参阅[进程模型](/zh/docs/process-model)。
+每个 worker 线程有一个内核。worker 之间不共享应用对象。有关 worker 数量和进程池管理，请参阅[进程模型](/zh/docs/process-model)。
 
 ## 前置条件
 
@@ -101,9 +101,9 @@ while (\Rapira\handle_request($handler)) {
 
 ## `$_ENV` 与进程环境
 
-Rapira 会保留 `$_ENV`，直到 worker 重新运行脚本。它不会为每个请求重建此超全局变量。`bootEnv()` 在循环前加载的值仍可用于后续请求。此行为也适用于 `variables_order = "GPCS"` 和 `auto_globals_jit = On`。
+Rapira 会保留 `$_ENV`，直到 worker 脚本重启。它不会为每个请求重建此超全局变量。`bootEnv()` 在循环前加载的值仍可用于后续请求。此行为也适用于 `variables_order = "GPCS"` 和 `auto_globals_jit = On`。
 
-在第一个请求之前，`$_SERVER` 包含进程环境。Dotenv 不会替换 `$_SERVER` 或 `$_ENV` 中已有的变量。因此，环境变量优先于 `.env` 中的同名变量，在 `variables_order = "GPCS"` 下也是如此。
+在第一个请求之前，`$_SERVER` 包含启动环境和进程池环境。Dotenv 不会替换 `$_SERVER` 或 `$_ENV` 中已有的变量。因此，环境变量优先于 `.env` 中的同名变量，在 `variables_order = "GPCS"` 下也是如此。
 
 例如，如果应用代码必须使用 `getenv()` 读取 Dotenv 值，请添加 `usePutenv()`：
 
@@ -111,9 +111,9 @@ Rapira 会保留 `$_ENV`，直到 worker 重新运行脚本。它不会为每个
 (new Dotenv())->usePutenv()->bootEnv(__DIR__ . '/.env');
 ```
 
-`usePutenv()` 将 Dotenv 值写入进程环境。Symfony `%env(...)%` 无需此调用即可读取保留的 `$_ENV` 值。Rapira 在每个进程中运行一个 NTS PHP 解释器。PHP 不会从并发线程调用 `putenv()`。
+`usePutenv()` 将 Dotenv 值写入 Rapira 的线程局部 `putenv()` 层而不改变操作系统进程环境，因此它在并发 ZTS worker 线程间是安全的。Symfony `%env(...)%` 无需此调用即可读取 `$_ENV` 值。Symfony Process 只将 `$_SERVER` 或 `$_ENV` 中存在的键传给子进程；如果子进程需要 `PATH` 或 `HOME` 等名称，请将它们添加到 `[http.pool.env]`，或在 `variables_order` 中包含 `E`。
 
-在生产环境中，请通过 systemd、容器运行时或编排器设置环境变量。仅在开发期间使用 `.env`。
+在生产环境中，请在 [`[http.pool.env]`](/zh/docs/configuration#http-pool-env)、systemd、容器运行时或编排器中设置环境变量。仅在开发期间使用 `.env`。
 
 ## 启动 Rapira
 
@@ -166,12 +166,12 @@ listen = "127.0.0.1:8000"
 [http.pool]
 entrypoint = "worker.php"
 mode = "worker"
-processes = 4
+workers = 4
 max_requests = 500
 request_terminate_timeout_secs = 30
 ```
 
-`max_requests` 在随机请求数后重启应用。此请求数大于此值，最多为此值的 1.5 倍。它限制内存泄漏的影响，但不会修复泄漏。当一个请求的运行时间超过 `request_terminate_timeout_secs` 时，Rapira 会停止该 worker。重启后的应用或新 worker 会再次初始化内核。相对 `entrypoint` 以配置文件所在目录为基准。有关所有设置，请参阅[配置](/zh/docs/configuration)。
+`max_requests` 在高于此值、最多为此值 1.5 倍的随机请求数后回收应用。它限制内存泄漏的影响，但不会修复泄漏。`request_terminate_timeout_secs` 设置墙钟时间的看门狗限制，当单个请求的运行时间超过此限制时会中断 PHP。回收后的应用会再次初始化内核。相对 `entrypoint` 以配置文件所在目录为基准。有关所有设置，请参阅[配置](/zh/docs/configuration)。
 
 使用 `APP_ENV=prod` 启动服务器：
 
@@ -179,7 +179,14 @@ request_terminate_timeout_secs = 30
 APP_ENV=prod rapira serve rapira.toml
 ```
 
-部署后，向 master 发送 `SIGUSR2` 以重启应用。这次重载会清空 OPcache，因此在 `opcache.validate_timestamps = 0` 时它也会加载新代码。更改 `opcache.preload` 加载的文件后，请重启 Rapira。请参阅[生产环境部署](/zh/docs/deployment)。
+或者在 `rapira.toml` 的 [`[http.pool.env]`](/zh/docs/configuration#http-pool-env) 中设置 `APP_ENV`：
+
+```toml
+[http.pool.env]
+APP_ENV = "prod"
+```
+
+部署后，向服务器发送 `SIGUSR2` 以重载应用。这次重载会清空 OPcache，因此除非设置了 `opcache.file_cache`，否则在 `opcache.validate_timestamps = 0` 时它也会加载新代码。更改 `opcache.preload` 加载的文件后，请重启 Rapira。请参阅[生产环境部署](/zh/docs/deployment)。
 
 ## 请求之间的状态重置
 

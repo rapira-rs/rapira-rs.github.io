@@ -11,11 +11,13 @@ Classic mode executes an ordinary PHP entry script. This can be the same `public
 
 Each request has a complete PHP request cycle. The cycle includes request initialization, entry script execution, and request shutdown. PHP removes request state before the next request. This state includes globals, static properties, the dependency injection container, and the ORM identity map.
 
-Objects and request data cannot affect a later request. Some state stays in the worker process: persistent connections, extension state, and the working directory. Applications that do not support persistent processes can run in Classic mode.
+Objects and request data cannot affect a later request. Some state stays on the worker thread: persistent connections and extension state. Applications that do not support persistent workers can run in Classic mode.
 
 The application initializes its autoloader, configuration, container, and routes for each request. See [execution modes](/docs/execution-modes) for more information.
 
-Each worker uses the entry script directory as its working directory. The worker resolves the symbolic links in the entry script path and sets this directory when it starts and at each reload. A `chdir()` call in a request stays in effect for later requests of the same worker, until the next reload. If a request changes the working directory, restore it before the request ends.
+Each Classic request starts in the resolved entry script directory. At the end of a request, PHP restores the directory saved before running the entry script (usually the directory where Rapira started) and then runs shutdown callbacks and final destructors. Use an absolute path in shutdown code, for example `__DIR__ . '/var/last.log'`. On an NTS build, a `chdir()` during shutdown can affect the next request's shutdown directory.
+
+On ZTS, each PHP thread has its own working directory. `proc_open()` without a `$cwd` starts the child in the directory where Rapira started; pass `getcwd()` as `$cwd` to use the app directory. `exec()`, `shell_exec()`, and `popen()` use the PHP working directory.
 
 Rapira does not provide the php-fpm `fastcgi_finish_request()` function. Use `rapira_finish_request()` to send the response before the script ends. See [HTTP](/docs/http) for more information.
 
@@ -64,9 +66,9 @@ The `[http.uploads]` table applies only to Dispatcher mode. Rapira does not star
 
 ## OPcache
 
-Each PHP request removes application state. OPcache keeps compiled bytecode across requests. The master process starts PHP before it creates workers, so all workers use the same OPcache shared memory segment. When you enable OPcache, later requests use the cached bytecode, and PHP does not compile unchanged scripts again. See [deployment](/docs/deployment) for the OPcache setup.
+Each PHP request removes application state. OPcache keeps compiled bytecode across requests. Rapira initializes PHP once before workers start, so all worker threads share the same OPcache memory. When you enable OPcache, later requests use the cached bytecode, and PHP does not compile unchanged scripts again. See [deployment](/docs/deployment) for the OPcache setup.
 
-Each worker handles one request at a time. `http.pool.processes` sets the worker count, which is also the maximum number of concurrent requests. See the [process model](/docs/process-model) for more information.
+Each worker handles one request at a time. `http.pool.workers` sets the worker count, which is also the maximum number of concurrent requests. See the [process model](/docs/process-model) for more information.
 
 ## Large responses
 
@@ -83,7 +85,7 @@ See [Response transmission](/docs/http#response-transmission) for more informati
 
 ## Choosing between Classic and Worker
 
-Use Classic mode when the application cannot safely keep state between requests. For example, some applications and vendor libraries store request data in static properties. Classic mode also decreases application changes when you move from php-fpm. Use [Worker](/docs/worker) mode when the application supports a persistent process. Worker mode removes application initialization from each request. See [execution modes](/docs/execution-modes) for all three modes.
+Use Classic mode when the application cannot safely keep state between requests. For example, some applications and vendor libraries store request data in static properties. Classic mode also decreases application changes when you move from php-fpm. Use [Worker](/docs/worker) mode when the application supports a persistent worker. Worker mode removes application initialization from each request. See [execution modes](/docs/execution-modes) for all three modes.
 
 ::: info
 `Rapira\handle_request()` throws `Rapira\Exception\NotInWorkerModeError` in Classic mode. A Classic script ends with its request and cannot run a request loop.

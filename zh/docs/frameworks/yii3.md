@@ -5,14 +5,14 @@ description: "在 Worker 模式下运行 Yii3：使用常驻的 HttpApplicationR
 
 # Yii3
 
-Yii3 支持常驻进程。worker 可以初始化应用一次，并在每个响应后重置请求状态。官方 runner [`yiisoft/yii-runner-roadrunner`](https://github.com/yiisoft/yii-runner-roadrunner) 使用相同的设计。本页介绍常驻 worker、每请求替代方案和集成测试结果。
+Yii3 支持常驻 worker。worker 可以初始化应用一次，并在每个响应后重置请求状态。官方 runner [`yiisoft/yii-runner-roadrunner`](https://github.com/yiisoft/yii-runner-roadrunner) 使用相同的设计。本页介绍常驻 worker、每请求替代方案和集成测试结果。
 
 ::: info 验证环境
 - **PHP 8.5.8**：NTS，embed SAPI
 - **Rapira 0.8.0**
 - **yiisoft/app** 模板 1.4，配 **yii-runner-http 3.2.1**（router-fastroute 4.x）
 
-测试使用这套软件运行了两个 worker 脚本。测试覆盖路由、URL、请求体、session、文件上传、错误和 200 个连续请求。本页示例使用 v0.9 配置格式。
+测试使用这套软件运行了两个 worker 脚本。测试覆盖路由、URL、请求体、session、文件上传、错误和 200 个连续请求。本页示例使用 v0.10 配置格式。
 :::
 
 ## Yii3 与 Worker 模式
@@ -160,7 +160,7 @@ listen = "127.0.0.1:8000"
 [http.pool]
 entrypoint = "/srv/app/worker.php"
 mode = "worker"
-processes = 8
+workers = 8
 max_requests = 500
 request_terminate_timeout_secs = 30
 
@@ -200,7 +200,7 @@ root = "public"
 
 **应用接收表单数据、JSON 请求体和文件上传。**`$_POST` 包含表单字段，`php://input` 包含 JSON 请求体。上传的临时文件在请求期间可读。PSR-7 `ServerRequest` 包含所有这些值。
 
-**action 异常返回 `500`，worker 继续运行。**`ErrorCatcher` 创建错误响应并记录异常。同一个 worker 正常处理下一个请求。有关使 worker 停止的错误，请参阅 [Worker 模式](/zh/docs/worker)。
+**action 异常返回 `500`，worker 继续运行。**`ErrorCatcher` 创建错误响应并记录异常。同一个 worker 正常处理下一个请求。有关回收应用的错误，请参阅 [Worker 模式](/zh/docs/worker)。
 
 ## 回退到 Classic 模式
 
@@ -220,5 +220,5 @@ mode = "classic"
 请保留 `public/index.php` 作为第二个入口脚本。Classic 模式和 PHP 内置服务器使用它。
 
 ::: question 必须更改 `public/index.php` 中的 `cli-server` 条件吗？
-不需要。此条件为 PHP 内置服务器提供静态文件并更改 `SCRIPT_NAME`。Rapira 不运行它，因为 `PHP_SAPI` 在 PHP 8.4 上是 `fastcgi`，在 PHP 8.5 上是 `rapira`。有关 SAPI 名称，请参阅[安装](/zh/docs/intro/installation)。
+不需要。此条件为 PHP 内置服务器提供静态文件并更改 `SCRIPT_NAME`。Rapira 不运行它，因为 `PHP_SAPI` 在 PHP 8.4 上是 `fastcgi`，在 PHP 8.5 和 PHP 8.6 上是 `rapira`。有关 SAPI 名称，请参阅[安装](/zh/docs/intro/installation)。
 :::

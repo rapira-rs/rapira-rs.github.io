@@ -5,7 +5,7 @@ description: "Niveles de registro de Rapira, ajustes por target, diagnósticos d
 
 # Registros
 
-Rapira escribe los registros en stderr. Incluyen eventos del servidor, decisiones del proceso maestro, eventos HTTP y gRPC, diagnósticos PHP y mensajes de la aplicación. PHP envía sus diagnósticos a este registro cuando el ajuste ini `error_log` está vacío. Este es el valor predeterminado.
+Rapira escribe los registros en stderr. Incluyen eventos del servidor, estado de los pools, eventos HTTP y gRPC, diagnósticos PHP y mensajes de la aplicación. PHP envía sus diagnósticos a este registro cuando el ajuste ini `error_log` está vacío, que es el valor predeterminado.
 
 El nivel predeterminado es `error`, por lo que stderr solo contiene errores. Cambia la sección `[log]` o establece `RUST_LOG` para elegir otro nivel.
 
@@ -40,23 +40,22 @@ Cada clave nombra un target. Los demás targets usan `level`. La clave coincide 
 
 Rapira usa estos targets:
 
-| Target          | Qué cubre                                                                                       |
-| --------------- | ----------------------------------------------------------------------------------------------- |
-| `rapira`        | la inicialización del servidor, el ciclo de vida de los workers, el apagado                     |
-| `master`        | estado de pools, errores de creación de procesos y advertencias de tiempo de espera de peticiones |
-| `http`          | las escuchas HTTP, el tratamiento de los campos de petición y respuesta, el apagado             |
-| `grpc`          | las escuchas gRPC, los fallos de transporte, el apagado                                         |
-| `net`           | el bucle de aceptación de las escuchas HTTP y gRPC, los fallos de aceptación                    |
-| `observability` | el [proceso de métricas y sondas](/es/docs/observability): la escucha, el drenaje de peticiones, los fallos |
-| `php`           | la salida y los diagnósticos del propio PHP                                                     |
-| `app`           | los registros que la aplicación escribe con `\Rapira\log()`                                     |
+| Target          | Qué cubre                                                                                  |
+| --------------- | ------------------------------------------------------------------------------------------ |
+| `rapira`        | inicialización del servidor, estado del pool, ciclo de vida de los workers, tiempos límite del watchdog, apagado |
+| `http`          | las escuchas HTTP, el tratamiento de los campos de petición y respuesta, archivos estáticos, apagado |
+| `grpc`          | las escuchas gRPC, los fallos de transporte, el apagado                                    |
+| `net`           | el bucle de aceptación de las escuchas HTTP y gRPC, los fallos de aceptación               |
+| `observability` | la [escucha de métricas y sondas](/es/docs/observability): la escucha, el drenaje de peticiones, los fallos |
+| `php`           | la salida y los diagnósticos del propio PHP                                                |
+| `app`           | los registros que la aplicación escribe con `\Rapira\log()`                                |
 
 Rapira no escribe un registro de acceso con una línea por petición. La página [HTTP](/es/docs/http) enumera los registros de campos del target `http`.
 
 Una dependencia escribe registros de traza bajo su ruta de módulo. El mismo filtro por prefijo se aplica a estos registros. Cada registro contiene el nombre de su target. Añade ese nombre a `[log.targets]` para cambiar su nivel.
 
 ::: tip
-El target `master` informa del estado de pools, errores de creación de procesos y advertencias de tiempo de espera de peticiones. Consulta [Modelo de procesos](/es/docs/process-model) para ver la supervisión de pools.
+El target `rapira` informa del estado de los pools con `SIGUSR1`, los reintentos por fallo de arranque y las advertencias de tiempo límite de petición del watchdog. Consulta [Modelo de procesos](/es/docs/process-model) para la gestión del pool.
 :::
 
 ## Diagnósticos de PHP
@@ -152,7 +151,7 @@ Rapira no acorta los arrays ni las cadenas. Pasa identificadores en lugar de obj
 
 ## Formatos
 
-Rapira escribe ambos formatos en stderr. Los registros grandes de distintos procesos pueden intercalarse cuando estos procesos escriben en la misma tubería de stderr.
+Rapira escribe ambos formatos en stderr desde su único proceso del servidor.
 
 Redirige stderr para escribir los registros en un archivo. Un gestor de servicios puede recoger stderr. Consulta [En producción](/es/docs/deployment) para más información.
 
@@ -179,12 +178,12 @@ Rapira usa colores solo cuando stderr es un terminal. Establece [`NO_COLOR`](htt
 ```sh
 RUST_LOG=info rapira serve rapira.toml
 RUST_LOG=error,rapira=debug,php=info rapira serve rapira.toml
-RUST_LOG=warn,rapira=trace,master=trace rapira serve rapira.toml
+RUST_LOG=warn,rapira=trace,http=debug rapira serve rapira.toml
 ```
 
-El primer comando establece todos los targets en `info`. El segundo establece `rapira` en `debug`, `php` en `info` y todos los demás targets en `error`. El tercero establece todos los targets en `warn`, y `rapira` y `master` en `trace`.
+El primer comando establece todos los targets en `info`. El segundo establece `rapira` en `debug`, `php` en `info` y todos los demás targets en `error`. El tercero establece todos los targets en `warn`, `rapira` en `trace` y `http` en `debug`.
 
-Un target que el valor no cubre no escribe registros. Por ejemplo, `RUST_LOG=php=info` oculta todos los errores de los targets `master` y `http`. Añade un nivel sin nombre de target, como `error`, para mantener los registros de los demás targets.
+Un target que el valor no cubre no escribe registros. Por ejemplo, `RUST_LOG=php=info` oculta todos los errores de los targets `rapira` y `http`. Añade un nivel sin nombre de target, como `error`, para mantener los registros de los demás targets.
 
 ::: warning
 Un valor no vacío de `RUST_LOG` **sustituye** `level` y `[log.targets]`. Rapira no combina los filtros del entorno y del archivo. Elimina la variable para usar los ajustes del archivo de configuración. También puedes establecer la variable en un valor vacío. `RUST_LOG` no afecta a `format`.

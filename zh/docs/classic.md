@@ -11,11 +11,13 @@ Classic 模式执行普通 PHP 入口脚本。它可以是 php-fpm 运行的同�
 
 每个请求都有完整的 PHP 请求周期。此周期包括请求初始化、入口脚本执行和请求关闭。PHP 在下一个请求前删除请求状态。此状态包括全局变量、静态属性、DI 容器和 ORM identity map。
 
-请求对象和数据不会影响后续请求。一些状态保留在 worker 进程中：持久连接、扩展状态和工作目录。不支持持久进程的应用可以使用 Classic 模式。
+对象和请求数据不会影响后续请求。一些状态保留在 worker 线程中：持久连接和扩展状态。不支持常驻 worker 的应用可以使用 Classic 模式。
 
 应用为每个请求初始化自动加载器、配置、容器和路由。请参阅[执行模式](/zh/docs/execution-modes)。
 
-每个 worker 使用入口脚本所在目录作为工作目录。worker 在启动时和每次重载时解析入口脚本路径中的符号链接，并设置此目录。请求中的 `chdir()` 调用对同一 worker 的后续请求保持有效，直到下一次重载。如果请求更改了工作目录，请在请求结束前恢复它。
+每个 Classic 请求都在解析后的入口脚本目录中启动。在请求结束时，PHP 恢复运行入口脚本前保存的目录（通常是启动 Rapira 的目录），然后运行 shutdown 回调和最终的析构函数。请在 shutdown 代码中使用绝对路径，例如 `__DIR__ . '/var/last.log'`。在 NTS 构建上，shutdown 期间的 `chdir()` 可能影响下一个请求的 shutdown 目录。
+
+在 ZTS 上，每个 PHP 线程都有自己的工作目录。不带 `$cwd` 的 `proc_open()` 在启动 Rapira 的目录中启动子进程；请将 `getcwd()` 作为 `$cwd` 传入，以使用应用目录。`exec()`、`shell_exec()` 和 `popen()` 使用 PHP 工作目录。
 
 Rapira 不提供 php-fpm 的 `fastcgi_finish_request()` 函数。使用 `rapira_finish_request()` 在脚本结束前发送响应。请参阅 [HTTP](/zh/docs/http)。
 
@@ -64,9 +66,9 @@ Rapira 在 PHP 运行前对完整请求体应用 `http.max_body_size_mb`。默�
 
 ## OPcache
 
-每个 PHP 请求都会删除应用状态。OPcache 在请求间保留编译后的字节码。主进程在创建 worker 前启动 PHP，因此所有 worker 使用同一个 OPcache 共享内存段。启用 OPcache 后，后续请求使用缓存的字节码，PHP 不会再次编译未更改的脚本。OPcache 设置请参阅[部署](/zh/docs/deployment)。
+每个 PHP 请求都会删除应用状态。OPcache 在请求间保留编译后的字节码。Rapira 在 worker 启动前初始化一次 PHP，因此所有 worker 线程共享同一块 OPcache 内存。启用 OPcache 后，后续请求使用缓存的字节码，PHP 不会再次编译未更改的脚本。OPcache 设置请参阅[部署](/zh/docs/deployment)。
 
-每个 worker 一次处理一个请求。`http.pool.processes` 设置 worker 数量，它也是最大并发请求数。请参阅[进程模型](/zh/docs/process-model)。
+每个 worker 一次处理一个请求。`http.pool.workers` 设置 worker 数量，它也是最大并发请求数。请参阅[进程模型](/zh/docs/process-model)。
 
 ## 大型响应
 
@@ -83,7 +85,7 @@ worker 需要能容纳完整响应的内存。响应体增长期间，worker 最
 
 ## 在 Classic 和 Worker 之间做选择
 
-如果应用无法在请求间安全保留状态，请使用 Classic 模式。例如，一些应用和第三方库在静态属性中存储请求数据。从 php-fpm 迁移时，Classic 模式还可以减少应用更改。如果应用支持持久进程，请使用 [Worker](/zh/docs/worker) 模式。Worker 模式无需为每个请求初始化应用。所有三种模式请参阅[执行模式](/zh/docs/execution-modes)。
+如果应用无法在请求间安全保留状态，请使用 Classic 模式。例如，一些应用和第三方库在静态属性中存储请求数据。从 php-fpm 迁移时，Classic 模式还可以减少应用更改。如果应用支持常驻 worker，请使用 [Worker](/zh/docs/worker) 模式。Worker 模式无需为每个请求初始化应用。所有三种模式请参阅[执行模式](/zh/docs/execution-modes)。
 
 ::: info
 在 Classic 模式下，`Rapira\handle_request()` 抛出 `Rapira\Exception\NotInWorkerModeError`。Classic 脚本随其请求结束，无法运行请求循环。

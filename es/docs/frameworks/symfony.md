@@ -15,7 +15,7 @@ El código de la aplicación no cambia. Un script de worker sustituye `public/in
 - **Symfony 7.4** (`symfony/framework-bundle` v7.4.15), probado en `dev` y en `prod`
 - **Symfony 8.1** (`symfony/framework-bundle` v8.1.2), probado en `dev`
 
-Las dos aplicaciones base usaron el paquete `symfony/skeleton` y un worker. Las dos usaron el **mismo `worker.php`** sin condiciones de versión. Las pruebas cubrieron el enrutado, los errores, las peticiones, las sesiones, las subidas de archivos y 200 peticiones seguidas. Los ejemplos de esta página usan el formato de configuración de v0.9.
+Las dos aplicaciones base usaron el paquete `symfony/skeleton` y un worker. Las dos usaron el **mismo `worker.php`** sin condiciones de versión. Las pruebas cubrieron el enrutado, los errores, las peticiones, las sesiones, las subidas de archivos y 200 peticiones seguidas. Los ejemplos de esta página usan el formato de configuración de v0.10.
 :::
 
 ## Comportamiento en modo Worker
@@ -26,7 +26,7 @@ En cada petición, el handler crea una `Request` a partir de las superglobales q
 
 Las sesiones usan las funciones de sesión nativas de PHP. Una petición que usa la sesión llama a `session_start()`, y la respuesta contiene la cookie de sesión. La siguiente petición lee la sesión guardada. Las pruebas confirmaron que clientes diferentes reciben sesiones diferentes.
 
-Cada proceso worker tiene un kernel. Los workers no comparten objetos de la aplicación. Consulta [Modelo de procesos](/es/docs/process-model) para ver el número de workers y su supervisión.
+Cada hilo de worker tiene un kernel. Los workers no comparten objetos de la aplicación. Consulta [Modelo de procesos](/es/docs/process-model) para ver el número de workers y la gestión del pool.
 
 ## Requisitos previos
 
@@ -103,7 +103,7 @@ Después de `$kernel->reboot(null)`, obtén el contenedor nuevo con `$kernel->ge
 
 Rapira conserva `$_ENV` hasta que el worker vuelve a ejecutar el script. No reconstruye esta superglobal para cada petición. Los valores que `bootEnv()` carga antes del bucle permanecen disponibles durante las peticiones posteriores. Este comportamiento también se aplica con `variables_order = "GPCS"` y `auto_globals_jit = On`.
 
-Antes de la primera petición, `$_SERVER` contiene el entorno del proceso. Dotenv no sustituye una variable que ya existe en `$_SERVER` o en `$_ENV`. Por tanto, una variable de entorno tiene prioridad sobre la misma variable de `.env`, también con `variables_order = "GPCS"`.
+Antes de la primera petición, `$_SERVER` contiene el entorno de arranque y del pool. Dotenv no sustituye una variable que ya existe en `$_SERVER` o en `$_ENV`. Por tanto, una variable de entorno tiene prioridad sobre la misma variable de `.env`, también con `variables_order = "GPCS"`.
 
 Por ejemplo, añade `usePutenv()` si el código de la aplicación debe leer valores de Dotenv con `getenv()`:
 
@@ -111,9 +111,9 @@ Por ejemplo, añade `usePutenv()` si el código de la aplicación debe leer valo
 (new Dotenv())->usePutenv()->bootEnv(__DIR__ . '/.env');
 ```
 
-`usePutenv()` escribe los valores de Dotenv en el entorno del proceso. Symfony `%env(...)%` puede leer los valores conservados en `$_ENV` sin esta llamada. Rapira ejecuta un intérprete PHP NTS en cada proceso. PHP no llama a `putenv()` desde hilos simultáneos.
+`usePutenv()` escribe los valores de Dotenv en la capa local al hilo de `putenv()` de Rapira sin mutar el entorno del proceso del SO, por lo que es seguro entre hilos de worker ZTS simultáneos. Symfony `%env(...)%` puede leer los valores de `$_ENV` sin esta llamada. Symfony Process pasa a los procesos hijos solo las claves presentes en `$_SERVER` o `$_ENV`; añade nombres como `PATH` o `HOME` a `[http.pool.env]` o incluye `E` en `variables_order` si los procesos hijos los necesitan.
 
-En producción, define variables de entorno mediante systemd, el entorno de ejecución de contenedores o el orquestador. Usa `.env` solo durante el desarrollo.
+En producción, define variables de entorno en [`[http.pool.env]`](/es/docs/configuration#http-pool-env), systemd, el entorno de ejecución de contenedores o el orquestador. Usa `.env` solo durante el desarrollo.
 
 ## Iniciar Rapira
 
@@ -166,12 +166,12 @@ listen = "127.0.0.1:8000"
 [http.pool]
 entrypoint = "worker.php"
 mode = "worker"
-processes = 4
+workers = 4
 max_requests = 500
 request_terminate_timeout_secs = 30
 ```
 
-`max_requests` reinicia la aplicación después de un número aleatorio de peticiones mayor que este valor y de hasta 1,5 veces este valor. Limita el efecto de una fuga de memoria, pero no la corrige. `request_terminate_timeout_secs` detiene un worker cuando una petición dura más que este límite. La aplicación reiniciada o el nuevo worker inicia el kernel otra vez. Un `entrypoint` relativo usa como base el directorio del archivo de configuración. Consulta todos los ajustes en [Configuración](/es/docs/configuration).
+`max_requests` recicla la aplicación después de un número aleatorio de peticiones mayor que este valor y de hasta 1,5 veces este valor. Limita el efecto de una fuga de memoria, pero no la corrige. `request_terminate_timeout_secs` establece un límite de reloj de pared del watchdog que interrumpe PHP cuando una petición dura más que este límite. Una aplicación reciclada vuelve a iniciar el kernel. Un `entrypoint` relativo usa como base el directorio del archivo de configuración. Consulta todos los ajustes en [Configuración](/es/docs/configuration).
 
 Inicia el servidor con `APP_ENV=prod`:
 
@@ -179,7 +179,14 @@ Inicia el servidor con `APP_ENV=prod`:
 APP_ENV=prod rapira serve rapira.toml
 ```
 
-Después de un despliegue, envía `SIGUSR2` al maestro para reiniciar las aplicaciones. Esta recarga vacía OPcache, así que carga el código nuevo también cuando `opcache.validate_timestamps = 0`. Reinicia Rapira después de cambiar un archivo que carga `opcache.preload`. Consulta [En producción](/es/docs/deployment).
+Como alternativa, define `APP_ENV` en [`[http.pool.env]`](/es/docs/configuration#http-pool-env) en `rapira.toml`:
+
+```toml
+[http.pool.env]
+APP_ENV = "prod"
+```
+
+Después de un despliegue, envía `SIGUSR2` al servidor para recargar las aplicaciones. Esta recarga vacía OPcache, así que carga el código nuevo también cuando `opcache.validate_timestamps = 0`, salvo que `opcache.file_cache` esté configurado. Reinicia Rapira después de cambiar un archivo que carga `opcache.preload`. Consulta [En producción](/es/docs/deployment).
 
 ## Reinicio del estado entre peticiones
 

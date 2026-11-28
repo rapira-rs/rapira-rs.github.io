@@ -11,19 +11,19 @@ Rapira 只有一个可执行文件，也只有一个子命令：
 rapira serve <CONFIG>
 ```
 
-`serve` 命令启动 PHP、准备插件并处理请求。`CONFIG` 是配置文件的路径，它是必填的。任何文件名都可以，本文档使用 `rapira.toml`。
+`serve` 命令启动 PHP、准备插件并在前台处理请求。`CONFIG` 是配置文件的路径，它是必填的。任何文件名都可以，本文档使用 `rapira.toml`。
 
 运行不带参数的 `rapira` 以显示帮助。运行 `rapira serve --help` 以显示该命令的帮助。运行 `rapira --version` 以显示已安装的版本。
 
 配置文件保存服务器的所有设置。文件中的值覆盖内置默认值。`RUST_LOG` 和 `NO_COLOR` 只改变 stderr 输出。所有键和 `listen` 的地址格式见[配置](/zh/docs/configuration)。
 
 ::: question 可以在命令行上设置模式或监听地址吗？
-不可以。`rapira serve` 只接受配置文件。在 `[http.pool]` 中设置 `processes`、`mode` 和 `entrypoint`。在 `[http]` 中设置 `listen`。
+不可以。`rapira serve` 只接受配置文件。在 `[http.pool]` 中设置 `workers`、`mode` 和 `entrypoint`。在 `[http]` 中设置 `listen`。
 :::
 
 ## 相对路径
 
-文件中的相对路径以配置文件目录为基准。此规则适用于 `http.pool.entrypoint`、`grpc.pool.entrypoint` 和其他路径键。例如，`/etc/rapira/rapira.toml` 中的 `entrypoint = "public/index.php"` 解析为 `/etc/rapira/public/index.php`。当前目录不影响这些路径。相对的 `unix:` 监听路径不同：它使用 `rapira serve` 命令的当前目录。路径键的列表见[相对路径](/zh/docs/configuration#相对路径)。
+配置文件中的相对路径以配置文件目录为基准。此规则适用于 `http.pool.entrypoint`、`grpc.pool.entrypoint`、相对的 `unix:` 监听路径以及所有其他路径键。例如，`/etc/rapira/rapira.toml` 中的 `entrypoint = "public/index.php"` 解析为 `/etc/rapira/public/index.php`。当前目录不影响这些路径。路径键的列表见[相对路径](/zh/docs/configuration#relative-paths)。
 
 ## 示例
 
@@ -56,16 +56,18 @@ curl http://127.0.0.1:8000/
 
 ## 停止服务器
 
-第一个 `SIGTERM` 或 `SIGINT` 开始受控停止。worker 不再接受新工作，并完成当前请求。然后 master 关闭 PHP 并退出。第二个 `SIGTERM` 或 `SIGINT` 停止等待并强制退出。将信号发送到 master 进程。完整的信号表见[进程模型](/zh/docs/process-model)。
+第一个 `SIGTERM`、`SIGINT` 或 `SIGQUIT` 开始受控停止。Rapira 关闭监听器，在 `[server].stop_timeout_secs` 时间内排空打开的连接，关闭 PHP 并退出。在终端中按 `Ctrl-C` 会发送 `SIGINT` 并执行相同的受控停止。
 
-在终端中按 Ctrl-C 会向 master 和每个 worker 发送 `SIGINT`。然后 master 向每个 worker 发送 `SIGQUIT`，因此每个 worker 收到第二个信号，并立即以退出码 `131` 退出。当前请求不会完成。要进行受控停止，只向 master 发送 `SIGTERM`，例如 `kill -TERM <master-pid>`。使用 `KillMode=mixed` 的 systemd 和 `docker stop` 也只向 master 发送信号。
+排空期间收到第二个 `SIGTERM` 或 `SIGINT` 会强制以退出码 `130` 立即退出。完整的信号表见[进程模型](/zh/docs/process-model)。
 
-## 退出码
+## 退出码 {#exit-codes}
 
 | 退出码 | 含义 |
 | --- | --- |
-| `0` | 服务器已停止，所有 worker 都已退出。`--help`、`--version` 和不带参数的 `rapira` 也以 `0` 退出。 |
-| `1` | 服务器没有启动。例如，配置无效、Rapira 无法读取文件、监听器无法绑定或 PHP 无法启动。错误输出到 stderr。 |
+| `0` | 服务器已正常停止。`--help`、`--version` 和不带参数的 `rapira` 也以 `0` 退出。 |
+| `1` | 启动或运行时故障，例如配置无效、文件不可读、绑定错误、PHP 或 `SIGRTMAX` 设置错误，或监听器故障。错误输出到 stderr。 |
 | `2` | 命令行无效，例如未知选项或缺少 `CONFIG`。 |
-| `70` | master 启动后发生故障。例如，所有进程池的 worker 总数超过 4096，或 master 无法写入 pidfile。如果不健康的 worker 所属进程池没有成功的请求，也没有空闲或活动的 worker，它也会导致此退出。日志中有一条 `master failed` 记录。 |
-| `130` | 停止期间收到 `SIGTERM` 或 `SIGINT`，并强制退出。 |
+| `70` | 常驻 worker 在其进程池处理任何工作单元前达到 `max_boot_failures`。 |
+| `101` | 一个 PHP worker 线程发生 panic。 |
+| `124` | 某个进程池中的所有 worker 在超过 `request_terminate_timeout_secs` 后的 5 秒看门狗宽限期内仍处于阻塞状态。 |
+| `130` | 停止期间收到第二个 `SIGTERM` 或 `SIGINT`，并强制退出。 |

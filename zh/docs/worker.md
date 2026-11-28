@@ -6,7 +6,7 @@ faqLevel: 2
 
 # Worker 模式
 
-Worker 模式使 PHP 进程在请求之间保持活动。脚本初始化应用一次，然后在循环中等待请求。应用状态保留在内存中，因此 worker 脚本必须管理此状态。
+Worker 模式使 PHP 应用在每个 worker 线程上在请求之间保持活动。脚本初始化应用一次，然后在循环中等待请求。应用状态保留在内存中，因此 worker 脚本必须管理此状态。
 
 在 [Classic 模式](/zh/docs/classic)下，入口脚本每次都在新的 PHP 请求中运行，Rapira 在响应后删除应用状态。此状态包括自动加载器、容器、配置、路由和数据库连接。
 
@@ -64,7 +64,7 @@ rapira serve rapira.toml
 
 Worker 模式中的一个请求对应 `while` 循环的一次迭代。每次调用 handler 之前，Rapira 重新填充超全局变量。调用之后，Rapira 运行请求的 shutdown 函数，刷新输出缓冲，并关闭 session。Rapira 在这些步骤之后发送响应。脚本在 handler 外持有的值保留在内存中。
 
-在第一次调用 `handle_request()` 之前，`$_SERVER` 包含进程环境和入口脚本路径，与 PHP CLI 下相同。完整列表请参阅[执行模式](/zh/docs/execution-modes)。
+在第一次调用 `handle_request()` 之前，`$_SERVER` 包含启动环境和进程池环境以及入口脚本路径，与 PHP CLI 下相同。完整列表请参阅[执行模式](/zh/docs/execution-modes)。
 
 ## 每个 worker 一个循环
 
@@ -83,11 +83,13 @@ while (\Rapira\handle_request($web)) {
 
 在 handler **之外**创建的对象会保留到 worker 周期结束。例如自动加载器、容器、路由、配置、打开的连接和缓存数据。Rapira 不会为每个请求创建这些状态。
 
+每个应用实例都在解析后的入口脚本目录中启动，`chdir()` 调用对该应用实例的后续请求生效。在 ZTS 上，不带 `$cwd` 的 `proc_open()` 在启动 Rapira 的目录中启动子进程；请将 `getcwd()` 作为 `$cwd` 传入，以使用应用目录。
+
 在 handler **之内**创建的值属于一个请求。handler 返回且代码删除最后一个引用后，PHP 释放这些值。
 
 worker 脚本定义状态的生命周期。将应用状态放在循环之前。将请求状态放在 handler 中，或在下一个请求之前重置。
 
-请在每个请求中于 handler 内打开 `php://input`。在之前的请求中或初始化阶段打开的 `php://input` 流可能返回后续请求的请求体，也可能使 worker 进程结束。
+请在每个请求中于 handler 内打开 `php://input`。在之前的请求中或初始化阶段打开的 `php://input` 句柄可能返回后续请求的请求体，或者失败。
 
 ::: warning
 全局状态也会保留在请求之间。例如静态属性、单例、注册表和 `ini_set()` 更改。php-fpm 在每个请求结束时丢弃这些值。Rapira worker 保留这些值。
@@ -97,9 +99,11 @@ worker 脚本定义状态的生命周期。将应用状态放在循环之前。�
 
 ## shutdown 函数
 
-worker 周期是 worker 脚本的一次运行，从初始化到脚本结束。初始化代码注册的每个 shutdown 函数在周期结束时运行一次。handler 注册的每个 shutdown 函数在该请求结束时运行一次。
+worker 周期是 worker 脚本的一次运行，从初始化到脚本结束。初始化代码注册的每个 shutdown 函数在周期结束时运行一次。handler 注册的每个 shutdown 函数在该请求结束时于应用的当前目录中运行一次。
 
-在初始化期间注册进程资源的清理。在 handler 内注册请求资源的清理。
+在周期结束时，PHP 恢复运行入口脚本前保存的目录（通常是启动 Rapira 的目录），然后运行初始化 shutdown 回调和最终的析构函数。请在周期 shutdown 代码中使用绝对路径，例如 `__DIR__ . '/var/last.log'`。
+
+在初始化期间注册周期资源的清理。在 handler 内注册请求资源的清理。
 
 ```php
 register_shutdown_function(static function (): void {
@@ -143,7 +147,7 @@ worker 需要能容纳完整响应的内存。响应体增长期间，worker 最
 
 `handle_request()` 需要只有 Worker 模式才有的常驻循环。在 Classic 模式和 Dispatcher 模式下，它抛出 `Rapira\Exception\NotInWorkerModeError`。所有 Rapira 异常类都实现标记接口 `Rapira\Exception\RapiraThrowable`。一些使用错误是普通的 `\Error` 或 `\ValueError`，捕获 `RapiraThrowable` 的 `catch` 不会捕获它们。例如在 handler 内部调用 `handle_request()`。
 
-`Rapira\get_mode()` 以 `Rapira\Mode` 的 case 返回当前进程的[模式](/zh/docs/execution-modes)。在多种模式下运行的脚本在进入循环之前读取它：
+`Rapira\get_mode()` 以 `Rapira\Mode` 的 case 返回该 worker 所属进程池的[模式](/zh/docs/execution-modes)。在多种模式下运行的脚本在进入循环之前读取它：
 
 ```php
 if (\Rapira\get_mode() === \Rapira\Mode::Worker) {
@@ -160,11 +164,11 @@ if (\Rapira\get_mode() === \Rapira\Mode::Worker) {
 
 **未回收的循环引用。**PHP 引用计数会立即释放大多数值。只有循环回收器运行时，PHP 才会释放循环引用。示例在请求之间调用 `gc_collect_cycles()`。此调用是可选的，但可以使回收时间可预测。
 
-**无法完成的请求。**当前请求运行时，worker 无法处理其他请求。`http.pool.request_terminate_timeout_secs` 限制一个请求从开始到结束的总时间。请求超过此限制时，Rapira 停止该 worker 并启动新的 worker。有关此键和 `http.pool.max_requests`，请参阅[配置](/zh/docs/configuration)。有关停止顺序，请参阅[进程模型](/zh/docs/process-model)。
+**无法完成的请求。**当前请求运行时，worker 无法处理其他请求。`http.pool.request_terminate_timeout_secs` 为单个请求设置墙钟时间的看门狗限制。到达限制时，看门狗中断 PHP 并唤醒阻塞的响应写入。再过五秒后，Rapira 对仍阻塞的 worker 记录一次日志，且仅当进程池中的所有 worker 都保持阻塞时才以 `124` 退出。有关此键和 `http.pool.max_requests`，请参阅[配置](/zh/docs/configuration)。有关看门狗的详细信息，请参阅[进程模型](/zh/docs/process-model)。
 
-**初始化失败。**worker 脚本必须调用 `handle_request()` 并收到请求。初始化期间未捕获的异常可能在此之前结束脚本。Rapira 将此计为一次启动失败。然后 worker 最多等待 5 秒接收请求，以 `503` 回答它，并再次运行脚本。
+**初始化失败。**worker 脚本必须调用 `handle_request()` 并收到请求。初始化期间未捕获的异常可能在此之前结束脚本。Rapira 记为一次启动失败。重试延迟从 500 ms 开始，每次连续失败后翻倍，并在 5 秒处封顶。等待期间到达的请求不会提前触发下一次启动；当进程池中没有就绪的 worker 时，排队的请求收到 `503`。启动成功后会重置失败计数和延迟。
 
-连续五次启动失败后，Rapira 记录 `worker keeps failing to boot; flagged unhealthy`，worker 退出。master 在延迟后启动新的 worker。服务器启动时，如果进程池中没有 worker 完成启动或处理过请求，服务器改为以[退出码](/zh/docs/cli#退出码) 70 停止。有关 worker 监管，请参阅[进程模型](/zh/docs/process-model)。
+如果 worker 在其进程池处理任何请求之前达到 `http.pool.max_boot_failures`（默认 `5`），服务器以[退出码](/zh/docs/cli#exit-codes) `70` 停止。进程池处理过请求后，worker 会按退避间隔继续重试，而不是停止服务器。进程池管理请参阅[进程模型](/zh/docs/process-model#pool-management)。
 
 **未捕获的异常影响一个请求，不影响 worker。**如果 handler 抛出异常，Rapira 先调用 `set_exception_handler()` 注册的回调。如果没有回调处理该异常，Rapira 返回 `500`，除非 handler 已经发送响应头。在这两种情况下，循环都会继续。handler 中调用 `exit()` 或 `die()` 只结束当前请求，Rapira 将输出作为响应发送。致命错误会结束 worker 脚本，Rapira 以新的初始化再次运行脚本。
 

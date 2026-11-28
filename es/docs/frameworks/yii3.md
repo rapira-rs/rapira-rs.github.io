@@ -5,14 +5,14 @@ description: "Yii3 en modo Worker con un HttpApplicationRunner residente, StateR
 
 # Yii3
 
-Yii3 admite procesos persistentes. Un worker puede iniciar la aplicación una vez y reiniciar el estado de petición después de cada respuesta. El runner oficial [`yiisoft/yii-runner-roadrunner`](https://github.com/yiisoft/yii-runner-roadrunner) usa el mismo diseño. Esta página describe un worker persistente, una alternativa por petición y los resultados de las pruebas de integración.
+Yii3 admite workers persistentes. Un worker puede iniciar la aplicación una vez y reiniciar el estado de petición después de cada respuesta. El runner oficial [`yiisoft/yii-runner-roadrunner`](https://github.com/yiisoft/yii-runner-roadrunner) usa el mismo diseño. Esta página describe un worker persistente, una alternativa por petición y los resultados de las pruebas de integración.
 
 ::: info Verificado con
 - **PHP 8.5.8**: NTS, SAPI embed
 - **Rapira 0.8.0**
 - Plantilla **yiisoft/app** 1.4, con **yii-runner-http 3.2.1** (router-fastroute 4.x)
 
-Las pruebas ejecutaron los dos scripts de worker con este software. Cubrieron el enrutado, las URL, los cuerpos de petición, las sesiones, las subidas de archivos, los errores y 200 peticiones seguidas. Los ejemplos de esta página usan el formato de configuración de v0.9.
+Las pruebas ejecutaron los dos scripts de worker con este software. Cubrieron el enrutado, las URL, los cuerpos de petición, las sesiones, las subidas de archivos, los errores y 200 peticiones seguidas. Los ejemplos de esta página usan el formato de configuración de v0.10.
 :::
 
 ## Yii3 y el modo Worker
@@ -160,7 +160,7 @@ listen = "127.0.0.1:8000"
 [http.pool]
 entrypoint = "/srv/app/worker.php"
 mode = "worker"
-processes = 8
+workers = 8
 max_requests = 500
 request_terminate_timeout_secs = 30
 
@@ -200,7 +200,7 @@ Las pruebas aplicaron las mismas comprobaciones a los dos diseños con la planti
 
 **La aplicación recibe datos de formulario, cuerpos JSON y subidas de archivos.** `$_POST` contenía los campos del formulario, y `php://input` contenía el cuerpo JSON. El archivo temporal de la subida se podía leer durante la petición. El `ServerRequest` PSR-7 contenía todos estos valores.
 
-**Una excepción en una acción devuelve `500`, y el worker continúa.** `ErrorCatcher` crea la respuesta de error y registra la excepción. El mismo worker procesa la petición siguiente con normalidad. Consulta en [Modo Worker](/es/docs/worker) los errores que detienen un worker.
+**Una excepción en una acción devuelve `500`, y el worker continúa.** `ErrorCatcher` crea la respuesta de error y registra la excepción. El mismo worker procesa la petición siguiente con normalidad. Consulta en [Modo Worker](/es/docs/worker) los errores que reciclan una aplicación.
 
 ## El modo Classic como alternativa
 
@@ -220,5 +220,5 @@ Esta configuración usa el código estándar de la aplicación sin script de wor
 Conserva `public/index.php` como segundo script de entrada. El modo Classic y el servidor integrado de PHP lo usan.
 
 ::: question ¿Debo cambiar la condición `cli-server` de `public/index.php`?
-No. Esta condición sirve archivos estáticos y cambia `SCRIPT_NAME` para el servidor integrado de PHP. Rapira no la ejecuta, porque `PHP_SAPI` vale `fastcgi` en PHP 8.4 y `rapira` en PHP 8.5. Consulta el nombre de la SAPI en [Instalación](/es/docs/intro/installation).
+No. Esta condición sirve archivos estáticos y cambia `SCRIPT_NAME` para el servidor integrado de PHP. Rapira no la ejecuta, porque `PHP_SAPI` vale `fastcgi` en PHP 8.4 y `rapira` en PHP 8.5 y PHP 8.6. Consulta el nombre de la SAPI en [Instalación](/es/docs/intro/installation).
 :::

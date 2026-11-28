@@ -6,9 +6,9 @@ faqLevel: 2
 
 # HTTP 请求与响应
 
-HTTP 服务器将客户端连接转换为 PHP 请求，并将 PHP 响应转换为网络数据。它使用 [hyper](https://hyper.rs) 库，接受 HTTP/1.1 和 HTTP/1.0。它不会将请求代理到其他服务器。
+HTTP 服务器将客户端连接转换为 PHP 请求，并将 PHP 响应转换为网络数据。它在专用的单线程 I/O 分片（每个 CPU 一个，限制在 `1..=16` 范围内）上使用 [hyper](https://hyper.rs) 库，接受 HTTP/1.1 和 HTTP/1.0。它不会将请求代理到其他服务器。
 
-中间件可以在 PHP 运行前响应请求。Rapira 使用中间件提供[静态文件](/zh/docs/static-files)。
+中间件可以在 PHP 运行前响应或转换请求。内置中间件包括[静态文件](/zh/docs/static-files)和响应压缩（`compress`）。
 
 ::: info
 HTTP 服务器接受明文 HTTP。使用代理终止 TLS。请参阅[生产环境部署](/zh/docs/deployment)。
@@ -124,12 +124,12 @@ Rapira 原样发送其他 PHP 字段，例如重复的 `Set-Cookie`、`Vary` 和
 | `408` | 在 `http.keepalive_timeout_secs` 内没有收到请求体数据。 |
 | `413` | 请求体大于 `http.max_body_size_mb`，或 multipart 请求体超过 `[http.uploads]` 的某个上限。 |
 | `500` | worker 池已停止。在 Dispatcher 模式下，Rapira 无法将上传的文件写入 `[http.uploads].dir`。 |
-| `502` | PHP worker 在发送响应头前停止。 |
-| `503` | worker 队列持续满 30 秒。 |
+| `502` | PHP worker 在发送响应头前结束。 |
+| `503` | 进程池队列持续满 30 秒。 |
 
 Rapira 发送以下状态码时不带这两个字段：
 
-- worker 无法启动其入口脚本时发送 `503`。每次启动失败后，worker 用此状态码响应一个排队的请求。
+- 启动失败退避期间进程池中没有就绪的 worker 时发送 `503`。
 - PHP 设置低于 `200` 的最终状态码（例如 `101`）时发送 `502`。
 - Dispatcher 脚本在 Rapira 发送响应头前释放 exchange 时发送 `500`。
 

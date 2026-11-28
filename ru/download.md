@@ -55,19 +55,14 @@ const labels = {
 
 ## Docker {#docker}
 
-Образ `ghcr.io/rapira-rs/rapira` содержит только Rapira и `libphp.so`. Скопируйте его файлы в образ своего приложения:
+Образ `ghcr.io/rapira-rs/rapira` содержит Rapira, PHP и распространённые расширения PHP. Добавьте в образ своё приложение:
 
 ```dockerfile
-FROM php:8.5-cli-trixie
-COPY --from=ghcr.io/rapira-rs/rapira:php8.5 / /
-RUN apt-get update \
-    && xargs -r apt-get install -y --no-install-recommends < /usr/local/share/rapira/debian-packages.txt \
-    && rm -rf /var/lib/apt/lists/*
+FROM ghcr.io/rapira-rs/rapira:php8.5
 COPY . /app
-CMD ["rapira", "serve", "/app/rapira.toml"]
 ```
 
-Каждый тег называет версию PHP, например `php8.4`, `php8.5` или `nightly-php8.5`. Все теги - в разделе [Docker](/ru/docs/intro/installation#docker).
+Каждый тег называет версию PHP, например `php8.4`, `php8.5`, `php8.6` или `nightly-php8.5`. Все теги и расширения в составе образа - в разделе [Docker](/ru/docs/intro/installation#docker).
 
 </DownloadCard>
 

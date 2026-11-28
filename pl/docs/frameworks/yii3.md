@@ -5,14 +5,14 @@ description: "Uruchamianie Yii3 w trybie Worker z rezydentnym HttpApplicationRun
 
 # Yii3
 
-Yii3 obsługuje trwałe procesy. Worker może raz zainicjalizować aplikację i zerować stan żądania po każdej odpowiedzi. Oficjalny runner [`yiisoft/yii-runner-roadrunner`](https://github.com/yiisoft/yii-runner-roadrunner) używa tego samego rozwiązania. Ta strona opisuje trwały worker, wariant na każde żądanie i wyniki testów integracyjnych.
+Yii3 obsługuje trwałe workery. Worker może raz zainicjalizować aplikację i zerować stan żądania po każdej odpowiedzi. Oficjalny runner [`yiisoft/yii-runner-roadrunner`](https://github.com/yiisoft/yii-runner-roadrunner) używa tego samego rozwiązania. Ta strona opisuje trwały worker, wariant na każde żądanie i wyniki testów integracyjnych.
 
 ::: info Sprawdzone na
 - **PHP 8.5.8**: NTS, embed SAPI
 - **Rapira 0.8.0**
 - szablon **yiisoft/app** 1.4, z **yii-runner-http 3.2.1** (router-fastroute 4.x)
 
-Testy uruchomiły oba skrypty workera na tym oprogramowaniu. Obejmowały routing, adresy URL, ciała żądań, sesje, przesyłanie plików, błędy i 200 kolejnych żądań. Przykłady na tej stronie używają formatu konfiguracji v0.9.
+Testy uruchomiły oba skrypty workera na tym oprogramowaniu. Obejmowały routing, adresy URL, ciała żądań, sesje, przesyłanie plików, błędy i 200 kolejnych żądań. Przykłady na tej stronie używają formatu konfiguracji v0.10.
 :::
 
 ## Yii3 a tryb Worker
@@ -160,7 +160,7 @@ listen = "127.0.0.1:8000"
 [http.pool]
 entrypoint = "/srv/app/worker.php"
 mode = "worker"
-processes = 8
+workers = 8
 max_requests = 500
 request_terminate_timeout_secs = 30
 
@@ -200,7 +200,7 @@ Testy sprawdziły oba warianty tym samym zestawem testów na szablonie `yiisoft/
 
 **Aplikacja otrzymuje dane formularzy, ciała JSON i przesyłane pliki.** `$_POST` zawierał pola formularza, a `php://input` zawierał ciało JSON. Plik tymczasowy przesłanego pliku był czytelny podczas żądania. `ServerRequest` w standardzie PSR-7 zawierał wszystkie te wartości.
 
-**Wyjątek w akcji zwraca `500`, a worker działa dalej.** `ErrorCatcher` tworzy odpowiedź błędu i zapisuje wyjątek w logu. Ten sam worker normalnie obsługuje następne żądanie. Błędy, które zatrzymują workera, opisuje [tryb Worker](/pl/docs/worker).
+**Wyjątek w akcji zwraca `500`, a worker działa dalej.** `ErrorCatcher` tworzy odpowiedź błędu i zapisuje wyjątek w logu. Ten sam worker normalnie obsługuje następne żądanie. Błędy, które powodują ponowne uruchomienie aplikacji, opisuje [tryb Worker](/pl/docs/worker).
 
 ## Tryb Classic jako alternatywa
 
@@ -220,5 +220,5 @@ Ta konfiguracja używa standardowego kodu aplikacji bez skryptu workera. Każde 
 Zostaw `public/index.php` jako drugi skrypt wejściowy. Używają go tryb Classic i wbudowany serwer PHP.
 
 ::: question Czy muszę zmienić warunek `cli-server` w `public/index.php`?
-Nie. Ten warunek serwuje pliki statyczne i zmienia `SCRIPT_NAME` dla wbudowanego serwera PHP. Rapira go nie uruchamia, bo `PHP_SAPI` ma wartość `fastcgi` na PHP 8.4 i `rapira` na PHP 8.5. Nazwę SAPI opisuje [Instalacja](/pl/docs/intro/installation).
+Nie. Ten warunek serwuje pliki statyczne i zmienia `SCRIPT_NAME` dla wbudowanego serwera PHP. Rapira go nie uruchamia, bo `PHP_SAPI` ma wartość `fastcgi` na PHP 8.4 i `rapira` na PHP 8.5 i PHP 8.6. Nazwę SAPI opisuje [Instalacja](/pl/docs/intro/installation).
 :::

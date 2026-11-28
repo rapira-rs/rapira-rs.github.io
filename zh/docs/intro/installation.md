@@ -6,7 +6,7 @@ faqLevel: 2
 
 # 安装
 
-每个 Linux 或 macOS 软件包或压缩包都包含 `rapira` 二进制文件及其解释器库 `libphp`。服务器将此库加载到自己的进程中。这些软件包和压缩包不包含 `php` 命令、php-fpm 或 ini 目录。Rapira 不需要系统安装 PHP。Windows ZIP 文件请参阅 [Windows](#windows)。
+每个 Linux 或 macOS 软件包或压缩包都包含 `rapira` 二进制文件及其线程安全（ZTS）`libphp` 解释器库。服务器将此库加载到自己的进程中。这些软件包和压缩包不包含 `php` 命令、php-fpm 或 ini 目录。Rapira 不需要系统安装 PHP。Windows ZIP 文件请参阅 [Windows](#windows)。
 
 ::: question `libphp` 是什么，它与 PHP 命令有什么不同？
 PHP 为其引擎构建多种接口。这些接口叫服务器应用程序编程接口，即 SAPI。每种 SAPI 都使用 Zend 引擎和扩展，但程序接口不同：
@@ -32,7 +32,9 @@ PHP 必须使用 `--enable-embed=shared` 才能生成 `libphp.so`。很少有发
 
 ## 选择 PHP 版本
 
-每个下载文件名都包含 `php8.4` 或 `php8.5`。此文本表示其 `libphp` 的 PHP 次版本。请选择 8.5，除非应用的某个依赖项需要 8.4。
+每个下载文件名都包含 `php8.4`、`php8.5` 或 `php8.6`。此文本表示其 `libphp` 的 PHP 次版本。请选择 8.5 或 8.6，除非应用的某个依赖项需要 8.4。
+
+启用 OPcache 的多 worker 运行需要 [PHP 线程锁修复](https://github.com/php/php-src/commit/36c6d1f500f7ec477f6eae0b0f5c46b041d82347)。Rapira 会检查各个次版本中是否为 PHP 8.4.29、8.5.14、8.6.1 或更高版本。
 
 Rapira 不使用也不更改已有的系统 PHP、php-fpm 池或 Homebrew PHP。Composer、`bin/console` 和 `artisan` 继续使用系统的 PHP CLI。
 
@@ -46,7 +48,7 @@ Rapira 不使用也不更改已有的系统 PHP、php-fpm 池或 Homebrew PHP。
 
 ## 发布产物
 
-[Rapira 发布页](https://github.com/rapira-rs/rapira/releases)包含 Linux 和 macOS 发布文件。[Rapira Windows 发布页](https://github.com/rapira-rs/rapira-windows/releases)包含 Windows 发布文件。使用[下载页](/zh/download)选择操作系统、架构、PHP 版本和包格式。下载页还显示 SHA-256 值。每个 `php8.5` 产物都有一个对应的 `php8.4` 产物。
+[Rapira 发布页](https://github.com/rapira-rs/rapira/releases)包含 Linux 和 macOS 发布文件。[Rapira Windows 发布页](https://github.com/rapira-rs/rapira-windows/releases)包含 Windows 发布文件。使用[下载页](/zh/download)选择操作系统、架构、PHP 版本和包格式。下载页还显示 SHA-256 值。每个 `php8.5` 产物都有对应的 `php8.4` 和 `php8.6` 产物。
 
 在 Linux 上，如需标准文件路径和自动安装库依赖项，请使用软件包。如需单个目录、容器镜像、部署产物或无 root 权限的安装，请使用压缩包。Linux 压缩包还需要系统库。库列表请参阅 [Linux 与 macOS 压缩包](#linux-与-macos-压缩包)。
 
@@ -68,7 +70,7 @@ rapira --version
 
 软件包安装服务器，但不安装服务单元、配置文件或 ini 目录。如需配置 systemd，请参阅[生产环境部署](/zh/docs/deployment)。
 
-软件包需要 glibc 2.34 或更新版本。最低支持版本是 **Debian 12 和 Ubuntu 22.04**。
+PHP 8.4 和 PHP 8.5 软件包需要 glibc 2.34 和 OpenSSL 3.0 或更新版本，例如 **Debian 12 和 Ubuntu 22.04**。PHP 8.6 软件包需要 OpenSSL 3.3 或更新版本，例如 **Debian 13 和 Ubuntu 26.04**。在 Debian 12 和 Ubuntu 24.04 上请使用 PHP 8.4 或 PHP 8.5，或者更新 OpenSSL。
 
 ::: question 为什么文件路径以 `./` 开头？
 开头的 `./` 告诉 apt 使用本地文件，而不是仓库中的软件包名。
@@ -88,7 +90,7 @@ sudo dnf install ./rapira-php8.5-0.9.0-1.x86_64.rpm
 rapira --version
 ```
 
-RPM 需要 glibc 2.34 或更新版本。**RHEL 9**、Rocky 9、AlmaLinux 9 和当前的 Fedora 版本满足此要求。
+PHP 8.4 和 PHP 8.5 RPM 需要 glibc 2.34 和 OpenSSL 3.0 或更新版本，例如 **RHEL 9**、Rocky 9、AlmaLinux 9 和 Fedora。PHP 8.6 RPM 需要 OpenSSL 3.3 以及 **RHEL 9.7** 或更新版本。
 
 ## Linux 与 macOS 压缩包
 
@@ -151,7 +153,7 @@ ln -s "$HOME/.local/opt/rapira/bin/rapira" "$HOME/.local/bin/rapira"
 ::: question 压缩包需要哪些系统库？
 在 macOS 上，`lib/rapira` 包含 `libphp.dylib` 和所有必需的非系统库。该目录包含完整的运行依赖。
 
-在 Linux 上，`lib/rapira` 包含 `libphp.so` 和其构建所用的库，例如 ICU、libxml2、SQLite、Oniguruma 和 libpq。系统必须提供 OpenSSL 3、libcurl、zlib 和 libstdc++。deb 和 RPM 软件包将这些库、glibc 和 libgcc 声明为依赖项。
+在 Linux 上，`lib/rapira` 包含 `libphp.so` 和其构建所用的库，例如 ICU、libxml2、SQLite、Oniguruma 和 libpq。系统必须提供 OpenSSL 3.0（PHP 8.6 需要 OpenSSL 3.3 或更新版本）、libcurl、zlib 和 libstdc++。deb 和 RPM 软件包将这些库、glibc 和 libgcc 声明为依赖项。
 :::
 
 ## 验证校验和
@@ -174,19 +176,14 @@ grep rapira-v0.9.0-php8.5-macos-aarch64.tar.gz rapira-v0.9.0-SHA256SUMS.txt | sh
 
 ## Docker
 
-`ghcr.io/rapira-rs/rapira` 容器镜像包含 `rapira` 二进制文件及其 `libphp.so`。镜像使用 `FROM scratch`，没有基础系统、shell 或 entrypoint。它不能单独运行。请将它的文件复制到应用镜像中：
+`ghcr.io/rapira-rs/rapira` 容器镜像基于 Debian Trixie，包含 Rapira、线程安全（ZTS）PHP 和常用的 PHP 扩展。请将你的应用添加到镜像中：
 
 ```dockerfile
-FROM php:8.5-cli-trixie
-COPY --from=ghcr.io/rapira-rs/rapira:php8.5 / /
-RUN apt-get update \
-    && xargs -r apt-get install -y --no-install-recommends < /usr/local/share/rapira/debian-packages.txt \
-    && rm -rf /var/lib/apt/lists/*
+FROM ghcr.io/rapira-rs/rapira:php8.5
 COPY . /app
-CMD ["rapira", "serve", "/app/rapira.toml"]
 ```
 
-应用目录包含一个 `rapira.toml`：
+镜像启动 `rapira serve /app/rapira.toml`。请使用 `docker run --init` 运行容器，以便 init 进程回收已退出的子进程。应用目录包含一个 `rapira.toml`：
 
 ```toml
 [http]
@@ -197,26 +194,28 @@ entrypoint = "/app/public/index.php"
 mode = "classic"
 ```
 
-镜像包含 `/usr/local/bin/rapira`、`/usr/local/lib/libphp.so` 和 OPcache。在 PHP 8.4 上，OPcache 是独立的 `opcache.so`，并附带一个 ini 文件。在 PHP 8.5 上，它是 `libphp.so` 的一部分。
+镜像包含 `/usr/local/bin/rapira`，以及位于 `/usr/local` 的 PHP，其中包括 `/usr/local/lib/libphp.so`。环境变量 `PHP_VERSION` 记录 PHP 的补丁版本。在 PHP 8.4 上，OPcache 是独立的 `opcache.so`，并附带一个启用它的 INI 文件。在 PHP 8.5 和 PHP 8.6 上，OPcache 是 `libphp.so` 的一部分。
 
-镜像还包含 `bcmath`、`intl`、`pdo_pgsql`、`pgsql`、`igbinary` 和 `redis` 共享模块，以及启用这些模块的 INI 文件。Redis 支持 igbinary 序列化。
+所有镜像都包含 `bcmath`、`intl`、`mbstring`、`pdo_pgsql`、`pgsql` 和 `sodium`。PHP 8.4 和 PHP 8.5 镜像还包含 `igbinary`。Rapira 不随附 `redis` 扩展。
 
-`/usr/local/share/rapira` 目录还包含两个文件。`PHP_VERSION.txt` 记录随附 PHP 的补丁版本。`debian-packages.txt` 列出 `libphp` 及其共享扩展所需的运行时软件包。请在应用镜像中安装这些软件包，即使基础镜像已包含 PHP。
+镜像保留了官方 PHP 镜像的辅助命令：`docker-php-ext-install`、`docker-php-ext-enable`、`docker-php-ext-configure`、`docker-php-source` 和 `docker-php-entrypoint`。使用 `docker-php-ext-install` 向镜像添加扩展时，请使用兼容 ZTS 的扩展：
 
-镜像构建使用 `php:8.4-cli-trixie` 或 `php:8.5-cli-trixie` 中的 `libphp.so`，并添加上述六个共享扩展。请在应用的基础镜像中添加其他扩展。在 PHP 基础镜像中，`docker-php-ext-install` 会针对同一份 `libphp.so` 编译扩展。
+```dockerfile
+FROM ghcr.io/rapira-rs/rapira:php8.5
+RUN docker-php-ext-install pdo_mysql
+COPY . /app
+```
 
-::: question 为什么镜像使用 `FROM scratch` 构建？
-scratch 镜像只包含构建复制到其中的文件。因此，`COPY --from=ghcr.io/rapira-rs/rapira:php8.5 / /` 只复制 Rapira 文件。应用的基础镜像由你选择。
-:::
+PHP 8.6 镜像没有 `pecl` 和 `pear` 命令，这与官方 PHP 8.6 镜像相同。
 
 每个标签都标明其 PHP 次版本。这些标签支持 amd64 和 arm64：
 
 | 标签 | 指向什么 |
 | --- | --- |
-| `X.Y.Z-php8.4`、`X.Y.Z-php8.5` | 一个发布构建。此标签永不移动。 |
-| `X.Y-php8.4`、`X.Y-php8.5` | 该 `X.Y` 版本的最新稳定发布。 |
-| `php8.4`、`php8.5` | 最新的稳定发布。 |
-| `nightly-php8.4`、`nightly-php8.5` | 最新的 nightly 构建。 |
+| `X.Y.Z-php8.4`、`X.Y.Z-php8.5`、`X.Y.Z-php8.6` | 一个发布。对于最新的发布，PHP 更新会将此标签移到新的构建。 |
+| `X.Y-php8.4`、`X.Y-php8.5`、`X.Y-php8.6` | 该 `X.Y` 版本的最新稳定发布。 |
+| `php8.4`、`php8.5`、`php8.6` | 最新的稳定发布。 |
+| `nightly-php8.4`、`nightly-php8.5`、`nightly-php8.6` | 最新的 nightly 构建。 |
 
 registry 还包含特定架构的标签，例如 `X.Y.Z-php8.5-amd64` 和 `X.Y.Z-php8.5-arm64`。
 
@@ -225,6 +224,14 @@ registry 还包含特定架构的标签，例如 `X.Y.Z-php8.5-amd64` 和 `X.Y.Z
 ::: question nightly 标签指向什么？
 `main` 上每次成功的 CI 运行都会从该提交构建镜像。此构建获得一个不可变的标签 `X.Y.Z-nightly.<short-sha>-php8.5`。`X.Y.Z` 是仓库版本。`<short-sha>` 是提交标识符的前七个字符。`nightly-php8.5` 标签指向此构建。registry 保留最新的十个 nightly 构建。
 :::
+
+### 基础镜像
+
+Rapira 基于 Debian Trixie 上的[官方 PHP 镜像](https://hub.docker.com/_/php)构建镜像：`php:8.4-zts-trixie`、`php:8.5-zts-trixie` 和 `php:8.6-cli-trixie`。官方 PHP 8.6 CLI 镜像包含 ZTS 和 embed 库。
+
+### PHP 发布后的更新
+
+一个 GitHub Actions workflow 每 15 分钟检查一次各个基础 PHP 镜像的摘要。当官方 PHP 镜像发生变化时，workflow 会在该镜像上重新构建最新的 Rapira 发布，并移动其标签。因此，镜像无需新的 Rapira 发布即可获得 PHP 补丁发布和 Debian 软件包修复。
 
 ## libphp 构建
 
@@ -236,7 +243,8 @@ Linux 和 macOS 发布的软件包和压缩包使用以 `--disable-all` 构建�
 - **XML**：libxml、dom、xml、simplexml、xmlreader、xmlwriter。
 - **数据库**：带 `pdo_sqlite` 和 `pdo_pgsql` 的 PDO，以及 `sqlite3` 和 `pgsql`。
 - **十进制运算和国际化**：bcmath 和 intl。
-- **序列化和缓存**：igbinary 和 redis，并为 Redis 启用 igbinary 序列化。
+- **序列化**：在 PHP 8.4 和 PHP 8.5 上包含 igbinary。Rapira 不随附 `redis` 扩展。
+- **密码学**：sodium。
 - **共享内存与 System V IPC**：shmop、sysvmsg、sysvsem、sysvshm。
 - **日期、图像元数据与翻译**：calendar、exif、gettext。
 - **外部函数接口**：ffi。
@@ -244,10 +252,10 @@ Linux 和 macOS 发布的软件包和压缩包使用以 `--disable-all` 构建�
 
 如需 `pdo_mysql`、APCu 或 Imagick 等其他扩展，请用所需选项构建 `libphp`。然后使用该库编译 Rapira。请参阅[从源码构建](/zh/docs/intro/build-from-source)。
 
-每个产物使用其 PHP 8.4 或 PHP 8.5 系列中最新可用的补丁版本。压缩包的 `share/php/PHP_VERSION.txt` 包含确切版本。在运行的服务器上，`PHP_VERSION` 和 `phpinfo()` 会报告此版本。设置 `[observability.metrics]` 后，`rapira_build_info` 指标的 `php_version` 标签也会报告此版本。请参阅[指标与健康检查](/zh/docs/observability)。`rapira --version` 只显示 Rapira 版本。
+每个产物使用其 PHP 8.4、PHP 8.5 或 PHP 8.6 系列中的一个补丁发布。压缩包的 `share/php/PHP_VERSION.txt` 包含确切版本。在运行的服务器上，`PHP_VERSION` 和 `phpinfo()` 会报告此版本。设置 `[observability.metrics]` 后，`rapira_build_info` 指标的 `php_version` 标签也会报告此版本。请参阅[指标与健康检查](/zh/docs/observability)。`rapira --version` 只显示 Rapira 版本。
 
 ::: question 为什么在 PHP 8.4 上 `PHP_SAPI` 返回 `fastcgi`？
-在 PHP 8.4 上，OPcache 只对固定列表中的 SAPI 名称启动。Rapira 将 SAPI 注册为 `fastcgi` 以启用 OPcache。PHP 8.5 删除了此列表，所以 `PHP_SAPI` 和 `php_sapi_name()` 返回 `rapira`。在两个版本中，`phpinfo()` 的 *Server API* 行都显示 `Rapira`。检查 `PHP_SAPI` 的代码必须接受这两个值。
+在 PHP 8.4 上，OPcache 只对固定列表中的 SAPI 名称启动。Rapira 将 SAPI 注册为 `fastcgi` 以启用 OPcache。PHP 8.5 和 PHP 8.6 删除了此列表，所以 `PHP_SAPI` 和 `php_sapi_name()` 返回 `rapira`。在所有版本中，`phpinfo()` 的 *Server API* 行都显示 `Rapira`。检查 `PHP_SAPI` 的代码必须接受这两个值。
 :::
 
 ## php.ini
@@ -267,14 +275,14 @@ zend_extension=/usr/lib/rapira/opcache.so
 ;zend_extension=/opt/rapira/lib/rapira/opcache.so
 ```
 
-在 PHP 8.5 上，OPcache 是 `libphp` 的一部分。不需要此行。
+在 PHP 8.5 和 PHP 8.6 上，OPcache 是 `libphp` 的一部分。不需要此行。
 
 ::: question PHP 自己会在哪里查找 `php.ini`？
 PHP 先检查 `PHPRC`。然后检查 PHP 构建时设置的默认路径。此构建路径通常在目标系统上不存在。Rapira 不从当前目录读取 `php.ini`。
 :::
 
 ::: question 为什么文件叫 `php.ini`，而不是 `php-rapira.ini`？
-PHP 先检查 `php-<sapi-name>.ini`，然后检查 `php.ini`。SAPI 名称在 8.4 上是 `fastcgi`，在 8.5 上是 `rapira`。普通的 `php.ini` 支持这两个版本。
+PHP 先检查 `php-<sapi-name>.ini`，然后检查 `php.ini`。SAPI 名称在 8.4 上是 `fastcgi`，在 8.5 和 8.6 上是 `rapira`。普通的 `php.ini` 支持所有版本。
 :::
 
 ## 分发

@@ -5,7 +5,7 @@ description: Rapira log levels, target overrides, PHP diagnostics, application r
 
 # Logging
 
-Rapira writes log records to stderr. These records include server events, master decisions, HTTP and gRPC events, PHP diagnostics, and application messages. PHP sends its diagnostics to this log when the `error_log` ini setting is empty, which is the default.
+Rapira writes log records to stderr. These records include server events, pool status, HTTP and gRPC events, PHP diagnostics, and application messages. PHP sends its diagnostics to this log when the `error_log` ini setting is empty, which is the default.
 
 The default level is `error`, so stderr contains only errors. Change the `[log]` section or set `RUST_LOG` to select another level.
 
@@ -42,21 +42,20 @@ Rapira uses these targets:
 
 | Target          | What it covers                                                                                  |
 | --------------- | ----------------------------------------------------------------------------------------------- |
-| `rapira`        | server initialization, worker lifecycle, shutdown                                               |
-| `master`        | pool status, spawn errors, and request timeout warnings                                         |
-| `http`          | HTTP listeners, request and response field processing, shutdown                                 |
+| `rapira`        | server initialization, pool status, worker lifecycle, watchdog timeouts, shutdown               |
+| `http`          | HTTP listeners, request and response field processing, static files, shutdown                   |
 | `grpc`          | gRPC listeners, transport failures, shutdown                                                    |
 | `net`           | the accept loop of the HTTP and gRPC listeners, accept failures                                 |
-| `observability` | the [metrics and probe process](/docs/observability): listener, request drain, failures         |
+| `observability` | the [metrics and probe listener](/docs/observability): listener, request drain, failures        |
 | `php`           | output and diagnostics from PHP itself                                                          |
-| `app`           | records the application writes with `\Rapira\log()`                                              |
+| `app`           | records the application writes with `\Rapira\log()`                                             |
 
 Rapira does not write an access log with one line for each request. The [HTTP](/docs/http) page lists field records from the `http` target.
 
 A dependency writes trace records under its module path. The same prefix filtering applies to these records. Each record contains its target name. Add that name to `[log.targets]` to change its level.
 
 ::: tip
-The `master` target reports pool status, spawn errors, and request timeout warnings. See [Process model](/docs/process-model) for pool supervision.
+The `rapira` target reports `SIGUSR1` pool status, boot failure retries, and watchdog request timeout warnings. See [Process model](/docs/process-model) for pool management.
 :::
 
 ## PHP diagnostics
@@ -152,7 +151,7 @@ Rapira does not shorten arrays or strings. Pass identifiers instead of large obj
 
 ## Formats
 
-Rapira writes both formats to stderr. Large records from different processes can interleave when the processes write to the same stderr pipe.
+Rapira writes both formats to stderr from its single server process.
 
 Redirect stderr to write logs to a file. A service manager can collect stderr. See [deployment](/docs/deployment) for more information.
 
@@ -179,12 +178,12 @@ Rapira uses colors only when stderr is a terminal. Set [`NO_COLOR`](https://no-c
 ```sh
 RUST_LOG=info rapira serve rapira.toml
 RUST_LOG=error,rapira=debug,php=info rapira serve rapira.toml
-RUST_LOG=warn,rapira=trace,master=trace rapira serve rapira.toml
+RUST_LOG=warn,rapira=trace,http=debug rapira serve rapira.toml
 ```
 
-The first command sets all targets to `info`. The second sets `rapira` to `debug`, `php` to `info`, and all other targets to `error`. The third sets all targets to `warn`, and `rapira` and `master` to `trace`.
+The first command sets all targets to `info`. The second sets `rapira` to `debug`, `php` to `info`, and all other targets to `error`. The third sets all targets to `warn`, `rapira` to `trace`, and `http` to `debug`.
 
-A target that the value does not match writes no records. For example, `RUST_LOG=php=info` hides all errors from the `master` and `http` targets. Add a level without a target name, such as `error`, to keep records from the other targets.
+A target that the value does not match writes no records. For example, `RUST_LOG=php=info` hides all errors from the `rapira` and `http` targets. Add a level without a target name, such as `error`, to keep records from the other targets.
 
 ::: warning
 A non-blank `RUST_LOG` value **replaces** `level` and `[log.targets]`. Rapira does not combine the environment and file filters. Remove the variable to use the configuration file settings. Alternatively, set the variable to an empty value. `RUST_LOG` does not affect `format`.

@@ -6,7 +6,7 @@ faqLevel: 2
 
 # Modo Worker
 
-El modo Worker mantiene activo el proceso de PHP entre peticiones. El script inicializa la aplicación una vez y después espera peticiones en un bucle. El estado de la aplicación permanece en memoria, por lo que el script del worker debe gestionarlo.
+El modo Worker mantiene activa la aplicación PHP en cada hilo de worker entre peticiones. El script inicializa la aplicación una vez y después espera peticiones en un bucle. El estado de la aplicación permanece en memoria, por lo que el script del worker debe gestionarlo.
 
 En [modo Classic](/es/docs/classic), el script de entrada se ejecuta cada vez en una nueva petición de PHP, y Rapira elimina el estado de la aplicación después de la respuesta. Este estado incluye el autoloader, el contenedor, la configuración, las rutas y las conexiones a la base de datos.
 
@@ -64,7 +64,7 @@ Consulta las demás claves en [Configuración](/es/docs/configuration).
 
 Una petición en modo Worker es una iteración del bucle `while`. Antes de cada llamada al handler, Rapira vuelve a rellenar las superglobales. Después de la llamada, Rapira ejecuta las funciones de shutdown de la petición, vacía los búferes de salida y cierra la sesión. Rapira envía la respuesta después de estos pasos. Los valores que el script mantiene fuera del handler permanecen en memoria.
 
-Antes de la primera llamada a `handle_request()`, `$_SERVER` contiene el entorno del proceso y la ruta del script de entrada, igual que con PHP CLI. Consulta la lista completa en [Modos de ejecución](/es/docs/execution-modes).
+Antes de la primera llamada a `handle_request()`, `$_SERVER` contiene el entorno de arranque y del pool y la ruta del script de entrada, igual que con PHP CLI. Consulta la lista completa en [Modos de ejecución](/es/docs/execution-modes).
 
 ## Un bucle por worker
 
@@ -83,11 +83,13 @@ while (\Rapira\handle_request($web)) {
 
 Los objetos creados **fuera** del handler permanecen hasta que termina el ciclo del worker. Algunos ejemplos son el autoloader, el contenedor, las rutas, la configuración, las conexiones abiertas y los datos en caché. Rapira no crea este estado para cada petición.
 
+Cada instancia de la aplicación empieza en el directorio resuelto del script de entrada, y una llamada a `chdir()` se aplica a las peticiones posteriores de esa instancia. En ZTS, `proc_open()` sin un `$cwd` inicia el proceso hijo en el directorio donde se inició Rapira; pasa `getcwd()` como `$cwd` para usar el directorio de la aplicación.
+
 Los valores creados **dentro** del handler pertenecen a una petición. PHP los libera después de que el handler retorna y el código elimina sus últimas referencias.
 
 El script del worker define la duración del estado. Coloca el estado de la aplicación antes del bucle. Coloca el estado de la petición en el handler o reinícialo antes de la siguiente petición.
 
-Abre `php://input` dentro del handler en cada petición. Un stream de `php://input` abierto en una petición anterior o en la inicialización puede devolver el cuerpo de una petición posterior, o puede terminar el proceso worker.
+Abre `php://input` dentro del handler en cada petición. Un manejador de `php://input` abierto en una petición anterior o en la inicialización puede devolver el cuerpo de una petición posterior o fallar.
 
 ::: warning
 El estado global también permanece entre peticiones. Algunos ejemplos son las propiedades estáticas, los singletons, los registros y los cambios de `ini_set()`. php-fpm descarta estos valores al final de cada petición. Un worker de Rapira los mantiene.
@@ -97,9 +99,11 @@ Usa el [modo Classic](/es/docs/classic) si la aplicación no puede reiniciar el 
 
 ## Funciones de shutdown
 
-Un ciclo del worker es una ejecución del script del worker, desde la inicialización hasta el final del script. PHP ejecuta cada función de shutdown que registra el código de inicialización una vez, al final del ciclo. PHP ejecuta cada función de shutdown que registra el handler una vez, al final de esa petición.
+Un ciclo del worker es una ejecución del script del worker, desde la inicialización hasta el final del script. PHP ejecuta cada función de shutdown que registra el código de inicialización una vez, al final del ciclo. PHP ejecuta cada función de shutdown que registra el handler una vez, al final de esa petición, en el directorio actual de la aplicación.
 
-Registra la limpieza de los recursos del proceso durante la inicialización. Registra la limpieza de los recursos de la petición dentro del handler.
+Al final del ciclo, PHP restaura el directorio guardado antes de ejecutar el script de entrada (normalmente el directorio donde se inició Rapira) y después ejecuta los callbacks de shutdown de la inicialización y los destructores finales. Usa una ruta absoluta en el código de shutdown del ciclo, por ejemplo `__DIR__ . '/var/last.log'`.
+
+Registra la limpieza de los recursos del ciclo durante la inicialización. Registra la limpieza de los recursos de la petición dentro del handler.
 
 ```php
 register_shutdown_function(static function (): void {
@@ -143,7 +147,7 @@ Consulta [Transmisión de la respuesta](/es/docs/http#transmision-de-la-respuest
 
 `handle_request()` necesita el bucle residente que solo tiene el modo Worker. En modo Classic y en modo Dispatcher lanza una `Rapira\Exception\NotInWorkerModeError`. Todas las clases de excepción de Rapira implementan la interfaz marcadora `Rapira\Exception\RapiraThrowable`. Algunos errores de uso son `\Error` o `\ValueError` simples, y un `catch` de `RapiraThrowable` no los captura. Un ejemplo es una llamada a `handle_request()` dentro de su handler.
 
-`Rapira\get_mode()` devuelve el [modo](/es/docs/execution-modes) del proceso actual como un caso de `Rapira\Mode`. Un script que se ejecuta en más de un modo lo consulta antes de entrar en el bucle:
+`Rapira\get_mode()` devuelve el [modo](/es/docs/execution-modes) del pool del worker como un caso de `Rapira\Mode`. Un script que se ejecuta en más de un modo lo consulta antes de entrar en el bucle:
 
 ```php
 if (\Rapira\get_mode() === \Rapira\Mode::Worker) {
@@ -160,11 +164,11 @@ Reinicia este estado al principio o al final del handler. Reinicia también el e
 
 **Ciclos de referencias sin recoger.** El conteo de referencias de PHP libera la mayoría de los valores inmediatamente. Solo libera los ciclos cuando se ejecuta el recolector. El ejemplo llama a `gc_collect_cycles()` entre peticiones. Esta llamada es opcional, pero hace predecible el momento de recogida.
 
-**Peticiones que no terminan.** Un worker no puede procesar otra petición mientras se ejecuta la petición actual. `http.pool.request_terminate_timeout_secs` limita el tiempo transcurrido de una petición. Cuando una petición supera el límite, Rapira detiene el worker e inicia uno nuevo. Consulta esta clave y `http.pool.max_requests` en [Configuración](/es/docs/configuration). Consulta la secuencia de detención en [Modelo de procesos](/es/docs/process-model).
+**Peticiones que no terminan.** Un worker no puede procesar otra petición mientras se ejecuta la petición actual. `http.pool.request_terminate_timeout_secs` establece un límite de reloj de pared del watchdog para una petición. Al llegar al límite, el watchdog interrumpe PHP y despierta una escritura de respuesta bloqueada. Después de cinco segundos más, Rapira registra una vez un worker que sigue bloqueado y sale con `124` solo si todos los workers del pool siguen bloqueados. Consulta esta clave y `http.pool.max_requests` en [Configuración](/es/docs/configuration). Consulta los detalles del watchdog en [Modelo de procesos](/es/docs/process-model).
 
-**La inicialización falla.** El script del worker debe llamar a `handle_request()` y recibir una petición. Una excepción sin capturar durante la inicialización puede terminar el script antes. Rapira cuenta esto como un arranque fallido. Después, el worker espera hasta 5 segundos una petición, la responde con `503` y vuelve a ejecutar el script.
+**La inicialización falla.** El script del worker debe llamar a `handle_request()` y recibir una petición. Una excepción sin capturar durante la inicialización puede terminar el script antes. Rapira cuenta un arranque fallido. El retardo de reintento empieza en 500 ms, se duplica tras cada fallo consecutivo y se detiene en 5 segundos. Una petición entrante durante la espera no adelanta el siguiente arranque; mientras ningún worker del pool está listo, las peticiones en cola reciben `503`. Un arranque con éxito reinicia el contador de fallos y el retardo.
 
-Después de cinco arranques fallidos seguidos, Rapira registra `worker keeps failing to boot; flagged unhealthy` y el worker termina. El master inicia un nuevo worker después de un retardo. Al iniciar el servidor, si ningún worker del pool ha arrancado ni ha procesado una petición, el servidor se detiene con el [código de salida](/es/docs/cli#codigos-de-salida) 70 en su lugar. Consulta la supervisión de los workers en [Modelo de procesos](/es/docs/process-model).
+Cuando un worker alcanza `http.pool.max_boot_failures` (por defecto `5`) antes de que su pool haya atendido una petición, el servidor se detiene con el [código de salida](/es/docs/cli#exit-codes) `70`. Después de que el pool haya atendido una petición, el worker sigue reintentando con espera exponencial en lugar de detener el servidor. Consulta la gestión del pool en [Modelo de procesos](/es/docs/process-model#pool-management).
 
 **Una excepción sin capturar afecta a una petición, no al worker.** Si el handler lanza una excepción, Rapira llama primero al callback que registró `set_exception_handler()`. Si ningún callback procesa la excepción, Rapira devuelve `500`, salvo que el handler ya haya enviado la cabecera de respuesta. En los dos casos, el bucle continúa. Una llamada a `exit()` o `die()` en el handler termina solo la petición actual, y Rapira envía la salida como respuesta. Un error fatal termina el script del worker, y Rapira vuelve a ejecutar el script con una nueva inicialización.
 

@@ -7,15 +7,15 @@ description: Rapira to serwer aplikacji PHP napisany w języku Rust. Obsługuje 
 
 Rapira to serwer aplikacji PHP napisany w języku Rust.
 
-Opiekunowie projektu RoadRunner projektują i implementują Rapirę. Rapira wywołuje PHP bezpośrednio w procesie serwera.
+Opiekunowie projektu RoadRunner projektują i implementują Rapirę. Jeden proces serwera uruchamia pule HTTP i [gRPC](/pl/docs/grpc) osadzonych workerów PHP bezpiecznych wątkowo (ZTS).
 
-Rapira obsługuje HTTP i [gRPC](/pl/docs/grpc). Każdy protokół ma własny nasłuch i pulę workerów PHP.
+Każdy protokół ma własny nasłuch, kolejkę i pulę workerów PHP.
 
 Na [blogu](/pl/blog/) znajdują się aktualności projektu.
 
 ## HTTP
 
-Rapira zawiera serwer HTTP, który używa biblioteki [hyper](https://hyper.rs). Przyjmuje nieszyfrowane połączenia HTTP/1.1 i HTTP/1.0. Rapira nie kończy TLS. [Proxy kończące TLS](https://en.wikipedia.org/wiki/TLS_termination_proxy) przyjmuje HTTPS od klienta, odszyfrowuje połączenie i wysyła nieszyfrowany HTTP do Rapiry. Konfigurację proxy opisuje [Wdrożenie produkcyjne](/pl/docs/deployment).
+Rapira zawiera serwer HTTP, który używa biblioteki [hyper](https://hyper.rs) na dedykowanych jednowątkowych shardach I/O. Przyjmuje nieszyfrowane połączenia HTTP/1.1 i HTTP/1.0. Rapira nie kończy TLS. [Proxy kończące TLS](https://en.wikipedia.org/wiki/TLS_termination_proxy) przyjmuje HTTPS od klienta, odszyfrowuje połączenie i wysyła nieszyfrowany HTTP do Rapiry. Konfigurację proxy opisuje [Wdrożenie produkcyjne](/pl/docs/deployment).
 
 Rapira obsługuje trzy tryby wykonania PHP:
 
@@ -29,10 +29,10 @@ Strona [Tryby wykonania](/pl/docs/execution-modes) opisuje działanie trybów i 
 
 ## gRPC
 
-Rapira obsługuje unarne wywołania gRPC, gRPC-Web i Connect na jednym nasłuchu. Aplikacja PHP odbiera i zwraca binarne komunikaty protobuf przez dyspozytora. Proces nadrzędny wczytuje schematy usług z zestawu deskryptorów przed uruchomieniem workerów.
+Rapira obsługuje wywołania gRPC, gRPC-Web i Connect na jednym nasłuchu. Aplikacja PHP odbiera i zwraca binarne komunikaty protobuf przez dyspozytora. Serwer wczytuje schematy usług z zestawu deskryptorów przed uruchomieniem workerów.
 
 Pula gRPC używa trybu Dispatcher. HTTP i gRPC mogą działać razem z osobnymi skryptami wejściowymi. Kompletną usługę, generowanie klas protobuf i polecenia klienta opisuje [gRPC](/pl/docs/grpc).
 
 ## Metryki i kontrole stanu
 
-Opcjonalna tabela `[observability]` uruchamia jeszcze jeden proces, który nie wykonuje PHP. Podtabela `[observability.metrics]` włącza metryki Prometheus pod adresem `/metrics`. Podtabela `[observability.probes]` włącza sondy `/livez` i `/readyz`. Konfigurację i punkty końcowe opisuje [Metryki i kontrole stanu](/pl/docs/observability).
+Opcjonalna tabela `[observability]` uruchamia nasłuch w osobnym wątku, który nie wykonuje PHP. Podtabela `[observability.metrics]` włącza metryki Prometheus pod adresem `/metrics`. Podtabela `[observability.probes]` włącza sondy `/livez` i `/readyz`. Konfigurację i punkty końcowe opisuje [Metryki i kontrole stanu](/pl/docs/observability).

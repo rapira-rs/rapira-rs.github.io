@@ -1,14 +1,14 @@
 ---
 title: Métricas y comprobaciones de estado
-description: "El proceso [observability]: los endpoints /livez, /readyz y /metrics, las sondas de Kubernetes, un scrape de Prometheus y la referencia de métricas."
+description: "La escucha [observability]: los endpoints /livez, /readyz y /metrics, las sondas de Kubernetes, un scrape de Prometheus y la referencia de métricas."
 faqLevel: 2
 ---
 
 # Métricas y comprobaciones de estado
 
-La sección `[observability]` inicia un proceso más que sirve sondas de estado y métricas de Prometheus. Este proceso no ejecuta PHP. Lee el estado de los workers PHP desde la memoria compartida. El maestro lo supervisa, lo recarga y lo detiene junto con los workers PHP. Consulta [Modelo de procesos](/es/docs/process-model) para ver el maestro y sus workers.
+La sección `[observability]` inicia una escucha en un hilo separado (`rapira-obs`) dentro del proceso del servidor para servir sondas de estado y métricas de Prometheus. Este hilo no ejecuta PHP y lee los contadores del pool directamente desde el estado en proceso. Consulta [Modelo de procesos](/es/docs/process-model) para ver la arquitectura del servidor.
 
-Sin una sección `[observability]`, Rapira no inicia este proceso. La compilación para Windows no admite la sección y la rechaza como un campo desconocido.
+Sin una sección `[observability]`, Rapira no inicia esta escucha. La compilación para Windows no admite la sección y la rechaza como un campo desconocido.
 
 ## Activar los endpoints
 
@@ -39,11 +39,11 @@ curl -i http://127.0.0.1:9180/readyz
 curl http://127.0.0.1:9180/metrics
 ```
 
-El proceso escribe registros con el target `observability`. Consulta [Registros](/es/docs/logging) para ver los niveles por target.
+La escucha escribe registros con el target `observability`. Consulta [Registros](/es/docs/logging) para ver los niveles por target.
 
 ## Endpoints
 
-El proceso sirve HTTP/1.1 sin TLS. Solo responde a estas peticiones:
+La escucha sirve HTTP/1.1 sin TLS. Solo responde a estas peticiones:
 
 | Petición | Se activa con | Estado | Cuerpo |
 | --- | --- | --- | --- |
@@ -55,17 +55,17 @@ Cualquier otro método o ruta recibe `404` con un cuerpo vacío. La ruta de una 
 
 ## Liveness y readiness
 
-`/livez` no hace comprobaciones. Devuelve `200` cuando el proceso responde. Cuando el maestro se detiene, el proceso de observabilidad también se detiene. Por tanto, una respuesta `200` indica que el maestro se ejecuta. El maestro sustituye él mismo los workers PHP que fallan, así que `/livez` no los comprueba.
+`/livez` no hace comprobaciones. Devuelve `200` cuando el servidor responde. Durante el apagado, la escucha de observabilidad se detiene con el servidor.
 
-`/readyz` comprueba cada pool de PHP: primero `http`, después `grpc`. Un pool está listo cuando al menos uno de sus workers está inactivo u ocupado con una petición. Los workers que arrancan o que drenan no cuentan. `/readyz` devuelve `503` en estos casos:
+`/readyz` comprueba cada pool de PHP: primero `http`, después `grpc`. Un pool está listo cuando al menos uno de sus workers está inactivo u ocupado con una unidad. Los workers que arrancan o que drenan no cuentan. `/readyz` devuelve `503` en estos casos:
 
-- Los workers de un pool arrancan y todavía no esperan una petición. En los modos Worker y Dispatcher, el script de entrada debe inicializarse primero.
-- El script de entrada no se inicializa. El worker lo intenta de nuevo, y el pool queda listo después de una inicialización correcta. No es necesaria ninguna petición.
-- Durante poco tiempo, cada worker de un pool drena, por ejemplo después de salidas unhealthy, y ningún sustituto espera todavía una petición.
+- Los workers de un pool arrancan y todavía no esperan una unidad. En los modos Worker y Dispatcher, el script de entrada debe inicializarse primero.
+- El script de entrada no se inicializa. El worker lo intenta de nuevo con espera progresiva, y el pool queda listo después de una inicialización correcta. No es necesaria ninguna petición.
+- Todos los workers de un pool están drenando.
 
-Una recarga mantiene `/readyz` en `200`, porque ningún proceso de worker se detiene. Consulta [Señales](/es/docs/process-model#senales) para la recarga.
+Una recarga mantiene `/readyz` en `200`, porque los hilos worker siguen ejecutándose. Consulta [Señales](/es/docs/process-model#signals) para la recarga.
 
-Algunos casos no dan ninguna respuesta. Al inicio de una parada, el proceso de observabilidad deja de aceptar conexiones. Si los workers de un pool no se inicializan antes de que el pool atienda una petición, el maestro termina con el código `70`. Consulta [Códigos de salida](/es/docs/cli#codigos-de-salida).
+Algunos casos no dan ninguna respuesta. Al inicio de una parada, la escucha de observabilidad deja de aceptar conexiones. Si un worker alcanza `max_boot_failures` antes de que su pool atienda una unidad, el servidor sale con el código `70`. Consulta [Códigos de salida](/es/docs/cli#exit-codes).
 
 ### Sondas de Kubernetes
 
@@ -105,43 +105,26 @@ scrape_configs:
       - targets: ["127.0.0.1:9180"]
 ```
 
-La salida contiene estas métricas. La etiqueta `pool` es `http` o `grpc`. Las métricas no incluyen el proceso de observabilidad. Una unidad de trabajo es una petición HTTP o una llamada gRPC.
+La salida contiene estas métricas. La etiqueta `pool` es `http` o `grpc`. Una unidad de trabajo es un intercambio HTTP o una llamada gRPC.
 
 | Métrica | Tipo | Etiquetas | Significado |
 | --- | --- | --- | --- |
 | `rapira_workers` | gauge | `pool`, `state` | Workers en cada estado. Los valores de `state` son `starting`, `idle`, `active` y `draining`. |
-| `rapira_workers_configured` | gauge | `pool` | El valor `processes` del pool. |
-| `rapira_requests_total` | counter | `pool` | Unidades de trabajo que los workers terminaron. Incluye las unidades fallidas. |
+| `rapira_workers_configured` | gauge | `pool` | El valor `workers` del pool. |
+| `rapira_requests_total` | counter | `pool` | Unidades de trabajo que procesó un worker o que rechazó el host. |
 | `rapira_requests_failed_total` | counter | `pool` | Unidades de trabajo que el host no pudo completar, por ejemplo una llamada perdida o una unidad rechazada tras la saturación de la cola. |
-| `rapira_requests_failed_on_full_queue_total` | counter | `pool` | Unidades de trabajo que encontraron llena la cola del worker y nunca entraron en ella. Rapira rechaza una unidad así cuando la cola sigue llena durante 30 segundos. |
-| `rapira_requests_queued` | gauge | `pool` | Unidades de trabajo que esperan al hilo PHP de un worker. |
-| `rapira_script_restarts_total` | counter | `pool` | Reinicios de la aplicación dentro de un proceso de worker, por ejemplo después de `max_requests`, de una recarga o de un error fatal. |
-| `rapira_worker_exits_total` | counter | `pool`, `reason` | Salidas de procesos worker. Consulta los motivos más abajo. |
-| `rapira_worker_rss_bytes` | gauge | `pool`, `worker` | La memoria residente de un worker en bytes. Solo Linux. |
-| `rapira_worker_pss_bytes` | gauge | `pool`, `worker` | La memoria proporcional de un worker en bytes. Solo Linux. |
+| `rapira_requests_failed_on_full_queue_total` | counter | `pool` | Unidades de trabajo que encontraron llena la cola del pool y nunca entraron en ella. Rapira rechaza una unidad así cuando la cola sigue llena durante 30 segundos. |
+| `rapira_requests_queued` | gauge | `pool` | Unidades de trabajo que esperan a un worker en el pool. |
+| `rapira_script_restarts_total` | counter | `pool` | Reciclajes de la aplicación en los hilos worker, por ejemplo después de `max_requests`, de una recarga o de un error fatal. |
 | `rapira_build_info` | gauge | `version`, `php_version` | La versión de Rapira y la versión del PHP enlazado. El valor siempre es `1`. |
 
 Los contadores de peticiones describen el trabajo PHP, no todo el tráfico de la escucha. Excluyen los rechazos de autenticación, las peticiones JSON no válidas, las comprobaciones de salud y la reflexión, que la capa de protocolo procesa antes de enviarlos a PHP. El host cuenta una respuesta gRPC `fail()` completada como atendida sin fallo del host. Un fallo posterior de conversión de la respuesta a JSON no aumenta el contador de fallos. Por tanto, `rapira_requests_failed_total` no cuenta los estados gRPC distintos de OK.
 
-La etiqueta `reason` de `rapira_worker_exits_total` tiene estos valores:
-
-| Motivo | Significado |
-| --- | --- |
-| `drained` | El worker terminó con el código `0`, por ejemplo después de una parada o después de que el worker supere el límite `max_memory_mb`. |
-| `unhealthy` | El worker informó de que no puede atender peticiones, por ejemplo después de fallos de inicialización repetidos. |
-| `timeout` | Una petición se ejecutó más tiempo que `request_terminate_timeout_secs`, y el maestro detuvo el worker. |
-| `crashed` | El worker terminó con otro código o por una señal. |
-
-Los contadores conservan sus valores cuando el maestro sustituye un worker. Vuelven a cero solo cuando el maestro arranca de nuevo. Un scrape lee un archivo de `/proc` por cada worker vivo. Las sondas no leen archivos.
-
-::: question ¿Por qué la etiqueta worker no es un identificador de proceso?
-La etiqueta `worker` es el número de slot del worker en su pool. Un worker sustituto puede usar el mismo slot, así que las series continúan después de una sustitución. Cada pool tiene un slot por cada worker. Por tanto, los números van de `0` a `processes` menos uno.
-:::
-
+Los contadores vuelven a cero solo cuando el servidor se reinicia. Los scrapes y las sondas leen contadores en el proceso y no leen archivos de `/proc`.
 
 ## Seguridad
 
-Los endpoints no tienen autenticación ni TLS. `/metrics` muestra las versiones de Rapira y de PHP y la memoria de cada worker. Vincula la escucha a una dirección de loopback o a una dirección de red privada. Una dirección `:port` se vincula a todas las interfaces IPv4.
+Los endpoints no tienen autenticación ni TLS. `/metrics` muestra las versiones de Rapira y de PHP y las métricas del pool. Vincula la escucha a una dirección de loopback o a una dirección de red privada. Una dirección `:port` se vincula a todas las interfaces IPv4.
 
 Una escucha `unix:` crea su socket con el modo `0666`. Usa los permisos del directorio del socket para controlar el acceso.
 

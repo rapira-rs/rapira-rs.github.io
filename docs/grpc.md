@@ -80,7 +80,7 @@ try {
 
         try {
             $metadata = $call->getResponseMetadata();
-            $metadata->addHeader('x-worker', (string) getmypid());
+            $metadata->addHeader('x-server', 'rapira');
             $metadata->addTrailer('x-result', 'echoed');
             $call->respond($call->getMessage());
         } catch (WorkDiscardedException) {
@@ -107,10 +107,10 @@ reflection = true
 [grpc.pool]
 entrypoint = "grpc.php"
 mode = "dispatcher"
-processes = 2
+workers = 2
 ```
 
-`descriptor_set` uses the configuration file directory as its base. A gRPC-only configuration needs no `[http]` section.
+A relative `descriptor_set` path uses the configuration file directory as its base. The key also accepts a URL: see [Load the descriptor set from a URL](#descriptor-set-url). A gRPC-only configuration needs no `[http]` section.
 
 Start the server from `app/`:
 
@@ -239,7 +239,7 @@ The optional third `Status` argument is a list of `Rapira\Grpc\ErrorDetail` obje
 
 Rapira does not catch `Rapira\Grpc\Exception\GrpcException`. Catch it, and give its `$status` property to `fail()`.
 
-The client gets `UNAVAILABLE` when Rapira refuses a call before PHP gets it. This occurs when the worker queue stays full for 30 seconds, when the pool stops, or when the PHP boot of the worker failed. An interceptor can also refuse a call before PHP gets it. The interceptor sets the status, for example `UNAUTHENTICATED`. See [Interceptors](#interceptors).
+The client gets `UNAVAILABLE` when Rapira refuses a call before PHP gets it. This occurs when the pool queue stays full for 30 seconds, when the pool stops, or when no worker in the pool is ready during a failed boot backoff. An interceptor can also refuse a call before PHP gets it. The interceptor sets the status, for example `UNAUTHENTICATED`. See [Interceptors](#interceptors).
 
 ## Metadata
 
@@ -305,7 +305,7 @@ A call without a valid token gets `UNAUTHENTICATED`. A Connect unary call gets H
 - A call to an unknown method without a token gets `UNAUTHENTICATED`, not `UNIMPLEMENTED`.
 - PHP still gets the `authorization` value of a call that passes.
 
-The master reads the tokens file at startup. A file that Rapira cannot read, a file without tokens, and an invalid token stop the startup. Restart Rapira to load a changed tokens file. A reload keeps the old tokens.
+Rapira reads the tokens file at startup. A file that Rapira cannot read, a file without tokens, and an invalid token stop startup. Restart Rapira to load a changed tokens file. A reload keeps the old tokens.
 
 ## Deadlines and cancellation
 
@@ -321,11 +321,33 @@ grpcurl -plaintext -max-time 2 -d '{"text":"hello"}' 127.0.0.1:50051 example.v1.
 
 When the deadline expires, the client gets `DEADLINE_EXCEEDED`, and `isCancelled()` returns `true`. Rapira cannot stop PHP code, so PHP continues the call. Check `isCancelled()` during long operations. Catch `WorkDiscardedException` around the response methods, because a cancel can occur after the check.
 
-The `receive()` timeout sets how long PHP waits for new work. It is not related to a call deadline. `grpc.pool.request_terminate_timeout_secs` is a process watchdog. It replaces a worker when a call runs longer than the limit.
+The `receive()` timeout sets how long PHP waits for new work. It is not related to a call deadline. `grpc.pool.request_terminate_timeout_secs` sets a wall-clock watchdog limit that interrupts PHP when a call exceeds the limit.
+
+## Load the descriptor set from a URL {#descriptor-set-url}
+
+`descriptor_set` is a path or a URL. A value that starts with `http://` or `https://` is a URL, as for a [Buf image input](https://buf.build/docs/reference/inputs/#image-formats). Each other value is a path.
+
+```toml
+[grpc]
+descriptor_set = "https://schemas.example.com/billing/v42/api.binpb"
+```
+
+Rapira downloads the set with a GET request at startup, before workers start. A download that fails stops the start with exit code 1. Rapira does not try the download again, and it keeps no local copy of the set.
+
+- The response body must be the binary set. Rapira does not decode a compressed set or a JSON set.
+- The download follows a maximum of 10 redirects. It also follows a redirect from an `https://` URL to an `http://` URL. A response status of 400 or above stops the start.
+- HTTPS uses the certificate store of the system. On Linux, set `SSL_CERT_FILE` or `SSL_CERT_DIR` to replace that store, for example for a private certificate authority. On macOS, the store is the keychain, and the two variables have no effect.
+- Rapira sends the userinfo of the URL (`https://user:password@host/api.binpb`) as HTTP Basic credentials. The download has no other authentication setting. Log messages show the URL without its userinfo and its query.
+- The download uses the proxy that `ALL_PROXY`, `HTTPS_PROXY`, or `HTTP_PROXY` names. `NO_PROXY` lists the hosts that need no proxy.
+- The connection, the response head, and the body each have a time limit of 30 seconds. The maximum size of the set is 64 MiB.
+
+::: warning
+Rapira does not check the content of the set against a checksum or a signature. Use an `https://` URL of a host that you trust. Make sure that the host does not redirect to an `http://` URL: with `http://`, each host on the network path can change the set. Do not replace the set at a URL: put a version in the URL path, and use a new URL for each change of the set. Then each instance loads the same set.
+:::
 
 ## Services and reflection
 
-The master loads the descriptor set before it forks the workers. An invalid set, missing imports, or an unknown configured service prevents startup. Restart Rapira after you change the descriptor set. A reload keeps the loaded set.
+Rapira loads the descriptor set at startup before workers start. An invalid set, a download that fails, missing imports, or an unknown configured service prevents startup. Restart Rapira after you change the descriptor set. A reload keeps the loaded set.
 
 By default, the pool serves the services of the files that no other file in the set imports. A file that another file imports is a dependency, for example `google/longrunning/operations.proto`. Its services are not served. Set `grpc.services` to name the served services, for example `["billing.v1.InvoiceService"]`. Use this key when several Rapira instances share one set, or to serve a service of an imported file.
 
@@ -341,7 +363,7 @@ grpcurl -plaintext -import-path proto -proto echo.proto -d '{"text":"hello"}' 12
 
 ## Health checks
 
-Rapira serves the [gRPC health checking protocol](https://github.com/grpc/grpc/blob/master/doc/health-checking.md) (`grpc.health.v1.Health`) in each worker. `Check` and `Watch` report `SERVING` for the empty name `""` and for each served service. During shutdown, they report `NOT_SERVING`.
+Rapira serves the [gRPC health checking protocol](https://github.com/grpc/grpc/blob/master/doc/health-checking.md) (`grpc.health.v1.Health`) on the gRPC listener. `Check` and `Watch` report `SERVING` for the empty name `""` and for each served service. During shutdown, they report `NOT_SERVING`.
 
 The health service does not check PHP. A worker with a failed PHP boot reports `SERVING`, and its calls get `UNAVAILABLE`. `grpc.services` cannot name the health or reflection services, because Rapira serves them itself.
 
@@ -372,15 +394,11 @@ The request-body limit includes the five-byte envelope of a framed unary request
 JSON conversion decodes each `google.protobuf.Any` payload with a 32 MiB budget for decoded elements. A payload that exceeds this budget returns `INTERNAL` and logs a warning. Binary protobuf clients do not use this conversion.
 :::
 
-::: warning One connection uses one worker
-One worker process serves each connection. A gRPC client usually sends all calls of a channel on one HTTP/2 connection. Such a client gets the throughput of one worker, for all pool sizes. To use more workers, open several connections, or use an L7 load balancer that spreads the calls.
-:::
-
 ## HTTP and gRPC together
 
-One configuration can contain `[http]` and `[grpc]`. Each plugin has its own listener, PHP entrypoint, and worker pool. The master supervises the two pools. The gRPC pool accepts the worker count and recycling settings of the HTTP pool, with `mode = "dispatcher"`.
+One configuration can contain `[http]` and `[grpc]` on ZTS PHP. Each plugin has its own listener, PHP entrypoint, queue, and worker pool inside one server process. The gRPC pool accepts the worker count, recycling, environment, execution clock, and watchdog settings of the HTTP pool, with `mode = "dispatcher"`.
 
-See [Configuration](./configuration#grpc) for all gRPC settings and [Process model](./process-model) for pool supervision.
+See [Configuration](./configuration#grpc) for all gRPC settings and [Process model](./process-model) for pool management.
 
 ## Windows
 
@@ -388,6 +406,4 @@ The [Windows build](https://github.com/rapira-rs/rapira-windows) serves the same
 
 - `grpc.listen` accepts only a TCP address.
 - `grpc.interceptors` and the `[grpc.auth]` table are not available.
-- The gRPC pool is a static pool of PHP interpreter threads in one process. `grpc.pool.processes` sets the thread count.
-- `getmypid()` returns the same process ID in each interpreter.
 - A PHP boot failure in either pool stops the server with exit code 70.

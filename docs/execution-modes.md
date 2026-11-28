@@ -18,7 +18,7 @@ The mode names are `http.pool.mode` values and `Rapira\Mode` enum cases. Classic
 
 ## Classic
 
-The entry script runs in a new PHP request each time, as it does under php-fpm. Rapira fills the superglobals, runs the script, sends the response, and then removes the request state. Persistent connections and extension state remain, because they exist in the worker process.
+The entry script runs in a new PHP request each time, as it does under php-fpm. Rapira fills the superglobals, runs the script, sends the response, and then removes the request state. Persistent connections and extension state remain on the worker thread.
 
 An existing application can run without code changes when Rapira replaces php-fpm. Rapira embeds PHP in the server process and does not use FastCGI.
 
@@ -28,7 +28,7 @@ See [Classic mode](/docs/classic) for more information.
 
 Worker mode uses the same request and response interfaces as Classic. The application reads superglobals and can use `echo` for the response. The worker script initializes the application once and then enters a loop. For each request, Rapira refills the superglobals and runs the handler. Objects that the script creates outside the loop remain available.
 
-Initialization runs once for each worker, not once for each request. This can decrease the request time. However, static properties, singletons, and global state remain for the next request. Set [`http.pool.max_requests`](/docs/configuration) to replace a worker after a number of requests. This limits the effect of a memory leak.
+Initialization runs once for each worker, not once for each request. This can decrease the request time. However, static properties, singletons, and global state remain for the next request. Set [`http.pool.max_requests`](/docs/configuration) to recycle an app instance after a number of requests. This limits the effect of a memory leak.
 
 See [Worker mode](/docs/worker) for the worker script and its loop. See [HTTP](/docs/http) for how Rapira handles requests and responses.
 
@@ -38,7 +38,7 @@ In Dispatcher mode, the worker script gets each work unit through an API call. `
 
 The application can pass the request object to functions or middleware. Rapira does not fill the superglobals in this mode. An application that reads superglobals needs Worker mode, or an adapter that copies request data to these variables. `echo` and other PHP output do not go to the client. Rapira writes this output to the log on the `php` target at the `info` level.
 
-Each worker handles one work unit at a time. Finalize the current unit before you call `receive()` again. To handle more requests at the same time, increase `http.pool.processes`.
+Each worker handles one work unit at a time. Finalize the current unit before you call `receive()` again. To handle more requests at the same time, increase `http.pool.workers`.
 
 See [Dispatcher mode](/docs/dispatcher) for the loop, the request and response API, and the exceptions. See [gRPC](/docs/grpc) for the gRPC call API.
 
@@ -48,7 +48,7 @@ In Worker and Dispatcher modes, the entry script starts before the first request
 
 | Key | Value |
 | --- | --- |
-| Each process environment variable | The value from the environment |
+| Each pool and process environment variable | The value from the [pool env table](/docs/configuration#http-pool-env) or the startup environment |
 | `PHP_SELF`, `SCRIPT_NAME`, `SCRIPT_FILENAME`, `PATH_TRANSLATED` | The absolute path of the entry script |
 | `DOCUMENT_ROOT` | An empty string |
 | `REQUEST_TIME`, `REQUEST_TIME_FLOAT` | The start time of the entry script |
@@ -57,11 +57,11 @@ In Worker and Dispatcher modes, the entry script starts before the first request
 
 `$_SERVER` gets the environment variables when `variables_order` contains `S`. `$_ENV` gets them only when `variables_order` contains `E`. The production value `GPCS` does not contain `E`. The entry script path replaces an environment variable with the same name, such as `SCRIPT_FILENAME`. The `$argv` and `$argc` globals contain the same values as `$_SERVER`.
 
-In Dispatcher mode, `$_SERVER` keeps these values until the entry script starts again. Request data is in the request object. In Worker mode, Rapira refills `$_SERVER` with request data for each request. The request values do not contain the environment variables, and `SCRIPT_NAME` contains the entry script name with a leading slash.
+In Dispatcher mode, `$_SERVER` keeps these values until the entry script starts again. Request data is in the request object. In Worker mode, Rapira refills `$_SERVER` with [`[http.pool.env]`](/docs/configuration#http-pool-env) entries and request data for each request. Request variables override same-named pool entries, and `SCRIPT_NAME` contains the entry script name with a leading slash. In Classic mode, the `$_SERVER` of each request also contains the `[http.pool.env]` variables and no other environment variable.
 
 ## Reading the mode at runtime
 
-`Rapira\get_mode()` returns the process mode as a `Rapira\Mode` enum case. The cases are `Classic`, `Worker`, and `Dispatcher`. The case is the mode of the worker's pool, and it does not change while the process runs. The function takes no arguments and does not throw. An entry script can use it to support more than one mode.
+`Rapira\get_mode()` returns the pool mode as a `Rapira\Mode` enum case. The cases are `Classic`, `Worker`, and `Dispatcher`. The case is the mode of the worker's pool, and it does not change while the server runs. The function takes no arguments and does not throw. An entry script can use it to support more than one mode.
 
 ```php
 <?php
@@ -78,7 +78,7 @@ match (\Rapira\get_mode()) {
 };
 ```
 
-::: question Why does the mode never change while a process runs?
+::: question Why does the mode never change while the server runs?
 Rapira reads the mode of the pool before it starts the interpreter. Every request in that worker reports the same case. A reload does not read `rapira.toml` again. To change the mode, restart Rapira.
 :::
 

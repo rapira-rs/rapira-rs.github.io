@@ -5,7 +5,7 @@ description: "Poziomy logów Rapira, nadpisania dla poszczególnych celów, diag
 
 # Logi
 
-Rapira zapisuje wpisy logu do stderr. Te wpisy obejmują zdarzenia serwera, decyzje procesu nadrzędnego, zdarzenia HTTP i gRPC, diagnostykę PHP i komunikaty aplikacji. PHP wysyła swoją diagnostykę do tego logu, gdy ustawienie ini `error_log` jest puste. Puste ustawienie jest wartością domyślną.
+Rapira zapisuje wpisy logu do stderr. Te wpisy obejmują zdarzenia serwera, stan pul, zdarzenia HTTP i gRPC, diagnostykę PHP i komunikaty aplikacji. PHP wysyła swoją diagnostykę do tego logu, gdy ustawienie ini `error_log` jest puste, co jest wartością domyślną.
 
 Domyślny poziom to `error`, więc stderr zawiera tylko błędy. Zmień sekcję `[log]` lub ustaw `RUST_LOG`, aby wybrać inny poziom.
 
@@ -42,12 +42,11 @@ Rapira używa tych celów:
 
 | Cel             | Co obejmuje                                                                                     |
 | --------------- | ----------------------------------------------------------------------------------------------- |
-| `rapira`        | inicjalizacja serwera, cykl życia workerów, zamykanie                                           |
-| `master`        | stan pul, błędy tworzenia procesów i ostrzeżenia o limitach czasu żądań |
-| `http`          | nasłuchy HTTP, przetwarzanie pól żądania i odpowiedzi, zamykanie                                |
+| `rapira`        | inicjalizacja serwera, stan pul, cykl życia workerów, limity czasu watchdoga, zamykanie         |
+| `http`          | nasłuchy HTTP, przetwarzanie pól żądania i odpowiedzi, pliki statyczne, zamykanie               |
 | `grpc`          | nasłuchy gRPC, błędy transportu, zamykanie                                                      |
 | `net`           | pętla akceptowania połączeń nasłuchów HTTP i gRPC, błędy akceptowania                           |
-| `observability` | [proces metryk i sond](/pl/docs/observability): nasłuch, wygaszanie żądań, błędy               |
+| `observability` | [nasłuch metryk i sond](/pl/docs/observability): nasłuch, wygaszanie żądań, błędy               |
 | `php`           | wyjście i diagnostyka z samego PHP                                                              |
 | `app`           | wpisy, które aplikacja zapisuje przez `\Rapira\log()`                                           |
 
@@ -56,7 +55,7 @@ Rapira nie zapisuje logu dostępu z jedną linią dla każdego żądania. Wpisy 
 Zależność zapisuje wpisy trace pod swoją ścieżką modułu. Ten sam filtr prefiksu dotyczy tych wpisów. Każdy wpis zawiera nazwę swojego celu. Dodaj tę nazwę do `[log.targets]`, aby zmienić jej poziom.
 
 ::: tip
-Cel `master` zgłasza stan pul, błędy tworzenia procesów i ostrzeżenia o limitach czasu żądań. Nadzór nad pulami opisuje [Model procesów](/pl/docs/process-model).
+Cel `rapira` zgłasza stan pul po `SIGUSR1`, ponowne próby po nieudanych rozruchach i ostrzeżenia watchdoga o limitach czasu żądań. Zarządzanie pulą opisuje [Model procesów](/pl/docs/process-model).
 :::
 
 ## Diagnostyka PHP
@@ -152,7 +151,7 @@ Rapira nie skraca tablic ani ciągów znaków. Przekazuj identyfikatory zamiast 
 
 ## Formaty
 
-Rapira zapisuje oba formaty do stderr. Duże wpisy z różnych procesów mogą się przeplatać, gdy te procesy zapisują do tego samego potoku stderr.
+Rapira zapisuje oba formaty do stderr z jednego procesu serwera.
 
 Przekieruj stderr, aby zapisać logi do pliku. Menedżer usług może zbierać stderr. Więcej informacji zawiera [Wdrożenie produkcyjne](/pl/docs/deployment).
 
@@ -179,12 +178,12 @@ Rapira używa kolorów tylko wtedy, gdy stderr jest terminalem. Ustaw [`NO_COLOR
 ```sh
 RUST_LOG=info rapira serve rapira.toml
 RUST_LOG=error,rapira=debug,php=info rapira serve rapira.toml
-RUST_LOG=warn,rapira=trace,master=trace rapira serve rapira.toml
+RUST_LOG=warn,rapira=trace,http=debug rapira serve rapira.toml
 ```
 
-Pierwsze polecenie ustawia wszystkie cele na `info`. Drugie ustawia `rapira` na `debug`, `php` na `info`, a wszystkie inne cele na `error`. Trzecie ustawia wszystkie cele na `warn`, a `rapira` i `master` na `trace`.
+Pierwsze polecenie ustawia wszystkie cele na `info`. Drugie ustawia `rapira` na `debug`, `php` na `info`, a wszystkie inne cele na `error`. Trzecie ustawia wszystkie cele na `warn`, `rapira` na `trace`, a `http` na `debug`.
 
-Cel, do którego wartość nie pasuje, nie zapisuje żadnych wpisów. Na przykład `RUST_LOG=php=info` ukrywa wszystkie błędy z celów `master` i `http`. Dodaj poziom bez nazwy celu, na przykład `error`, aby zachować wpisy z pozostałych celów.
+Cel, do którego wartość nie pasuje, nie zapisuje żadnych wpisów. Na przykład `RUST_LOG=php=info` ukrywa wszystkie błędy z celów `rapira` i `http`. Dodaj poziom bez nazwy celu, na przykład `error`, aby zachować wpisy z pozostałych celów.
 
 ::: warning
 Niepusta wartość `RUST_LOG` **zastępuje** `level` i `[log.targets]`. Rapira nie łączy filtrów środowiska i pliku. Usuń zmienną, aby użyć ustawień z pliku konfiguracyjnego. Możesz też ustawić pustą wartość zmiennej. `RUST_LOG` nie wpływa na `format`.

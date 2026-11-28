@@ -11,11 +11,13 @@ Tryb Classic wykonuje zwykły skrypt wejściowy PHP. Może to być ten sam plik 
 
 Każde żądanie ma pełny cykl żądania PHP. Cykl obejmuje inicjalizację żądania, wykonanie skryptu wejściowego i zamknięcie żądania. PHP usuwa stan żądania przed kolejnym żądaniem. Ten stan obejmuje zmienne globalne, właściwości statyczne, kontener wstrzykiwania zależności i mapę tożsamości ORM.
 
-Obiekty i dane żądania nie mogą wpłynąć na późniejsze żądanie. Część stanu zostaje w procesie workera: trwałe połączenia, stan rozszerzeń i katalog roboczy. Aplikacje bez obsługi trwałych procesów mogą działać w trybie Classic.
+Obiekty i dane żądania nie mogą wpłynąć na późniejsze żądanie. Część stanu zostaje w wątku workera: trwałe połączenia i stan rozszerzeń. Aplikacje bez obsługi trwałych workerów mogą działać w trybie Classic.
 
 Aplikacja inicjalizuje autoloader, konfigurację, kontener i trasy dla każdego żądania. Zobacz [Tryby wykonania](/pl/docs/execution-modes).
 
-Każdy worker używa katalogu skryptu wejściowego jako katalogu roboczego. Worker rozwiązuje dowiązania symboliczne w ścieżce skryptu wejściowego i ustawia ten katalog przy starcie oraz przy każdym przeładowaniu. Wywołanie `chdir()` w żądaniu działa też w późniejszych żądaniach tego samego workera, do następnego przeładowania. Jeśli żądanie zmienia katalog roboczy, przywróć go przed końcem żądania.
+Każde żądanie Classic startuje w rozwiązanym katalogu skryptu wejściowego. Na końcu żądania PHP przywraca katalog zapisany przed uruchomieniem skryptu wejściowego (zwykle katalog, w którym uruchomiono Rapirę), a następnie uruchamia callbacki shutdown i końcowe destruktory. W kodzie shutdown używaj ścieżki bezwzględnej, na przykład `__DIR__ . '/var/last.log'`. W kompilacji NTS wywołanie `chdir()` podczas shutdown może wpłynąć na katalog shutdown kolejnego żądania.
+
+W trybie ZTS każdy wątek PHP ma własny katalog roboczy. Wywołanie `proc_open()` bez `$cwd` uruchamia proces potomny w katalogu, w którym uruchomiono Rapirę; przekaż `getcwd()` jako `$cwd`, aby użyć katalogu aplikacji. `exec()`, `shell_exec()` i `popen()` używają katalogu roboczego PHP.
 
 Rapira nie udostępnia funkcji php-fpm `fastcgi_finish_request()`. Użyj `rapira_finish_request()`, aby wysłać odpowiedź przed końcem skryptu. Zobacz [HTTP](/pl/docs/http).
 
@@ -64,9 +66,9 @@ Tabela `[http.uploads]` dotyczy tylko trybu Dispatcher. Rapira nie uruchamia si�
 
 ## OPcache
 
-Każde żądanie PHP usuwa stan aplikacji. OPcache zachowuje skompilowany bytecode między żądaniami. Proces nadrzędny uruchamia PHP przed utworzeniem workerów, więc wszystkie workery używają tego samego segmentu pamięci współdzielonej OPcache. Po włączeniu OPcache późniejsze żądania używają bytecode'u z cache'u, a PHP nie kompiluje ponownie niezmienionych skryptów. Konfigurację OPcache opisuje [Wdrożenie produkcyjne](/pl/docs/deployment).
+Każde żądanie PHP usuwa stan aplikacji. OPcache zachowuje skompilowany bytecode między żądaniami. Rapira inicjalizuje PHP raz przed startem workerów, więc wszystkie wątki workerów współdzielą tę samą pamięć OPcache. Po włączeniu OPcache późniejsze żądania używają bytecode'u z cache'u, a PHP nie kompiluje ponownie niezmienionych skryptów. Konfigurację OPcache opisuje [Wdrożenie produkcyjne](/pl/docs/deployment).
 
-Każdy worker obsługuje jedno żądanie naraz. `http.pool.processes` określa liczbę workerów, która jest też maksymalną liczbą równoczesnych żądań. Zobacz [model procesów](/pl/docs/process-model).
+Każdy worker obsługuje jedno żądanie naraz. `http.pool.workers` określa liczbę workerów, która jest też maksymalną liczbą równoczesnych żądań. Zobacz [model procesów](/pl/docs/process-model).
 
 ## Duże odpowiedzi
 
@@ -83,7 +85,7 @@ Więcej informacji zawiera [Przesyłanie odpowiedzi](/pl/docs/http#przesyłanie-
 
 ## Wybór między Classic a Worker
 
-Użyj trybu Classic, gdy aplikacja nie może bezpiecznie zachować stanu między żądaniami. Na przykład niektóre aplikacje i biblioteki zewnętrzne zapisują dane żądania we właściwościach statycznych. Tryb Classic zmniejsza też liczbę zmian w aplikacji przy przejściu z php-fpm. Użyj trybu [Worker](/pl/docs/worker), gdy aplikacja obsługuje trwały proces. Tryb Worker usuwa inicjalizację aplikacji z każdego żądania. Wszystkie trzy tryby opisuje [Tryby wykonania](/pl/docs/execution-modes).
+Użyj trybu Classic, gdy aplikacja nie może bezpiecznie zachować stanu między żądaniami. Na przykład niektóre aplikacje i biblioteki zewnętrzne zapisują dane żądania we właściwościach statycznych. Tryb Classic zmniejsza też liczbę zmian w aplikacji przy przejściu z php-fpm. Użyj trybu [Worker](/pl/docs/worker), gdy aplikacja obsługuje trwały worker. Tryb Worker usuwa inicjalizację aplikacji z każdego żądania. Wszystkie trzy tryby opisuje [Tryby wykonania](/pl/docs/execution-modes).
 
 ::: info
 W trybie Classic `Rapira\handle_request()` rzuca `Rapira\Exception\NotInWorkerModeError`. Skrypt Classic kończy się razem ze swoim żądaniem i nie może uruchomić pętli żądań.

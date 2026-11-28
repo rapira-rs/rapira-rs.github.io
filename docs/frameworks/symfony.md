@@ -15,7 +15,7 @@ The application code does not change. A worker script replaces `public/index.php
 - **Symfony 7.4** (`symfony/framework-bundle` v7.4.15), tested in `dev` and `prod`
 - **Symfony 8.1** (`symfony/framework-bundle` v8.1.2), tested in `dev`
 
-Both base applications used the `symfony/skeleton` package and one worker. Both used the **same `worker.php`** without version conditions. Tests covered routing, errors, requests, sessions, uploads, and 200 sequential requests. The examples on this page use the v0.9 configuration format.
+Both base applications used the `symfony/skeleton` package and one worker. Both used the **same `worker.php`** without version conditions. Tests covered routing, errors, requests, sessions, uploads, and 200 sequential requests. The examples on this page use the v0.10 configuration format.
 :::
 
 ## Behavior in Worker mode
@@ -26,7 +26,7 @@ For each request, the handler builds a `Request` from the superglobals that Rapi
 
 Sessions use the native PHP session functions. A request that uses the session calls `session_start()`, and the response contains the session cookie. The next request reads the stored session. Tests confirmed that separate clients receive separate sessions.
 
-Each worker process has one kernel. Workers do not share application objects. See [Process model](/docs/process-model) for worker counts and supervision.
+Each worker thread has one kernel. Workers do not share application objects. See [Process model](/docs/process-model) for worker counts and pool management.
 
 ## Prerequisites
 
@@ -103,7 +103,7 @@ After `$kernel->reboot(null)`, get the new container with `$kernel->getContainer
 
 Rapira keeps `$_ENV` until the worker script restarts. It does not rebuild this superglobal for each request. Values that `bootEnv()` loads before the loop remain available during later requests. This behavior also applies with `variables_order = "GPCS"` and `auto_globals_jit = On`.
 
-Before the first request, `$_SERVER` contains the process environment. Dotenv does not replace a variable that `$_SERVER` or `$_ENV` already contains. So an environment variable has priority over the same variable in `.env`, also with `variables_order = "GPCS"`.
+Before the first request, `$_SERVER` contains the startup and pool environment. Dotenv does not replace a variable that `$_SERVER` or `$_ENV` already contains. So an environment variable has priority over the same variable in `.env`, also with `variables_order = "GPCS"`.
 
 For example, add `usePutenv()` if application code must read Dotenv values with `getenv()`:
 
@@ -111,9 +111,9 @@ For example, add `usePutenv()` if application code must read Dotenv values with 
 (new Dotenv())->usePutenv()->bootEnv(__DIR__ . '/.env');
 ```
 
-`usePutenv()` writes Dotenv values into the process environment. Symfony `%env(...)%` can read these `$_ENV` values without this call. Rapira runs one NTS PHP interpreter in each process. PHP does not call `putenv()` from concurrent threads.
+`usePutenv()` writes Dotenv values into Rapira's thread-local `putenv()` layer without mutating the OS process environment, so it is safe across concurrent ZTS worker threads. Symfony `%env(...)%` can read `$_ENV` values without this call. Symfony Process passes only keys present in `$_SERVER` or `$_ENV` to child processes; add names such as `PATH` or `HOME` to `[http.pool.env]` or include `E` in `variables_order` if child processes need them.
 
-In production, set environment variables through systemd, the container runtime, or the orchestrator. Use `.env` only for development.
+In production, set environment variables in [`[http.pool.env]`](/docs/configuration#http-pool-env), systemd, the container runtime, or the orchestrator. Use `.env` only for development.
 
 ## Starting Rapira
 
@@ -166,12 +166,12 @@ listen = "127.0.0.1:8000"
 [http.pool]
 entrypoint = "worker.php"
 mode = "worker"
-processes = 4
+workers = 4
 max_requests = 500
 request_terminate_timeout_secs = 30
 ```
 
-`max_requests` restarts the app after a random request count above this value, up to 1.5 times this value. It limits the effect of a memory leak but does not correct it. `request_terminate_timeout_secs` stops a worker when one request runs longer than this limit. The restarted app or the new worker initializes the kernel again. A relative `entrypoint` uses the configuration file directory as its base. See [Configuration](/docs/configuration) for all settings.
+`max_requests` recycles the app after a random request count above this value, up to 1.5 times this value. It limits the effect of a memory leak but does not correct it. `request_terminate_timeout_secs` sets a wall-clock watchdog limit that interrupts PHP when one request runs longer than this limit. A recycled app initializes the kernel again. A relative `entrypoint` uses the configuration file directory as its base. See [Configuration](/docs/configuration) for all settings.
 
 Start the server with `APP_ENV=prod`:
 
@@ -179,7 +179,14 @@ Start the server with `APP_ENV=prod`:
 APP_ENV=prod rapira serve rapira.toml
 ```
 
-After a deployment, send `SIGUSR2` to the master to restart the apps. This reload empties OPcache, so it loads the new code also when `opcache.validate_timestamps = 0`. Restart Rapira after a change to a file that `opcache.preload` loads. See [Running in production](/docs/deployment).
+Alternatively, set `APP_ENV` in [`[http.pool.env]`](/docs/configuration#http-pool-env) in `rapira.toml`:
+
+```toml
+[http.pool.env]
+APP_ENV = "prod"
+```
+
+After a deployment, send `SIGUSR2` to the server to reload the apps. This reload empties OPcache, so it loads the new code also when `opcache.validate_timestamps = 0`, unless `opcache.file_cache` is set. Restart Rapira after a change to a file that `opcache.preload` loads. See [Running in production](/docs/deployment).
 
 ## What resets between requests
 

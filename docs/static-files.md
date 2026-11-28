@@ -1,6 +1,6 @@
 ---
 title: Static files
-description: "Serving files before a request reaches PHP, including the [http.static] keys, middleware rules, and per-worker file cache."
+description: "Serving files before a request reaches PHP, including the [http.static] keys, middleware rules, and shared in-memory file cache."
 faqLevel: 2
 ---
 
@@ -21,7 +21,7 @@ root = "public"     # Required. Relative paths use this file's directory.
 forbid = [".php"]   # Optional. This list replaces the default.
 ```
 
-`middleware` holds the middleware chain in list order. `static` is currently the only name it accepts.
+`middleware` holds the middleware chain in list order. Built-in names are `"static"` and `"compress"`.
 
 `root` names the directory that contains the files to serve. It has no default, so the table must set it. A relative path uses the configuration file directory as its base, as `http.pool.entrypoint` does.
 
@@ -84,19 +84,19 @@ The middleware does not set `Cache-Control`. Set this field in a reverse proxy w
 
 ## The file cache
 
-Each worker process keeps the files that it serves in memory. You cannot configure the cache. It uses these fixed values:
+The server keeps one shared in-memory file cache across all HTTP I/O shards. You cannot configure the cache. It uses these fixed values:
 
 - A cache entry is valid for one second.
 - The cache does not store a file larger than 256 KiB. Such a file streams from disk on each request.
-- Each worker stores at most 16 MiB. Thus, the cache can use 16 MiB of memory for each process in `http.pool.processes`.
+- The shared cache stores at most 16 MiB in total.
 
-After one second, the next request for a file runs `stat` on it. The worker keeps the entry when the device number, the inode number, the modification time, and the length are the same. Otherwise, it reads the file again. Rapira stops serving a deleted file after at most one second.
+After one second, the next request for a file runs `stat` on it. Rapira keeps the entry when the device number, the inode number, the modification time, and the length are the same. Otherwise, it reads the file again. Rapira stops serving a deleted file after at most one second.
 
 A full cache continues to serve its entries. It removes expired entries first. If the cache is still full, it does not store the new file.
 
-A new worker process starts with an empty cache. Thus, a worker replacement or a Rapira restart clears the cache. A reload keeps the cache, because the worker process stays.
+Restarting Rapira clears the cache. A reload keeps the cache, because the server process stays.
 
-The root must use local storage. The middleware runs `stat` and `open` on the thread that serves requests. A slow file system delays other connections in that worker.
+The root must use local storage. The middleware runs `stat` and `open` on the I/O shard thread that serves the connection. A slow file system delays other connections on that shard.
 
 ::: question Why does the cache not detect my changed file?
 The cache compares the device number, the inode number, the modification time, and the length of the file. It does not detect a change in place that keeps the modification time and the length. The `ETag` contains only the modification time and the length. When a rename replaces a file with a new file that has the same two values, a client that revalidates keeps its old copy. A permission change also keeps the entry. To remove the entry, delete the file, change its modification time, or restart Rapira.

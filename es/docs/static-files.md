@@ -1,6 +1,6 @@
 ---
 title: Archivos estáticos
-description: "Servir archivos antes de que una petición llegue a PHP: las claves de [http.static], las reglas del middleware y la caché de archivos de cada worker."
+description: "Servir archivos antes de que una petición llegue a PHP: las claves de [http.static], las reglas del middleware y la caché de archivos compartida en memoria."
 faqLevel: 2
 ---
 
@@ -21,7 +21,7 @@ root = "public"     # Obligatorio. Las rutas relativas usan el directorio de est
 forbid = [".php"]   # Opcional. Esta lista sustituye el valor predeterminado.
 ```
 
-`middleware` guarda la cadena de middleware en el orden de la lista. Por ahora, `static` es el único nombre que admite.
+`middleware` guarda la cadena de middleware en el orden de la lista. Los nombres integrados son `"static"` y `"compress"`.
 
 `root` define el directorio que contiene los archivos que se sirven. No tiene valor predeterminado, por lo que la tabla debe definirlo. Una ruta relativa usa como base el directorio del archivo de configuración, igual que `http.pool.entrypoint`.
 
@@ -84,19 +84,19 @@ El middleware no define `Cache-Control`. Define este campo en un proxy inverso c
 
 ## La caché de archivos
 
-Cada proceso worker guarda en memoria los archivos que sirve. No puedes configurar la caché. Usa estos valores fijos:
+El servidor mantiene una única caché de archivos compartida en memoria entre todos los fragmentos de E/S HTTP. No puedes configurar la caché. Usa estos valores fijos:
 
 - Una entrada de la caché es válida durante un segundo.
 - La caché no guarda un archivo de más de 256 KiB. Ese archivo se transmite desde el disco en cada petición.
-- Cada worker guarda como máximo 16 MiB. Por tanto, la caché puede usar 16 MiB de memoria por cada proceso de `http.pool.processes`.
+- La caché compartida guarda como máximo 16 MiB en total.
 
-Después de un segundo, la siguiente petición de un archivo ejecuta `stat` sobre él. El worker conserva la entrada cuando el número de dispositivo, el número de inodo, la fecha de modificación y el tamaño no cambian. En otro caso, vuelve a leer el archivo. Rapira deja de servir un archivo eliminado después de un segundo como máximo.
+Después de un segundo, la siguiente petición de un archivo ejecuta `stat` sobre él. Rapira conserva la entrada cuando el número de dispositivo, el número de inodo, la fecha de modificación y el tamaño no cambian. En otro caso, vuelve a leer el archivo. Rapira deja de servir un archivo eliminado después de un segundo como máximo.
 
 Una caché llena sigue sirviendo sus entradas. Elimina primero las entradas caducadas. Si la caché sigue llena, no guarda el archivo nuevo.
 
-Un proceso worker nuevo empieza con la caché vacía. Por tanto, una sustitución de worker o un reinicio de Rapira vacían la caché. Una recarga conserva la caché, porque el proceso del worker se mantiene.
+Reiniciar Rapira vacía la caché. Una recarga conserva la caché, porque el proceso del servidor se mantiene.
 
-La raíz debe usar almacenamiento local. El middleware ejecuta `stat` y `open` en el hilo que atiende peticiones. Un sistema de archivos lento retrasa las demás conexiones de ese worker.
+La raíz debe usar almacenamiento local. El middleware ejecuta `stat` y `open` en el hilo del fragmento de E/S que atiende la conexión. Un sistema de archivos lento retrasa las demás conexiones de ese fragmento.
 
 ::: question ¿Por qué la caché no detecta mi archivo modificado?
 La caché compara el número de dispositivo, el número de inodo, la fecha de modificación y el tamaño del archivo. No detecta un cambio en el propio archivo que conserva la fecha de modificación y el tamaño. El `ETag` contiene solo la fecha de modificación y el tamaño. Cuando un renombrado sustituye un archivo por un archivo nuevo con los mismos dos valores, un cliente que revalida su copia conserva la copia antigua. Un cambio de permisos también conserva la entrada. Para eliminar la entrada, elimina el archivo, cambia su fecha de modificación o reinicia Rapira.

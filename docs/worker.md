@@ -6,7 +6,7 @@ faqLevel: 2
 
 # Worker mode
 
-Worker mode keeps the PHP process active between requests. The script initializes the application once and then waits for requests in a loop. Application state stays in memory, so the worker script must manage it.
+Worker mode keeps the PHP app active on each worker thread between requests. The script initializes the application once and then waits for requests in a loop. Application state stays in memory, so the worker script must manage it.
 
 In [Classic mode](/docs/classic), the entry script runs in a new PHP request each time, and Rapira removes application state after the response. This state includes the autoloader, container, configuration, routes, and database connections.
 
@@ -64,7 +64,7 @@ See [Configuration](/docs/configuration) for the other keys.
 
 A request in Worker mode is one iteration of the `while` loop. Before each handler call, Rapira refills the superglobals. After the call, Rapira runs the request shutdown functions, flushes the output buffers, and closes the session. Rapira sends the response after these steps. Values that the script holds outside the handler stay in memory.
 
-Before the first `handle_request()` call, `$_SERVER` contains the process environment and the entry script path, as under the PHP CLI. See [Execution modes](/docs/execution-modes) for the complete list.
+Before the first `handle_request()` call, `$_SERVER` contains the startup and pool environment and the entry script path, as under the PHP CLI. See [Execution modes](/docs/execution-modes) for the complete list.
 
 ## One loop per worker
 
@@ -83,11 +83,13 @@ while (\Rapira\handle_request($web)) {
 
 Objects created **outside** the handler remain until the worker cycle ends. Examples include the autoloader, container, routes, configuration, open connections, and cached data. Rapira does not create this state for each request.
 
+Each app instance starts in the resolved entry script directory, and a `chdir()` call applies to later requests of that app instance. On ZTS, `proc_open()` without a `$cwd` starts the child in the directory where Rapira started; pass `getcwd()` as `$cwd` to use the app directory.
+
 Values created **inside** the handler belong to one request. PHP frees them after the handler returns and code removes their last references.
 
 The worker script defines the state lifetime. Put application state before the loop. Put request state in the handler or reset it before the next request.
 
-Open `php://input` inside the handler for each request. A handle from an earlier request or from initialization can return the body of a later request, or it can end the worker process.
+Open `php://input` inside the handler for each request. A handle from an earlier request or from initialization can return the body of a later request or fail.
 
 ::: warning
 Global state also remains between requests. Examples include static properties, singletons, registries, and `ini_set()` changes. php-fpm discards these values at the end of each request. A Rapira worker keeps them.
@@ -97,9 +99,11 @@ Use [Classic mode](/docs/classic) if the application cannot reset global state. 
 
 ## Shutdown functions
 
-A worker cycle is one run of the worker script, from initialization to the end of the script. PHP runs each shutdown function that initialization code registers once, at the end of the cycle. PHP runs each shutdown function that the handler registers once, at the end of that request.
+A worker cycle is one run of the worker script, from initialization to the end of the script. PHP runs each shutdown function that initialization code registers once, at the end of the cycle. PHP runs each shutdown function that the handler registers once, at the end of that request, in the app's current directory.
 
-Register process resource cleanup during initialization. Register request resource cleanup inside the handler.
+At the end of the cycle, PHP restores the directory saved before running the entry script (usually the directory where Rapira started) and then runs initialization shutdown callbacks and final destructors. Use an absolute path in cycle shutdown code, for example `__DIR__ . '/var/last.log'`.
+
+Register cycle resource cleanup during initialization. Register request resource cleanup inside the handler.
 
 ```php
 register_shutdown_function(static function (): void {
@@ -143,7 +147,7 @@ See [Response transmission](/docs/http#response-transmission) for more informati
 
 `handle_request()` needs the resident loop that only Worker mode has. In Classic mode and in Dispatcher mode, it throws `Rapira\Exception\NotInWorkerModeError`. All Rapira exception classes implement the marker interface `Rapira\Exception\RapiraThrowable`. Some usage errors are plain `\Error` or `\ValueError`, and a `catch` for `RapiraThrowable` does not catch them. An example is a `handle_request()` call inside its handler.
 
-`Rapira\get_mode()` returns the [mode](/docs/execution-modes) of the current process as a `Rapira\Mode` case. A script that runs in more than one mode reads it before it enters the loop:
+`Rapira\get_mode()` returns the [mode](/docs/execution-modes) of the worker's pool as a `Rapira\Mode` case. A script that runs in more than one mode reads it before it enters the loop:
 
 ```php
 if (\Rapira\get_mode() === \Rapira\Mode::Worker) {
@@ -160,11 +164,11 @@ Reset this state at the start or end of the handler. Also reset request state in
 
 **Uncollected reference cycles.** PHP reference counting releases most values at once. It releases reference cycles only when the cycle collector runs. The example calls `gc_collect_cycles()` between requests. This call is optional, but it makes the collection time predictable.
 
-**Requests that do not finish.** A worker cannot handle another request while its current request runs. `http.pool.request_terminate_timeout_secs` limits the elapsed time of one request. When a request exceeds the limit, Rapira stops the worker and starts a new one. See [Configuration](/docs/configuration) for this key and `http.pool.max_requests`. See [Process model](/docs/process-model) for the stop sequence.
+**Requests that do not finish.** A worker cannot handle another request while its current request runs. `http.pool.request_terminate_timeout_secs` sets a wall-clock watchdog limit for one request. At the limit, the watchdog interrupts PHP and wakes a blocked response write. After five more seconds, Rapira logs a still-blocked worker once and exits `124` only if every worker in the pool stays blocked. See [Configuration](/docs/configuration) for this key and `http.pool.max_requests`. See [Process model](/docs/process-model) for watchdog details.
 
-**Initialization fails.** The worker script must call `handle_request()` and receive a request. An uncaught exception during initialization can end the script before that. Rapira counts this as a failed boot. The worker then waits up to 5 seconds for a request, answers it with `503`, and runs the script again.
+**Initialization fails.** The worker script must call `handle_request()` and receive a request. An uncaught exception during initialization can end the script before that. Rapira counts a failed boot. The retry delay starts at 500 ms, doubles after each consecutive failure, and stops at 5 seconds. An incoming request during the wait does not start the next boot early; while no worker in the pool is ready, queued requests receive `503`. A boot that succeeds resets the failure count and delay.
 
-After five failed boots in sequence, Rapira logs `worker keeps failing to boot; flagged unhealthy`, and the worker exits. The master starts a new worker after a delay. At server start, if no worker of the pool has booted or served a request, the server stops with [exit code](/docs/cli#exit-codes) 70 instead. See [Process model](/docs/process-model) for worker supervision.
+When a worker reaches `http.pool.max_boot_failures` (default `5`) before its pool has served a request, the server stops with [exit code](/docs/cli#exit-codes) `70`. After the pool has served a request, the worker keeps retrying with backoff instead of stopping the server. See [Process model](/docs/process-model#pool-management) for pool management.
 
 **An uncaught exception affects one request, not the worker.** If the handler throws an exception, Rapira first calls the callback that `set_exception_handler()` registered. If no callback handles the exception, Rapira returns `500`, unless the handler already sent the response head. In both cases, the loop continues. A call to `exit()` or `die()` in the handler ends only the current request, and Rapira sends the output as the response. A fatal error ends the worker script, and Rapira runs the script again with a new initialization.
 

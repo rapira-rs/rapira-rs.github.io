@@ -1,160 +1,145 @@
 ---
 title: Model procesów
-description: Proces nadrzędny Rapira, inicjalizacja PHP, procesy workerów, rozmiar puli, zastępowanie workerów i sygnały.
+description: Jednoprocesowa architektura Rapiry, wątki workerów ZTS PHP, rozmiar puli, ponowne uruchamianie aplikacji, watchdog i sygnały.
 ---
 
 # Model procesów
 
-Rapira uruchamia jeden proces nadrzędny i pulę workerów dla każdego włączonego protokołu. Proces nadrzędny zarządza gniazdami nasłuchującymi, zainicjalizowanym silnikiem PHP i plikiem pidfile. Następnie proces nadrzędny tworzy procesy workerów. Każdy worker dziedziczy PHP i przyjmuje połączenia ze wspólnego gniazda swojej puli. Rapira nie przekazuje żądań między procesami.
+Rapira uruchamia jeden proces serwera dla wszystkich włączonych protokołów. Proces zarządza nasłuchami, zainicjalizowanym silnikiem PHP, plikiem pidfile oraz jedną pulą workerów dla każdego włączonego protokołu. Każda pula ma ograniczoną kolejkę i stałą liczbę bezpiecznych wątkowo (ZTS) wątków workerów PHP.
 
-HTTP i [gRPC](./grpc) mają osobne nasłuchy, skrypty wejściowe i pule. `[http.pool]` i `[grpc.pool]` konfigurują je niezależnie. Pula gRPC używa trybu Dispatcher i obsługuje jedno aktywne wywołanie na workera.
+HTTP i [gRPC](/pl/docs/grpc) mają osobne nasłuchy, skrypty wejściowe, kolejki i pule. `[http.pool]` i `[grpc.pool]` konfigurują je niezależnie. Pula gRPC używa trybu Dispatcher i obsługuje jedno aktywne wywołanie na workera.
 
-Gdy konfiguracja zawiera tabelę `[observability]`, proces nadrzędny uruchamia też jeden proces dla metryk i kontroli stanu. Ten proces nie wykonuje kodu PHP. W systemie Linux jego nazwa procesu to `rapira-obs`, a workery PHP mają nazwę `rapira-worker`. Proces nadrzędny nadzoruje i zatrzymuje ten proces razem z workerami PHP. Przeładowanie go nie zmienia, ponieważ nie ma on aplikacji do ponownego uruchomienia. Więcej informacji znajdziesz w [Metrykach i kontrolach stanu](/pl/docs/observability).
+Gdy konfiguracja zawiera tabelę `[observability]`, Rapira uruchamia nasłuch w osobnym wątku (`rapira-obs`) w tym samym procesie. Ten wątek nie wykonuje kodu PHP. Przeładowanie go nie zmienia, ponieważ nie ma on aplikacji do ponownego uruchomienia. Więcej informacji zawiera strona [Metryki i kontrole stanu](/pl/docs/observability).
 
-Ten model procesów jest taki sam w trybach [Classic](/pl/docs/classic), [Worker](/pl/docs/worker) i [Dispatcher](/pl/docs/dispatcher). `http.pool.mode` steruje przetwarzaniem żądań wewnątrz workera. To ustawienie nie zmienia tworzenia puli, nadzoru ani przeładowań. Więcej informacji znajdziesz w [Trybach wykonania](/pl/docs/execution-modes).
+Ta architektura jest taka sama w trybach [Classic](/pl/docs/classic), [Worker](/pl/docs/worker) i [Dispatcher](/pl/docs/dispatcher). `http.pool.mode` steruje przetwarzaniem żądań wewnątrz wątku workera. Nie zmienia tworzenia puli, ponownego uruchamiania aplikacji ani przeładowań. Więcej informacji zawiera strona [Tryby wykonania](/pl/docs/execution-modes).
 
-## Proces nadrzędny i workery
+## Serwer i workery
 
 Inicjalizacja przebiega w tej kolejności:
 
-1. **Związanie gniazda lub gniazd nasłuchujących.** Zajęty port zatrzymuje inicjalizację, zanim wystartuje PHP.
-2. **Jednorazowy start PHP.** Proces nadrzędny wykonuje `MINIT` w swoim jedynym wątku. W tym momencie OPcache tworzy swoją pamięć współdzieloną, a każdy worker ją dziedziczy. Gdy jeden worker skompiluje plik, pozostałe workery używają wyniku z cache.
-3. **Forkowanie workerów.** Każdy potomek dziedziczy związane gniazdo i zainicjalizowany silnik.
+1. **Walidacja konfiguracji i limitów NTS.** W kompilacji NTS Rapira odrzuca drugą pulę PHP i ogranicza pojedynczą pulę do jednego workera.
+2. **Powiązanie gniazd nasłuchujących.** Konflikt portu zatrzymuje inicjalizację przed uruchomieniem PHP.
+3. **Jednorazowy start PHP.** Wątek główny wykonuje `MINIT` i inicjalizuje OPcache we współdzielonej pamięci procesu.
+4. **Uruchomienie środowisk I/O i wątków workerów.** Każda pula tworzy skonfigurowaną liczbę wątków workerów PHP.
 
 ```mermaid
 flowchart TB
-  M["master · single thread<br/>binds · initializes PHP · supervises"]
-  S(["listen socket"])
-  W1["worker<br/>PHP + async runtime"]
-  W2["worker<br/>PHP + async runtime"]
-  W3["worker<br/>PHP + async runtime"]
-  M -- bind --> S
-  M -- fork --> W1
-  M -- fork --> W2
-  M -- fork --> W3
-  S -. accept .-> W1
-  S -. accept .-> W2
-  S -. accept .-> W3
+  S["server process<br/>main thread · signals · MINIT"]
+  IO["HTTP I/O shards (1..=16) / gRPC I/O runtime"]
+  Q(["pool queue"])
+  W1["PHP worker thread"]
+  W2["PHP worker thread"]
+  W3["PHP worker thread"]
+  S --> IO
+  IO --> Q
+  Q -. pull .-> W1
+  Q -. pull .-> W2
+  Q -. pull .-> W3
 ```
 
-Diagram pokazuje jedną pulę. Każdy worker uruchamia jeden interpreter PHP w wersji NTS i asynchroniczny serwer HTTP lub gRPC. Serwer używa hyper na prywatnym runtimie tokio z dwoma wątkami. Każdy worker wywołuje `accept()` na odziedziczonym gnieździe. System operacyjny przydziela każde nowe połączenie jednemu workerowi.
+Wtyczka HTTP uruchamia dedykowane jednowątkowe shardy I/O, po jednym na CPU w zakresie `1..=16`. Wtyczka gRPC używa wielowątkowego środowiska I/O z jednym wątkiem na CPU. Serwery obsługujące tylko HTTP używają jednowątkowego środowiska sterującego. Każdy wątek workera PHP pobiera jednostki pracy z kolejki swojej puli.
 
-Proces nadrzędny nie obsługuje żądań. Jego jedyny wątek czeka na sygnały, zakończenia workerów i timery.
+W modelu ZTS każdy wątek workera PHP ma własny katalog roboczy i lokalną dla wątku warstwę `putenv()`. Identyfikator procesu, `umask()` i `setlocale()` są współdzielone między wszystkimi wątkami w procesie serwera. Kompilacja zlinkowana z PHP NTS uruchamia jednego workera, zapisuje ostrzeżenie w logu, jeśli `workers` ma większą wartość, i odrzuca drugą pulę PHP.
 
 ::: info
-Proces nadrzędny trzyma moduł PHP przez cały czas swojego działania. Tylko proces nadrzędny zamyka ten moduł. Worker kończy działanie, ale nie zamyka tego wspólnego stanu silnika.
+Serwer zamyka moduł PHP w wątku głównym po zakończeniu wszystkich wątków workerów PHP.
 :::
 
-## Nadzór
+## Zarządzanie pulą {#pool-management}
 
-Proces nadrzędny wykonuje obsługę raz na sekundę. Obsługuje też każde zakończenie workera w chwili jego wystąpienia.
-
-- **Zastępowanie workerów.** Po normalnym zakończeniu proces nadrzędny natychmiast zastępuje workera. Po awarii lub zakończeniu w stanie niezdrowym opóźnienie zastąpienia zaczyna się od 100 ms. Opóźnienie podwaja się po każdej kolejnej awarii i przestaje rosnąć przy 25,6 sekundy. Worker, który działa co najmniej 10 sekund, zeruje opóźnienie.
-- **Nieudane rozruchy.** W trybach Worker i Dispatcher rozruch jest nieudany, gdy skrypt wejściowy kończy się przed otrzymaniem żądania. Worker czeka wtedy do 5 sekund i ponownie uruchamia skrypt wejściowy. Na żądanie, które przyjdzie w tym czasie, odpowiada kodem HTTP `503` lub gRPC `UNAVAILABLE`. Po pięciu kolejnych nieudanych rozruchach worker kończy działanie jako niezdrowy.
-- **Zatrzymanie procesu nadrzędnego po nieudanym rozruchu.** Proces nadrzędny zatrzymuje się z kodem wyjścia 70, gdy niezdrowy worker zakończy działanie. Ta reguła dotyczy tylko puli bez udanego żądania i bez bezczynnego lub aktywnego workera. W pozostałych przypadkach proces nadrzędny zastępuje workera po opóźnieniu zastąpienia. Awaria workera nigdy nie zatrzymuje procesu nadrzędnego.
-- **Limity żądań.** W trybach Worker i Dispatcher `http.pool.max_requests` ogranicza liczbę żądań jednej instancji aplikacji. Po losowej liczbie żądań od `max_requests + 1` do około `1.5 × max_requests` worker uruchamia aplikację ponownie. Proces workera, jego połączenia i jego kolejka pozostają. Następne żądanie czeka na start aplikacji. Losowy zakres zapobiega jednoczesnym ponownym uruchomieniom. Tryb Classic ignoruje to ustawienie, ponieważ każde żądanie działa w nowym żądaniu PHP.
-- **Limit czasu żądania.** Z `http.pool.request_terminate_timeout_secs` proces nadrzędny wysyła `SIGTERM` do workera, gdy jego bieżące żądanie przekroczy limit. Jeśli worker jest nadal aktywny przy następnej obsłudze, proces nadrzędny wysyła `SIGKILL`. Następnie proces nadrzędny natychmiast zastępuje workera. Proces nadrzędny nie stosuje tego limitu podczas zatrzymywania.
-- **Limit pamięci.** Poza zatrzymywaniem proces nadrzędny sprawdza RSS każdego workera raz na sekundę i wysyła `SIGQUIT` jeden raz po przekroczeniu `http.pool.max_memory_mb`. Worker przestaje przyjmować nowe połączenia; istniejące połączenia mogą otrzymać odpowiedź na następne żądanie w czasie przeznaczonym na zakończenie obsługi. Odpowiedzi, które przekroczą ten czas, mogą zostać przerwane. Proces nadrzędny uruchamia zastępcę po zakończeniu workera, które zwalnia pamięć wewnątrz i poza PHP. RSS może pozostać wysokie po ponownym uruchomieniu aplikacji, ponieważ PHP zachowuje część zwolnionej pamięci do ponownego użycia.
-- **Monitorowanie procesu nadrzędnego.** Każdy worker czyta z potoku, który proces nadrzędny utrzymuje otwarty. Gdy proces nadrzędny kończy działanie, każdy worker przestaje przyjmować nową pracę, kończy bieżące żądania i kończy działanie.
+- **Nieudane rozruchy.** W trybach Worker i Dispatcher rozruch jest nieudany, gdy skrypt wejściowy kończy się przed otrzymaniem jednostki pracy. Opóźnienie ponownej próby zaczyna się od 500 ms, podwaja po każdym kolejnym nieudanym rozruchu i zatrzymuje na 5 sekundach. Jednostka pracy przychodząca w czasie oczekiwania nie przyspiesza kolejnego rozruchu; dopóki żaden worker w puli nie jest gotowy, jednostki w kolejce otrzymują HTTP `503` lub gRPC `UNAVAILABLE`. Udany rozruch zeruje licznik błędów i opóźnienie.
+- **Zatrzymanie po nieudanym rozruchu.** `max_boot_failures` ogranicza liczbę kolejnych nieudanych rozruchów (domyślnie `5`; `0` wyłącza limit). Gdy worker osiągnie limit, zanim jego pula obsłuży jakąkolwiek jednostkę pracy, Rapira kończy działanie z kodem `70`. Po obsłużeniu jednostki pracy przez pulę worker ponawia próby z narastającym opóźnieniem zamiast zatrzymywać serwer.
+- **Ponowne uruchamianie aplikacji.** W trybach Worker i Dispatcher `max_requests` ogranicza liczbę jednostek pracy jednej instancji aplikacji. Po losowej liczbie z przedziału od `max_requests + 1` do około `1.5 × max_requests` worker ponownie uruchamia aplikację w tym samym wątku. Nasłuchy, połączenia i kolejka puli pozostają. Tryb Classic ignoruje ten klucz.
+- **Watchdog limitu czasu żądania.** `request_terminate_timeout_secs` ustawia limit czasu rzeczywistego dla jednej jednostki pracy. Po osiągnięciu limitu watchdog przerywa PHP i wybudza zablokowany zapis odpowiedzi. Natywne operacje I/O mogą nadal czekać, więc ustaw limity czasu na gniazdach i zapytaniach do baz danych. Po kolejnych pięciu sekundach Rapira zapisuje raz w logu nadal zablokowanego workera, podczas gdy pozostałe workery dalej obsługują żądania. Rapira kończy działanie z kodem `124` tylko wtedy, gdy wszystkie workery w jednej puli pozostają zablokowane po upływie okresu dodatkowego.
+- **Sygnał watchdoga (`SIGRTMAX`).** Na Linuksie i innych platformach obsługujących `SIGRTMAX` włączony watchdog rezerwuje `SIGRTMAX` przed startem workerów. Uruchomienie kończy się błędem, jeśli wątek główny go blokuje albo proces już go obsługuje lub ignoruje. Aplikacje i rozszerzenia muszą pozostawić `SIGRTMAX` dostępny. macOS używa flag przerwań PHP bez natywnego sygnału wybudzenia.
+- **Zegary wykonania (`execution_clock`).** Na Linuksie z zegarami PHP na wątek `max_execution_time` domyślnie liczy czas rzeczywisty i wstrzymuje odliczanie podczas czekania na pracę lub miejsce w strumieniu odpowiedzi. Ustaw `execution_clock = "cpu"` w puli, aby liczyć tylko czas CPU wątku workera, dzięki czemu `sleep()` i oczekiwanie na bazę danych nie zużywają limitu. Bez zegarów na wątek i z wieloma workerami Rapira ustawia `max_execution_time=0` oraz `max_input_time=-1`, podczas gdy `request_terminate_timeout_secs` nadal obowiązuje.
 
 ## Rozmiar puli
 
 Poniższe ustawienia używają `[http.pool]`. Te same ustawienia dotyczą `[grpc.pool]`.
 
-`http.pool.processes` ustawia liczbę workerów. Proces nadrzędny tworzy te workery podczas inicjalizacji i zastępuje każdy worker, który zakończy działanie. Domyślna wartość to jeden worker na każdy procesor, którego proces może używać. Jeśli kontener ma limit procesora, wartość domyślna uwzględnia ten limit.
+`http.pool.workers` ustawia liczbę wątków workerów. Domyślna wartość to jeden worker na każdy procesor, którego proces może używać. Jeśli kontener ma limit procesora, wartość domyślna uwzględnia ten limit.
 
-Łączna liczba workerów we wszystkich pulach musi wynosić 4096 lub mniej. Gdy obserwowalność jest włączona, jej proces liczy się jako jeden worker. Większa suma zatrzymuje Rapira z kodem wyjścia 70.
+PHP działa synchronicznie, więc każdy wątek workera obsługuje jedną jednostkę pracy naraz. Aplikacje ograniczone przez operacje wejścia i wyjścia mogą wymagać więcej workerów niż rdzeni procesora. Aplikacje ograniczone przez procesor zwykle ich nie wymagają.
 
-PHP działa synchronicznie, więc każdy worker obsługuje jedno żądanie naraz. Aplikacje ograniczone przez operacje wejścia i wyjścia mogą wymagać więcej workerów niż rdzeni procesora. Aplikacje ograniczone przez procesor zwykle ich nie wymagają.
+Liczba workerów nie zmienia się podczas działania serwera. Aby zmienić wydajność wraz z obciążeniem, zmień liczbę instancji Rapiry, na przykład za pomocą orkiestratora kontenerów.
 
-Liczba workerów nie zmienia się podczas działania serwera. Aby dopasować wydajność do obciążenia, zmień liczbę instancji Rapira, na przykład za pomocą orkiestratora kontenerów.
+Pełny wykaz kluczy zawiera [Konfiguracja](/pl/docs/configuration).
 
-Pełny wykaz kluczy znajdziesz w [Konfiguracji](/pl/docs/configuration).
+## Sygnały {#signals}
 
-## Sygnały
+Sygnały zatrzymują działający serwer, przeładowują go i każą mu zgłosić swój stan. Wysyłaj sygnały do procesu `rapira`:
 
-Sygnały zatrzymują działający serwer, przeładowują go i każą mu zgłosić swój stan. Wszystkie trafiają do **procesu nadrzędnego**.
-
-| Sygnał | Co robi proces nadrzędny |
+| Sygnał | Co robi serwer |
 | --- | --- |
-| `SIGTERM`, `SIGINT` | Proces nadrzędny pozwala dokończyć bieżące żądania, a potem zatrzymuje workery. Drugi sygnał wymusza zatrzymanie workerów. |
-| `SIGQUIT` | Proces nadrzędny wykonuje to samo kontrolowane zatrzymanie. Kolejny `SIGQUIT` nic nie zmienia. |
-| `SIGUSR2`, `SIGHUP` | Proces nadrzędny przekazuje każdemu workerowi, że ma uruchomić aplikację ponownie. Żaden proces workera nie jest zastępowany. |
-| `SIGUSR1` | Proces nadrzędny zapisuje stan puli do logu. |
+| `SIGTERM`, `SIGINT` | Zamyka nasłuchy, obsługuje otwarte połączenia do końca i zatrzymuje workery. Drugi sygnał `SIGTERM` lub `SIGINT` wymusza wyjście z kodem `130`. |
+| `SIGQUIT` | Wykonuje to samo wygaszanie i zatrzymanie. Drugi `SIGQUIT` nie wywołuje żadnego efektu. |
+| `SIGUSR2`, `SIGHUP` | Przeładowuje aplikację w każdym workerze każdej puli. |
+| `SIGUSR1` | Zapisuje stan pul i workerów do logu. |
 
-Ustaw `supervisor.pidfile`, aby skrypty miały stałe miejsce z identyfikatorem procesu nadrzędnego:
+Ustaw `server.pidfile`, aby skrypty miały stałe miejsce z identyfikatorem procesu serwera:
 
 ```bash
-kill -USR2 $(cat /run/rapira.pid)   # Uruchom ponownie aplikację w każdym workerze.
+kill -USR2 $(cat /run/rapira.pid)   # Przeładuj aplikację w każdym workerze.
 kill -USR1 $(cat /run/rapira.pid)   # Zapisz stan puli do logu.
-kill -TERM $(cat /run/rapira.pid)   # Zatrzymaj po zakończeniu bieżących żądań.
+kill -TERM $(cat /run/rapira.pid)   # Zatrzymaj po obsłużeniu otwartych połączeń.
 ```
-
-::: warning
-Wysyłaj sygnały tylko do procesu nadrzędnego. Workery ignorują `SIGUSR1`. `SIGUSR2` powoduje ponowne uruchomienie aplikacji w workerze. `SIGTERM` i `SIGHUP` natychmiast zatrzymują workera i przerywają jego bieżące żądania. Limit czasu żądania używa `SIGTERM`. Bezpośredni sygnał do workera omija nadzór procesu nadrzędnego.
-
-`Ctrl-C` w terminalu wysyła `SIGINT` do procesu nadrzędnego i do wszystkich workerów. Każdy worker otrzymuje potem także `SIGQUIT` od procesu nadrzędnego. Drugi sygnał zatrzymania powoduje natychmiastowe zakończenie workera z kodem 131, więc jego bieżące żądania nie kończą się. Aby bieżące żądania mogły się zakończyć, wyślij `SIGTERM` tylko do procesu nadrzędnego.
-:::
 
 ### Zatrzymywanie
 
-Po sygnale zatrzymania proces nadrzędny natychmiast wysyła `SIGQUIT` do każdego workera. Workery nie przyjmują nowych połączeń i kończą bieżące żądania. Każdy worker zachowuje swoje połączenia. Na następne żądanie w każdym połączeniu odpowiada, dodając nagłówek `Connection: close`, a potem połączenie się zamyka. Po `supervisor.process_control_timeout_secs` proces nadrzędny wysyła `SIGTERM` do pozostałych workerów. Domyślny limit wynosi 30 sekund. Jeśli workery nadal działają, proces nadrzędny wysyła `SIGKILL` sekundę po `SIGTERM`.
+Po sygnale `SIGTERM`, `SIGINT` lub `SIGQUIT` Rapira zamyka nasłuchy i przestaje przyjmować nowe połączenia. Otwarte połączenia mają czas na zakończenie przez `[server].stop_timeout_secs` minus pięć sekund lub przez połowę limitu, jeśli wynosi on poniżej dziesięciu sekund. Domyślny limit zatrzymywania to 30 sekund, co daje 25 sekund na obsługę bieżących połączeń i 5 sekund na zamknięcie PHP.
 
-Czas na zakończenie połączeń to limit sterowania pomniejszony o mniejszą z wartości: pięć sekund lub połowę limitu. Przy ustawieniach domyślnych połączenia mają 25 sekund na zakończenie. Odpowiedzi, które przekroczą ten czas, mogą zostać przerwane. Połączenie, które jest bezczynne przez cały ten czas, zamyka się na jego końcu.
+Gdy upłynie limit czasu zatrzymywania, Rapira kończy działanie natychmiast. Drugi sygnał `SIGTERM` lub `SIGINT` podczas zamykania połączeń wymusza natychmiastowe wyjście z kodem `130`. Wszystkie kody wyjścia opisuje sekcja [Kody wyjścia](/pl/docs/cli#exit-codes).
 
-Drugi `SIGTERM` albo `SIGINT` pomija czekanie i wymusza natychmiastowe zakończenie. Kody wyjścia procesu nadrzędnego opisują [Kody wyjścia](/pl/docs/cli#kody-wyjscia).
+### Przeładowanie uruchamia aplikacje ponownie {#a-reload-restarts-the-apps}
 
-### Przeładowanie uruchamia aplikacje ponownie
+`SIGUSR2` lub `SIGHUP` uruchamia aplikację ponownie w każdym workerze każdej puli. Przed ponownym uruchomieniem skryptu wejściowego worker rozwiązuje dowiązania symboliczne w ścieżce skryptu wejściowego, czyści pamięć podręczną realpath PHP i przechodzi do rozwiązanego katalogu skryptu. Nasłuchy, połączenia i jednostki w kolejce pozostają.
 
-`SIGUSR2` lub `SIGHUP` uruchamia ponownie aplikację w każdym workerze każdej puli. Worker kończy żądanie PHP aplikacji i ponownie uruchamia skrypt wejściowy w tym samym procesie. Przed uruchomieniem skryptu worker rozwiązuje dowiązania symboliczne w ścieżce skryptu wejściowego i zmienia katalog roboczy na katalog skryptu. Gniazdo nasłuchujące, połączenia i żądania w kolejce pozostają. Stara aplikacja obsługuje żądania, które czekają w kolejce przed sygnałem. Późniejsze żądania trafiają do nowej aplikacji.
+W trybie Classic każde żądanie uruchamia skrypt wejściowy w nowym żądaniu PHP. Dlatego zmieniony plik działa bez przeładowania, z wyjątkiem `opcache.validate_timestamps = 0`. Wdrożenie, które przełącza dowiązanie symboliczne w ścieżce skryptu wejściowego, wymaga przeładowania we wszystkich trybach, także w trybie Classic. Tryby Worker i Dispatcher trzymają aplikację w pamięci, więc przeładuj pulę po każdym wdrożeniu. Więcej informacji zawiera [Wdrożenie produkcyjne](/pl/docs/deployment).
 
-W trybie Classic każde żądanie uruchamia skrypt wejściowy w nowym żądaniu PHP. Dlatego zmieniony plik działa bez przeładowania, z wyjątkiem `opcache.validate_timestamps = 0`. Wdrożenie, które przełącza dowiązanie symboliczne w ścieżce skryptu wejściowego, wymaga przeładowania we wszystkich trybach, także w trybie Classic. Tryby Worker i Dispatcher trzymają aplikację w pamięci. Przeładuj pulę po każdym wdrożeniu w tych trybach. Więcej informacji znajdziesz we [Wdrożeniu](/pl/docs/deployment).
+Przeładowanie resetuje OPcache, więc aplikacje wczytują nowy kod także przy `opcache.validate_timestamps = 0`. Wartość `manual_restarts` z `opcache_get_status()` liczy te przeładowania. Jeden worker wykonuje `opcache_reset()`, gdy pozostałe czekają, a kolejne żądania ponownie kompilują zmienione skrypty. Przy `opcache.file_cache` i `opcache.validate_timestamps = 0` przeładowanie nie wczytuje nowego kodu zmienionego pliku w żadnym trybie: zobacz [wdrożenie produkcyjne](/pl/docs/deployment).
 
-Przeładowanie opróżnia OPcache, więc aplikacje wczytują nowy kod także przy `opcache.validate_timestamps = 0`. Wartość `manual_restarts` z `opcache_get_status()` liczy te przeładowania. Po przeładowaniu pierwsze żądania ponownie kompilują swoje pliki PHP. Żądania działają bez OPcache, dopóki nie zakończy się najdłuższe żądanie, które było aktywne w chwili przeładowania. W trybie Classic żądanie, które zaczyna się po tym, jak jego worker otrzymał przeładowanie, uruchamia nowy kod, a aktywne żądania kończą się ze starym kodem.
-
-Każdy worker uruchamia aplikację ponownie samodzielnie. W trybach Worker i Dispatcher z OPcache większość workerów uruchamia aplikację dwa razy podczas przeładowania. Dlatego kod przed pętlą workera działa dwa razy. Gdy wszystkie workery robią to w tym samym czasie, każda kolejka czeka tylko na starty aplikacji własnego workera. Klient nie zauważa ponownego uruchomienia, poza tym oczekiwaniem.
-
-Proces nadrzędny ignoruje sygnał przeładowania podczas zatrzymywania. Nie zapisuje zignorowanego sygnału w logu.
+Rapira ignoruje sygnały przeładowania podczas zatrzymywania.
 
 ::: info
-Przeładowanie uruchamia ponownie aplikacje, a nie procesy. Workery zachowują ten sam zainicjalizowany silnik. Zrestartuj Rapira, aby zastosować zmiany pliku binarnego lub plików, które czyta proces nadrzędny, na przykład `rapira.toml` i `php.ini`. Zrestartuj ją także po zmianie pliku, który wczytuje `opcache.preload`.
+Przeładowanie ponownie uruchamia aplikacje, ale nie restartuje procesu serwera. Uruchom Rapirę ponownie, aby zastosować zmiany w pliku binarnym, `rapira.toml`, `php.ini`, `grpc.descriptor_set`, `grpc.auth.tokens_file` lub w plikach wczytywanych przez `opcache.preload`.
 :::
 
-OPcache planuje ponowne uruchomienie, gdy kod aplikacji wywołuje `opcache_reset()` lub gdy pamięć podręczna jest pełna. Rapira przeładowuje wtedy każdą pulę i zapisuje jedno ostrzeżenie w logu. Żaden proces workera się nie zatrzymuje i żadne połączenie się nie zamyka. W Rapirze domyślna wartość `opcache.force_restart_timeout` to 0, a wartość w `php.ini` ją zastępuje. Przy wartości powyżej 0 OPcache może zabić workera, którego żądanie trwa dłużej niż ten czas podczas ponownego uruchomienia OPcache, także podczas przeładowania. Zostaw wartość 0.
+OPcache planuje ponowne uruchomienie, gdy kod aplikacji wywołuje `opcache_reset()` lub gdy pamięć podręczna jest pełna. Rapira przeładowuje wtedy każdą pulę i zapisuje ostrzeżenie w logu. W Rapirze domyślna wartość `opcache.force_restart_timeout` to `0`, a wartość w `php.ini` ją zastępuje. Zostaw wartość `0`, aby OPcache nie zabił aktywnych workerów podczas ponownego uruchomienia.
 
 ### Zapisywanie stanu do logu
 
-`SIGUSR1` powoduje, że proces nadrzędny zapisuje stan każdej puli do logu. Pierwsza linia puli pokazuje liczbę działających i bezczynnych workerów. Potem po jednej linii na każdy slot workera pokazuje identyfikator procesu, stan i trzy liczniki:
+`SIGUSR1` zapisuje stan każdej puli i workera do logu w celu `rapira` na poziomie `info`:
 
 ```text
-status: http pool: 4 running, 3 idle
-  slot 0 pid 4242 state 2 handled 1500 errors 2 recycles 0
+pool=http workers=4 pending=0 failed_on_full_queue=0 refused=0
+pool=http worker=0 state=idle handled=1500 errors=2 recycles=0 last_activity_ms=42100
 ```
 
 | Stan | Znaczenie |
 | --- | --- |
-| `1` | Uruchamianie. Aplikacja jeszcze nie zakończyła rozruchu albo jej ostatni rozruch się nie udał. |
-| `2` | Bezczynny. Worker czeka na pracę. |
-| `3` | Aktywny. Worker przetwarza żądanie. |
-| `4` | Wygaszanie. Worker kończy swoją pracę i kończy działanie. |
+| `starting` | Aplikacja jeszcze nie zakończyła rozruchu albo jej ostatni rozruch się nie udał. |
+| `idle` | Worker czeka na pracę. |
+| `active` | Worker przetwarza jednostkę pracy. |
+| `draining` | Worker kończy swoją pracę i zatrzymuje się. |
 
-Slot zachowuje swoje liczniki, gdy proces nadrzędny zastępuje jego workera. `recycles` liczy ponowne uruchomienia aplikacji wewnątrz workera, na przykład po `max_requests` lub przeładowaniu.
+`recycles` liczy ponowne uruchomienia aplikacji w tym wątku workera, na przykład po `max_requests`, błędzie krytycznym lub przeładowaniu.
 
 ::: tip
-Zapis stanu używa poziomu `info` w targecie `master`. Domyślny poziom logowania to `error`. Ustaw ten target na `info`, aby pokazać zapis:
+Zapis stanu używa poziomu `info` w celu `rapira`. Domyślny poziom logowania to `error`. Ustaw ten cel na `info`, aby pokazać zapis:
 
 ```toml
 [log.targets]
-master = "info"
+rapira = "info"
 ```
 
-Ten sam target zawiera błędy tworzenia workerów i ostrzeżenia o przekroczeniu limitu czasu żądania. Więcej informacji znajdziesz w [Logowaniu](/pl/docs/logging).
+Więcej informacji zawiera strona [Logi](/pl/docs/logging).
 :::
 
 ::: question Czy Rapira używa przezroczystych dużych stron (transparent huge pages)?
-Nie. W systemie Linux proces nadrzędny wyłącza przezroczyste duże strony dla własnego procesu, zanim wystartuje PHP. Workery i procesy, które PHP uruchamia przez `proc_open()` lub `exec()`, dziedziczą to ustawienie. Dlatego `USE_ZEND_ALLOC_HUGE_PAGES=1` i `opcache.huge_code_pages` nie dostają przezroczystych dużych stron. Te opcje mogą nadal używać jawnych dużych stron, które host rezerwuje przez `vm.nr_hugepages`. Żadne ustawienie nie zmienia tego zachowania.
+Nie. W systemie Linux Rapira wyłącza przezroczyste duże strony dla swojego procesu, zanim wystartuje PHP. Procesy potomne, które PHP uruchamia przez `proc_open()` lub `exec()`, dziedziczą to ustawienie. Dlatego `USE_ZEND_ALLOC_HUGE_PAGES=1` i `opcache.huge_code_pages` nie dostają przezroczystych dużych stron. Te opcje mogą nadal używać jawnych dużych stron rezerwowanych przez `vm.nr_hugepages`.
 :::
 
-::: question Czy proces nadrzędny może działać jako PID 1 w kontenerze?
-Tak. Jako PID 1 proces nadrzędny obsługuje sygnały zatrzymania i usuwa wszystkie zakończone procesy potomne. Nie potrzebujesz osobnego procesu init.
+::: question Czy Rapira może działać jako PID 1 w kontenerze?
+Nie. Uruchamiaj kontenery poleceniem `docker run --init`, aby proces init usuwał zakończone procesy potomne uruchomione przez PHP.
 :::

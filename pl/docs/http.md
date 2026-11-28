@@ -6,9 +6,9 @@ faqLevel: 2
 
 # Żądania i odpowiedzi HTTP
 
-Serwer HTTP zamienia połączenie klienta w żądanie PHP i zamienia odpowiedź PHP w dane sieciowe. Używa biblioteki [hyper](https://hyper.rs) i przyjmuje HTTP/1.1 i HTTP/1.0. Nie przekazuje żądań do innego serwera.
+Serwer HTTP zamienia połączenie klienta w żądanie PHP i zamienia odpowiedź PHP w dane sieciowe. Używa biblioteki [hyper](https://hyper.rs) na dedykowanych jednowątkowych shardach I/O (po jednym na CPU, ograniczone do `1..=16`) i przyjmuje HTTP/1.1 i HTTP/1.0. Nie przekazuje żądań do innego serwera.
 
-Middleware może odpowiedzieć na żądanie przed uruchomieniem PHP. Rapira używa middleware do obsługi [plików statycznych](/pl/docs/static-files).
+Middleware może odpowiedzieć na żądanie lub je przekształcić przed uruchomieniem PHP. Wbudowane middleware obejmuje [pliki statyczne](/pl/docs/static-files) oraz kompresję odpowiedzi (`compress`).
 
 ::: info
 Serwer HTTP przyjmuje nieszyfrowany HTTP. Użyj proxy do zakończenia TLS. Zobacz [Wdrożenie produkcyjne](/pl/docs/deployment).
@@ -124,12 +124,12 @@ Serwer HTTP wysyła odpowiedź błędu, gdy żądanie nie dociera do PHP lub PHP
 | `408` | Żadne dane treści nie dotarły w czasie `http.keepalive_timeout_secs`. |
 | `413` | Treść jest większa niż `http.max_body_size_mb` lub treść multipart przekracza limit `[http.uploads]`. |
 | `500` | Pula workerów się zatrzymała. W trybie Dispatcher Rapira nie może zapisać przesłanego pliku w `[http.uploads].dir`. |
-| `502` | Worker PHP zatrzymał się przed wysłaniem nagłówków odpowiedzi. |
-| `503` | Kolejka workerów była pełna przez 30 sekund. |
+| `502` | Worker PHP zakończył się przed wysłaniem nagłówków odpowiedzi. |
+| `503` | Kolejka puli była pełna przez 30 sekund. |
 
 Rapira wysyła te statusy bez tych dwóch pól:
 
-- `503`, gdy worker nie może uruchomić swojego skryptu wejściowego. Po każdym nieudanym uruchomieniu worker odpowiada tym statusem na jedno żądanie z kolejki.
+- `503`, gdy żaden worker w puli nie jest gotowy podczas opóźnienia po nieudanym rozruchu.
 - `502`, gdy PHP ustawia końcowy status poniżej `200`, na przykład `101`.
 - `500`, gdy skrypt Dispatcher zwalnia wymianę, zanim Rapira wyśle nagłówki odpowiedzi.
 

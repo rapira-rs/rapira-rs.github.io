@@ -5,7 +5,7 @@ description: Rapira 的日志级别、按目标覆盖、PHP 诊断信息、应�
 
 # 日志
 
-Rapira 将日志记录写入 stderr。这些记录包括服务器事件、主进程决策、HTTP 和 gRPC 事件、PHP 诊断信息和应用消息。`error_log` ini 设置为空时，PHP 将诊断信息发送到此日志。该设置默认为空。
+Rapira 将日志记录写入 stderr。这些记录包括服务器事件、进程池状态、HTTP 和 gRPC 事件、PHP 诊断信息和应用消息。`error_log` ini 设置为空时，PHP 将诊断信息发送到此日志。该设置默认为空。
 
 默认级别为 `error`，因此 stderr 仅包含错误。更改 `[log]` 部分或设置 `RUST_LOG` 以选择其他级别。
 
@@ -40,23 +40,22 @@ http = "warn"
 
 Rapira 使用以下目标：
 
-| 目标            | 覆盖范围                                                                     |
-| --------------- | ---------------------------------------------------------------------------- |
-| `rapira`        | 服务器初始化、worker 生命周期、关闭                                          |
-| `master`        | 进程池状态、进程创建错误和请求超时警告 |
-| `http`          | HTTP 监听器、请求和响应的字段处理、关闭                                      |
-| `grpc`          | gRPC 监听器、传输故障、关闭                                                  |
-| `net`           | HTTP 和 gRPC 监听器的 accept 循环、accept 失败                               |
-| `observability` | [指标与探针进程](/zh/docs/observability)：监听器、请求排空、故障             |
-| `php`           | 来自 PHP 本身的输出和诊断信息                                                |
-| `app`           | 应用通过 `\Rapira\log()` 写入的记录                                          |
+| 目标            | 覆盖范围                                                                      |
+| --------------- | ----------------------------------------------------------------------------- |
+| `rapira`        | 服务器初始化、进程池状态、worker 生命周期、看门狗超时、关闭                   |
+| `http`          | HTTP 监听器、请求和响应的字段处理、静态文件、关闭                             |
+| `grpc`          | gRPC 监听器、传输故障、关闭                                                   |
+| `net`           | HTTP 和 gRPC 监听器的 accept 循环、accept 失败                                |
+| `observability` | [指标与探针监听器](/zh/docs/observability)：监听器、请求排空、故障            |
+| `php`           | 来自 PHP 本身的输出和诊断信息                                                 |
+| `app`           | 应用通过 `\Rapira\log()` 写入的记录                                           |
 
 Rapira 不写每个请求一行的访问日志。`http` 目标的字段记录请参阅 [HTTP](/zh/docs/http)。
 
 依赖项在其模块路径下写入 trace 记录。相同的前缀过滤适用于这些记录。每条记录包含其目标名称。将该名称添加到 `[log.targets]` 以更改其级别。
 
 ::: tip
-`master` 目标报告进程池状态、进程创建错误和请求超时警告。进程池监管请参阅[进程模型](/zh/docs/process-model)。
+`rapira` 目标报告 `SIGUSR1` 进程池状态、启动失败重试和看门狗请求超时警告。进程池管理请参阅[进程模型](/zh/docs/process-model)。
 :::
 
 ## PHP 诊断信息
@@ -152,7 +151,7 @@ Rapira 不缩短数组或字符串。请传递标识符，而不是大型对象�
 
 ## 格式
 
-Rapira 将两种格式都写入 stderr。不同进程向同一个 stderr 管道写入时，大型记录可能会交错。
+Rapira 从其单个服务器进程将两种格式写入 stderr。
 
 重定向 stderr 可以将日志写入文件。服务管理器可以收集 stderr。更多信息请参阅[生产环境部署](/zh/docs/deployment)。
 
@@ -179,12 +178,12 @@ Rapira 将两种格式都写入 stderr。不同进程向同一个 stderr 管道�
 ```sh
 RUST_LOG=info rapira serve rapira.toml
 RUST_LOG=error,rapira=debug,php=info rapira serve rapira.toml
-RUST_LOG=warn,rapira=trace,master=trace rapira serve rapira.toml
+RUST_LOG=warn,rapira=trace,http=debug rapira serve rapira.toml
 ```
 
-第一个命令将所有目标设置为 `info`。第二个命令将 `rapira` 设置为 `debug`，将 `php` 设置为 `info`，将所有其他目标设置为 `error`。第三个命令将所有目标设置为 `warn`，将 `rapira` 和 `master` 设置为 `trace`。
+第一个命令将所有目标设置为 `info`。第二个命令将 `rapira` 设置为 `debug`，将 `php` 设置为 `info`，将所有其他目标设置为 `error`。第三个命令将所有目标设置为 `warn`，将 `rapira` 设置为 `trace`，将 `http` 设置为 `debug`。
 
-未被此值匹配的目标不写入任何记录。例如，`RUST_LOG=php=info` 隐藏 `master` 和 `http` 目标的所有错误。添加一个不带目标名称的级别（例如 `error`），以保留其他目标的记录。
+未被此值匹配的目标不写入任何记录。例如，`RUST_LOG=php=info` 隐藏 `rapira` 和 `http` 目标的所有错误。添加一个不带目标名称的级别（例如 `error`），以保留其他目标的记录。
 
 ::: warning
 非空 `RUST_LOG` 值会**替换** `level` 和 `[log.targets]`。Rapira 不合并环境过滤器和文件过滤器。删除此变量以使用配置文件设置。也可以将此变量设置为空值。`RUST_LOG` 不影响 `format`。

@@ -5,7 +5,7 @@ description: "框架 worker 循环、请求状态、常驻状态、错误处理�
 
 # 框架集成
 
-在 Classic 模式下，框架应用无需更改即可运行。配置 Rapira 以使用现有入口脚本。在 Worker 模式下，PHP 进程在请求之间保持活动。框架设计决定哪些应用状态可以保留在内存中。本页介绍适用于所有框架的规则。各框架指南只介绍框架特定的行为。
+在 Classic 模式下，框架应用无需更改即可运行。配置 Rapira 以使用现有入口脚本。在 Worker 模式下，PHP worker 在请求之间保持活动。框架设计决定哪些应用状态可以保留在内存中。本页介绍适用于所有框架的规则。各框架指南只介绍框架特定的行为。
 
 ::: info 验证环境
 
@@ -13,18 +13,18 @@ description: "框架 worker 循环、请求状态、常驻状态、错误处理�
 - **Rapira 0.8.0**
 - **Symfony 7.4.15** 和 **8.1.2**、**Yii3** 应用模板 1.4（yii-runner-http 3.2.1）
 
-测试在 Linux 上使用一个 worker 进程运行这些应用。本页的框架说明来自这些测试。本页示例使用 v0.9 配置格式。有关 Rapira 设置，请参阅[配置](/zh/docs/configuration)。
+测试在 Linux 上使用一个 worker 进程运行这些应用。本页的框架说明来自这些测试。本页示例使用 v0.10 配置格式。有关 Rapira 设置，请参阅[配置](/zh/docs/configuration)。
 :::
 
 ## Classic 模式与 Worker 模式
 
 **Classic 模式使用现有入口脚本。**它为每个 HTTP 请求启动一个新的 PHP 请求。在 php-fpm 下运行的框架也可以在此模式下运行。有关详细信息，请参阅 [Classic 模式](/zh/docs/classic)。下面只有静态文件、TLS 和 OPcache 部分适用于 Classic 模式。
 
-**Worker 模式使进程保持活动。**脚本初始化应用，并在循环中请求工作。应用状态保留在请求之间。有关详细信息，请参阅[执行模式](/zh/docs/execution-modes)和 [Worker 模式](/zh/docs/worker)。
+**Worker 模式使 worker 保持活动。**脚本初始化应用，并在循环中请求工作。应用状态保留在请求之间。有关详细信息，请参阅[执行模式](/zh/docs/execution-modes)和 [Worker 模式](/zh/docs/worker)。
 
 一个代码库可以使用两种模式。保留 `public/index.php`。将 `worker.php` 添加到项目根目录。`http.pool.mode` 选择执行模式，`http.pool.entrypoint` 选择脚本。如果 Worker 模式迁移失败，Classic 模式仍然可用。
 
-每个 worker 使用入口脚本所在目录作为工作目录。因此，`worker.php` 中的相对文件路径基于项目根目录解析。`public/index.php` 中的相对文件路径基于 `public/` 解析。PHP 代码中的 `chdir()` 调用保持有效，直到下一次应用启动，例如重载或达到 `max_requests` 后的重启。在 Classic 模式下，它保持有效，直到下一次重载。
+每个 worker 在解析后的入口脚本目录中启动。因此，`worker.php` 中的相对文件路径基于项目根目录解析。`public/index.php` 中的相对文件路径基于 `public/` 解析。在 Worker 和 Dispatcher 模式下，`chdir()` 调用对同一应用实例的后续请求保持有效。在 Classic 模式下，每个请求都在入口脚本目录中启动，并在运行 shutdown 回调之前恢复保存的目录。
 
 ## Worker 循环
 
@@ -59,7 +59,7 @@ while (\Rapira\handle_request($handler)) {
 
 在 handler 内部，Rapira 将 `SCRIPT_NAME` 设置为 `/worker.php`，因为 `worker.php` 是入口脚本。`DOCUMENT_ROOT` 包含脚本目录。`REQUEST_URI` 包含客户端路径。Symfony 和 Yii3 使用这些值正确路由请求和生成 URL。生成的 URL 不包含 `worker.php`。集成其他框架前，请检查它是否使用 `SCRIPT_NAME` 而不是 `REQUEST_URI` 生成 URL。
 
-在第一个请求之前，`$_SERVER` 包含进程环境。此时，`SCRIPT_NAME` 包含脚本的绝对路径，`DOCUMENT_ROOT` 为空。请求的 `$_SERVER` 不包含进程环境。请在循环前读取环境变量，或者在 handler 中使用 `getenv()`。不要在循环前根据 `$_SERVER` 计算 URL 前缀。请参阅[第一个请求之前的 `$_SERVER`](/zh/docs/execution-modes#第一个请求之前的-server)。
+在第一个请求之前，`$_SERVER` 包含启动环境和进程池环境。此时，`SCRIPT_NAME` 包含脚本的绝对路径，`DOCUMENT_ROOT` 为空。请求的 `$_SERVER` 包含 [`[http.pool.env]`](/zh/docs/configuration#http-pool-env) 条目（被同名的请求变量覆盖），不包含操作系统进程环境。请在循环前读取进程环境变量，或者在 handler 中使用 `getenv()`。不要在循环前根据 `$_SERVER` 计算 URL 前缀。请参阅[第一个请求之前的 `$_SERVER`](/zh/docs/execution-modes#第一个请求之前的-server)。
 
 ## 单请求状态与常驻状态
 
@@ -67,17 +67,17 @@ Rapira 为每个请求重建左列中的所有内容。普通 PHP 代码可以�
 
 | 每个请求的新内容 | 在请求之间保留的内容 |
 | ---------------- | -------------------- |
-| `$_GET`、`$_POST`、`$_SERVER`、`$_COOKIE`：Rapira 使用请求数据重新填充它们。`$_SERVER` 不包含进程环境 | Composer 自动加载器及其加载的每个类 |
+| `$_GET`、`$_POST`、`$_SERVER`、`$_COOKIE`：Rapira 使用请求数据重新填充它们。在进程环境变量中，`$_SERVER` 只包含来自 [`[http.pool.env]`](/zh/docs/configuration#http-pool-env) 的变量 | Composer 自动加载器及其加载的每个类 |
 | `php://input`：原始请求体、`CONTENT_TYPE` 和 `CONTENT_LENGTH` | `static` 属性和变量，它们在请求之间保留值 |
 | `$_FILES` 和上传的临时文件 | 循环前创建的对象，例如容器、内核和应用 |
 | 会话数据：`session_start()`、请求 cookie 和响应 `Set-Cookie` 字段 | 打开的资源：数据库连接、缓存客户端和流 |
-| 响应状态：状态码、响应头、`setcookie()` 和输出缓冲区 | 进程：相同的 pid，且每个 worker 有一个常驻 PHP 解释器 |
+| 响应状态：状态码、响应头、`setcookie()` 和输出缓冲区 | worker 线程：每个 worker 有一个常驻 ZTS PHP 解释器 |
 | 在 handler **内部**注册的 shutdown 函数 | 循环前加载的 `$_ENV` 值 |
 | 为每个请求重新启动的 `max_execution_time` 计时器 | |
 
-Rapira 为每个请求启动新的 `max_execution_time` 计时器。worker 等待请求的时间不计入此限制。
+Rapira 为每个请求启动新的 `max_execution_time` 计时器，并在等待工作或响应流空间时暂停它。默认情况下，[`http.pool.execution_clock`](/zh/docs/configuration#http-pool) 为 `"wall"`（经过时间）。在支持按线程计时器的 Linux 上，设置 `http.pool.execution_clock = "cpu"` 可只计算 worker 线程的 CPU 时间。
 
-下面三种行为适用于常驻的 worker 进程。
+下面三种行为适用于常驻 worker。
 
 ::: warning 常驻对象在请求之间保持自己的状态
 
@@ -97,7 +97,7 @@ Rapira 为每个请求启动新的 `max_execution_time` 计时器。worker 等�
 
 Rapira 不会为每个请求重建 `$_ENV`。代码在循环前写入 `$_ENV` 的值会保留到 worker 脚本重新启动为止。在循环前加载环境配置。不要在 `$_ENV` 中存储请求数据。
 
-更改 `$_ENV` 不会更改进程环境。当 `getenv()` 或子进程必须看到某个值时，请使用 `putenv()`。在生产环境中，请在服务 unit、容器或编排器中设置环境变量。
+更改 `$_ENV` 不会更改 `getenv()` 或进程环境。在 ZTS 下，`putenv()` 更新由 `getenv()` 读取的线程局部层，而不更改操作系统进程环境。除非将 `getenv()` 传给 `proc_open()`，否则子进程继承操作系统启动环境。在生产环境中，请在 [`[http.pool.env]`](/zh/docs/configuration#http-pool-env)、服务 unit、容器或编排器中设置环境变量。
 :::
 
 ## 错误处理
@@ -153,11 +153,11 @@ max_requests = 100
 
 ## OPcache 与改动过的代码
 
-Rapira 在创建 worker 之前在 master 中启动一次 PHP。OPcache 创建一个共享内存段，每个 worker 继承相同的映射。在所有模式下，已编译脚本都会在请求和 worker 之间保持缓存。
+Rapira 在 worker 启动之前在主线程上启动一次 PHP。在所有模式下，OPcache 在所有 worker 线程之间共享编译后的字节码。
 
-在 PHP 8.4 上，OPcache 是单独的 `opcache.so` 文件，需要在 `php.ini` 中添加 `zend_extension` 行。请参阅 [php.ini](/zh/docs/intro/installation#php-ini)。
+在 PHP 8.4 上，OPcache 是单独的 `opcache.so` 文件，需要在 `php.ini` 中添加 `zend_extension` 行。PHP 8.5 和 PHP 8.6 将 OPcache 包含在 `libphp` 中。请参阅 [php.ini](/zh/docs/intro/installation#php-ini)。
 
-在生产环境中，`opcache.validate_timestamps = 0` 会删除每个请求的文件检查。此设置会阻止自动缓存失效。OPcache 段属于 master，并在 worker 替换期间保留。重载会清空缓存，因此部署后的重载会加载新代码。`opcache.preload` 加载的文件需要完整重启。有关步骤，请参阅[生产环境部署](/zh/docs/deployment)。
+在生产环境中，`opcache.validate_timestamps = 0` 会删除每个请求的文件检查。此设置会阻止自动缓存失效。重载会清空 OPcache，因此除非设置了 `opcache.file_cache`，否则部署后的重载会加载新代码。`opcache.preload` 加载的文件需要完整重启。有关步骤，请参阅[生产环境部署](/zh/docs/deployment)。
 
 在开发期间，常驻应用不会再次读取初始化代码。此行为与 OPcache 无关。更改 worker 脚本或已初始化服务后，按 Ctrl-C。然后再次运行 `rapira serve rapira.toml`。
 
@@ -167,6 +167,6 @@ Rapira 在创建 worker 之前在 master 中启动一次 PHP。OPcache 创建一
 - **[Laravel](/zh/docs/frameworks/laravel)：**`rapira/laravel` 桥接包以一个入口脚本在 Classic、Worker 和 Dispatcher 模式下运行。Laravel Octane worker 在请求之间重置应用状态。
 - **[Yii3](/zh/docs/frameworks/yii3)：**`StateResetter` 在每个请求后重置常驻容器。worker 也可以为每个请求创建新 runner。
 
-其他框架可以使用相同的基本 worker 脚本。仅当应用可以在一个进程中处理多个请求时，才使用 Worker 模式。首先，在 handler 中创建应用。此设计不要求框架支持常驻进程。
+其他框架可以使用相同的基本 worker 脚本。仅当应用可以在一个 worker 中处理多个请求时，才使用 Worker 模式。首先，在 handler 中创建应用。此设计不要求框架支持常驻 worker。
 
 使用此设计验证应用。然后将应用保留在内存中。在每个请求后重置其请求状态。如果两种 Worker 设计都无法正常运行，请使用 [Classic 模式](/zh/docs/classic)。

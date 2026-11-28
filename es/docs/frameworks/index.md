@@ -5,7 +5,7 @@ description: "Bucles de worker de frameworks, estado de petición, estado persis
 
 # Integración con frameworks
 
-En modo Classic, una aplicación de framework funciona sin cambios. Configura Rapira para usar el script de entrada existente. En modo Worker, el proceso de PHP permanece activo entre peticiones. El diseño del framework determina qué estado de la aplicación puede permanecer en memoria. Esta página describe las reglas para todos los frameworks. Las guías de frameworks describen solo el comportamiento específico de cada framework.
+En modo Classic, una aplicación de framework funciona sin cambios. Configura Rapira para usar el script de entrada existente. En modo Worker, el worker PHP permanece activo entre peticiones. El diseño del framework determina qué estado de la aplicación puede permanecer en memoria. Esta página describe las reglas para todos los frameworks. Las guías de frameworks describen solo el comportamiento específico de cada framework.
 
 ::: info Verificado con
 
@@ -13,18 +13,18 @@ En modo Classic, una aplicación de framework funciona sin cambios. Configura Ra
 - **Rapira 0.8.0**
 - **Symfony 7.4.15** y **8.1.2**, plantilla de aplicación de **Yii3** 1.4 (yii-runner-http 3.2.1)
 
-Las pruebas ejecutaron estas aplicaciones en Linux con un proceso worker. Las afirmaciones sobre los frameworks de esta página proceden de estas pruebas. Los ejemplos de esta página usan el formato de configuración de v0.9. Consulta [configuración](/es/docs/configuration) para ver los ajustes de Rapira.
+Las pruebas ejecutaron estas aplicaciones en Linux con un proceso worker. Las afirmaciones sobre los frameworks de esta página proceden de estas pruebas. Los ejemplos de esta página usan el formato de configuración de v0.10. Consulta [configuración](/es/docs/configuration) para ver los ajustes de Rapira.
 :::
 
 ## Modos Classic y Worker
 
 **El modo Classic usa el script de entrada existente.** Inicia una petición PHP nueva para cada petición HTTP. Un framework que funciona con php-fpm también puede funcionar en este modo. Consulta [modo Classic](/es/docs/classic) para obtener más información. Solo las secciones de archivos estáticos, TLS y OPcache que aparecen a continuación se aplican al modo Classic.
 
-**El modo Worker mantiene activo el proceso.** El script inicia la aplicación y solicita trabajo en un bucle. El estado de la aplicación permanece entre peticiones. Consulta [modos de ejecución](/es/docs/execution-modes) y [modo Worker](/es/docs/worker) para obtener más información.
+**El modo Worker mantiene activo el worker.** El script inicia la aplicación y solicita trabajo en un bucle. El estado de la aplicación permanece entre peticiones. Consulta [modos de ejecución](/es/docs/execution-modes) y [modo Worker](/es/docs/worker) para obtener más información.
 
 Un código base puede usar ambos modos. Conserva `public/index.php`. Añade `worker.php` a la raíz del proyecto. `http.pool.mode` selecciona el modo de ejecución y `http.pool.entrypoint` selecciona el script. El modo Classic sigue disponible si falla la migración al modo Worker.
 
-Cada worker usa el directorio de su script de entrada como directorio de trabajo. Por tanto, las rutas de archivo relativas en `worker.php` se resuelven respecto a la raíz del proyecto. Las rutas de archivo relativas en `public/index.php` se resuelven respecto a `public/`. Una llamada a `chdir()` en el código PHP permanece en vigor hasta el siguiente arranque de la aplicación, por ejemplo una recarga o un reinicio después de `max_requests`. En el modo Classic, permanece en vigor hasta la siguiente recarga.
+Cada worker empieza en el directorio resuelto del script de entrada. Por tanto, las rutas de archivo relativas en `worker.php` se resuelven respecto a la raíz del proyecto. Las rutas de archivo relativas en `public/index.php` se resuelven respecto a `public/`. En los modos Worker y Dispatcher, una llamada a `chdir()` permanece en vigor para las peticiones posteriores de la misma instancia de la aplicación. En el modo Classic, cada petición empieza en el directorio del script de entrada y restaura el directorio guardado antes de los callbacks de shutdown.
 
 ## Bucle de Worker
 
@@ -59,7 +59,7 @@ El script contiene estas operaciones:
 
 Dentro del handler, Rapira establece `SCRIPT_NAME` en `/worker.php` porque `worker.php` es el script de entrada. `DOCUMENT_ROOT` contiene el directorio del script. `REQUEST_URI` contiene la ruta del cliente. Symfony y Yii3 enrutaron las peticiones y generaron URL correctas con estos valores. Las URL generadas no contenían `worker.php`. Antes de integrar otro framework, comprueba si crea URL desde `SCRIPT_NAME` en lugar de `REQUEST_URI`.
 
-Antes de la primera petición, `$_SERVER` contiene el entorno del proceso. En ese momento, `SCRIPT_NAME` contiene la ruta absoluta del script y `DOCUMENT_ROOT` está vacío. El `$_SERVER` de una petición no contiene el entorno del proceso. Lee las variables de entorno antes del bucle o usa `getenv()` en el handler. No calcules un prefijo de URL desde `$_SERVER` antes del bucle. Consulta [`$_SERVER` antes de la primera petición](/es/docs/execution-modes#server-antes-de-la-primera-peticion).
+Antes de la primera petición, `$_SERVER` contiene el entorno de arranque y del pool. En ese momento, `SCRIPT_NAME` contiene la ruta absoluta del script y `DOCUMENT_ROOT` está vacío. El `$_SERVER` de una petición incluye las entradas de [`[http.pool.env]`](/es/docs/configuration#http-pool-env) (sobrescritas por variables de petición con el mismo nombre) y excluye el entorno del proceso del SO. Lee las variables de entorno del proceso antes del bucle o usa `getenv()` en el handler. No calcules un prefijo de URL desde `$_SERVER` antes del bucle. Consulta [`$_SERVER` antes de la primera petición](/es/docs/execution-modes#server-antes-de-la-primera-peticion).
 
 ## Estado por petición y estado residente
 
@@ -67,15 +67,15 @@ Rapira reconstruye todo lo de la columna izquierda para cada petición. El códi
 
 | Nuevo para cada petición | Permanece entre peticiones |
 | ------------------------ | ------------------------- |
-| `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE`: Rapira las rellena con los datos de la petición. `$_SERVER` no contiene el entorno del proceso | El autoloader de Composer y cada clase que ha cargado |
+| `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE`: Rapira las rellena con los datos de la petición. Del entorno del proceso, `$_SERVER` contiene solo las variables de [`[http.pool.env]`](/es/docs/configuration#http-pool-env) | El autoloader de Composer y cada clase que ha cargado |
 | `php://input`: el cuerpo sin procesar de la petición, `CONTENT_TYPE` y `CONTENT_LENGTH` | Las propiedades y variables `static`, que conservan sus valores entre peticiones |
 | `$_FILES` y los archivos temporales subidos | Los objetos creados antes del bucle, como el contenedor, el kernel y la aplicación |
 | Datos de sesión: `session_start()`, la cookie de la petición y el campo de respuesta `Set-Cookie` | Recursos abiertos: conexiones de base de datos, clientes de caché y streams |
-| Estado de la respuesta: código de estado, cabeceras, `setcookie()` y búferes de salida | El proceso: el mismo pid y un intérprete PHP persistente para cada worker |
+| Estado de la respuesta: código de estado, cabeceras, `setcookie()` y búferes de salida | El hilo del worker: un intérprete PHP ZTS residente para cada worker |
 | Funciones de shutdown registradas **dentro** del handler | Los valores de `$_ENV` cargados antes del bucle |
 | El reloj de `max_execution_time`, que se reinicia para cada petición | |
 
-Rapira inicia un temporizador de `max_execution_time` nuevo para cada petición. El tiempo que un worker espera una petición no cuenta para este límite.
+Rapira inicia un temporizador de `max_execution_time` nuevo para cada petición y lo pausa mientras espera trabajo o espacio en el flujo de respuesta. Por defecto, [`http.pool.execution_clock`](/es/docs/configuration#http-pool) es `"wall"` (tiempo transcurrido). En Linux con temporizadores por hilo, define `http.pool.execution_clock = "cpu"` para contar solo el tiempo de CPU del hilo del worker.
 
 Los tres comportamientos siguientes se aplican a un worker persistente.
 
@@ -97,7 +97,7 @@ Registra dentro del handler las funciones de shutdown de cada petición. Algunos
 
 Rapira no reconstruye `$_ENV` para cada petición. Los valores que el código escribe en `$_ENV` antes del bucle permanecen hasta que el script del worker se reinicia. Carga la configuración del entorno antes del bucle. No guardes datos de peticiones en `$_ENV`.
 
-Un cambio en `$_ENV` no cambia el entorno del proceso. Usa `putenv()` cuando `getenv()` o los procesos secundarios deban ver un valor. En producción, define las variables de entorno en la unidad de servicio, el contenedor o el orquestador.
+Un cambio en `$_ENV` no cambia `getenv()` ni el entorno del proceso. En ZTS, `putenv()` actualiza una capa local al hilo que lee `getenv()` sin modificar el entorno del proceso del SO. Los procesos hijos heredan el entorno de arranque del SO a menos que pases `getenv()` a `proc_open()`. En producción, define las variables de entorno en [`[http.pool.env]`](/es/docs/configuration#http-pool-env), la unidad de servicio, el contenedor o el orquestador.
 :::
 
 ## Manejo de errores
@@ -153,11 +153,11 @@ Las aplicaciones persistentes de Symfony y Yii3 tuvieron un uso de memoria estab
 
 ## OPcache y el código que cambia
 
-Rapira inicia PHP una vez en el maestro antes de crear workers. OPcache crea un segmento de memoria compartida y cada worker hereda el mismo mapa. Los scripts compilados permanecen en caché entre peticiones y workers en todos los modos.
+Rapira inicia PHP una vez en el hilo principal antes de que arranquen los workers. OPcache comparte el bytecode compilado entre todos los hilos de worker en todos los modos.
 
-En PHP 8.4, OPcache es un archivo `opcache.so` separado que necesita una línea `zend_extension` en `php.ini`. Consulta [php.ini](/es/docs/intro/installation#php-ini).
+En PHP 8.4, OPcache es un archivo `opcache.so` separado que necesita una línea `zend_extension` en `php.ini`. PHP 8.5 y PHP 8.6 incluyen OPcache en `libphp`. Consulta [php.ini](/es/docs/intro/installation#php-ini).
 
-En producción, `opcache.validate_timestamps = 0` elimina la comprobación de archivos de cada petición. Este ajuste impide la invalidación automática de la caché. El segmento de OPcache pertenece al maestro y permanece durante la sustitución de workers. Una recarga vacía la caché, así que una recarga después de un despliegue carga el código nuevo. Los archivos que carga `opcache.preload` necesitan un reinicio completo. Consulta [En producción](/es/docs/deployment) para ver la secuencia.
+En producción, `opcache.validate_timestamps = 0` elimina la comprobación de archivos de cada petición. Este ajuste impide la invalidación automática de la caché. Una recarga vacía OPcache, así que una recarga después de un despliegue carga el código nuevo, salvo que `opcache.file_cache` esté configurado. Los archivos que carga `opcache.preload` necesitan un reinicio completo. Consulta [En producción](/es/docs/deployment) para ver la secuencia.
 
 Durante el desarrollo, una aplicación persistente no vuelve a leer su código de inicialización. Este comportamiento no depende de OPcache. Después de cambiar el script del worker o los servicios iniciados, pulsa Ctrl-C. Después, vuelve a ejecutar `rapira serve rapira.toml`.
 
@@ -167,6 +167,6 @@ Durante el desarrollo, una aplicación persistente no vuelve a leer su código d
 - **[Laravel](/es/docs/frameworks/laravel):** El bridge `rapira/laravel` ejecuta un único script de entrada en los modos Classic, Worker y Dispatcher. El worker de Laravel Octane restablece el estado de la aplicación entre peticiones.
 - **[Yii3](/es/docs/frameworks/yii3):** `StateResetter` restablece un contenedor persistente después de cada petición. Como alternativa, el worker puede crear un runner nuevo para cada petición.
 
-Otros frameworks pueden usar el mismo script básico de worker. Usa el modo Worker solo si la aplicación puede procesar varias peticiones en un proceso. Primero, crea la aplicación dentro del handler. Este diseño no requiere que el framework admita procesos persistentes.
+Otros frameworks pueden usar el mismo script básico de worker. Usa el modo Worker solo si la aplicación puede procesar varias peticiones en un worker. Primero, crea la aplicación dentro del handler. Este diseño no requiere que el framework admita workers persistentes.
 
 Valida la aplicación con este diseño. Después, conserva la aplicación en memoria. Restablece su estado de petición después de cada petición. Usa el [modo Classic](/es/docs/classic) si ninguno de los diseños Worker funciona correctamente.

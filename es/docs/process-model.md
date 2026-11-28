@@ -1,160 +1,145 @@
 ---
 title: Modelo de procesos
-description: El maestro de Rapira, la inicialización de PHP, los procesos worker, el tamaño del pool, la sustitución de workers y las señales.
+description: La arquitectura de proceso único de Rapira, los hilos worker de PHP ZTS, el tamaño del pool, el reciclaje, el watchdog y las señales.
 ---
 
 # Modelo de procesos
 
-Rapira ejecuta un proceso maestro y un pool de workers para cada protocolo activado. El maestro mantiene los sockets de escucha, el motor PHP inicializado y el pidfile. Después, el maestro crea los procesos worker. Cada worker hereda PHP y acepta conexiones desde el socket compartido de su pool. Rapira no pasa una petición entre procesos.
+Rapira ejecuta un proceso del servidor para todos los protocolos activados. El proceso posee las escuchas, el motor PHP inicializado, el pidfile y un pool de workers para cada protocolo activado. Cada pool tiene una cola acotada y un número fijo de hilos worker de PHP thread-safe (ZTS).
 
-HTTP y [gRPC](./grpc) tienen escuchas, scripts de entrada y pools separados. `[http.pool]` y `[grpc.pool]` los configuran de forma independiente. El pool gRPC usa el modo Dispatcher y procesa una llamada activa por worker.
+HTTP y [gRPC](/es/docs/grpc) tienen escuchas, scripts de entrada, colas y pools separados. `[http.pool]` y `[grpc.pool]` los configuran de forma independiente. El pool gRPC usa el modo Dispatcher y procesa una llamada activa por worker.
 
-Cuando la configuración tiene una tabla `[observability]`, el maestro también inicia un proceso para las métricas y las comprobaciones de salud. Este proceso no ejecuta código PHP. En Linux, su nombre de proceso es `rapira-obs`, y los workers PHP tienen el nombre `rapira-worker`. El maestro supervisa y detiene este proceso junto con los workers PHP. Una recarga no lo cambia, porque no tiene ninguna aplicación que reiniciar. Consulta [Métricas y comprobaciones de salud](/es/docs/observability) para más información.
+Cuando la configuración tiene una tabla `[observability]`, Rapira inicia una escucha en un hilo separado (`rapira-obs`) dentro del mismo proceso. Este hilo no ejecuta código PHP. Una recarga no lo cambia, porque no tiene ninguna aplicación que reiniciar. Consulta [Métricas y comprobaciones de estado](/es/docs/observability) para más información.
 
-Este modelo de procesos es el mismo en los modos [Classic](/es/docs/classic), [Worker](/es/docs/worker) y [Dispatcher](/es/docs/dispatcher). `http.pool.mode` controla el procesamiento de las peticiones dentro de un worker. Este ajuste no cambia la creación del pool, la supervisión ni las recargas. Consulta [Modos de ejecución](/es/docs/execution-modes) para más información.
+Esta arquitectura es la misma en los modos [Classic](/es/docs/classic), [Worker](/es/docs/worker) y [Dispatcher](/es/docs/dispatcher). `http.pool.mode` controla el procesamiento de las peticiones dentro de un hilo worker. No cambia la creación del pool, el reciclaje ni las recargas. Consulta [Modos de ejecución](/es/docs/execution-modes) para más información.
 
-## Maestro y workers
+## Servidor y workers
 
 La inicialización sigue este orden:
 
-1. **Enlazar el socket o los sockets de escucha.** Un conflicto de puerto detiene la inicialización antes de que PHP se inicie.
-2. **Iniciar PHP una vez.** El maestro ejecuta `MINIT` en su único hilo. OPcache crea su memoria compartida en este momento, y cada worker la hereda. Cuando un worker compila un archivo, los otros workers usan el resultado en caché.
-3. **Hacer fork de los workers.** Cada hijo hereda el socket enlazado y el motor inicializado.
+1. **Validar la configuración y los límites de NTS.** En una compilación NTS, Rapira rechaza un segundo pool PHP y limita un único pool a un worker.
+2. **Enlazar los sockets de escucha.** Un conflicto de puerto detiene la inicialización antes de que PHP se inicie.
+3. **Iniciar PHP una vez.** El hilo principal ejecuta `MINIT` e inicializa OPcache en la memoria compartida del proceso.
+4. **Iniciar los runtimes de E/S y los hilos worker.** Cada pool inicia sus hilos worker PHP configurados.
 
 ```mermaid
 flowchart TB
-  M["master · single thread<br/>binds · initializes PHP · supervises"]
-  S(["listen socket"])
-  W1["worker<br/>PHP + async runtime"]
-  W2["worker<br/>PHP + async runtime"]
-  W3["worker<br/>PHP + async runtime"]
-  M -- bind --> S
-  M -- fork --> W1
-  M -- fork --> W2
-  M -- fork --> W3
-  S -. accept .-> W1
-  S -. accept .-> W2
-  S -. accept .-> W3
+  S["proceso servidor<br/>hilo principal · señales · MINIT"]
+  IO["shards de E/S HTTP (1..=16) / runtime de E/S gRPC"]
+  Q(["cola del pool"])
+  W1["hilo worker PHP"]
+  W2["hilo worker PHP"]
+  W3["hilo worker PHP"]
+  S --> IO
+  IO --> Q
+  Q -. pull .-> W1
+  Q -. pull .-> W2
+  Q -. pull .-> W3
 ```
 
-El diagrama muestra un pool. Cada worker ejecuta un intérprete PHP NTS y un servidor HTTP o gRPC asíncrono. El servidor usa hyper sobre un runtime de tokio propio, con dos hilos. Cada worker llama a `accept()` en el socket que ha heredado. El sistema operativo asigna cada conexión nueva a un worker.
+El plugin HTTP ejecuta shards de E/S dedicados de un solo hilo, uno por CPU limitado al rango `1..=16`. El plugin gRPC usa un runtime de E/S multihilo con un hilo por CPU. Los servidores solo HTTP usan un runtime de control de un solo hilo. Cada hilo worker de PHP toma unidades de la cola de su pool.
 
-El maestro no atiende peticiones. Su único hilo espera señales, salidas de workers y temporizadores.
+Con ZTS, cada hilo worker de PHP tiene su propio directorio de trabajo y su capa `putenv()` local al hilo. El identificador de proceso, `umask()` y `setlocale()` se comparten entre todos los hilos del proceso del servidor. Una compilación enlazada con PHP NTS ejecuta un worker, registra una advertencia si `workers` es mayor y rechaza un segundo pool PHP.
 
 ::: info
-El maestro mantiene el módulo PHP durante toda su vida. Solo el maestro cierra el módulo. Un worker termina, pero no cierra este estado compartido del motor.
+El servidor ejecuta el cierre de los módulos de PHP en el hilo principal después de que todos los hilos worker de PHP finalicen.
 :::
 
-## Supervisión
+## Gestión del pool {#pool-management}
 
-El maestro ejecuta el mantenimiento una vez por segundo. También procesa cada salida de un worker cuando ocurre.
-
-- **Sustitución de workers.** Después de una salida normal, el maestro sustituye el worker inmediatamente. Después de un fallo o de una salida unhealthy, la espera de sustitución empieza en 100 ms. La espera se duplica tras cada fallo consecutivo y se detiene en 25,6 segundos. Un worker que funciona al menos 10 segundos reinicia la espera.
-- **Arranques fallidos.** En los modos Worker y Dispatcher, un arranque falla cuando el script de entrada termina antes de recibir una petición. Después, el worker espera hasta 5 segundos y vuelve a ejecutar el script de entrada. Responde a una petición que llega durante la espera con HTTP `503` o gRPC `UNAVAILABLE`. Después de cinco arranques fallidos consecutivos, el worker termina como unhealthy.
-- **Parada del maestro por arranque fallido.** El maestro se detiene con el código de salida 70 cuando termina un worker unhealthy. Esta regla solo se aplica cuando el pool no tiene ninguna petición correcta ni ningún worker idle o active. En todos los demás casos, el maestro sustituye el worker después de la espera de sustitución. Una terminación inesperada de un worker nunca detiene el maestro.
-- **Límites de peticiones.** En los modos Worker y Dispatcher, `http.pool.max_requests` limita las peticiones de una instancia de la aplicación. Después de un número aleatorio de peticiones entre `max_requests + 1` y aproximadamente `1.5 × max_requests`, el worker reinicia su aplicación. El proceso del worker, sus conexiones y su cola se mantienen. La siguiente petición espera a que la aplicación arranque. El rango aleatorio evita reinicios simultáneos. El modo Classic ignora este ajuste, porque cada petición se ejecuta en una petición PHP nueva.
-- **Tiempo límite de petición.** Con `http.pool.request_terminate_timeout_secs`, el maestro envía `SIGTERM` a un worker cuando su petición actual supera el límite. Si el worker sigue activo en el siguiente mantenimiento, el maestro envía `SIGKILL`. Después, el maestro sustituye el worker inmediatamente. El maestro no aplica este límite durante una parada.
-- **Límite de memoria.** Fuera de una parada, el maestro comprueba la RSS de cada worker una vez por segundo y envía `SIGQUIT` una vez al superar `http.pool.max_memory_mb`. El worker deja de aceptar conexiones nuevas; las conexiones existentes pueden recibir la respuesta a su siguiente petición dentro del tiempo de drenaje. Las respuestas que superan ese tiempo pueden quedar incompletas. El maestro inicia un sustituto después de que salga el worker, lo que libera memoria dentro y fuera de PHP. La RSS puede mantenerse alta tras reiniciar la aplicación porque PHP conserva parte de la memoria liberada para reutilizarla.
-- **Control del maestro.** Cada worker lee de un pipe que el maestro mantiene abierto. Si el maestro termina, cada worker deja de aceptar trabajo nuevo, termina sus peticiones actuales y sale.
+- **Fallos de arranque.** En los modos Worker y Dispatcher, un arranque falla cuando el script de entrada termina antes de recibir una unidad. El tiempo de espera entre reintentos empieza en 500 ms, se duplica tras cada fallo consecutivo de arranque y se detiene en 5 segundos. Una unidad entrante durante la espera no inicia el siguiente arranque antes de tiempo; mientras ningún worker del pool está listo, las unidades en cola reciben HTTP `503` o gRPC `UNAVAILABLE`. Un arranque correcto reinicia el contador de fallos y la espera.
+- **Parada por fallo de arranque.** `max_boot_failures` limita los arranques fallidos consecutivos (por defecto `5`; `0` desactiva el límite). Cuando un worker alcanza el límite antes de que su pool haya atendido ninguna unidad, Rapira sale con el código `70`. Después de que el pool haya atendido una unidad, el worker sigue reintentando con espera progresiva en lugar de detener el servidor.
+- **Reciclaje de la aplicación.** En los modos Worker y Dispatcher, `max_requests` limita las unidades de una instancia de la aplicación. Después de un número aleatorio entre `max_requests + 1` y aproximadamente `1.5 × max_requests`, el worker recicla su aplicación en el mismo hilo. Las escuchas, las conexiones y la cola del pool se mantienen. El modo Classic ignora esta clave.
+- **Watchdog de tiempo límite de petición.** `request_terminate_timeout_secs` establece un límite de tiempo real para una unidad. Al alcanzarse el límite, el watchdog interrumpe PHP y despierta una escritura de respuesta bloqueada. La E/S nativa puede seguir esperando, por lo que debes configurar tiempos límite en los sockets y en las llamadas a bases de datos. Después de cinco segundos más, Rapira registra una vez un worker que sigue bloqueado mientras los demás workers siguen atendiendo peticiones. Rapira sale con el código `124` solo si todos los workers de un pool permanecen bloqueados después del plazo de gracia.
+- **Señal del watchdog (`SIGRTMAX`).** En Linux y otras plataformas con `SIGRTMAX`, un watchdog activado reserva `SIGRTMAX` antes de que arranquen los workers. El arranque falla si el hilo principal la bloquea o si el proceso ya la maneja o la ignora. Las aplicaciones y las extensiones deben dejar `SIGRTMAX` disponible. macOS usa indicadores de interrupción de PHP sin una señal nativa de despertar.
+- **Temporizadores de ejecución (`execution_clock`).** En Linux con temporizadores PHP por hilo, `max_execution_time` cuenta el tiempo real por defecto y se pausa mientras espera trabajo o espacio en el stream de respuesta. Establece `execution_clock = "cpu"` en un pool para contar solo el tiempo de CPU del hilo worker, de modo que `sleep()` y las esperas de base de datos no consuman el presupuesto. Sin temporizadores por hilo y con múltiples workers, Rapira establece `max_execution_time=0` y `max_input_time=-1`, mientras que `request_terminate_timeout_secs` sigue aplicándose.
 
 ## Tamaño del pool
 
 Los ajustes siguientes usan `[http.pool]`. Los mismos ajustes se aplican a `[grpc.pool]`.
 
-`http.pool.processes` establece el número de workers. El maestro crea estos workers durante la inicialización y sustituye cada worker que termina. El valor predeterminado es un worker por cada CPU que el proceso puede usar. Si un contenedor tiene un límite de CPU, el valor predeterminado sigue ese límite.
+`http.pool.workers` establece el número de hilos worker. El valor predeterminado es un worker por cada CPU que el proceso puede usar. Si un contenedor tiene un límite de CPU, el valor predeterminado sigue ese límite.
 
-El total de workers de todos los pools debe ser 4096 o menos. Cuando la observabilidad está activada, su proceso cuenta como un worker. Un total mayor detiene Rapira con el código de salida 70.
+PHP es síncrono, por lo que cada hilo worker procesa una unidad cada vez. Las aplicaciones con mucha E/S pueden requerir más workers que núcleos de CPU. Las aplicaciones limitadas por CPU normalmente no los requieren.
 
-PHP es síncrono, por lo que cada worker procesa una petición cada vez. Las aplicaciones con mucha E/S pueden requerir más workers que núcleos de CPU. Las aplicaciones limitadas por CPU normalmente no los requieren.
+El número de workers no cambia mientras el servidor está en marcha. Para cambiar la capacidad según la carga, cambia el número de instancias de Rapira, por ejemplo con un orquestador de contenedores.
 
-El número de workers no cambia mientras el servidor está en marcha. Para adaptar la capacidad a la carga, cambia el número de instancias de Rapira, por ejemplo con un orquestador de contenedores.
+Consulta [configuración](/es/docs/configuration) para ver la referencia completa de claves.
 
-Consulta la [configuración](/es/docs/configuration) para ver la referencia completa de claves.
+## Señales {#signals}
 
-## Señales
+Las señales detienen un servidor en marcha, lo recargan y le hacen informar de su estado. Envía las señales al proceso `rapira`:
 
-Las señales detienen un servidor en marcha, lo recargan y le hacen informar de su estado. Todas van al **maestro**.
-
-| Señal | Qué hace el maestro |
+| Señal | Qué hace el servidor |
 | --- | --- |
-| `SIGTERM`, `SIGINT` | El maestro deja terminar las peticiones actuales y después detiene los workers. Una segunda señal fuerza la parada de los workers. |
-| `SIGQUIT` | El maestro hace la misma parada ordenada. Otro `SIGQUIT` no tiene efecto. |
-| `SIGUSR2`, `SIGHUP` | El maestro indica a cada worker que reinicie su aplicación. No se sustituye ningún proceso de worker. |
-| `SIGUSR1` | El maestro escribe el estado del pool en el registro. |
+| `SIGTERM`, `SIGINT` | Cierra las escuchas, drena las conexiones abiertas y detiene los workers. Un segundo `SIGTERM` o `SIGINT` fuerza la salida `130`. |
+| `SIGQUIT` | Realiza el mismo drenaje y parada. Un segundo `SIGQUIT` no tiene efecto. |
+| `SIGUSR2`, `SIGHUP` | Recarga la aplicación en todos los workers de todos los pools. |
+| `SIGUSR1` | Escribe el estado de los pools y los workers en el registro. |
 
-Define `supervisor.pidfile` para dar a los scripts una ubicación fija del identificador del proceso maestro:
+Define `server.pidfile` para dar a los scripts una ubicación fija del identificador del proceso del servidor:
 
 ```bash
-kill -USR2 $(cat /run/rapira.pid)   # Reiniciar la aplicación en cada worker.
+kill -USR2 $(cat /run/rapira.pid)   # Recargar la aplicación en cada worker.
 kill -USR1 $(cat /run/rapira.pid)   # Escribir el estado del pool en el registro.
-kill -TERM $(cat /run/rapira.pid)   # Detener después de terminar las peticiones actuales.
+kill -TERM $(cat /run/rapira.pid)   # Detener después de drenar las conexiones abiertas.
 ```
 
-::: warning
-Envía las señales solo al maestro. Los workers ignoran `SIGUSR1`. `SIGUSR2` hace que un worker reinicie su aplicación. `SIGTERM` y `SIGHUP` detienen un worker inmediatamente y cortan sus peticiones actuales. El tiempo límite de petición usa `SIGTERM`. Una señal directa a un worker evita la supervisión del maestro.
+### Parada
 
-`Ctrl-C` en un terminal envía `SIGINT` al maestro y a todos los workers. Después, cada worker también recibe `SIGQUIT` del maestro. Una segunda señal de parada hace que un worker salga inmediatamente con el código 131, así que sus peticiones actuales no terminan. Para dejar terminar las peticiones actuales, envía `SIGTERM` solo al maestro.
-:::
+Después de `SIGTERM`, `SIGINT` o `SIGQUIT`, Rapira cierra sus escuchas y deja de aceptar conexiones nuevas. Las conexiones abiertas drenan durante `[server].stop_timeout_secs` menos cinco segundos, o la mitad del tiempo límite si es menor de diez segundos. El tiempo límite de parada predeterminado es de 30 segundos, lo que da un margen de drenaje de 25 segundos y 5 segundos para el cierre de PHP.
 
-### Parar el servidor
+Cuando vence el tiempo límite de parada, Rapira sale inmediatamente. Un segundo `SIGTERM` o `SIGINT` durante el drenaje fuerza una salida inmediata con el código `130`. Consulta [Códigos de salida](/es/docs/cli#exit-codes) para ver todos los códigos de salida.
 
-Después de una señal de parada, el maestro envía inmediatamente `SIGQUIT` a cada worker. Los workers dejan de aceptar conexiones nuevas y terminan las peticiones actuales. Cada worker conserva las conexiones que tiene. Responde a la siguiente petición de cada conexión con `Connection: close`, y después la conexión se cierra. Después de `supervisor.process_control_timeout_secs`, el maestro envía `SIGTERM` a los workers restantes. El límite predeterminado es 30 segundos. Si quedan workers, el maestro envía `SIGKILL` un segundo después de `SIGTERM`.
+### Una recarga reinicia las aplicaciones {#a-reload-restarts-the-apps}
 
-El plazo de drenaje de las conexiones es el tiempo límite de control menos el menor valor entre cinco segundos y la mitad de ese límite. Con los ajustes predeterminados, las conexiones tienen 25 segundos para terminar. Las respuestas que superen este plazo pueden interrumpirse. Una conexión que queda inactiva durante todo el plazo se cierra cuando el plazo termina.
+`SIGUSR2` o `SIGHUP` recicla la aplicación en cada worker de cada pool. Antes de que el script de entrada vuelva a ejecutarse, el worker resuelve los enlaces simbólicos de la ruta del script de entrada, vacía la caché realpath de PHP y entra en el directorio del script resuelto. Las escuchas, las conexiones y las unidades en cola se mantienen.
 
-Un segundo `SIGTERM` o `SIGINT` salta la espera y fuerza la salida inmediatamente. Consulta [Códigos de salida](/es/docs/cli#codigos-de-salida) para ver los códigos de salida del maestro.
+En el modo Classic, cada petición ejecuta el script de entrada en una petición PHP nueva. Por tanto, un archivo modificado surte efecto sin una recarga, excepto con `opcache.validate_timestamps = 0`. Un despliegue que cambia un enlace simbólico de la ruta del script de entrada necesita una recarga en todos los modos, incluido el modo Classic. Los modos Worker y Dispatcher mantienen la aplicación en memoria, así que recarga después de cada despliegue. Consulta [despliegue](/es/docs/deployment) para más información.
 
-### Una recarga reinicia las aplicaciones
+Una recarga reinicia OPcache, de modo que las aplicaciones cargan el código nuevo también cuando `opcache.validate_timestamps = 0`. El valor `manual_restarts` de `opcache_get_status()` cuenta estas recargas. Un worker realiza `opcache_reset()` mientras sus pares esperan, y las peticiones siguientes vuelven a compilar los scripts modificados. Con `opcache.file_cache` y `opcache.validate_timestamps = 0`, una recarga no carga el código nuevo de un archivo modificado en ningún modo: consulta [despliegue](/es/docs/deployment).
 
-`SIGUSR2` o `SIGHUP` reinicia la aplicación en cada worker de cada pool. El worker termina la petición PHP de la aplicación y ejecuta otra vez el script de entrada en el mismo proceso. Antes de ejecutar el script, el worker resuelve los enlaces simbólicos de la ruta del script de entrada y cambia su directorio de trabajo al directorio del script. El socket de escucha, las conexiones y las peticiones en cola se mantienen. La aplicación antigua atiende las peticiones que esperan en la cola antes de la señal. Las peticiones posteriores van a la aplicación nueva.
-
-En el modo Classic, cada petición ejecuta el script de entrada en una petición PHP nueva. Por tanto, un archivo cambiado funciona sin recarga, excepto con `opcache.validate_timestamps = 0`. Un despliegue que cambia un enlace simbólico de la ruta del script de entrada necesita una recarga en todos los modos, también en el modo Classic. Los modos Worker y Dispatcher mantienen la aplicación en memoria. Recarga el pool después de cada despliegue en estos modos. Consulta [despliegue](/es/docs/deployment) para más información.
-
-Una recarga vacía OPcache, así que las aplicaciones cargan el código nuevo también cuando `opcache.validate_timestamps = 0`. El valor `manual_restarts` de `opcache_get_status()` cuenta estas recargas. Después de una recarga, las primeras peticiones vuelven a compilar sus archivos PHP. Las peticiones se ejecutan sin OPcache hasta que termina la petición más larga que estaba activa en el momento de la recarga. En el modo Classic, una petición que empieza después de que su worker recibe la recarga ejecuta el código nuevo, y las peticiones activas terminan con el código antiguo.
-
-Cada worker reinicia su aplicación por su cuenta. En los modos Worker y Dispatcher con OPcache, la mayoría de los workers arrancan la aplicación dos veces durante una recarga. Por tanto, el código antes del bucle del worker se ejecuta dos veces. Cuando todos los workers se reinician al mismo tiempo, cada cola espera solo los arranques de la aplicación de su propio worker. Un cliente no nota el reinicio, salvo esta espera.
-
-El maestro ignora una señal de recarga durante una parada. No registra la señal ignorada.
+Rapira ignora las señales de recarga durante una parada.
 
 ::: info
-Una recarga reinicia las aplicaciones, pero no los procesos. Los workers conservan el mismo motor inicializado. Reinicia Rapira para aplicar cambios en el binario o en los archivos que lee el maestro, como `rapira.toml` y `php.ini`. Reinícialo también después de cambiar un archivo que carga `opcache.preload`.
+Una recarga recicla las aplicaciones, pero no reinicia el proceso del servidor. Reinicia Rapira para aplicar cambios en el binario, `rapira.toml`, `php.ini`, `grpc.descriptor_set`, `grpc.auth.tokens_file` o en los archivos que carga `opcache.preload`.
 :::
 
-OPcache programa un reinicio cuando el código de la aplicación llama a `opcache_reset()` o cuando la caché está llena. Rapira recarga entonces cada pool y registra un aviso. Ningún proceso worker se detiene y ninguna conexión se cierra. Con Rapira, el valor predeterminado de `opcache.force_restart_timeout` es 0, y un valor en `php.ini` lo sustituye. Con un valor mayor que 0, OPcache puede matar un worker cuya petición dura más de ese tiempo durante un reinicio de OPcache, también durante una recarga. Mantén el valor 0.
+OPcache programa un reinicio cuando el código de la aplicación llama a `opcache_reset()` o cuando la caché está llena. Rapira entonces recarga cada pool y registra una advertencia. Con Rapira, el valor predeterminado de `opcache.force_restart_timeout` es `0`, y un valor en `php.ini` lo sustituye. Mantén el valor `0` para que OPcache no mate workers activos durante un reinicio.
 
 ### Escribir el estado en el registro
 
-`SIGUSR1` hace que el maestro escriba el estado de cada pool en el registro. La primera línea de un pool muestra el número de workers en marcha e idle. Después, una línea por cada plaza de worker muestra el identificador del proceso, el estado y tres contadores:
+`SIGUSR1` escribe el estado de cada pool y cada worker en el registro en el target `rapira` con nivel `info`:
 
 ```text
-status: http pool: 4 running, 3 idle
-  slot 0 pid 4242 state 2 handled 1500 errors 2 recycles 0
+pool=http workers=4 pending=0 failed_on_full_queue=0 refused=0
+pool=http worker=0 state=idle handled=1500 errors=2 recycles=0 last_activity_ms=42100
 ```
 
 | Estado | Significado |
 | --- | --- |
-| `1` | Iniciando. La aplicación todavía no ha arrancado, o su último arranque falló. |
-| `2` | Idle. El worker espera trabajo. |
-| `3` | Active. El worker procesa una petición. |
-| `4` | Drenando. El worker termina su trabajo y sale. |
+| `starting` | La aplicación todavía no ha arrancado, o su último arranque falló. |
+| `idle` | El worker espera trabajo. |
+| `active` | El worker procesa una unidad. |
+| `draining` | El worker termina su trabajo y se detiene. |
 
-Una plaza conserva sus contadores cuando el maestro sustituye su worker. `recycles` cuenta los reinicios de la aplicación dentro de un worker, por ejemplo después de `max_requests` o de una recarga.
+`recycles` cuenta los reciclajes de la aplicación en ese hilo worker, por ejemplo después de `max_requests`, un error fatal o una recarga.
 
 ::: tip
-La salida de estado usa `info` en el target `master`. El nivel de registro predeterminado es `error`. Establece este target en `info` para mostrar la salida:
+La salida de estado usa `info` en el target `rapira`. El nivel de registro predeterminado es `error`. Establece este target en `info` para mostrar la salida:
 
 ```toml
 [log.targets]
-master = "info"
+rapira = "info"
 ```
 
-El mismo target contiene errores de creación de workers y advertencias de tiempo límite de petición. Consulta [registro](/es/docs/logging) para más información.
+Consulta [registros](/es/docs/logging) para más información.
 :::
 
 ::: question ¿Usa Rapira transparent huge pages?
-No. En Linux, el maestro desactiva las transparent huge pages para su propio proceso antes de que PHP se inicie. Los workers y los procesos que PHP inicia con `proc_open()` o `exec()` heredan este ajuste. Por eso, `USE_ZEND_ALLOC_HUGE_PAGES=1` y `opcache.huge_code_pages` no obtienen transparent huge pages. Estas opciones todavía pueden usar huge pages explícitas que el host reserva con `vm.nr_hugepages`. Ningún ajuste cambia este comportamiento.
+No. En Linux, Rapira desactiva las transparent huge pages para su proceso antes de que PHP se inicie. Los procesos hijos que PHP inicia con `proc_open()` o `exec()` heredan este ajuste. Por eso, `USE_ZEND_ALLOC_HUGE_PAGES=1` y `opcache.huge_code_pages` no obtienen transparent huge pages. Estas opciones todavía pueden usar huge pages explícitas reservadas con `vm.nr_hugepages`.
 :::
 
-::: question ¿Puede el maestro ejecutarse como PID 1 en un contenedor?
-Sí. Como PID 1, el maestro procesa las señales de parada y recoge todos los procesos hijos que terminan. No necesitas un proceso init separado.
+::: question ¿Puede Rapira ejecutarse como PID 1 en un contenedor?
+No. Ejecuta los contenedores con `docker run --init` para que un proceso init elimine los procesos hijos finalizados iniciados por PHP.
 :::

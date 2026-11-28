@@ -9,11 +9,11 @@ description: "生产环境的 systemd unit、配置结构、反向代理、重�
 
 Rapira 不定义部署结构。它不要求特定配置路径或进程监管器。本页为其他文档定义一个约定。请先按照[安装](/zh/docs/intro/installation)安装二进制文件。
 
-Rapira 也提供 `ghcr.io/rapira-rs/rapira` 容器镜像。使用 `COPY --from` 将其文件复制到应用镜像。容器使用其运行时的重启策略，而不是 systemd unit。其他配置设置不变。更多信息请参阅 [Docker](/zh/docs/intro/installation#docker)。
+Rapira 也提供 `ghcr.io/rapira-rs/rapira` 容器镜像。镜像包含 PHP，你只需将应用添加到镜像中。请使用 `--init` 启动容器，以便 init 进程回收已退出的子进程。容器使用其运行时的重启策略，而不是 systemd unit。其他配置设置不变。更多信息请参阅 [Docker](/zh/docs/intro/installation#docker)。
 
 ## 一份 systemd unit
 
-Rapira 可以替代 php-fpm。master 进程创建、监控和替换 worker。每个进程池运行固定数量的 worker，数量由 `processes` 设置。Systemd 只需监控 master 进程。不需要单独的进程管理器。
+Rapira 可以替代 php-fpm。一个服务器进程管理所有监听器和 PHP worker 线程。每个进程池运行固定数量的 worker，数量由 `workers` 设置。Systemd 只需监控这一个服务器进程。不需要单独的进程管理器。
 
 `.deb` 和 `.rpm` 软件包安装二进制文件和嵌入式 PHP。它们不安装 service unit 或 `php.ini`。这些文件包含站点特定设置。软件包更新不得替换这些文件。已安装的文件见[安装](/zh/docs/intro/installation)。
 
@@ -29,7 +29,6 @@ Type=exec
 WorkingDirectory=/srv/app
 ExecStart=/usr/bin/rapira serve /etc/rapira/rapira.toml
 ExecReload=/bin/kill -USR2 $MAINPID
-KillMode=mixed
 Restart=on-failure
 RuntimeDirectory=rapira
 Environment=PHPRC=/etc/rapira
@@ -52,12 +51,13 @@ sudo systemctl enable --now rapira
 
 此 unit 使用以下设置：
 
-- `Type=exec`：Rapira 在**前台**运行。systemd 启动的进程是 master，因此 `$MAINPID` 标识该进程。
-- `ExecReload`：`systemctl reload rapira` 向 master 发送 `SIGUSR2`。此信号启动下面所述的重载过程。
-- `KillMode=mixed`：systemd 仅向 master 发送停止信号。master 随后向 worker 发送 `SIGQUIT` 并等待。`TimeoutStopSec` 结束后，systemd 向整个组发送 `SIGKILL`。如果没有 `KillMode=mixed`，停止操作可能会终止当前请求。
+- `Type=exec`：Rapira 在**前台**运行，因此 `$MAINPID` 标识服务器进程。
+- `ExecReload`：`systemctl reload rapira` 向服务器发送 `SIGUSR2`。此信号启动下面所述的重载过程。
 - `Restart=on-failure`：systemd 在 Rapira 发生故障后重启它。正常停止后，systemd 不会重启 Rapira。
 - `RuntimeDirectory=rapira`：systemd 在启动时创建 `/run/rapira`，并在停止时将其删除。以下示例将 pidfile 和 Unix socket 放在此目录中。
 - `Environment=PHPRC`：PHP 使用此目录查找 `php.ini`。
+
+在服务 unit 或容器上设置内存和 CPU 限制，例如 `MemoryMax=` 和 `CPUQuota=`。
 
 ::: tip 以非 root 用户运行
 将 `User=` 和 `Group=` 添加到 `[Service]` 部分。Systemd 将 `RuntimeDirectory` 的所有权分配给该账户。然后该账户可以在 `/run/rapira/` 中创建 pidfile 和 Unix socket。它通常不能直接在 `/run` 中创建文件。
@@ -71,11 +71,11 @@ sudo systemctl enable --now rapira
 
 Rapira 可以在没有 `php.ini` 的情况下运行。默认值将 PHP 诊断信息写入日志，而不是 HTTP 响应。创建 `/etc/rapira/php.ini` 以配置 OPcache、内存限制或时区。诊断设置见[日志](/zh/docs/logging)。
 
-在 PHP 8.4 上，OPcache 是独立的 `opcache.so` 文件。请按照 [php.ini](/zh/docs/intro/installation#php-ini) 中的说明，在 `php.ini` 中用 `zend_extension` 行加载它。PHP 8.5 的 `libphp` 包含 OPcache。
+在 PHP 8.4 上，OPcache 是独立的 `opcache.so` 文件。请按照 [php.ini](/zh/docs/intro/installation#php-ini) 中的说明，在 `php.ini` 中用 `zend_extension` 行加载它。PHP 8.5 和 PHP 8.6 的 `libphp` 包含 OPcache。
 
-相对 `http.pool.entrypoint` 以**配置文件目录**为基准。在此结构中，`entrypoint = "index.php"` 表示 `/etc/rapira/index.php`。在生产环境中使用入口脚本的绝对路径。`supervisor.pidfile` 使用相同的解析规则。
+相对 `http.pool.entrypoint` 以**配置文件目录**为基准。在此结构中，`entrypoint = "index.php"` 表示 `/etc/rapira/index.php`。在生产环境中使用入口脚本的绝对路径。`server.pidfile` 和相对 `unix:` 监听路径使用相同的解析规则。
 
-每次 worker 启动或重启它的应用时，都会解析入口脚本路径中的符号链接，并进入入口脚本所在的目录。使用相对路径的 PHP 文件操作使用该目录。PHP 不在工作目录中查找 `php.ini`，因此请设置 `PHPRC`。`WorkingDirectory=` 设置只作用于 master。master 将它用作相对 `CONFIG` 路径和相对 `unix:` 监听路径的基准。所有键和默认值见[配置](/zh/docs/configuration)。
+每个 Classic 请求以及每个 Worker 或 Dispatcher 应用实例都在解析后的入口脚本目录中启动。使用相对路径的 PHP 文件操作使用该线程本地目录。PHP 不在工作目录中查找 `php.ini`，因此请设置 `PHPRC`。在 ZTS 下，不带 `$cwd` 参数的 `proc_open()` 会在服务器的 `WorkingDirectory=` 中启动子进程；请将 `getcwd()` 作为 `$cwd` 传入以使用应用目录。所有键和默认值见[配置](/zh/docs/configuration)。
 
 ## 反向代理
 
@@ -101,34 +101,34 @@ Rapira 可以使用[静态文件中间件](/zh/docs/static-files)提供静态资
 sudo systemctl reload rapira
 ```
 
-此命令向 master 发送 `SIGUSR2`。master 通知每个 worker 重启它的应用。每个 worker 在同一进程中再次运行入口脚本，新应用处理后续请求。没有连接关闭，也没有请求丢失。更多内容见[进程模型](/zh/docs/process-model#重载会重启应用)。
+此命令向服务器发送 `SIGUSR2`。每个 worker 在同一线程上回收其应用，新应用处理后续请求。没有连接关闭，也没有请求丢失。更多内容见[进程模型](/zh/docs/process-model#a-reload-restarts-the-apps)。
 
-当 systemd 不管理进程时，直接向 master 进程发送信号。设置 `supervisor.pidfile` 以保存 master 进程标识符。启动 Rapira 前，创建 pidfile 目录。也可以选择现有目录。如果 master 无法写入文件，它不会启动。
+当 systemd 不管理进程时，直接发送信号。设置 `server.pidfile` 以保存服务器进程标识符。启动 Rapira 前，创建 pidfile 目录。也可以选择现有目录。如果服务器无法写入该文件，它不会启动。
 
 ```toml
-[supervisor]
+[server]
 pidfile = "/run/rapira/rapira.pid"
-process_control_timeout_secs = 30
+stop_timeout_secs = 30
 ```
 
 ```bash
 kill -USR2 "$(cat /run/rapira/rapira.pid)"
 ```
 
-只有 master 写入 pidfile。它会在受控退出期间删除该文件。残留的文件可能表示发生了 `SIGKILL`、进程故障或系统故障。
+Rapira 在正常关闭和宿主直接退出（`70`、`101`、`124`、`130`）时删除 pidfile。残留的文件表示发生了 `SIGKILL`、致命崩溃信号或系统故障；下次启动会覆盖它。
 
-`process_control_timeout_secs` 限制停止时的等待时间。此等待结束后，master 发送 `SIGTERM`。一秒后发送 `SIGKILL`。请将 systemd 的 `TimeoutStopSec` 设置为大于这一完整时间间隔的值。
+`stop_timeout_secs` 限制总的关闭等待时间（默认 `30` 秒）。打开的连接在 `stop_timeout_secs` 减去 5 秒的时间内排空；如果停止超时低于 10 秒，则排空时间为停止超时的一半。请将 systemd 的 `TimeoutStopSec` 设置为大于 `stop_timeout_secs`。
 
-连接的排空时间更短：先取五秒和控制超时一半中的较小值，再从控制超时中减去该值。默认排空时间为 25 秒。停止期间，超过此时间的响应可能被截断。
+部署可以将每个应用版本放在单独的目录中，并将入口脚本路径中的符号链接切换到新目录。切换后的重载会将每个进程池的每个 worker 移到新版本：代码、工作目录和默认的 sendfile 根目录。切换后请立即重载 Rapira。在重载之前，因其他原因（例如达到 `max_requests`）回收的应用会在新版本中启动。因此，在重载之前，进程池会运行两个版本。
 
-部署可以将每个应用版本放在单独的目录中，并将入口脚本路径中的符号链接切换到新目录。切换后的重载会将每个进程池的每个 worker 移到新版本：代码、工作目录和默认的 sendfile 根目录。切换后请立即重载 Rapira。在重载之前，因其他原因启动的应用（例如达到 `max_requests` 后）会在新版本中启动。因此，在重载之前，进程池会运行两个版本。
-
-重载会清空 OPcache，因此在 `opcache.validate_timestamps = 0` 时它也会加载新的 PHP 代码。在重载时处于活动状态的最长请求结束之前，请求在没有 OPcache 的情况下运行，并重新编译其文件。在 Worker 和 Dispatcher 模式下，大多数 worker 会启动应用两次，因此 worker 循环之前的代码会运行两次。
+重载会清空 OPcache，因此在 `opcache.validate_timestamps = 0` 时它也会加载新的 PHP 代码，除非设置了 `opcache.file_cache`。由一个 worker 重置 OPcache，同时其他 worker 等待，随后的请求重新编译其文件。
 
 ::: warning 重载不会做的事
-重载会重启应用，但不会替换进程。master 保留 Rapira 二进制文件以及 `rapira.toml` 和 `php.ini` 中的设置。它还保留 gRPC 描述符集和 `[grpc.auth]` 令牌文件。更改其中任一文件后，请重启 Rapira。更改 `opcache.preload` 加载的文件后，也请重启 Rapira。PHP 只在 master 启动时加载这些文件一次。
+重载会回收应用，但不会重启服务器进程。Rapira 保留二进制文件以及 `rapira.toml` 和 `php.ini` 中的设置。它还保留 gRPC 描述符集和 `[grpc.auth]` 令牌文件。重载不会从 URL 重新下载描述符集。更改其中任一文件后，请重启 Rapira。更改 `opcache.preload` 加载的文件后，也请重启 Rapira。PHP 只在服务器启动时加载这些文件一次。
 
-设置了 `opcache.restrict_api` 时，重载不会清空 OPcache。使用此设置且 `opcache.validate_timestamps = 0` 时，请在每次部署后重启 Rapira。使用此设置时，在 OPcache 重启待执行期间启动的应用会在没有 OPcache 的情况下运行，直到它下一次启动。
+设置了 `opcache.restrict_api` 时，重载不会清空 OPcache。使用此设置且 `opcache.validate_timestamps = 0` 时，请在每次部署后重启 Rapira。
+
+使用 `opcache.file_cache` 且 `opcache.validate_timestamps = 0` 时，重载和重启都不会加载更改文件的新代码。重载只清空 OPcache 的共享内存。OPcache 随后从文件缓存读取旧脚本，而不检查文件时间。替换文件后，请清空 `opcache.file_cache` 目录，然后重载或重启 Rapira。或者，将每次发布部署到新目录，使每个更改的文件获得新路径。
 :::
 
 ## 日志
@@ -151,7 +151,7 @@ journalctl -u rapira -f
 
 ## 健康检查和指标
 
-添加 `[observability]` 表以提供健康探针和 Prometheus 指标。然后 Rapira 会再启动一个进程，此进程不运行 PHP。`GET /livez` 表示 master 正在运行。`GET /readyz` 表示每个 PHP 进程池都有空闲或活动的 worker。`GET /metrics` 以 Prometheus 文本格式返回指标。
+添加 `[observability]` 表以提供健康探针和 Prometheus 指标。Rapira 在一个不运行 PHP 的独立线程上运行此监听器。`GET /livez` 表示服务器正在运行。`GET /readyz` 表示每个 PHP 进程池都有空闲或活动的 worker。`GET /metrics` 以 Prometheus 文本格式返回指标。
 
 ```toml
 [observability]
@@ -164,27 +164,20 @@ listen = "127.0.0.1:9180"
 
 这些端点没有身份验证，也没有 TLS。请使用环回地址或 Unix socket。状态码、探针示例和指标参考见[指标与健康检查](/zh/docs/observability)。
 
-## worker 回收与请求超时
+## 应用回收与请求超时
 
-在 [Worker 和 Dispatcher 模式](/zh/docs/execution-modes)下，worker 在请求之间保留应用状态。因此，内存泄漏可能会随着时间增加 worker 内存。请使用以下设置来限制其影响：
+在 [Worker 和 Dispatcher 模式](/zh/docs/execution-modes)下，worker 在请求之间保留应用状态。因此，内存泄漏可能会随着时间增加内存使用。请使用以下设置来限制其影响：
 
 ```toml
 [http.pool]
 max_requests = 500
-max_memory_mb = 256
 request_terminate_timeout_secs = 30
 ```
 
 `[grpc.pool]` 表接受相同的键。
 
-`max_requests` 在指定的请求数后重启 worker 内部的应用。worker 进程保持不变，所以没有连接关闭，也没有请求丢失。Rapira 为每个 worker 增加一个随机数，最多为限制的一半，以避免同时重启。重启会释放应用的 PHP 内存。它不会释放扩展或 C 库在 PHP 之外泄漏的内存。此设置限制内存泄漏的影响，但不会修复泄漏。Classic 模式忽略此设置。
+`max_requests` 在指定的工作单元数后在 worker 线程上回收应用。监听器、连接和进程池队列保持不变，所以没有请求丢失。Rapira 为每个 worker 增加一个随机数，最多为限制的一半，以避免同时回收。回收会释放应用的 PHP 内存。它不会释放扩展或 C 库在 PHP 之外泄漏的内存。Classic 模式忽略此设置。
 
-`max_memory_mb` 在 worker 进程的常驻内存（RSS）超过以 MiB 为单位的限制时替换该进程。master 每秒检查一次每个 worker。worker 停止接受新连接；现有连接可以在排空超时内收到下一个请求的响应。超过此超时的响应可能被截断。worker 退出会释放 PHP 内外的内存，随后 master 启动替代进程。此设置适用于所有模式。
+`request_terminate_timeout_secs` 为单个工作单元设置墙钟时间看门狗上限。达到限制时，看门狗中断 PHP 并唤醒阻塞的响应写入。原生 I/O 仍可能继续等待，因此请为套接字和数据库调用设置超时。再过五秒后，如果某个 worker 仍然阻塞，Rapira 会记录一次日志，同时其他 worker 继续提供服务。仅当某个进程池中的所有 worker 在宽限期过后仍处于阻塞状态时，Rapira 才以退出码 `124` 退出。
 
-当容器有内存限制时，请使用 `max_memory_mb`。当容器达到其限制时，内核可能终止一个进程，该进程的所有请求都会失败。请让所有进程池的 `processes × max_memory_mb` 之和低于容器限制。请为 master、可观测性进程以及两次检查之间的内存增长留出余量。每个 worker 的 RSS 包含共享内存，例如 OPcache，所以这个总和大于实际使用量。
-
-请把限制设置在新 worker 的 RSS 之上。否则，每个新 worker 都可能在下一次检查时再次触发内存排空。`rapira_worker_rss_bytes` 指标显示每个 worker 的 RSS。
-
-`request_terminate_timeout_secs` 限制一个请求的运行时间。Rapira 会终止并替换超过此限制的 worker。这些设置的默认值都是零，即禁用。请在生产环境中启用它们。
-
-有关进程池大小调整、替换延迟和 worker 故障处理，请参阅[进程模型](/zh/docs/process-model)。
+请在 `php.ini` 中设置 `memory_limit`，并为 Rapira 进程设置容器或 systemd 内存限制。有关进程池大小调整、启动失败重试、`SIGRTMAX` 和 `execution_clock`，请参阅[进程模型](/zh/docs/process-model)。

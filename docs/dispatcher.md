@@ -6,7 +6,7 @@ faqLevel: 2
 
 # Dispatcher mode
 
-Dispatcher mode keeps the PHP process active between requests, as [Worker mode](/docs/worker) does. The script initializes the application once and then gets each request through an API call. Rapira does not fill the superglobals for a request. The script reads a request object and writes the response with method calls.
+Dispatcher mode keeps the PHP app active on each worker thread between requests, as [Worker mode](/docs/worker) does. The script initializes the application once and then gets each request through an API call. Rapira does not fill the superglobals for a request. The script reads a request object and writes the response with method calls.
 
 This page is the programming guide for the HTTP dispatcher. See [Execution modes](/docs/execution-modes) to compare the modes. The gRPC pool also uses Dispatcher mode. See [gRPC](/docs/grpc) for the gRPC call API.
 
@@ -75,11 +75,11 @@ See [Configuration](/docs/configuration#http-pool) for the other pool keys.
 | `getInfo(): HttpDispatcherInfo` | Returns `pendingCount()`, the requests in the queue of this worker, and `activeCount()`, which is `0` or `1`. |
 | `name(): string` | Returns `http`. |
 
-`receive()` blocks the PHP thread while it waits. The worker uses no CPU during the wait. The PHP `max_execution_time` timer does not count this wait, and it starts again for each request. Rapira skips a queued request when its client left before the request reached PHP.
+`receive()` blocks the PHP thread while it waits. The worker uses no CPU during the wait. The PHP `max_execution_time` timer pauses while waiting for a request or response stream space, and starts again for each request. On Linux with per-thread timers, set `http.pool.execution_clock = "cpu"` to count only worker thread CPU time. Rapira skips a queued request when its client left before the request reached PHP.
 
 ## One exchange at a time
 
-Each worker handles one exchange at a time. End the response of the current exchange before you call `receive()` or `tryReceive()` again. Otherwise, the call throws `\Error`. Fibers do not change this rule. To handle more requests at the same time, increase `http.pool.processes`.
+Each worker handles one exchange at a time. End the response of the current exchange before you call `receive()` or `tryReceive()` again. Otherwise, the call throws `\Error`. Fibers do not change this rule. To handle more requests at the same time, increase `http.pool.workers`.
 
 These calls end the response:
 
@@ -90,16 +90,16 @@ When Rapira detects cancellation of an open exchange, `receive()` and `tryReceiv
 
 Sending all declared `Content-Length` bytes with `$eos = false` does not finalize the exchange. Finalize it before the next receive call. A connection close after complete response delivery does not cancel the exchange. PHP can still finalize it. A disconnect before complete delivery can cancel it.
 
-`http.pool.request_terminate_timeout_secs` counts from the return of `receive()` or `tryReceive()`. Rapira terminates and replaces a worker that exceeds this limit. See [Configuration](/docs/configuration#http-pool) for this key.
+`http.pool.request_terminate_timeout_secs` counts from the return of `receive()` or `tryReceive()`. At the limit, the watchdog interrupts PHP and wakes a blocked response write. If every worker in the pool stays blocked past the 5-second grace period, Rapira exits with code `124`. See [Configuration](/docs/configuration#http-pool) for this key.
 
 ## How the loop ends
 
-During a stop, Rapira closes the dispatcher. When the dispatcher is closed and its queue is empty, `receive()` and `tryReceive()` throw `Rapira\Exception\ClosedException`. After `http.pool.max_requests` or a reload, the dispatcher closes at once for this app instance. The requests in the queue wait for the next app instance in the same worker. Every later call throws the exception again. Catch this exception, leave the loop, and let the entry script end.
+During a stop, Rapira closes the dispatcher. When the dispatcher is closed and its queue is empty, `receive()` and `tryReceive()` throw `Rapira\Exception\ClosedException`. After `http.pool.max_requests` or a reload, the dispatcher closes at once for this app instance. The requests in the queue wait for the next app instance on the same worker thread. Every later call throws the exception again. Catch this exception, leave the loop, and let the entry script end.
 
-An uncaught exception or a fatal error ends the entry script. Rapira then runs the entry script again in the same worker. The client of the open exchange gets an error response or an incomplete response.
+An uncaught exception or a fatal error ends the entry script. Rapira then runs the entry script again on the same worker thread. The client of the open exchange gets an error response or an incomplete response.
 
 ::: question What happens when the entry script ends before `ClosedException`?
-If the script received at least one request, Rapira runs the entry script again in the same worker. If the script ended before it received a request, Rapira counts a start failure. If a request arrives within five seconds, Rapira answers it with `503`. Then Rapira runs the script again. After five consecutive start failures, the worker exits as unhealthy.
+If the script received at least one request, Rapira runs the entry script again on the same worker thread. If the script ended before it received a request, Rapira counts a failed boot. The retry delay starts at 500 ms, doubles after each consecutive failure, and stops at 5 seconds. An incoming request during the wait does not start the next boot early; while no worker in the pool is ready, queued requests receive `503`. A boot that succeeds resets the failure count and delay. When a worker reaches `http.pool.max_boot_failures` (default `5`) before its pool has served a request, the server exits with code `70`.
 :::
 
 ## The request
@@ -158,13 +158,13 @@ Inside a quoted `name` or `filename` parameter of `content-disposition`, Rapira 
 
 A `\` at the end of a quoted value escapes the closing quote. A browser sends such a value for a field name or a file name that ends with `\`. Rapira then returns `400`, or it reads the next parameters into the value.
 
-Rapira writes each file part to a temporary file in the `rapira-spool-<pid>` subdirectory of `http.uploads.dir`. `UploadedFile::$tmpPath` contains the path of this file. Rapira deletes the temporary files when the response ends. To keep a file, move it with `rename()` before the response ends.
+Rapira writes each file part to a temporary file in a numbered subdirectory of `rapira-spool-<pid>` in `http.uploads.dir`. `UploadedFile::$tmpPath` contains the path of this file. Rapira deletes the temporary files when the response ends. To keep a file, move it with `rename()` before the response ends.
 
 Rapira returns `400` for a malformed body. It returns `413` when the body exceeds a limit. The script does not get these requests. See [The `[http.uploads]` table](/docs/configuration#the-http-uploads-table) for the limits.
 
 ## Send a file
 
-`sendFile()` reads only files below the sendfile root. The default root is the directory of `http.pool.entrypoint`. Rapira resolves symbolic links before it compares the path with the root. It resolves the root again for each app instance, so the root follows a symbolic link switch at the next app start. See [The `[http.sendfile]` table](/docs/configuration#the-http-sendfile-table) to set the root.
+`sendFile()` reads only files below the sendfile root. The default root is the directory of `http.pool.entrypoint`. A relative `sendFile()` path starts in the PHP working directory, and a `chdir()` call applies to later exchanges of the same app instance. Rapira resolves symbolic links before it compares the path with the root. It resolves the root again for each app instance, so the root follows a symbolic link switch at the next app start. See [The `[http.sendfile]` table](/docs/configuration#the-http-sendfile-table) to set the root.
 
 The host opens the file. PHP `open_basedir` does not restrict this operation. The configured sendfile root restricts the path.
 
@@ -193,7 +193,7 @@ Each exception class in the `Rapira` namespaces implements `Rapira\Exception\Rap
 | --- | --- | --- |
 | `Rapira\Exception\ClosedException` | `receive()`, `tryReceive()` | Rapira closed the dispatcher. No more requests arrive for this app instance. |
 | `Rapira\Exception\TimeoutException` | `receive()` | No request arrived before the timeout. |
-| `Rapira\Exception\NoDispatcherError` | `\Rapira\get_dispatcher()` | The process does not run in Dispatcher mode. |
+| `Rapira\Exception\NoDispatcherError` | `\Rapira\get_dispatcher()` | The pool does not run in Dispatcher mode. |
 | `Rapira\Exception\WorkDiscardedException` | The write methods | Rapira cancelled the exchange before PHP finalized it. |
 | `Rapira\Exception\AlreadyFinalizedError` | `writeBody()`, `sendFile()`, `writeTrailers()`, `flush()` | The response already ended. |
 | `Rapira\Http\Exception\HeadAlreadyWrittenError` | `writeHead()` | The head is already set, or the response already ended. |

@@ -6,9 +6,9 @@ faqLevel: 2
 
 # Peticiones y respuestas HTTP
 
-El servidor HTTP convierte una conexión de cliente en una petición de PHP y convierte la respuesta de PHP en datos de red. Usa la biblioteca [hyper](https://hyper.rs) y acepta HTTP/1.1 y HTTP/1.0. No reenvía peticiones a otro servidor.
+El servidor HTTP convierte una conexión de cliente en una petición de PHP y convierte la respuesta de PHP en datos de red. Usa la biblioteca [hyper](https://hyper.rs) en fragmentos de E/S dedicados de un solo hilo (uno por CPU, limitado a `1..=16`) y acepta HTTP/1.1 y HTTP/1.0. No reenvía peticiones a otro servidor.
 
-Un middleware puede responder a una petición antes de ejecutar PHP. Rapira usa middleware para servir [archivos estáticos](/es/docs/static-files).
+Un middleware puede responder o transformar una petición antes de ejecutar PHP. Los middleware integrados incluyen [archivos estáticos](/es/docs/static-files) y compresión de respuestas (`compress`).
 
 ::: info
 El servidor HTTP acepta HTTP sin cifrar. Usa un proxy para terminar TLS. Consulta [En producción](/es/docs/deployment).
@@ -124,12 +124,12 @@ El servidor HTTP envía una respuesta de error cuando una petición no llega a P
 | `408` | No llegaron datos del cuerpo dentro de `http.keepalive_timeout_secs`. |
 | `413` | El cuerpo es mayor que `http.max_body_size_mb`, o un cuerpo multipart supera un límite de `[http.uploads]`. |
 | `500` | El pool de workers se detuvo. En modo Dispatcher, Rapira no puede escribir un archivo subido en `[http.uploads].dir`. |
-| `502` | El worker de PHP se detuvo antes de enviar las cabeceras de la respuesta. |
-| `503` | La cola de workers estuvo llena durante 30 segundos. |
+| `502` | El worker de PHP terminó antes de enviar las cabeceras de la respuesta. |
+| `503` | La cola del pool estuvo llena durante 30 segundos. |
 
 Rapira envía estos estados sin los dos campos:
 
-- `503` cuando un worker no puede iniciar su script de entrada. Después de cada inicio fallido, el worker responde a una petición en cola con este estado.
+- `503` cuando ningún worker del pool está listo durante una espera exponencial tras un arranque fallido.
 - `502` cuando PHP establece un estado final menor que `200`, como `101`.
 - `500` cuando un script de Dispatcher libera un exchange antes de que Rapira envíe las cabeceras de la respuesta.
 

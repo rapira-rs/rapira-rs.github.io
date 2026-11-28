@@ -48,7 +48,7 @@ Hello, world!
 Method: GET
 ```
 
-worker 进程在请求之间保持运行。Rapira 创建一次 worker，并在每个 worker 中保留已初始化的 PHP 解释器。Classic 模式在每个请求后删除脚本状态。此状态包括变量、自动加载器和框架对象。
+worker 线程在请求之间保持活动。Rapira 创建一次 worker，并在每个 worker 线程中保留已初始化的 PHP 解释器。Classic 模式在每个请求后删除脚本状态。此状态包括变量、自动加载器和框架对象。
 
 ## Worker 模式
 
@@ -66,7 +66,7 @@ $handler = static function () use (&$handled): void {
     $handled++;
     header('Content-Type: text/plain');
     echo "Hello, " . ($_GET['name'] ?? 'anonymous') . "!\n";
-    echo "worker " . getmypid() . " handled {$handled} request(s)\n";
+    echo "this worker handled {$handled} request(s)\n";
 };
 
 while (\Rapira\handle_request($handler)) {
@@ -99,9 +99,9 @@ rapira serve rapira.toml
 curl '127.0.0.1:8000/?name=world'
 ```
 
-多次运行 `curl` 命令。同一进程处理另一个请求时，该 worker 的计数器会增加。Rapira 默认根据可用 CPU 设置 worker 数量。操作系统为每个连接选择 worker。每个 worker 有独立的计数器。输出中的进程标识符显示返回响应的 worker。
+多次运行 `curl` 命令。同一个 worker 处理另一个请求时，该 worker 的计数器会增加。Rapira 默认根据可用 CPU 设置 worker 数量。每个 worker 线程从进程池队列拉取等待的请求，并保留自己的计数器。
 
-在 `[http.pool]` 中设置 `processes = 1` 以创建一个 worker。进程池的监管请参阅[进程模型](/zh/docs/process-model)。
+在 `[http.pool]` 中设置 `workers = 1` 以创建一个 worker。进程池管理请参阅[进程模型](/zh/docs/process-model)。
 
 在 `while` 循环前创建的对象会在内存中保留到 worker 脚本重新启动。这些对象包括 Composer 自动加载器、容器、连接、路由和模板。Rapira 只初始化一次此状态，而不是为每个请求初始化。每次迭代中只有请求状态是新的。
 
@@ -113,20 +113,20 @@ worker 脚本必须重置保留在内存中的请求状态。此状态包括静�
 
 ## 配置文件
 
-配置文件保存所有设置。`rapira serve` 命令只接受此文件的路径。要使用四个 worker，请在已有的 `[http.pool]` 表中添加 `processes = 4`。
+配置文件保存所有设置。`rapira serve` 命令只接受此文件的路径。要使用四个 worker，请在已有的 `[http.pool]` 表中添加 `workers = 4`。
 
 ::: info
 相对 `http.pool.entrypoint` 以配置文件目录为基准。当前目录不会影响此路径。
 :::
 
-此文件还控制 worker 替换、请求超时、日志和 supervisor pidfile。如果文件包含未知键，服务器不会启动。所有配置文件设置请参阅[配置](/zh/docs/configuration)，命令请参阅[命令行](/zh/docs/cli)。
+此文件还控制应用回收、请求超时、日志和服务器 pidfile。如果文件包含未知键，服务器不会启动。所有配置文件设置请参阅[配置](/zh/docs/configuration)，命令请参阅[命令行](/zh/docs/cli)。
 
 ## 停止服务器
 
-按 `Ctrl-C` 停止服务器。终端向 master 和每个 worker 发送 `SIGINT`，因此当前请求立即停止。要让当前请求完成，只向 master 进程发送 `SIGTERM`，例如 `kill -TERM <master-pid>`。完整的信号表请参阅[进程模型](/zh/docs/process-model)。
+按 `Ctrl-C` 停止服务器。第一个 `SIGINT` 或 `SIGTERM` 关闭监听器、排空打开的连接并平稳停止服务器。第二次按 `Ctrl-C` 会强制以退出码 `130` 立即退出。完整的信号表请参阅[进程模型](/zh/docs/process-model)。
 
 ## 下一步
 
-- [Worker 模式](/zh/docs/worker)介绍常驻循环、状态、内存泄漏、worker 替换和应用初始化。
+- [Worker 模式](/zh/docs/worker)介绍常驻循环、状态、内存泄漏、应用回收和应用初始化。
 - [配置](/zh/docs/configuration)列出 `rapira.toml` 的每个键及其默认值。
 - [框架集成](/zh/docs/frameworks/)提供 Symfony、Laravel 和 Yii3 的集成指南。

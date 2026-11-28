@@ -11,19 +11,19 @@ Rapira es un único binario con un solo subcomando:
 rapira serve <CONFIG>
 ```
 
-El comando `serve` inicia PHP, prepara los plugins y atiende peticiones. `CONFIG` es la ruta del archivo de configuración y es obligatorio. Cualquier nombre de archivo es válido, y esta documentación usa `rapira.toml`.
+El comando `serve` inicia PHP, prepara los plugins y atiende peticiones en primer plano. `CONFIG` es la ruta del archivo de configuración y es obligatorio. Cualquier nombre de archivo es válido, y esta documentación usa `rapira.toml`.
 
 Ejecuta `rapira` sin argumentos para mostrar la ayuda. Ejecuta `rapira serve --help` para mostrar la ayuda del comando. Ejecuta `rapira --version` para mostrar la versión instalada.
 
 El archivo de configuración contiene todos los ajustes del servidor. Un valor del archivo sustituye el valor predeterminado. `RUST_LOG` y `NO_COLOR` solo cambian la salida de stderr. Consulta [Configuración](/es/docs/configuration) para ver todas las claves y los formatos de dirección de `listen`.
 
 ::: question ¿Puedo definir el modo o la dirección de escucha en la línea de comandos?
-No. `rapira serve` solo acepta el archivo de configuración. Define `processes`, `mode` y `entrypoint` en `[http.pool]`. Define `listen` en `[http]`.
+No. `rapira serve` solo acepta el archivo de configuración. Define `workers`, `mode` y `entrypoint` en `[http.pool]`. Define `listen` en `[http]`.
 :::
 
 ## Rutas relativas
 
-Una ruta relativa del archivo usa como base el directorio del archivo de configuración. Esto se aplica a `http.pool.entrypoint`, `grpc.pool.entrypoint` y las demás claves de ruta. Por ejemplo, `entrypoint = "public/index.php"` en `/etc/rapira/rapira.toml` se resuelve como `/etc/rapira/public/index.php`. El directorio actual no afecta a estas rutas. Una ruta `unix:` relativa de `listen` es diferente: usa el directorio actual del comando `rapira serve`. Consulta [Rutas relativas](/es/docs/configuration#rutas-relativas) para ver la lista de claves de ruta.
+Una ruta relativa en el archivo de configuración usa como base el directorio del archivo de configuración. Esto se aplica a `http.pool.entrypoint`, `grpc.pool.entrypoint`, las rutas de escucha `unix:` relativas y todas las demás claves de ruta. Por ejemplo, `entrypoint = "public/index.php"` en `/etc/rapira/rapira.toml` se resuelve como `/etc/rapira/public/index.php`. El directorio actual no afecta a estas rutas. Consulta [Rutas relativas](/es/docs/configuration#relative-paths) para ver la lista de claves de ruta.
 
 ## Ejemplo
 
@@ -56,16 +56,18 @@ curl http://127.0.0.1:8000/
 
 ## Parar el servidor
 
-El primer `SIGTERM` o `SIGINT` inicia una parada ordenada. Los workers no aceptan trabajo nuevo y terminan las peticiones actuales. Después, el maestro cierra PHP y termina. Un segundo `SIGTERM` o `SIGINT` detiene la espera y fuerza la salida. Envía las señales al proceso maestro. Consulta la tabla completa de señales en [Modelo de procesos](/es/docs/process-model).
+El primer `SIGTERM`, `SIGINT` o `SIGQUIT` inicia una parada ordenada. Rapira cierra las escuchas, drena las conexiones abiertas dentro de `[server].stop_timeout_secs`, apaga PHP y sale. Pulsar `Ctrl-C` en un terminal envía `SIGINT` y realiza la misma parada ordenada.
 
-Ctrl-C en un terminal envía `SIGINT` al maestro y a cada worker. Después, el maestro envía `SIGQUIT` a cada worker. Así, cada worker recibe una segunda señal y sale al instante con el código `131`. Las peticiones actuales no terminan. Para una parada ordenada, envía `SIGTERM` solo al maestro, por ejemplo `kill -TERM <master-pid>`. systemd con `KillMode=mixed` y `docker stop` también envían la señal solo al maestro.
+Un segundo `SIGTERM` o `SIGINT` durante el drenaje fuerza una salida inmediata con el código `130`. Consulta [Modelo de procesos](/es/docs/process-model) para ver la tabla completa de señales.
 
-## Códigos de salida
+## Códigos de salida {#exit-codes}
 
 | Código | Significado |
 | --- | --- |
-| `0` | El servidor se paró y todos los workers salieron. `--help`, `--version` y `rapira` sin argumentos también salen con `0`. |
-| `1` | El servidor no se inició. Por ejemplo, la configuración no es válida, Rapira no puede leer un archivo, una escucha no puede enlazar la dirección o PHP no puede iniciarse. El error está en stderr. |
+| `0` | El servidor se detuvo de forma ordenada. `--help`, `--version` y `rapira` sin argumentos también salen con `0`. |
+| `1` | Fallo de arranque o de ejecución, como una configuración no válida, un archivo ilegible, un error de enlace, un error de configuración de PHP o `SIGRTMAX`, o un fallo de escucha. El error está en stderr. |
 | `2` | La línea de comandos no es válida, por ejemplo una opción desconocida o la falta de `CONFIG`. |
-| `70` | El maestro falló después de iniciarse. Por ejemplo, el total de workers de todos los pools es mayor que 4096, o el maestro no puede escribir el pidfile. Un worker unhealthy también causa esta salida si su pool no tiene ninguna petición correcta ni ningún worker idle o active. El registro tiene una entrada `master failed`. |
-| `130` | Un `SIGTERM` o `SIGINT` llegó durante una parada y forzó la salida. |
+| `70` | Un worker residente alcanzó `max_boot_failures` antes de que su pool atendiera una unidad. |
+| `101` | Un hilo worker de PHP entró en pánico. |
+| `124` | Todos los workers de un pool permanecieron bloqueados después del plazo de gracia de 5 segundos tras `request_terminate_timeout_secs`. |
+| `130` | Un segundo `SIGTERM` o `SIGINT` llegó durante una parada y forzó la salida. |

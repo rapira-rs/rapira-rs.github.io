@@ -88,14 +88,14 @@ Względny `entrypoint` używa katalogu pliku konfiguracyjnego jako bazy. Wszystk
 | Tryb | Czas życia aplikacji | Źródło żądania |
 | --- | --- | --- |
 | `classic` | Jedno żądanie | Zmienne superglobalne wypełniane przez Rapirę |
-| `worker` | Proces workera | Zmienne superglobalne wypełniane przez Rapirę |
-| `dispatcher` | Proces workera | Obiekty `Rapira\Http\Exchange` |
+| `worker` | Cykl aplikacji w wątku workera | Zmienne superglobalne wypełniane przez Rapirę |
+| `dispatcher` | Cykl aplikacji w wątku workera | Obiekty `Rapira\Http\Exchange` |
 
 **Tryb Classic** uruchamia ten sam cykl życia co `public/index.php` Laravela. Most wczytuje `bootstrap/app.php`, obsługuje żądanie, wysyła odpowiedź i wywołuje `terminate()`. Plik trybu konserwacji `storage/framework/maintenance.php` działa tak samo jak w `public/index.php`. Po żądaniu nie pozostaje żaden stan. Zobacz [tryb Classic](/pl/docs/classic).
 
-**Tryb Worker** utrzymuje jedną aplikację w każdym procesie workera. Rapira wypełnia zmienne superglobalne dla każdego żądania, a most tworzy żądanie przez `Request::capture()`. Odpowiedź wychodzi przez `header()` i wyjście, jak w trybie Classic. Zobacz [tryb Worker](/pl/docs/worker).
+**Tryb Worker** utrzymuje jedną aplikację w każdym wątku workera. Rapira wypełnia zmienne superglobalne dla każdego żądania, a most tworzy żądanie przez `Request::capture()`. Odpowiedź wychodzi przez `header()` i wyjście, jak w trybie Classic. Zobacz [tryb Worker](/pl/docs/worker).
 
-**Tryb Dispatcher** utrzymuje jedną aplikację w każdym procesie workera. Most otrzymuje każde żądanie jako obiekt exchange od [dyspozytora](/pl/docs/dispatcher) HTTP. Tworzy z niego `Illuminate\Http\Request` i zapisuje odpowiedź z powrotem do obiektu exchange. Ten tryb jest domyślny.
+**Tryb Dispatcher** utrzymuje jedną aplikację w każdym wątku workera. Most otrzymuje każde żądanie jako obiekt exchange od [dyspozytora](/pl/docs/dispatcher) HTTP. Tworzy z niego `Illuminate\Http\Request` i zapisuje odpowiedź z powrotem do obiektu exchange. Ten tryb jest domyślny.
 
 We wszystkich trybach każdy worker obsługuje jedno żądanie naraz. Octane resetuje aplikację dla każdego żądania, więc dwa żądania nie mogą jednocześnie współdzielić jednej aplikacji.
 
@@ -163,7 +163,7 @@ Laravel obsługuje wyjątek w trasie i zwraca swoją zwykłą odpowiedź `500`. 
 
 Wyjątek może wydostać się poza kernel HTTP Laravela, na przykład z callbacku odpowiedzi strumieniowej. Wtedy Octane zgłasza wyjątek przez handler wyjątków Laravela. Klient otrzymuje odpowiedź `500` w postaci zwykłego tekstu, jeśli nagłówki odpowiedzi nie zostały jeszcze wysłane. Odpowiedź zawiera szczegóły wyjątku tylko wtedy, gdy `app.debug` ma wartość `true`.
 
-Po takim wyjątku stan aplikacji może być niepoprawny. Octane zatrzymuje workera, a most kończy swoją pętlę. Następnie Rapira ponownie uruchamia skrypt wejściowy, a nowy worker ponownie inicjalizuje aplikację.
+Po takim wyjątku stan aplikacji może być niepoprawny. Octane zatrzymuje pętlę workera, a most kończy swoją pętlę. Następnie Rapira ponownie uruchamia skrypt wejściowy w tym samym wątku workera i ponownie inicjalizuje aplikację.
 
 ## Środowisko produkcyjne
 
@@ -180,13 +180,13 @@ Worker może z czasem zwiększać zużycie pamięci. Ustaw limit żądań dla ap
 [http.pool]
 entrypoint = "worker.php"
 mode = "dispatcher"
-processes = 4
+workers = 4
 max_requests = 500
 ```
 
 `max_requests` uruchamia ponownie aplikację po losowej liczbie żądań większej niż ta wartość, ale nie większej niż 1,5 tej wartości. Ogranicza wpływ wycieku pamięci, ale go nie naprawia. Zobacz [Model procesów](/pl/docs/process-model).
 
-W trybach Worker i Dispatcher kod aplikacji pozostaje w pamięci. Po wdrożeniu wyślij `SIGUSR2` do procesu nadrzędnego, aby uruchomić ponownie aplikacje. To przeładowanie opróżnia OPcache, więc wczytuje nowy kod także przy `opcache.validate_timestamps = 0`. Uruchom Rapirę ponownie po zmianie pliku, który wczytuje `opcache.preload`. Zobacz [Wdrożenie produkcyjne](/pl/docs/deployment).
+W trybach Worker i Dispatcher kod aplikacji pozostaje w pamięci. Po wdrożeniu wyślij `SIGUSR2` do serwera, aby przeładować aplikacje. To przeładowanie opróżnia OPcache, więc wczytuje nowy kod także przy `opcache.validate_timestamps = 0`, chyba że ustawiono `opcache.file_cache`. Uruchom Rapirę ponownie po zmianie pliku, który wczytuje `opcache.preload`. Zobacz [Wdrożenie produkcyjne](/pl/docs/deployment).
 
 ## Programowanie
 

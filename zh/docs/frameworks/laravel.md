@@ -88,14 +88,14 @@ rapira serve rapira.toml
 | 模式 | 应用生命周期 | 请求来源 |
 | --- | --- | --- |
 | `classic` | 一个请求 | Rapira 填充的超全局变量 |
-| `worker` | worker 进程 | Rapira 填充的超全局变量 |
-| `dispatcher` | worker 进程 | `Rapira\Http\Exchange` 对象 |
+| `worker` | worker 线程上的应用周期 | Rapira 填充的超全局变量 |
+| `dispatcher` | worker 线程上的应用周期 | `Rapira\Http\Exchange` 对象 |
 
 **Classic 模式**运行与 Laravel `public/index.php` 相同的生命周期。桥接包加载 `bootstrap/app.php`，处理请求，发送响应，然后调用 `terminate()`。维护模式文件 `storage/framework/maintenance.php` 的作用与在 `public/index.php` 中相同。请求结束后不保留任何状态。请参阅 [Classic 模式](/zh/docs/classic)。
 
-**Worker 模式**在每个 worker 进程中保留一个应用。Rapira 为每个请求填充超全局变量，桥接包使用 `Request::capture()` 构建请求。与 Classic 模式相同，响应通过 `header()` 和输出发送。请参阅 [Worker 模式](/zh/docs/worker)。
+**Worker 模式**在每个 worker 线程中保留一个应用。Rapira 为每个请求填充超全局变量，桥接包使用 `Request::capture()` 构建请求。与 Classic 模式相同，响应通过 `header()` 和输出发送。请参阅 [Worker 模式](/zh/docs/worker)。
 
-**Dispatcher 模式**在每个 worker 进程中保留一个应用。桥接包以 exchange 的形式从 HTTP [dispatcher](/zh/docs/dispatcher) 接收每个请求。它从 exchange 构建 `Illuminate\Http\Request`，并将响应写回 exchange。此模式是默认模式。
+**Dispatcher 模式**在每个 worker 线程中保留一个应用。桥接包以 exchange 的形式从 HTTP [dispatcher](/zh/docs/dispatcher) 接收每个请求。它从 exchange 构建 `Illuminate\Http\Request`，并将响应写回 exchange。此模式是默认模式。
 
 在所有模式下，每个 worker 一次处理一个请求。Octane 为每个请求重置应用，因此两个请求不能同时共享一个应用。
 
@@ -163,7 +163,7 @@ Laravel 处理路由异常并返回常规的 `500` 响应。同一个 worker 处
 
 异常可能逃出 Laravel HTTP 内核，例如来自流式响应的回调。此时 Octane 通过 Laravel 异常处理器报告该异常。如果响应头尚未发送，客户端会收到纯文本的 `500` 响应。仅当 `app.debug` 为 `true` 时，响应才包含异常详情。
 
-发生此类异常后，应用状态可能不正确。Octane 停止该 worker，桥接包结束其循环。Rapira 随后再次启动入口脚本，新的 worker 重新初始化应用。
+发生此类异常后，应用状态可能不正确。Octane 停止 worker 循环，桥接包结束其循环。Rapira 随后在同一 worker 线程上再次启动入口脚本并重新初始化应用。
 
 ## 上生产环境
 
@@ -180,13 +180,13 @@ worker 的内存使用量可能随时间增加。请为应用设置请求数限�
 [http.pool]
 entrypoint = "worker.php"
 mode = "dispatcher"
-processes = 4
+workers = 4
 max_requests = 500
 ```
 
-`max_requests` 在随机请求数后重启应用。此请求数大于此值，最多为此值的 1.5 倍。它限制内存泄漏的影响，但不会修复泄漏。请参阅[进程模型](/zh/docs/process-model)。
+`max_requests` 在高于此值、最多为此值 1.5 倍的随机请求数后回收应用。它限制内存泄漏的影响，但不会修复泄漏。请参阅[进程模型](/zh/docs/process-model)。
 
-在 Worker 和 Dispatcher 模式下，应用代码保留在内存中。部署后，向 master 发送 `SIGUSR2` 以重启应用。这次重载会清空 OPcache，因此在 `opcache.validate_timestamps = 0` 时它也会加载新代码。更改 `opcache.preload` 加载的文件后，请重启 Rapira。请参阅[生产环境部署](/zh/docs/deployment)。
+在 Worker 和 Dispatcher 模式下，应用代码保留在内存中。部署后，向服务器发送 `SIGUSR2` 以重载应用。这次重载会清空 OPcache，因此除非设置了 `opcache.file_cache`，否则在 `opcache.validate_timestamps = 0` 时它也会加载新代码。更改 `opcache.preload` 加载的文件后，请重启 Rapira。请参阅[生产环境部署](/zh/docs/deployment)。
 
 ## 开发
 

@@ -5,7 +5,7 @@ description: "Framework worker loops, request state, persistent state, error han
 
 # Framework integration
 
-A framework application runs without changes in Classic mode. Configure Rapira to use the existing entry script. In Worker mode, the PHP process stays active between requests. The framework design determines which application state can stay in memory. This page describes the rules for all frameworks. The framework guides describe only framework-specific behavior.
+A framework application runs without changes in Classic mode. Configure Rapira to use the existing entry script. In Worker mode, the PHP worker stays active between requests. The framework design determines which application state can stay in memory. This page describes the rules for all frameworks. The framework guides describe only framework-specific behavior.
 
 ::: info Verified with
 
@@ -13,18 +13,18 @@ A framework application runs without changes in Classic mode. Configure Rapira t
 - **Rapira 0.8.0**
 - **Symfony 7.4.15** and **8.1.2**, **Yii3** app template 1.4 (yii-runner-http 3.2.1)
 
-Tests ran these applications on Linux with one worker process. Framework statements on this page come from those tests. The examples on this page use the v0.9 configuration format. See [configuration](/docs/configuration) for the Rapira settings.
+Tests ran these applications on Linux with one worker process. Framework statements on this page come from those tests. The examples on this page use the v0.10 configuration format. See [configuration](/docs/configuration) for the Rapira settings.
 :::
 
 ## Classic and Worker modes
 
 **Classic mode uses the existing entry script.** It starts a new PHP request for each HTTP request. A framework that runs under php-fpm can also run in this mode. See [Classic mode](/docs/classic) for more information. Only the static files, TLS, and OPcache sections below apply to Classic mode.
 
-**Worker mode keeps the process active.** The script initializes the application and requests work in a loop. The application state stays between requests. See [execution modes](/docs/execution-modes) and [Worker mode](/docs/worker) for more information.
+**Worker mode keeps the worker active.** The script initializes the application and requests work in a loop. The application state stays between requests. See [execution modes](/docs/execution-modes) and [Worker mode](/docs/worker) for more information.
 
 One codebase can use both modes. Keep `public/index.php`. Add `worker.php` to the project root. `http.pool.mode` selects the execution mode, and `http.pool.entrypoint` selects the script. Classic mode remains available if a Worker mode migration fails.
 
-Each worker uses the directory of its entry script as the working directory. Thus, relative file paths in `worker.php` resolve against the project root. Relative file paths in `public/index.php` resolve against `public/`. A `chdir()` call in PHP code stays in effect until the next app start, for example a reload or a restart after `max_requests`. In Classic mode, it stays in effect until the next reload.
+Each worker starts in the resolved entry script directory. Thus, relative file paths in `worker.php` resolve against the project root. Relative file paths in `public/index.php` resolve against `public/`. In Worker and Dispatcher modes, a `chdir()` call stays in effect for later requests of the same app instance. In Classic mode, each request starts in the entry script directory and restores the saved directory before shutdown callbacks.
 
 ## Worker loop
 
@@ -59,7 +59,7 @@ The script contains these operations:
 
 Inside the handler, Rapira sets `SCRIPT_NAME` to `/worker.php` because `worker.php` is the entry script. `DOCUMENT_ROOT` contains the script directory. `REQUEST_URI` contains the client path. Symfony and Yii3 routed requests and generated URLs correctly with these values. The generated URLs did not contain `worker.php`. Before you integrate another framework, check whether it builds URLs from `SCRIPT_NAME` instead of `REQUEST_URI`.
 
-Before the first request, `$_SERVER` contains the process environment. At that time, `SCRIPT_NAME` contains the absolute script path, and `DOCUMENT_ROOT` is empty. The `$_SERVER` of a request does not contain the process environment. Read environment variables before the loop, or use `getenv()` in the handler. Do not calculate a URL prefix from `$_SERVER` before the loop. See [`$_SERVER` before the first request](/docs/execution-modes#server-before-the-first-request).
+Before the first request, `$_SERVER` contains the startup and pool environment. At that time, `SCRIPT_NAME` contains the absolute script path, and `DOCUMENT_ROOT` is empty. The `$_SERVER` of a request includes [`[http.pool.env]`](/docs/configuration#http-pool-env) entries (overridden by same-named request variables) and excludes the OS process environment. Read process environment variables before the loop, or use `getenv()` in the handler. Do not calculate a URL prefix from `$_SERVER` before the loop. See [`$_SERVER` before the first request](/docs/execution-modes#server-before-the-first-request).
 
 ## Per-request and resident state
 
@@ -67,15 +67,15 @@ Rapira rebuilds everything in the left column for every request. Ordinary PHP co
 
 | New for every request | Remains between requests |
 | ----------------------- | ---------------------- |
-| `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE`: Rapira refills them with request data. `$_SERVER` does not contain the process environment | The Composer autoloader and each class that it loaded |
+| `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE`: Rapira refills them with request data. From the process environment, `$_SERVER` contains only the variables from [`[http.pool.env]`](/docs/configuration#http-pool-env) | The Composer autoloader and each class that it loaded |
 | `php://input`: the raw request body, `CONTENT_TYPE`, and `CONTENT_LENGTH` | `static` properties and variables, which keep values across requests |
 | `$_FILES` and the uploaded temporary files | Objects created before the loop, such as the container, kernel, and application |
 | Session data: `session_start()`, the request cookie, and the response `Set-Cookie` field | Open resources: database handles, cache clients, streams |
-| Response state: status code, headers, `setcookie()`, and output buffers | The process: the same pid and one resident PHP interpreter for each worker |
+| Response state: status code, headers, `setcookie()`, and output buffers | The worker thread: one resident ZTS PHP interpreter for each worker |
 | Shutdown functions registered **inside** the handler | `$_ENV` values loaded before the loop |
 | The `max_execution_time` clock, re-armed for each request | |
 
-Rapira starts a new `max_execution_time` timer for each request. The time that a worker waits for a request does not count toward this limit.
+Rapira starts a new `max_execution_time` timer for each request and pauses it while waiting for work or response stream space. By default, [`http.pool.execution_clock`](/docs/configuration#http-pool) is `"wall"` (elapsed time). On Linux with per-thread timers, set `http.pool.execution_clock = "cpu"` to count only worker thread CPU time.
 
 The following three behaviors apply to a persistent worker.
 
@@ -97,7 +97,7 @@ Register request shutdown functions inside the handler. Examples include metric 
 
 Rapira does not rebuild `$_ENV` for each request. Values that code writes to `$_ENV` before the loop stay until the worker script restarts. Load environment configuration before the loop. Do not store request data in `$_ENV`.
 
-A change to `$_ENV` does not change the process environment. Use `putenv()` when `getenv()` or child processes must see a value. In production, set environment variables in the service unit, container, or orchestrator.
+A change to `$_ENV` does not change `getenv()` or the process environment. Under ZTS, `putenv()` updates a thread-local layer read by `getenv()` without changing the OS process environment. Child processes inherit the OS startup environment unless you pass `getenv()` to `proc_open()`. In production, set environment variables in [`[http.pool.env]`](/docs/configuration#http-pool-env), the service unit, container, or orchestrator.
 :::
 
 ## Error handling
@@ -153,11 +153,11 @@ Persistent Symfony and Yii3 applications had stable memory use during the same t
 
 ## OPcache and changed code
 
-Rapira starts PHP once in the master before it creates workers. OPcache creates one shared memory segment, and each worker inherits the same mapping. Compiled scripts stay cached across requests and workers in all modes.
+Rapira starts PHP once on the main thread before workers start. OPcache shares compiled bytecode across all worker threads in all modes.
 
-On PHP 8.4, OPcache is a separate `opcache.so` file that needs a `zend_extension` line in `php.ini`. See [php.ini](/docs/intro/installation#php-ini).
+On PHP 8.4, OPcache is a separate `opcache.so` file that needs a `zend_extension` line in `php.ini`. PHP 8.5 and PHP 8.6 include OPcache in `libphp`. See [php.ini](/docs/intro/installation#php-ini).
 
-In production, `opcache.validate_timestamps = 0` removes the file check from each request. This setting prevents automatic cache invalidation. The OPcache segment belongs to the master and remains during worker replacement. A reload empties the cache, so a reload after a deployment loads the new code. Files that `opcache.preload` loads need a complete restart. See [running in production](/docs/deployment) for the sequence.
+In production, `opcache.validate_timestamps = 0` removes the file check from each request. This setting prevents automatic cache invalidation. A reload empties OPcache, so a reload after a deployment loads the new code, unless `opcache.file_cache` is set. Files that `opcache.preload` loads need a complete restart. See [running in production](/docs/deployment) for the sequence.
 
 During development, a persistent application does not read its initialization code again. This behavior does not depend on OPcache. After changes to the worker script or initialized services, press Ctrl-C. Then run `rapira serve rapira.toml` again.
 
@@ -167,6 +167,6 @@ During development, a persistent application does not read its initialization co
 - **[Laravel](/docs/frameworks/laravel):** The `rapira/laravel` bridge runs one entry script in Classic, Worker, and Dispatcher modes. The Laravel Octane worker resets the application state between requests.
 - **[Yii3](/docs/frameworks/yii3):** `StateResetter` resets a persistent container after each request. Alternatively, the worker can create a new runner for each request.
 
-Other frameworks can use the same basic worker script. Use Worker mode only if the application can process several requests in one process. First, create the application inside the handler. This design does not require framework support for persistent processes.
+Other frameworks can use the same basic worker script. Use Worker mode only if the application can process several requests in one worker. First, create the application inside the handler. This design does not require framework support for persistent workers.
 
 Validate the application in this design. Then keep the application in memory. Reset its request state after each request. Use [Classic mode](/docs/classic) if neither Worker design operates correctly.

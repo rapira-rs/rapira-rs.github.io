@@ -18,7 +18,7 @@ Nazwy trybów to wartości klucza `http.pool.mode` i przypadki enuma `Rapira\Mod
 
 ## Classic
 
-Skrypt wejściowy wykonuje się w nowym żądaniu PHP za każdym razem, tak jak pod php-fpm. Rapira wypełnia zmienne superglobalne, wykonuje skrypt, wysyła odpowiedź, a następnie usuwa stan żądania. Trwałe połączenia i stan rozszerzeń pozostają, ponieważ istnieją w procesie workera.
+Skrypt wejściowy wykonuje się w nowym żądaniu PHP za każdym razem, tak jak pod php-fpm. Rapira wypełnia zmienne superglobalne, wykonuje skrypt, wysyła odpowiedź, a następnie usuwa stan żądania. Trwałe połączenia i stan rozszerzeń pozostają w wątku workera.
 
 Istniejąca aplikacja może działać bez zmian w kodzie, gdy Rapira zastępuje php-fpm. Rapira osadza PHP w procesie serwera i nie używa FastCGI.
 
@@ -28,7 +28,7 @@ Więcej informacji znajdziesz w [trybie Classic](/pl/docs/classic).
 
 Worker używa tych samych interfejsów żądania i odpowiedzi co Classic. Aplikacja odczytuje zmienne superglobalne i może używać `echo` dla odpowiedzi. Skrypt workera inicjalizuje aplikację raz, a następnie uruchamia pętlę. Dla każdego żądania Rapira ponownie wypełnia zmienne superglobalne i uruchamia handler. Obiekty, które skrypt tworzy poza pętlą, pozostają dostępne.
 
-Inicjalizacja wykonuje się raz dla każdego workera, a nie raz dla każdego żądania. Może to skrócić czas żądania. Jednak właściwości statyczne, singletony i stan globalny pozostają dla następnego żądania. Ustaw [`http.pool.max_requests`](/pl/docs/configuration), aby wymienić workera po określonej liczbie żądań. To ogranicza wpływ wycieku pamięci.
+Inicjalizacja wykonuje się raz dla każdego workera, a nie raz dla każdego żądania. Może to skrócić czas żądania. Jednak właściwości statyczne, singletony i stan globalny pozostają dla następnego żądania. Ustaw [`http.pool.max_requests`](/pl/docs/configuration), aby ponownie uruchomić instancję aplikacji po określonej liczbie żądań. To ogranicza wpływ wycieku pamięci.
 
 O skrypcie workera i jego pętli przeczytasz w [trybie Worker](/pl/docs/worker). O obsłudze żądań i odpowiedzi przeczytasz w [HTTP](/pl/docs/http).
 
@@ -38,7 +38,7 @@ W trybie Dispatcher skrypt workera pobiera każdą jednostkę pracy przez wywoł
 
 Aplikacja może przekazać obiekt żądania do funkcji lub middleware. Rapira nie wypełnia zmiennych superglobalnych w tym trybie. Aplikacja, która odczytuje zmienne superglobalne, potrzebuje trybu Worker albo adaptera, który kopiuje dane żądania do tych zmiennych. `echo` i inne wyjście PHP nie trafiają do klienta. Rapira zapisuje to wyjście do logu w celu `php` na poziomie `info`.
 
-Każdy worker obsługuje jedną jednostkę pracy naraz. Zakończ bieżącą jednostkę, zanim ponownie wywołasz `receive()`. Aby obsługiwać więcej żądań jednocześnie, zwiększ `http.pool.processes`.
+Każdy worker obsługuje jedną jednostkę pracy naraz. Zakończ bieżącą jednostkę, zanim ponownie wywołasz `receive()`. Aby obsługiwać więcej żądań jednocześnie, zwiększ `http.pool.workers`.
 
 Pętlę, API żądania i odpowiedzi oraz wyjątki opisuje [tryb Dispatcher](/pl/docs/dispatcher). API wywołań gRPC opisuje [gRPC](/pl/docs/grpc).
 
@@ -48,7 +48,7 @@ W trybach Worker i Dispatcher skrypt wejściowy startuje przed pierwszym żądan
 
 | Klucz | Wartość |
 | --- | --- |
-| Każda zmienna środowiskowa procesu | Wartość ze środowiska |
+| Każda zmienna środowiskowa puli i procesu | Wartość z [tabeli env puli](/pl/docs/configuration#http-pool-env) lub ze środowiska startowego |
 | `PHP_SELF`, `SCRIPT_NAME`, `SCRIPT_FILENAME`, `PATH_TRANSLATED` | Bezwzględna ścieżka skryptu wejściowego |
 | `DOCUMENT_ROOT` | Pusty ciąg znaków |
 | `REQUEST_TIME`, `REQUEST_TIME_FLOAT` | Czas startu skryptu wejściowego |
@@ -57,11 +57,11 @@ W trybach Worker i Dispatcher skrypt wejściowy startuje przed pierwszym żądan
 
 `$_SERVER` otrzymuje zmienne środowiskowe, gdy `variables_order` zawiera `S`. `$_ENV` otrzymuje je tylko wtedy, gdy `variables_order` zawiera `E`. Wartość produkcyjna `GPCS` nie zawiera `E`. Ścieżka skryptu wejściowego zastępuje zmienną środowiskową o tej samej nazwie, na przykład `SCRIPT_FILENAME`. Zmienne globalne `$argv` i `$argc` zawierają te same wartości co `$_SERVER`.
 
-W trybie Dispatcher `$_SERVER` zachowuje te wartości do ponownego startu skryptu wejściowego. Dane żądania znajdują się w obiekcie żądania. W trybie Worker Rapira ponownie wypełnia `$_SERVER` danymi żądania dla każdego żądania. Wartości żądania nie zawierają zmiennych środowiskowych, a `SCRIPT_NAME` zawiera nazwę skryptu wejściowego z początkowym ukośnikiem.
+W trybie Dispatcher `$_SERVER` zachowuje te wartości do ponownego startu skryptu wejściowego. Dane żądania znajdują się w obiekcie żądania. W trybie Worker Rapira ponownie wypełnia `$_SERVER` wpisami z [`[http.pool.env]`](/pl/docs/configuration#http-pool-env) oraz danymi żądania dla każdego żądania. Zmienne żądania nadpisują wpisy puli o tej samej nazwie, a `SCRIPT_NAME` zawiera nazwę skryptu wejściowego z początkowym ukośnikiem. W trybie Classic `$_SERVER` każdego żądania zawiera również zmienne z `[http.pool.env]` i żadnych innych zmiennych środowiskowych.
 
 ## Odczyt trybu w trakcie pracy
 
-`Rapira\get_mode()` zwraca tryb procesu jako przypadek `Rapira\Mode`. Przypadki to `Classic`, `Worker` i `Dispatcher`. Przypadek to tryb puli workera i nie zmienia się w trakcie działania procesu. Funkcja nie przyjmuje argumentów ani nie rzuca wyjątków. Skrypt wejściowy może jej użyć do obsługi wielu trybów.
+`Rapira\get_mode()` zwraca tryb puli jako przypadek `Rapira\Mode`. Przypadki to `Classic`, `Worker` i `Dispatcher`. Przypadek to tryb puli workera i nie zmienia się w trakcie działania serwera. Funkcja nie przyjmuje argumentów ani nie rzuca wyjątków. Skrypt wejściowy może jej użyć do obsługi wielu trybów.
 
 ```php
 <?php
@@ -78,7 +78,7 @@ match (\Rapira\get_mode()) {
 };
 ```
 
-::: question Dlaczego tryb nie zmienia się przez całe życie procesu?
+::: question Dlaczego tryb nie zmienia się w trakcie działania serwera?
 Rapira odczytuje tryb puli, zanim uruchomi interpreter. Wszystkie żądania w tym workerze zwracają ten sam przypadek. Przeładowanie nie odczytuje ponownie `rapira.toml`. Aby zmienić tryb, uruchom ponownie Rapirę.
 :::
 

@@ -6,7 +6,7 @@ faqLevel: 2
 
 # Modo Dispatcher
 
-El modo Dispatcher mantiene activo el proceso de PHP entre peticiones, como el [modo Worker](/es/docs/worker). El script inicializa la aplicación una vez y después recibe cada petición mediante una llamada a la API. Rapira no rellena las superglobales para una petición. El script lee un objeto de petición y escribe la respuesta con llamadas a métodos.
+El modo Dispatcher mantiene activa la aplicación PHP en cada hilo de worker entre peticiones, como el [modo Worker](/es/docs/worker). El script inicializa la aplicación una vez y después recibe cada petición mediante una llamada a la API. Rapira no rellena las superglobales para una petición. El script lee un objeto de petición y escribe la respuesta con llamadas a métodos.
 
 Esta página es la guía de programación del dispatcher HTTP. Consulta [Modos de ejecución](/es/docs/execution-modes) para comparar los modos. El pool gRPC también usa el modo Dispatcher. Consulta [gRPC](/es/docs/grpc) para ver la API de llamadas gRPC.
 
@@ -75,11 +75,11 @@ Consulta [Configuración](/es/docs/configuration#http-pool) para ver las demás 
 | `getInfo(): HttpDispatcherInfo` | Devuelve `pendingCount()`, las peticiones en la cola de este worker, y `activeCount()`, que es `0` o `1`. |
 | `name(): string` | Devuelve `http`. |
 
-`receive()` bloquea el hilo de PHP mientras espera. El worker no usa CPU durante la espera. El temporizador `max_execution_time` de PHP no cuenta esta espera y empieza de nuevo para cada petición. Rapira omite una petición en cola cuando su cliente se fue antes de que la petición llegara a PHP.
+`receive()` bloquea el hilo de PHP mientras espera. El worker no usa CPU durante la espera. El temporizador `max_execution_time` de PHP se pausa mientras espera una petición o espacio en el flujo de respuesta, y empieza de nuevo para cada petición. En Linux con temporizadores por hilo, define `http.pool.execution_clock = "cpu"` para contar solo el tiempo de CPU del hilo del worker. Rapira omite una petición en cola cuando su cliente se fue antes de que la petición llegara a PHP.
 
 ## Un exchange a la vez
 
-Cada worker procesa un exchange a la vez. Finaliza la respuesta del exchange actual antes de llamar de nuevo a `receive()` o `tryReceive()`. Si no, la llamada lanza `\Error`. Los fibers no cambian esta regla. Para procesar más peticiones al mismo tiempo, aumenta `http.pool.processes`.
+Cada worker procesa un exchange a la vez. Finaliza la respuesta del exchange actual antes de llamar de nuevo a `receive()` o `tryReceive()`. Si no, la llamada lanza `\Error`. Los fibers no cambian esta regla. Para procesar más peticiones al mismo tiempo, aumenta `http.pool.workers`.
 
 Estas llamadas finalizan la respuesta:
 
@@ -90,16 +90,16 @@ Cuando Rapira detecta la cancelación de un exchange abierto, `receive()` y `try
 
 Enviar todos los bytes declarados en `Content-Length` con `$eos = false` no finaliza el exchange. Finalízalo antes de la siguiente llamada de recepción. Cerrar la conexión después de entregar la respuesta completa no cancela el exchange. PHP todavía puede finalizarlo. Una desconexión antes de la entrega completa puede cancelarlo.
 
-`http.pool.request_terminate_timeout_secs` cuenta desde el retorno de `receive()` o `tryReceive()`. Rapira termina y sustituye un worker que supera este límite. Consulta [Configuración](/es/docs/configuration#http-pool) para ver esta clave.
+`http.pool.request_terminate_timeout_secs` cuenta desde el retorno de `receive()` o `tryReceive()`. Al llegar al límite, el watchdog interrumpe PHP y despierta una escritura de respuesta bloqueada. Si todos los workers del pool siguen bloqueados pasado el período de gracia de 5 segundos, Rapira sale con el código `124`. Consulta [Configuración](/es/docs/configuration#http-pool) para ver esta clave.
 
 ## Cómo termina el bucle
 
-Durante una parada, Rapira cierra el dispatcher. Cuando el dispatcher está cerrado y su cola está vacía, `receive()` y `tryReceive()` lanzan `Rapira\Exception\ClosedException`. Después de `http.pool.max_requests` o de una recarga, el dispatcher se cierra de inmediato para esta instancia de la aplicación. Las peticiones de la cola esperan a la siguiente instancia de la aplicación en el mismo worker. Cada llamada posterior lanza la excepción otra vez. Captura esta excepción, sal del bucle y deja que termine el script de entrada.
+Durante una parada, Rapira cierra el dispatcher. Cuando el dispatcher está cerrado y su cola está vacía, `receive()` y `tryReceive()` lanzan `Rapira\Exception\ClosedException`. Después de `http.pool.max_requests` o de una recarga, el dispatcher se cierra de inmediato para esta instancia de la aplicación. Las peticiones de la cola esperan a la siguiente instancia de la aplicación en el mismo hilo de worker. Cada llamada posterior lanza la excepción otra vez. Captura esta excepción, sal del bucle y deja que termine el script de entrada.
 
-Una excepción no capturada o un error fatal termina el script de entrada. Después, Rapira ejecuta de nuevo el script de entrada en el mismo worker. El cliente del exchange abierto recibe una respuesta de error o una respuesta incompleta.
+Una excepción no capturada o un error fatal termina el script de entrada. Después, Rapira ejecuta de nuevo el script de entrada en el mismo hilo de worker. El cliente del exchange abierto recibe una respuesta de error o una respuesta incompleta.
 
 ::: question ¿Qué ocurre cuando el script de entrada termina antes de `ClosedException`?
-Si el script recibió al menos una petición, Rapira ejecuta de nuevo el script de entrada en el mismo worker. Si el script terminó antes de recibir una petición, Rapira cuenta un fallo de arranque. Si llega una petición en un plazo de cinco segundos, Rapira la responde con `503`. Después, Rapira ejecuta de nuevo el script. Después de cinco fallos de arranque consecutivos, el worker sale como no saludable.
+Si el script recibió al menos una petición, Rapira ejecuta de nuevo el script de entrada en el mismo hilo de worker. Si el script terminó antes de recibir una petición, Rapira cuenta un arranque fallido. El retardo de reintento empieza en 500 ms, se duplica tras cada fallo consecutivo y se detiene en 5 segundos. Una petición entrante durante la espera no adelanta el siguiente arranque; mientras ningún worker del pool está listo, las peticiones en cola reciben `503`. Un arranque con éxito reinicia el contador de fallos y el retardo. Cuando un worker alcanza `http.pool.max_boot_failures` (por defecto `5`) antes de que su pool haya atendido una petición, el servidor sale con el código `70`.
 :::
 
 ## La petición
@@ -158,13 +158,13 @@ Dentro de un parámetro `name` o `filename` entre comillas de `content-dispositi
 
 Una `\` al final de un valor entre comillas escapa la comilla de cierre. Un navegador envía un valor así para un nombre de campo o un nombre de archivo que termina en `\`. Rapira devuelve entonces `400`, o lee los parámetros siguientes como parte del valor.
 
-Rapira escribe cada parte de archivo en un archivo temporal en el subdirectorio `rapira-spool-<pid>` de `http.uploads.dir`. `UploadedFile::$tmpPath` contiene la ruta de este archivo. Rapira elimina los archivos temporales cuando la respuesta finaliza. Para conservar un archivo, muévelo con `rename()` antes de que la respuesta finalice.
+Rapira escribe cada parte de archivo en un archivo temporal en un subdirectorio numerado de `rapira-spool-<pid>` dentro de `http.uploads.dir`. `UploadedFile::$tmpPath` contiene la ruta de este archivo. Rapira elimina los archivos temporales cuando la respuesta finaliza. Para conservar un archivo, muévelo con `rename()` antes de que la respuesta finalice.
 
 Rapira devuelve `400` para un cuerpo mal formado. Devuelve `413` cuando el cuerpo supera un límite. El script no recibe estas peticiones. Consulta [La tabla `[http.uploads]`](/es/docs/configuration#la-tabla-http-uploads) para ver los límites.
 
 ## Enviar un archivo
 
-`sendFile()` lee solo archivos dentro de la raíz de sendfile. La raíz predeterminada es el directorio de `http.pool.entrypoint`. Rapira resuelve los enlaces simbólicos antes de comparar la ruta con la raíz. Resuelve la raíz otra vez para cada instancia de la aplicación, así que la raíz sigue un cambio de enlace simbólico en el siguiente arranque de la aplicación. Consulta [La tabla `[http.sendfile]`](/es/docs/configuration#la-tabla-http-sendfile) para establecer la raíz.
+`sendFile()` lee solo archivos dentro de la raíz de sendfile. La raíz predeterminada es el directorio de `http.pool.entrypoint`. Una ruta relativa de `sendFile()` empieza en el directorio de trabajo de PHP, y una llamada a `chdir()` se aplica a los exchanges posteriores de la misma instancia de la aplicación. Rapira resuelve los enlaces simbólicos antes de comparar la ruta con la raíz. Resuelve la raíz otra vez para cada instancia de la aplicación, así que la raíz sigue un cambio de enlace simbólico en el siguiente arranque de la aplicación. Consulta [La tabla `[http.sendfile]`](/es/docs/configuration#la-tabla-http-sendfile) para establecer la raíz.
 
 El host abre el archivo. PHP `open_basedir` no restringe esta operación. La raíz de sendfile configurada restringe la ruta.
 
@@ -193,7 +193,7 @@ Cada clase de excepción de los espacios de nombres `Rapira` implementa `Rapira\
 | --- | --- | --- |
 | `Rapira\Exception\ClosedException` | `receive()`, `tryReceive()` | Rapira cerró el dispatcher. No llegan más peticiones para esta instancia de la aplicación. |
 | `Rapira\Exception\TimeoutException` | `receive()` | No llegó ninguna petición antes del tiempo de espera. |
-| `Rapira\Exception\NoDispatcherError` | `\Rapira\get_dispatcher()` | El proceso no se ejecuta en modo Dispatcher. |
+| `Rapira\Exception\NoDispatcherError` | `\Rapira\get_dispatcher()` | El pool no se ejecuta en modo Dispatcher. |
 | `Rapira\Exception\WorkDiscardedException` | Los métodos de escritura | Rapira canceló el exchange antes de que PHP lo finalizara. |
 | `Rapira\Exception\AlreadyFinalizedError` | `writeBody()`, `sendFile()`, `writeTrailers()`, `flush()` | La respuesta ya finalizó. |
 | `Rapira\Http\Exception\HeadAlreadyWrittenError` | `writeHead()` | La cabecera ya está establecida, o la respuesta ya finalizó. |

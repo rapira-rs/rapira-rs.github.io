@@ -6,7 +6,7 @@ faqLevel: 2
 
 # Tryb Dispatcher
 
-Tryb Dispatcher utrzymuje aktywny proces PHP między żądaniami, tak jak [tryb Worker](/pl/docs/worker). Skrypt inicjalizuje aplikację raz, a następnie pobiera każde żądanie przez wywołanie API. Rapira nie wypełnia zmiennych superglobalnych dla żądania. Skrypt czyta obiekt żądania i zapisuje odpowiedź przez wywołania metod.
+Tryb Dispatcher utrzymuje aktywną aplikację PHP w każdym wątku workera między żądaniami, tak jak [tryb Worker](/pl/docs/worker). Skrypt inicjalizuje aplikację raz, a następnie pobiera każde żądanie przez wywołanie API. Rapira nie wypełnia zmiennych superglobalnych dla żądania. Skrypt czyta obiekt żądania i zapisuje odpowiedź przez wywołania metod.
 
 Ta strona to przewodnik programisty dla dyspozytora HTTP. Porównanie trybów zawiera strona [Tryby wykonania](/pl/docs/execution-modes). Pula gRPC również używa trybu Dispatcher. API wywołań gRPC opisuje strona [gRPC](/pl/docs/grpc).
 
@@ -75,11 +75,11 @@ W workerze HTTP `\Rapira\get_dispatcher()` zwraca `Rapira\Http\HttpDispatcher`. 
 | `getInfo(): HttpDispatcherInfo` | Zwraca `pendingCount()`, czyli liczbę żądań w kolejce tego workera, oraz `activeCount()`, które wynosi `0` lub `1`. |
 | `name(): string` | Zwraca `http`. |
 
-Podczas oczekiwania `receive()` blokuje wątek PHP. Worker nie używa procesora podczas oczekiwania. Licznik PHP `max_execution_time` nie liczy tego oczekiwania i startuje od nowa dla każdego żądania. Rapira pomija żądanie z kolejki, gdy jego klient odłączył się, zanim żądanie dotarło do PHP.
+Podczas oczekiwania `receive()` blokuje wątek PHP. Worker nie używa procesora podczas oczekiwania. Licznik PHP `max_execution_time` zatrzymuje się podczas oczekiwania na żądanie lub miejsce w strumieniu odpowiedzi i startuje od nowa dla każdego żądania. Na Linuksie z timerami per wątek ustaw `http.pool.execution_clock = "cpu"`, aby liczyć wyłącznie czas procesora wątku workera. Rapira pomija żądanie z kolejki, gdy jego klient odłączył się, zanim żądanie dotarło do PHP.
 
 ## Jedna wymiana naraz
 
-Każdy worker obsługuje jedną wymianę naraz. Zakończ odpowiedź bieżącej wymiany przed ponownym wywołaniem `receive()` lub `tryReceive()`. W przeciwnym razie wywołanie rzuca `\Error`. Fibery nie zmieniają tej reguły. Aby obsługiwać więcej żądań jednocześnie, zwiększ `http.pool.processes`.
+Każdy worker obsługuje jedną wymianę naraz. Zakończ odpowiedź bieżącej wymiany przed ponownym wywołaniem `receive()` lub `tryReceive()`. W przeciwnym razie wywołanie rzuca `\Error`. Fibery nie zmieniają tej reguły. Aby obsługiwać więcej żądań jednocześnie, zwiększ `http.pool.workers`.
 
 Te wywołania kończą odpowiedź:
 
@@ -90,16 +90,16 @@ Gdy Rapira wykryje anulowanie otwartej wymiany, `receive()` i `tryReceive()` odr
 
 Wysłanie wszystkich bajtów zadeklarowanych w `Content-Length` z `$eos = false` nie finalizuje wymiany. Sfinalizuj ją przed następnym wywołaniem odbioru. Zamknięcie połączenia po dostarczeniu pełnej odpowiedzi nie anuluje wymiany. PHP nadal może ją sfinalizować. Rozłączenie przed dostarczeniem pełnej odpowiedzi może ją anulować.
 
-`http.pool.request_terminate_timeout_secs` liczy czas od powrotu z `receive()` lub `tryReceive()`. Rapira kończy i zastępuje workera, który przekroczy ten limit. Ten klucz opisuje [Konfiguracja](/pl/docs/configuration#http-pool).
+`http.pool.request_terminate_timeout_secs` liczy czas od powrotu z `receive()` lub `tryReceive()`. Po osiągnięciu limitu watchdog przerywa PHP i wybudza zablokowany zapis odpowiedzi. Jeśli każdy worker w puli pozostanie zablokowany po 5-sekundowym okresie dodatkowym, Rapira kończy działanie z kodem `124`. Ten klucz opisuje [Konfiguracja](/pl/docs/configuration#http-pool).
 
 ## Koniec pętli
 
-Podczas zatrzymania Rapira zamyka dyspozytora. Gdy dyspozytor jest zamknięty, a jego kolejka jest pusta, `receive()` i `tryReceive()` rzucają `Rapira\Exception\ClosedException`. Po `http.pool.max_requests` lub przeładowaniu dyspozytor zamyka się od razu dla tej instancji aplikacji. Żądania w kolejce czekają na następną instancję aplikacji w tym samym workerze. Każde kolejne wywołanie rzuca ten wyjątek ponownie. Przechwyć ten wyjątek, wyjdź z pętli i pozwól skryptowi wejściowemu się zakończyć.
+Podczas zatrzymania Rapira zamyka dyspozytora. Gdy dyspozytor jest zamknięty, a jego kolejka jest pusta, `receive()` i `tryReceive()` rzucają `Rapira\Exception\ClosedException`. Po `http.pool.max_requests` lub przeładowaniu dyspozytor zamyka się od razu dla tej instancji aplikacji. Żądania w kolejce czekają na następną instancję aplikacji w tym samym wątku workera. Każde kolejne wywołanie rzuca ten wyjątek ponownie. Przechwyć ten wyjątek, wyjdź z pętli i pozwól skryptowi wejściowemu się zakończyć.
 
-Nieprzechwycony wyjątek lub błąd krytyczny kończy skrypt wejściowy. Rapira wtedy ponownie uruchamia skrypt wejściowy w tym samym workerze. Klient otwartej wymiany otrzymuje odpowiedź błędu lub niekompletną odpowiedź.
+Nieprzechwycony wyjątek lub błąd krytyczny kończy skrypt wejściowy. Rapira wtedy ponownie uruchamia skrypt wejściowy w tym samym wątku workera. Klient otwartej wymiany otrzymuje odpowiedź błędu lub niekompletną odpowiedź.
 
 ::: question Co się dzieje, gdy skrypt wejściowy zakończy się przed `ClosedException`?
-Jeśli skrypt odebrał co najmniej jedno żądanie, Rapira ponownie uruchamia skrypt wejściowy w tym samym workerze. Jeśli skrypt zakończył się przed odebraniem żądania, Rapira liczy nieudany rozruch. Jeśli żądanie przyjdzie w ciągu pięciu sekund, Rapira odpowiada na nie kodem `503`. Następnie Rapira ponownie uruchamia skrypt. Po pięciu kolejnych nieudanych rozruchach worker kończy działanie jako niesprawny.
+Jeśli skrypt odebrał co najmniej jedno żądanie, Rapira ponownie uruchamia skrypt wejściowy w tym samym wątku workera. Jeśli skrypt zakończył się przed odebraniem żądania, Rapira zlicza nieudany rozruch. Opóźnienie ponownej próby zaczyna się od 500 ms, podwaja się po każdym kolejnym błędzie i zatrzymuje na 5 sekundach. Nadchodzące żądanie w czasie oczekiwania nie przyspiesza kolejnego rozruchu; dopóki żaden worker w puli nie jest gotowy, żądania w kolejce otrzymują `503`. Udany rozruch zeruje licznik błędów i opóźnienie. Gdy worker osiągnie `http.pool.max_boot_failures` (domyślnie `5`), zanim jego pula obsłużyła żądanie, serwer kończy działanie z kodem `70`.
 :::
 
 ## Żądanie
@@ -158,13 +158,13 @@ W parametrze `name` lub `filename` ujętym w cudzysłów w polu `content-disposi
 
 Znak `\` na końcu wartości w cudzysłowie maskuje cudzysłów zamykający. Przeglądarka wysyła taką wartość dla nazwy pola lub nazwy pliku, która kończy się znakiem `\`. Rapira zwraca wtedy `400` albo wczytuje kolejne parametry do wartości.
 
-Rapira zapisuje każdą część z plikiem do pliku tymczasowego w podkatalogu `rapira-spool-<pid>` katalogu `http.uploads.dir`. `UploadedFile::$tmpPath` zawiera ścieżkę tego pliku. Rapira usuwa pliki tymczasowe po zakończeniu odpowiedzi. Aby zachować plik, przenieś go przez `rename()` przed zakończeniem odpowiedzi.
+Rapira zapisuje każdą część z plikiem do pliku tymczasowego w numerowanym podkatalogu katalogu `rapira-spool-<pid>` w `http.uploads.dir`. `UploadedFile::$tmpPath` zawiera ścieżkę tego pliku. Rapira usuwa pliki tymczasowe po zakończeniu odpowiedzi. Aby zachować plik, przenieś go przez `rename()` przed zakończeniem odpowiedzi.
 
 Dla nieprawidłowej treści Rapira zwraca `400`. Gdy treść przekracza limit, zwraca `413`. Skrypt nie otrzymuje tych żądań. Limity opisuje [Tabela `[http.uploads]`](/pl/docs/configuration#tabela-http-uploads).
 
 ## Wysyłanie pliku
 
-`sendFile()` czyta tylko pliki poniżej katalogu głównego sendfile. Domyślny katalog główny to katalog `http.pool.entrypoint`. Rapira rozwiązuje dowiązania symboliczne, zanim porówna ścieżkę z katalogiem głównym. Rapira rozwiązuje katalog główny ponownie dla każdej instancji aplikacji, więc katalog główny podąża za przełączeniem dowiązania symbolicznego przy następnym starcie aplikacji. Ustawienie katalogu głównego opisuje [Tabela `[http.sendfile]`](/pl/docs/configuration#tabela-http-sendfile).
+`sendFile()` czyta tylko pliki poniżej katalogu głównego sendfile. Domyślny katalog główny to katalog `http.pool.entrypoint`. Względna ścieżka `sendFile()` zaczyna się w katalogu roboczym PHP, a wywołanie `chdir()` dotyczy późniejszych wymian tej samej instancji aplikacji. Rapira rozwiązuje dowiązania symboliczne, zanim porówna ścieżkę z katalogiem głównym. Rapira rozwiązuje katalog główny ponownie dla każdej instancji aplikacji, więc katalog główny podąża za przełączeniem dowiązania symbolicznego przy następnym starcie aplikacji. Ustawienie katalogu głównego opisuje [Tabela `[http.sendfile]`](/pl/docs/configuration#tabela-http-sendfile).
 
 Plik otwiera host. PHP `open_basedir` nie ogranicza tej operacji. Ścieżkę ogranicza skonfigurowany katalog główny sendfile.
 
@@ -193,7 +193,7 @@ Każda klasa wyjątku w przestrzeniach nazw `Rapira` implementuje `Rapira\Except
 | --- | --- | --- |
 | `Rapira\Exception\ClosedException` | `receive()`, `tryReceive()` | Rapira zamknęła dyspozytora. Do tej instancji aplikacji żądania już nie przychodzą. |
 | `Rapira\Exception\TimeoutException` | `receive()` | Żadne żądanie nie przyszło przed upływem limitu czasu. |
-| `Rapira\Exception\NoDispatcherError` | `\Rapira\get_dispatcher()` | Proces nie działa w trybie Dispatcher. |
+| `Rapira\Exception\NoDispatcherError` | `\Rapira\get_dispatcher()` | Pula nie działa w trybie Dispatcher. |
 | `Rapira\Exception\WorkDiscardedException` | Metody zapisu | Rapira anulowała wymianę, zanim PHP ją sfinalizował. |
 | `Rapira\Exception\AlreadyFinalizedError` | `writeBody()`, `sendFile()`, `writeTrailers()`, `flush()` | Odpowiedź już się zakończyła. |
 | `Rapira\Http\Exception\HeadAlreadyWrittenError` | `writeHead()` | Nagłówek odpowiedzi jest już ustawiony lub odpowiedź już się zakończyła. |

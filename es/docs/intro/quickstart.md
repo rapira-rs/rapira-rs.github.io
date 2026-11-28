@@ -48,7 +48,7 @@ Hello, world!
 Method: GET
 ```
 
-Los procesos worker permanecen activos entre peticiones. Rapira crea los workers una vez y mantiene un intérprete de PHP inicializado en cada uno. El modo Classic elimina el estado del script después de cada petición. Este estado incluye variables, el autoloader y los objetos del framework.
+Los hilos worker permanecen activos entre peticiones. Rapira crea los workers una vez y mantiene un intérprete de PHP inicializado en cada hilo worker. El modo Classic elimina el estado del script después de cada petición. Este estado incluye variables, el autoloader y los objetos del framework.
 
 ## Modo Worker
 
@@ -66,7 +66,7 @@ $handler = static function () use (&$handled): void {
     $handled++;
     header('Content-Type: text/plain');
     echo "Hello, " . ($_GET['name'] ?? 'anonymous') . "!\n";
-    echo "worker " . getmypid() . " handled {$handled} request(s)\n";
+    echo "this worker handled {$handled} request(s)\n";
 };
 
 while (\Rapira\handle_request($handler)) {
@@ -99,9 +99,9 @@ rapira serve rapira.toml
 curl '127.0.0.1:8000/?name=world'
 ```
 
-Ejecuta el comando `curl` varias veces. El contador de un worker aumenta cuando ese proceso gestiona otra petición. De forma predeterminada, Rapira determina el número de workers según las CPU disponibles. El sistema operativo selecciona un worker para cada conexión. Cada worker tiene su propio contador. El identificador del proceso en la salida muestra qué worker devolvió la respuesta.
+Ejecuta el comando `curl` varias veces. El contador de un worker aumenta cuando ese worker procesa otra petición. De forma predeterminada, Rapira determina el número de workers según las CPU disponibles. Cada hilo worker toma las peticiones en espera de la cola del pool y mantiene su propio contador.
 
-Establece `processes = 1` en `[http.pool]` para crear un solo worker. Consulta [Modelo de procesos](/es/docs/process-model) para la supervisión del pool.
+Establece `workers = 1` en `[http.pool]` para crear un solo worker. Consulta [modelo de procesos](/es/docs/process-model) para la gestión del pool.
 
 Los objetos creados antes del bucle `while` permanecen en memoria hasta que el script del worker se reinicia. Estos objetos incluyen el autoloader de Composer, el contenedor, las conexiones, las rutas y las plantillas. Rapira inicializa este estado una vez y no en cada petición. Solo el estado de la petición es nuevo en cada iteración.
 
@@ -113,20 +113,20 @@ El handler puede llamar a `rapira_finish_request()` para enviar la respuesta ant
 
 ## Archivo de configuración
 
-El archivo de configuración contiene todos los ajustes. El comando `rapira serve` acepta solo la ruta de este archivo. Para usar cuatro workers, añade `processes = 4` a la tabla `[http.pool]` existente.
+El archivo de configuración contiene todos los ajustes. El comando `rapira serve` acepta solo la ruta de este archivo. Para usar cuatro workers, añade `workers = 4` a la tabla `[http.pool]` existente.
 
 ::: info
 Un `http.pool.entrypoint` relativo usa como base el directorio del archivo de configuración. El directorio actual no lo afecta.
 :::
 
-El archivo también controla la sustitución de workers, los tiempos límite de petición, los registros y el pidfile del supervisor. El servidor no se inicia si el archivo contiene una clave desconocida. Consulta [Configuración](/es/docs/configuration) para todos los ajustes del archivo de configuración y [Línea de comandos](/es/docs/cli) para el comando.
+El archivo también controla el reciclaje de la aplicación, los tiempos límite de petición, los registros y el pidfile del servidor. El servidor no se inicia si el archivo contiene una clave desconocida. Consulta [Configuración](/es/docs/configuration) para todos los ajustes del archivo de configuración y [Línea de comandos](/es/docs/cli) para el comando.
 
 ## Parar el servidor
 
-Pulsa `Ctrl-C` para detener el servidor. La terminal envía `SIGINT` al proceso maestro y a cada worker, por lo que las peticiones actuales se detienen inmediatamente. Para dejar terminar las peticiones actuales, envía `SIGTERM` solo al proceso maestro, por ejemplo `kill -TERM <master-pid>`. Consulta [Modelo de procesos](/es/docs/process-model) para ver la tabla completa de señales.
+Pulsa `Ctrl-C` para detener el servidor. La primera `SIGINT` o `SIGTERM` cierra las escuchas, drena las conexiones abiertas y detiene el servidor de forma ordenada. Pulsa `Ctrl-C` una segunda vez para forzar una salida inmediata con el código `130`. Consulta [Modelo de procesos](/es/docs/process-model) para ver la tabla completa de señales.
 
 ## Próximos pasos
 
-- [Modo Worker](/es/docs/worker) describe el bucle persistente, el estado, las fugas de memoria, la sustitución de workers y la inicialización de la aplicación.
+- [Modo Worker](/es/docs/worker) describe el bucle persistente, el estado, las fugas de memoria, el reciclaje de la aplicación y la inicialización de la aplicación.
 - [Configuración](/es/docs/configuration) enumera cada clave de `rapira.toml` y su valor predeterminado.
 - [Frameworks](/es/docs/frameworks/) proporciona guías de integración para Symfony, Laravel y Yii3.

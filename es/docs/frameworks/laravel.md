@@ -88,14 +88,14 @@ Un `entrypoint` relativo usa como base el directorio del archivo de configuraci�
 | Modo | Duración de la aplicación | Origen de la petición |
 | --- | --- | --- |
 | `classic` | Una petición | Superglobales que rellena Rapira |
-| `worker` | El proceso worker | Superglobales que rellena Rapira |
-| `dispatcher` | El proceso worker | Objetos `Rapira\Http\Exchange` |
+| `worker` | El ciclo de la aplicación en un hilo de worker | Superglobales que rellena Rapira |
+| `dispatcher` | El ciclo de la aplicación en un hilo de worker | Objetos `Rapira\Http\Exchange` |
 
 **El modo Classic** ejecuta el mismo ciclo de vida que el `public/index.php` de Laravel. El bridge carga `bootstrap/app.php`, gestiona la petición, envía la respuesta y llama a `terminate()`. El archivo del modo de mantenimiento `storage/framework/maintenance.php` funciona como en `public/index.php`. No queda ningún estado después de la petición. Consulta [Modo Classic](/es/docs/classic).
 
-**El modo Worker** mantiene una aplicación en cada proceso worker. Rapira rellena las superglobales para cada petición, y el bridge crea la petición con `Request::capture()`. La respuesta sale mediante `header()` y la salida, como en el modo Classic. Consulta [Modo Worker](/es/docs/worker).
+**El modo Worker** mantiene una aplicación en cada hilo de worker. Rapira rellena las superglobales para cada petición, y el bridge crea la petición con `Request::capture()`. La respuesta sale mediante `header()` y la salida, como en el modo Classic. Consulta [Modo Worker](/es/docs/worker).
 
-**El modo Dispatcher** mantiene una aplicación en cada proceso worker. El bridge recibe cada petición como un exchange del [dispatcher](/es/docs/dispatcher) HTTP. Crea una `Illuminate\Http\Request` a partir del exchange y escribe la respuesta de vuelta en el exchange. Este es el modo predeterminado.
+**El modo Dispatcher** mantiene una aplicación en cada hilo de worker. El bridge recibe cada petición como un exchange del [dispatcher](/es/docs/dispatcher) HTTP. Crea una `Illuminate\Http\Request` a partir del exchange y escribe la respuesta de vuelta en el exchange. Este es el modo predeterminado.
 
 Cada worker gestiona una petición a la vez en todos los modos. Octane restablece la aplicación para cada petición, por lo que dos peticiones no pueden compartir una aplicación al mismo tiempo.
 
@@ -163,7 +163,7 @@ Laravel gestiona una excepción en una ruta y devuelve su respuesta `500` normal
 
 Una excepción puede escapar del kernel HTTP de Laravel, por ejemplo desde el callback de una respuesta en streaming. Entonces Octane informa de la excepción mediante el manejador de excepciones de Laravel. El cliente recibe una respuesta `500` en texto plano si las cabeceras de la respuesta todavía no se enviaron. La respuesta contiene los detalles de la excepción solo cuando `app.debug` es `true`.
 
-Después de una excepción así, el estado de la aplicación puede ser incorrecto. Octane detiene el worker, y el bridge termina su bucle. Después, Rapira vuelve a iniciar el script de entrada, y el nuevo worker inicia la aplicación otra vez.
+Después de una excepción así, el estado de la aplicación puede ser incorrecto. Octane detiene el bucle del worker, y el bridge termina su bucle. Después, Rapira vuelve a iniciar el script de entrada en el mismo hilo de worker e inicia la aplicación otra vez.
 
 ## Producción
 
@@ -180,13 +180,13 @@ Un worker puede aumentar su uso de memoria con el tiempo. Establece un límite d
 [http.pool]
 entrypoint = "worker.php"
 mode = "dispatcher"
-processes = 4
+workers = 4
 max_requests = 500
 ```
 
-`max_requests` reinicia la aplicación después de un número aleatorio de peticiones mayor que este valor y de hasta 1,5 veces este valor. Limita el efecto de una fuga de memoria, pero no la corrige. Consulta [Modelo de procesos](/es/docs/process-model).
+`max_requests` recicla la aplicación después de un número aleatorio de peticiones mayor que este valor y de hasta 1,5 veces este valor. Limita el efecto de una fuga de memoria, pero no la corrige. Consulta [Modelo de procesos](/es/docs/process-model).
 
-En los modos Worker y Dispatcher, el código de la aplicación permanece en memoria. Después de un despliegue, envía `SIGUSR2` al maestro para reiniciar las aplicaciones. Esta recarga vacía OPcache, así que carga el código nuevo también cuando `opcache.validate_timestamps = 0`. Reinicia Rapira después de cambiar un archivo que carga `opcache.preload`. Consulta [En producción](/es/docs/deployment).
+En los modos Worker y Dispatcher, el código de la aplicación permanece en memoria. Después de un despliegue, envía `SIGUSR2` al servidor para recargar las aplicaciones. Esta recarga vacía OPcache, así que carga el código nuevo también cuando `opcache.validate_timestamps = 0`, salvo que `opcache.file_cache` esté configurado. Reinicia Rapira después de cambiar un archivo que carga `opcache.preload`. Consulta [En producción](/es/docs/deployment).
 
 ## Desarrollo
 

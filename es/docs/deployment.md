@@ -9,11 +9,11 @@ Una instalación de producción debe mantener Rapira disponible después de los 
 
 Rapira no define una estructura de despliegue. Tampoco requiere una ruta de configuración o un supervisor de procesos específicos. Esta página establece la convención que usa el resto de la documentación. Instala primero el binario según [Instalación](/es/docs/intro/installation).
 
-Rapira también está disponible como imagen `ghcr.io/rapira-rs/rapira`. Copia sus archivos en la imagen de la aplicación mediante `COPY --from`. Un contenedor usa la política de reinicio de su runtime en lugar de la unidad de systemd. Los demás ajustes de configuración no cambian. Consulta [Docker](/es/docs/intro/installation#docker) para obtener más información.
+Rapira también está disponible como imagen `ghcr.io/rapira-rs/rapira`. La imagen contiene PHP, y tú añades tu aplicación a ella. Inicia el contenedor con `--init` para que un proceso init elimine los procesos hijos finalizados. Un contenedor usa la política de reinicio de su runtime en lugar de la unidad de systemd. Los demás ajustes de configuración no cambian. Consulta [Docker](/es/docs/intro/installation#docker) para obtener más información.
 
 ## Una unidad de systemd
 
-Rapira puede sustituir a php-fpm. Su proceso maestro crea, supervisa y sustituye workers. Cada pool ejecuta un número fijo de workers, definido por `processes`. Systemd solo debe supervisar el proceso maestro. No es necesario otro gestor de procesos.
+Rapira puede sustituir a php-fpm. Un único proceso del servidor gestiona todas las escuchas y los hilos worker de PHP. Cada pool ejecuta un número fijo de workers, definido por `workers`. Systemd supervisa ese único proceso del servidor. No es necesario un gestor de procesos separado.
 
 Los paquetes `.deb` y `.rpm` instalan el binario y el runtime PHP integrado. No instalan una unidad de servicio ni `php.ini`. Estos archivos contienen ajustes específicos del sitio. Las actualizaciones de paquetes no deben sustituirlos. Consulta [Instalación](/es/docs/intro/installation) para ver los archivos instalados.
 
@@ -29,7 +29,6 @@ Type=exec
 WorkingDirectory=/srv/app
 ExecStart=/usr/bin/rapira serve /etc/rapira/rapira.toml
 ExecReload=/bin/kill -USR2 $MAINPID
-KillMode=mixed
 Restart=on-failure
 RuntimeDirectory=rapira
 Environment=PHPRC=/etc/rapira
@@ -52,18 +51,19 @@ sudo systemctl enable --now rapira
 
 La unidad usa estos ajustes:
 
-- `Type=exec`: Rapira se ejecuta en **primer plano**. El proceso que inicia systemd es el maestro, por lo que `$MAINPID` lo identifica.
-- `ExecReload`: `systemctl reload rapira` envía `SIGUSR2` al maestro. Esta señal inicia el proceso de recarga que se describe a continuación.
-- `KillMode=mixed`: systemd envía la señal de parada solo al maestro. Después, el maestro envía `SIGQUIT` a los workers y espera. Después de `TimeoutStopSec`, systemd envía `SIGKILL` a todo el grupo. Sin `KillMode=mixed`, una parada puede terminar las peticiones actuales.
+- `Type=exec`: Rapira se ejecuta en **primer plano**, de modo que `$MAINPID` identifica el proceso del servidor.
+- `ExecReload`: `systemctl reload rapira` envía `SIGUSR2` al servidor. Esta señal inicia el proceso de recarga que se describe a continuación.
 - `Restart=on-failure`: systemd reinicia Rapira después de un fallo. No reinicia Rapira después de una parada normal.
 - `RuntimeDirectory=rapira`: systemd crea `/run/rapira` durante el inicio y lo elimina durante la parada. Los ejemplos siguientes guardan el pidfile y el socket Unix en este directorio.
 - `Environment=PHPRC`: PHP usa este directorio para encontrar `php.ini`.
+
+Establece límites de memoria y CPU en la unidad de servicio o en el contenedor, por ejemplo `MemoryMax=` y `CPUQuota=`.
 
 ::: tip Ejecución con un usuario que no sea root
 Añade `User=` y `Group=` al bloque `[Service]`. Systemd asigna a esa cuenta la propiedad de `RuntimeDirectory`. La cuenta puede crear el pidfile y el socket Unix en `/run/rapira/`. Normalmente, no puede crear archivos directamente en `/run`.
 :::
 
-Dos aplicaciones en un host requieren archivos de configuración, unidades y direcciones de escucha independientes. Una unidad de plantilla de systemd, como `rapira@.service`, puede definirlas. Cada instancia inicia PHP y crea un pool de workers independiente.
+Dos aplicaciones en un host requieren archivos de configuración, unidades y direcciones de escucha independientes. Una unidad de plantilla de systemd, como `rapira@.service`, puede definirlas. Cada instancia inicializa PHP y crea sus propios pools de workers.
 
 ## Rutas de configuración
 
@@ -71,11 +71,11 @@ Esta guía usa `/etc/rapira/rapira.toml` para los ajustes de Rapira. Guarda `php
 
 Rapira puede funcionar sin `php.ini`. Sus valores predeterminados envían los diagnósticos de PHP al registro y no a las respuestas HTTP. Crea `/etc/rapira/php.ini` para configurar OPcache, un límite de memoria o una zona horaria. Consulta [Registros](/es/docs/logging) para ver los ajustes de diagnóstico.
 
-En PHP 8.4, OPcache es un archivo `opcache.so` independiente. Cárgalo con una línea `zend_extension` en `php.ini`, como se describe en [php.ini](/es/docs/intro/installation#php-ini). PHP 8.5 incluye OPcache en `libphp`.
+En PHP 8.4, OPcache es un archivo `opcache.so` independiente. Cárgalo con una línea `zend_extension` en `php.ini`, como se describe en [php.ini](/es/docs/intro/installation#php-ini). PHP 8.5 y PHP 8.6 incluyen OPcache en `libphp`.
 
-Un `http.pool.entrypoint` relativo usa como base el **directorio del archivo de configuración**. Por tanto, `entrypoint = "index.php"` significa `/etc/rapira/index.php` en esta estructura. Usa una ruta absoluta para el script de entrada en producción. `supervisor.pidfile` usa la misma regla de resolución.
+Un `http.pool.entrypoint` relativo usa el **directorio del archivo de configuración** como base. En esta estructura, `entrypoint = "index.php"` significa `/etc/rapira/index.php`. Usa una ruta absoluta para el script de entrada en producción. `server.pidfile` y las rutas de escucha `unix:` relativas usan la misma regla de resolución.
 
-Cada vez que un worker arranca o reinicia su aplicación, resuelve los enlaces simbólicos de la ruta del script de entrada y entra en el directorio del script de entrada. Las operaciones de archivos de PHP con rutas relativas usan ese directorio. PHP no busca `php.ini` en el directorio de trabajo, por lo que debes definir `PHPRC`. El ajuste `WorkingDirectory=` solo se aplica al maestro. El maestro lo usa como base para una ruta `CONFIG` relativa y para una ruta de escucha `unix:` relativa. Consulta [Configuración](/es/docs/configuration) para ver todas las claves y sus valores predeterminados.
+Cada petición Classic y cada instancia de la aplicación Worker o Dispatcher comienza en el directorio del script de entrada resuelto. Las operaciones de archivos de PHP con rutas relativas usan ese directorio local al hilo. PHP no busca `php.ini` en el directorio de trabajo, así que define `PHPRC`. En ZTS, `proc_open()` sin argumento `$cwd` inicia el hijo en el `WorkingDirectory=` del servidor; pasa `getcwd()` como `$cwd` para usar el directorio de la aplicación. Consulta [Configuración](/es/docs/configuration) para ver todas las claves y sus valores predeterminados.
 
 ## Proxy inverso
 
@@ -101,34 +101,34 @@ Despliega el código nuevo. Después, recarga Rapira:
 sudo systemctl reload rapira
 ```
 
-Este comando envía `SIGUSR2` al maestro. El maestro indica a cada worker que reinicie su aplicación. Cada worker ejecuta otra vez el script de entrada en el mismo proceso, y la aplicación nueva atiende las siguientes peticiones. Ninguna conexión se cierra y ninguna petición se pierde. Consulta [Modelo de procesos](/es/docs/process-model#una-recarga-reinicia-las-aplicaciones) para más información.
+Este comando envía `SIGUSR2` al servidor. Cada worker recicla su aplicación en el mismo hilo, y la aplicación nueva atiende las peticiones posteriores. Ninguna conexión se cierra y ninguna petición se pierde. Consulta [Modelo de procesos](/es/docs/process-model#a-reload-restarts-the-apps) para más información.
 
-Envía la señal directamente cuando systemd no gestione el proceso. Define `supervisor.pidfile` para guardar el identificador del proceso maestro. Crea el directorio del pidfile antes de iniciar Rapira. También puedes seleccionar un directorio existente. El proceso maestro no se inicia si no puede escribir el archivo.
+Envía la señal directamente cuando systemd no gestione el proceso. Define `server.pidfile` para registrar el identificador del proceso del servidor. Crea el directorio del pidfile antes de iniciar Rapira. Como alternativa, selecciona un directorio que exista. El servidor no se inicia si no puede escribir el archivo.
 
 ```toml
-[supervisor]
+[server]
 pidfile = "/run/rapira/rapira.pid"
-process_control_timeout_secs = 30
+stop_timeout_secs = 30
 ```
 
 ```bash
 kill -USR2 "$(cat /run/rapira/rapira.pid)"
 ```
 
-Solo el maestro escribe el pidfile. Elimina el archivo durante una salida controlada. Un archivo restante puede indicar un `SIGKILL`, un fallo del proceso o un fallo del sistema.
+Rapira elimina el pidfile en una parada normal y en salidas directas del host (`70`, `101`, `124`, `130`). Un archivo restante indica `SIGKILL`, una señal de fallo fatal o un fallo del sistema; el siguiente arranque lo sobrescribe.
 
-`process_control_timeout_secs` limita la espera de parada. Después de esta espera, el maestro envía `SIGTERM`. Envía `SIGKILL` un segundo después. Establece `TimeoutStopSec` de systemd por encima de este intervalo completo.
+`stop_timeout_secs` limita la espera total de apagado (por defecto `30` segundos). Las conexiones abiertas drenan durante `stop_timeout_secs` menos cinco segundos, o la mitad del tiempo límite si es menor de diez segundos. Establece `TimeoutStopSec` de systemd por encima de `stop_timeout_secs`.
 
-Las conexiones tienen un plazo de drenaje más corto: el tiempo límite de control menos el menor valor entre cinco segundos y la mitad de ese límite. El plazo predeterminado es de 25 segundos. Las respuestas que superen este plazo pueden interrumpirse durante la parada.
+Un despliegue puede poner cada versión de la aplicación en su propio directorio y cambiar un enlace simbólico de la ruta del script de entrada al directorio nuevo. Una recarga después del cambio mueve cada worker de cada pool a la versión nueva: el código, el directorio de trabajo y la raíz predeterminada de sendfile. Recarga Rapira inmediatamente después del cambio. Antes de la recarga, una aplicación que se recicla por otra causa, por ejemplo después de `max_requests`, arranca en la versión nueva. Por tanto, el pool ejecuta dos versiones hasta la recarga.
 
-Un despliegue puede poner cada versión de la aplicación en su propio directorio y cambiar un enlace simbólico de la ruta del script de entrada al directorio nuevo. Una recarga después del cambio mueve cada worker de cada pool a la versión nueva: el código, el directorio de trabajo y la raíz predeterminada de sendfile. Recarga Rapira inmediatamente después del cambio. Antes de la recarga, una aplicación que arranca por otra causa, por ejemplo después de `max_requests`, arranca en la versión nueva. Por tanto, el pool ejecuta dos versiones hasta la recarga.
-
-Una recarga vacía OPcache, así que también carga el código PHP nuevo cuando `opcache.validate_timestamps = 0`. Hasta que termina la petición más larga que estaba activa en el momento de la recarga, las peticiones se ejecutan sin OPcache y vuelven a compilar sus archivos. En los modos Worker y Dispatcher, la mayoría de los workers arrancan la aplicación dos veces, así que el código antes del bucle del worker se ejecuta dos veces.
+Una recarga vacía OPcache, así que también carga el código PHP nuevo cuando `opcache.validate_timestamps = 0`, salvo que `opcache.file_cache` esté definido. Un worker reinicia OPcache mientras sus pares esperan, y las peticiones posteriores vuelven a compilar sus archivos.
 
 ::: warning Lo que una recarga no hace
-Una recarga reinicia las aplicaciones, pero no los procesos. El maestro conserva el binario de Rapira y los ajustes de `rapira.toml` y `php.ini`. También conserva el conjunto de descriptores de gRPC y el archivo de tokens de `[grpc.auth]`. Reinicia Rapira después de cambiar uno de estos archivos. Reinícialo también después de cambiar un archivo que carga `opcache.preload`. PHP carga estos archivos una vez, cuando arranca el maestro.
+Una recarga recicla las aplicaciones, pero no reinicia el proceso del servidor. Rapira conserva el binario y los ajustes de `rapira.toml` y `php.ini`. También conserva el descriptor set de gRPC y el archivo de tokens de `[grpc.auth]`. Una recarga no vuelve a descargar un descriptor set desde su URL. Reinicia Rapira después de cambiar uno de estos archivos. Reinícialo también después de cambiar un archivo que carga `opcache.preload`. PHP carga estos archivos una vez cuando arranca el servidor.
 
-Cuando `opcache.restrict_api` está definido, una recarga no vacía OPcache. Con este ajuste y `opcache.validate_timestamps = 0`, reinicia Rapira después de cada despliegue. Con este ajuste, una aplicación que arranca mientras un reinicio de OPcache está pendiente se ejecuta sin OPcache hasta su siguiente arranque.
+Cuando `opcache.restrict_api` está definido, una recarga no vacía OPcache. Con este ajuste y `opcache.validate_timestamps = 0`, reinicia Rapira después de cada despliegue.
+
+Con `opcache.file_cache` y `opcache.validate_timestamps = 0`, ni una recarga ni un reinicio cargan el código nuevo de un archivo modificado. Una recarga vacía solo la memoria compartida de OPcache. OPcache lee entonces el script antiguo desde la caché de archivos y no comprueba la hora del archivo. Después de reemplazar los archivos, vacía el directorio `opcache.file_cache`. Después recarga o reinicia Rapira. Como alternativa, despliega cada versión en un directorio nuevo, de modo que cada archivo modificado tenga una ruta nueva.
 :::
 
 ## Registros
@@ -151,7 +151,7 @@ Configura un recolector de registros para leer el journal de la unidad. Como alt
 
 ## Comprobaciones de estado y métricas
 
-Añade una tabla `[observability]` para servir las sondas de estado y las métricas de Prometheus. Rapira inicia entonces un proceso adicional, que no ejecuta PHP. `GET /livez` indica que el maestro se ejecuta. `GET /readyz` indica que cada pool de PHP tiene un worker inactivo o activo. `GET /metrics` devuelve las métricas en el formato de texto de Prometheus.
+Añade una tabla `[observability]` para servir las sondas de estado y las métricas de Prometheus. Rapira ejecuta esta escucha en un hilo separado sin PHP. `GET /livez` indica que el servidor se ejecuta. `GET /readyz` indica que cada pool de PHP tiene un worker inactivo o activo. `GET /metrics` devuelve las métricas en el formato de texto de Prometheus.
 
 ```toml
 [observability]
@@ -164,27 +164,20 @@ listen = "127.0.0.1:9180"
 
 Los endpoints no tienen autenticación ni TLS. Usa una dirección de loopback o un socket Unix. Consulta [Métricas y comprobaciones de estado](/es/docs/observability) para ver los códigos de estado, ejemplos de sondas y la referencia de métricas.
 
-## Reciclado de workers y tiempos límite de petición
+## Reciclaje y tiempos límite de petición
 
 En los [modos Worker y Dispatcher](/es/docs/execution-modes), un worker conserva el estado de la aplicación entre peticiones. Por tanto, una fuga de memoria puede aumentar la memoria del worker con el tiempo. Usa estos ajustes para limitar el efecto:
 
 ```toml
 [http.pool]
 max_requests = 500
-max_memory_mb = 256
 request_terminate_timeout_secs = 30
 ```
 
 La tabla `[grpc.pool]` acepta las mismas claves.
 
-`max_requests` reinicia la aplicación dentro de un worker después del número de peticiones indicado. El proceso del worker se mantiene, así que ninguna conexión se cierra y ninguna petición se pierde. Rapira añade a cada worker un número aleatorio de hasta la mitad del límite para evitar reinicios simultáneos. El reinicio libera la memoria PHP de la aplicación. No libera la memoria que una extensión o una biblioteca C pierde fuera de PHP. Este ajuste limita el efecto de una fuga de memoria, pero no la corrige. El modo Classic lo ignora.
+`max_requests` recicla la aplicación en un hilo worker después del número de unidades indicado. Las escuchas, las conexiones y la cola del pool se mantienen, así que ninguna petición se pierde. Rapira añade a cada worker un número aleatorio de hasta la mitad del límite para evitar reciclajes simultáneos. El reciclaje libera la memoria PHP de la aplicación. No libera la memoria que una extensión o una biblioteca C pierde fuera de PHP. El modo Classic ignora este ajuste.
 
-`max_memory_mb` sustituye un proceso worker cuando su memoria residente (RSS) supera el límite en MiB. El maestro comprueba cada worker una vez por segundo. El worker deja de aceptar conexiones nuevas; las conexiones existentes pueden recibir la respuesta a su siguiente petición dentro del tiempo de drenaje. Las respuestas que superan ese tiempo pueden quedar incompletas. La salida del worker libera memoria dentro y fuera de PHP, y después el maestro inicia un sustituto. Este ajuste se aplica en todos los modos.
+`request_terminate_timeout_secs` establece un límite de tiempo real del watchdog para una unidad. Al alcanzarse el límite, el watchdog interrumpe PHP y despierta una escritura de respuesta bloqueada. La E/S nativa puede seguir esperando, por lo que debes configurar tiempos límite en los sockets y en las llamadas a bases de datos. Después de cinco segundos más, Rapira registra una vez un worker que sigue bloqueado mientras los demás workers siguen atendiendo peticiones. Rapira sale con el código `124` solo si todos los workers de un pool permanecen bloqueados después del plazo de gracia.
 
-Usa `max_memory_mb` cuando un contenedor tiene un límite de memoria. Cuando un contenedor alcanza su límite, el kernel puede terminar un proceso, y todas las peticiones de ese proceso fallan. Mantén la suma de `processes × max_memory_mb` de todos los pools por debajo del límite del contenedor. Deja margen para el maestro, para el proceso de observabilidad y para el crecimiento entre dos comprobaciones. La RSS de cada worker incluye memoria compartida, por ejemplo OPcache, así que esta suma es mayor que el uso real.
-
-Fija el límite por encima de la RSS de un worker nuevo. Si no, cada worker nuevo puede iniciar otro drenaje por memoria en la siguiente comprobación. La métrica `rapira_worker_rss_bytes` muestra la RSS de cada worker.
-
-`request_terminate_timeout_secs` limita el tiempo transcurrido de una petición. Rapira termina y sustituye un worker que supera el límite. El valor predeterminado de estos ajustes es cero, que los desactiva. Actívalos en producción.
-
-Consulta [Modelo de procesos](/es/docs/process-model) para ver el dimensionamiento del pool, las esperas de sustitución y el procesamiento de fallos de workers.
+Define `memory_limit` en `php.ini` y define límites de memoria del contenedor o de systemd para el proceso de Rapira. Consulta [Modelo de procesos](/es/docs/process-model) para ver el dimensionamiento del pool, los reintentos por fallo de arranque, `SIGRTMAX` y `execution_clock`.

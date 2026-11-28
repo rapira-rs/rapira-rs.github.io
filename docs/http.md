@@ -6,9 +6,9 @@ faqLevel: 2
 
 # HTTP requests and responses
 
-The HTTP server converts a client connection into a PHP request and converts the PHP response into network data. It uses the [hyper](https://hyper.rs) library and accepts HTTP/1.1 and HTTP/1.0. It does not proxy requests to another server.
+The HTTP server converts a client connection into a PHP request and converts the PHP response into network data. It uses the [hyper](https://hyper.rs) library on dedicated single-threaded I/O shards (one per CPU, clamped to `1..=16`) and accepts HTTP/1.1 and HTTP/1.0. It does not proxy requests to another server.
 
-Middleware can answer a request before PHP runs. Rapira uses middleware to serve [static files](/docs/static-files).
+Middleware can answer or transform a request before PHP runs. Built-in middleware includes [static files](/docs/static-files) and response compression (`compress`).
 
 ::: info
 The HTTP server accepts plain HTTP. Use a proxy to terminate TLS. See [Deployment](/docs/deployment).
@@ -124,12 +124,12 @@ The HTTP server sends an error response when a request does not reach PHP or PHP
 | `408` | No body data arrived within `http.keepalive_timeout_secs`. |
 | `413` | The body is larger than `http.max_body_size_mb`, or a multipart body exceeds an `[http.uploads]` limit. |
 | `500` | The worker pool stopped. In Dispatcher mode, Rapira cannot write an uploaded file to `[http.uploads].dir`. |
-| `502` | The PHP worker stopped before it sent the response head. |
-| `503` | The worker queue stayed full for 30 seconds. |
+| `502` | The PHP worker ended before it sent the response head. |
+| `503` | The pool queue stayed full for 30 seconds. |
 
 Rapira sends these statuses without the two fields:
 
-- `503` when a worker fails to start its entry script. After each failed start, the worker answers one queued request with this status.
+- `503` when no worker in the pool is ready during a failed boot backoff.
 - `502` when PHP sets a final status below `200`, such as `101`.
 - `500` when a Dispatcher script releases an exchange before Rapira sends the response head.
 

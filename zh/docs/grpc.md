@@ -80,7 +80,7 @@ try {
 
         try {
             $metadata = $call->getResponseMetadata();
-            $metadata->addHeader('x-worker', (string) getmypid());
+            $metadata->addHeader('x-server', 'rapira');
             $metadata->addTrailer('x-result', 'echoed');
             $call->respond($call->getMessage());
         } catch (WorkDiscardedException) {
@@ -107,10 +107,10 @@ reflection = true
 [grpc.pool]
 entrypoint = "grpc.php"
 mode = "dispatcher"
-processes = 2
+workers = 2
 ```
 
-`descriptor_set` 以配置文件所在目录为基准。仅使用 gRPC 的配置不需要 `[http]` 部分。
+相对的 `descriptor_set` 路径以配置文件所在目录为基准。此键也接受 URL：请参阅[从 URL 加载描述符集](#descriptor-set-url)。仅使用 gRPC 的配置不需要 `[http]` 部分。
 
 从 `app/` 启动服务器：
 
@@ -239,7 +239,7 @@ $call->fail(new Rapira\Grpc\Status(
 
 Rapira 不捕获 `Rapira\Grpc\Exception\GrpcException`。请捕获它，并将其 `$status` 属性传给 `fail()`。
 
-Rapira 在 PHP 收到调用前拒绝该调用时，客户端收到 `UNAVAILABLE`。以下情况会发生这种拒绝：worker 队列持续满载 30 秒、进程池停止，或 worker 的 PHP 启动失败。拦截器也可以在 PHP 收到调用前拒绝该调用。此时由拦截器设置状态，例如 `UNAUTHENTICATED`。请参阅[拦截器](#interceptors)。
+Rapira 在 PHP 收到调用前拒绝该调用时，客户端收到 `UNAVAILABLE`。以下情况会发生这种拒绝：进程池队列持续满载 30 秒、进程池停止，或启动失败退避期间进程池中没有就绪的 worker。拦截器也可以在 PHP 收到调用前拒绝该调用。此时由拦截器设置状态，例如 `UNAUTHENTICATED`。请参阅[拦截器](#interceptors)。
 
 ## 元数据
 
@@ -267,7 +267,7 @@ Rapira 将响应元数据名称转换为小写。转换后，按照 [gRPC 协议
 
 拦截器在 PHP 收到调用前检查该调用。在 `grpc.interceptors` 中按链的顺序列出拦截器。每个拦截器都有自己的表。Rapira 提供一个拦截器：`auth`。
 
-### 身份验证 {#身份验证}
+### 身份验证 {#authentication}
 
 只有当调用携带已配置的 bearer 令牌时，`auth` 才接受该调用。将令牌写入一个文件，每行一个令牌：
 
@@ -305,7 +305,7 @@ grpcurl -plaintext -H 'authorization: Bearer ci.deploy-token' 127.0.0.1:50051 li
 - 对未知方法发起的不带令牌的调用收到 `UNAUTHENTICATED`，而不是 `UNIMPLEMENTED`。
 - 对于通过检查的调用，PHP 仍会收到其 `authorization` 值。
 
-master 在启动时读取令牌文件。Rapira 无法读取的文件、不含令牌的文件和无效的令牌都会阻止启动。更改令牌文件后，请重启 Rapira 以加载新令牌。重载会保留旧的令牌。
+Rapira 在启动时读取令牌文件。Rapira 无法读取的文件、不含令牌的文件和无效的令牌都会阻止启动。更改令牌文件后，请重启 Rapira 以加载新令牌。重载会保留旧的令牌。
 
 ## 截止时间和取消
 
@@ -321,11 +321,33 @@ grpcurl -plaintext -max-time 2 -d '{"text":"hello"}' 127.0.0.1:50051 example.v1.
 
 截止时间到达时，客户端收到 `DEADLINE_EXCEEDED`，`isCancelled()` 返回 `true`。Rapira 无法停止 PHP 代码，因此 PHP 会继续处理该调用。在长时间操作中检查 `isCancelled()`。在响应方法周围捕获 `WorkDiscardedException`，因为取消可能发生在检查之后。
 
-`receive()` 的超时限制 PHP 等待新工作的时间。它与调用的截止时间无关。`grpc.pool.request_terminate_timeout_secs` 是进程看门狗。调用运行时间超过其时限时，它会替换 worker。
+`receive()` 的超时限制 PHP 等待新工作的时间。它与调用的截止时间无关。`grpc.pool.request_terminate_timeout_secs` 为调用设置墙钟时间的看门狗限制，当调用超过限制时会中断 PHP。
+
+## 从 URL 加载描述符集 {#descriptor-set-url}
+
+`descriptor_set` 是路径或 URL。以 `http://` 或 `https://` 开头的值是 URL，与 [Buf 镜像输入](https://buf.build/docs/reference/inputs/#image-formats)的规则相同。其他值都是路径。
+
+```toml
+[grpc]
+descriptor_set = "https://schemas.example.com/billing/v42/api.binpb"
+```
+
+Rapira 在启动时、worker 启动之前通过 GET 请求下载描述符集。下载失败会使启动停止，退出码为 1。Rapira 不会再次尝试下载，也不保留描述符集的本地副本。
+
+- 响应体必须是二进制描述符集。Rapira 不解码压缩的描述符集或 JSON 格式的描述符集。
+- 下载最多跟随 10 次重定向。它也会跟随从 `https://` URL 到 `http://` URL 的重定向。响应状态码为 400 或更高时，启动停止。
+- HTTPS 使用系统的证书存储。在 Linux 上，设置 `SSL_CERT_FILE` 或 `SSL_CERT_DIR` 以替换该证书存储，例如用于私有证书颁发机构。在 macOS 上，证书存储是钥匙串，这两个变量不起作用。
+- Rapira 将 URL 中的用户信息（`https://user:password@host/api.binpb`）作为 HTTP Basic 凭据发送。下载没有其他身份验证设置。日志消息中显示的 URL 不含用户信息和查询部分。
+- 下载使用 `ALL_PROXY`、`HTTPS_PROXY` 或 `HTTP_PROXY` 指定的代理。`NO_PROXY` 列出不需要代理的主机。
+- 连接、响应头和响应体各有 30 秒的时间限制。描述符集的最大大小为 64 MiB。
+
+::: warning
+Rapira 不使用校验和或签名检查描述符集的内容。请使用你信任的主机的 `https://` URL。请确保该主机不会重定向到 `http://` URL：使用 `http://` 时，网络路径上的每台主机都可以更改描述符集。不要替换某个 URL 上的描述符集：请在 URL 路径中加入版本号，并在每次更改描述符集时使用新的 URL。这样，每个实例都会加载相同的描述符集。
+:::
 
 ## 服务和反射
 
-master 在 fork 出 worker 前加载描述符集。描述符集无效、缺少导入文件或配置了未知服务，都会阻止启动。更改描述符集后，请重启 Rapira。重载会保留已加载的描述符集。
+Rapira 在启动时、worker 启动前加载描述符集。描述符集无效、下载失败、缺少导入文件或配置了未知服务，都会阻止启动。更改描述符集后，请重启 Rapira。重载会保留已加载的描述符集。
 
 默认情况下，进程池提供集合中未被其他文件导入的文件里的服务。被其他文件导入的文件是依赖项，例如 `google/longrunning/operations.proto`。其中的服务不会被提供。设置 `grpc.services` 以指定所提供的服务，例如 `["billing.v1.InvoiceService"]`。当多个 Rapira 实例共用一个描述符集，或需要提供某个导入文件中的服务时，请使用此键。
 
@@ -341,7 +363,7 @@ grpcurl -plaintext -import-path proto -proto echo.proto -d '{"text":"hello"}' 12
 
 ## 健康检查
 
-Rapira 在每个 worker 中提供 [gRPC 健康检查协议](https://github.com/grpc/grpc/blob/master/doc/health-checking.md)（`grpc.health.v1.Health`）。对于空名称 `""` 和每个所提供的服务，`Check` 和 `Watch` 报告 `SERVING`。关闭期间，它们报告 `NOT_SERVING`。
+Rapira 在 gRPC 监听器上提供 [gRPC 健康检查协议](https://github.com/grpc/grpc/blob/master/doc/health-checking.md)（`grpc.health.v1.Health`）。对于空名称 `""` 和每个所提供的服务，`Check` 和 `Watch` 报告 `SERVING`。关闭期间，它们报告 `NOT_SERVING`。
 
 健康检查服务不检查 PHP。PHP 启动失败的 worker 报告 `SERVING`，而它的调用收到 `UNAVAILABLE`。`grpc.services` 不能指定健康检查服务或反射服务，因为 Rapira 自己提供这些服务。
 
@@ -372,15 +394,11 @@ curl -H 'Content-Type: application/json' -d '{}' http://127.0.0.1:50051/grpc.hea
 JSON 转换解码每个 `google.protobuf.Any` 的内容时，为解码后的元素使用 32 MiB 内存预算。内容超出此预算时返回 `INTERNAL`，并记录警告。二进制 protobuf 客户端不使用此转换。
 :::
 
-::: warning 一个连接使用一个 worker
-每个连接由一个 worker 进程处理。gRPC 客户端通常在一个 HTTP/2 连接上发送一个 channel 的所有调用。无论进程池大小如何，这样的客户端只能获得一个 worker 的吞吐量。要使用更多 worker，请打开多个连接，或使用能分发调用的 L7 负载均衡器。
-:::
-
 ## 同时运行 HTTP 和 gRPC
 
-一份配置可以同时包含 `[http]` 和 `[grpc]`。每个插件都有自己的监听器、PHP 入口脚本和 worker 进程池。master 监管两个进程池。gRPC 进程池支持与 HTTP 进程池相同的 worker 数量和回收设置，且使用 `mode = "dispatcher"`。
+在 ZTS PHP 上，一份配置可以同时包含 `[http]` 和 `[grpc]`。每个插件在同一个服务器进程内都有自己的监听器、PHP 入口脚本、队列和 worker 进程池。gRPC 进程池支持与 HTTP 进程池相同的 worker 数量、回收、环境变量、执行时钟和看门狗设置，且使用 `mode = "dispatcher"`。
 
-所有 gRPC 设置请参阅[配置](./configuration#grpc)，进程池监管请参阅[进程模型](./process-model)。
+所有 gRPC 设置请参阅[配置](./configuration#grpc)，进程池管理请参阅[进程模型](./process-model)。
 
 ## Windows
 
@@ -388,6 +406,4 @@ JSON 转换解码每个 `google.protobuf.Any` 的内容时，为解码后的元�
 
 - `grpc.listen` 只接受 TCP 地址。
 - `grpc.interceptors` 和 `[grpc.auth]` 表不可用。
-- gRPC 进程池是一个进程内 PHP 解释器线程的静态池。`grpc.pool.processes` 设置线程数。
-- `getmypid()` 在每个解释器中返回相同的进程 ID。
 - 任一进程池的 PHP 启动失败都会使服务器以退出码 70 停止。

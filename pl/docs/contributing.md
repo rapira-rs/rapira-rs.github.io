@@ -148,7 +148,7 @@ while (\Rapira\handle_request($handler)) {
 [http.pool]
 entrypoint = "worker.php"
 mode = "worker"
-processes = 4
+workers = 4
 ```
 
 </template>
@@ -205,7 +205,7 @@ while (\Rapira\handle_request($handler)) {
 [http.pool]
 entrypoint = "worker.php"
 mode = "worker"
-processes = 4
+workers = 4
 ```
 
 </template>

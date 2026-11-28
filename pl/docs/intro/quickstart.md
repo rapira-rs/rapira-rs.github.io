@@ -48,7 +48,7 @@ Hello, world!
 Method: GET
 ```
 
-Procesy workerów pozostają aktywne między żądaniami. Rapira tworzy workery raz i zachowuje w każdym workerze zainicjalizowany interpreter PHP. Tryb Classic usuwa stan skryptu po każdym żądaniu. Ten stan obejmuje zmienne, autoloader i obiekty frameworka.
+Wątki workerów pozostają aktywne między żądaniami. Rapira tworzy workery raz i zachowuje w każdym wątku workera zainicjalizowany interpreter PHP. Tryb Classic usuwa stan skryptu po każdym żądaniu. Ten stan obejmuje zmienne, autoloader i obiekty frameworka.
 
 ## Tryb Worker
 
@@ -66,7 +66,7 @@ $handler = static function () use (&$handled): void {
     $handled++;
     header('Content-Type: text/plain');
     echo "Hello, " . ($_GET['name'] ?? 'anonymous') . "!\n";
-    echo "worker " . getmypid() . " handled {$handled} request(s)\n";
+    echo "this worker handled {$handled} request(s)\n";
 };
 
 while (\Rapira\handle_request($handler)) {
@@ -99,9 +99,9 @@ rapira serve rapira.toml
 curl '127.0.0.1:8000/?name=world'
 ```
 
-Uruchom polecenie `curl` kilka razy. Licznik danego workera rośnie, gdy ten sam proces obsłuży kolejne żądanie. Rapira domyślnie ustala liczbę workerów na podstawie dostępnych procesorów. System operacyjny wybiera workera dla każdego połączenia. Każdy worker ma oddzielny licznik. Identyfikator procesu w odpowiedzi wskazuje workera, który zwrócił odpowiedź.
+Uruchom polecenie `curl` kilka razy. Licznik workera rośnie, gdy ten sam worker obsłuży kolejne żądanie. Rapira domyślnie ustala liczbę workerów na podstawie dostępnych procesorów. Każdy wątek workera pobiera oczekujące żądania z kolejki puli i utrzymuje własny licznik.
 
-Ustaw `processes = 1` w `[http.pool]`, aby utworzyć jednego workera. Nadzór nad pulą opisuje [Model procesów](/pl/docs/process-model).
+Ustaw `workers = 1` w `[http.pool]`, aby utworzyć jednego workera. Zarządzanie pulą opisuje [Model procesów](/pl/docs/process-model).
 
 Obiekty utworzone przed pętlą `while` pozostają w pamięci do ponownego uruchomienia skryptu workera. Obejmują one autoloader Composera, kontener, połączenia, trasy i szablony. Rapira inicjalizuje ten stan raz, a nie dla każdego żądania. Tylko stan żądania jest nowy w każdej iteracji.
 
@@ -113,20 +113,20 @@ Handler może wywołać `rapira_finish_request()`, aby wysłać odpowiedź przed
 
 ## Plik konfiguracyjny
 
-Plik konfiguracyjny zawiera wszystkie ustawienia. Polecenie `rapira serve` przyjmuje tylko ścieżkę do tego pliku. Aby użyć czterech workerów, dodaj `processes = 4` do istniejącej tabeli `[http.pool]`.
+Plik konfiguracyjny zawiera wszystkie ustawienia. Polecenie `rapira serve` przyjmuje tylko ścieżkę do tego pliku. Aby użyć czterech workerów, dodaj `workers = 4` do istniejącej tabeli `[http.pool]`.
 
 ::: info
 Względna wartość `http.pool.entrypoint` używa katalogu pliku konfiguracyjnego jako podstawy. Bieżący katalog jej nie zmienia.
 :::
 
-Plik kontroluje też wymianę workerów, limity czasu żądań, logowanie i pidfile nadzorcy. Serwer nie uruchamia się, jeśli plik zawiera nieznany klucz. Wszystkie ustawienia pliku konfiguracyjnego opisuje [Konfiguracja](/pl/docs/configuration), a polecenie opisuje [Wiersz poleceń](/pl/docs/cli).
+Plik kontroluje też ponowne uruchamianie aplikacji, limity czasu żądań, logowanie i pidfile serwera. Serwer nie uruchamia się, jeśli plik zawiera nieznany klucz. Wszystkie ustawienia pliku konfiguracyjnego opisuje [Konfiguracja](/pl/docs/configuration), a polecenie opisuje [Wiersz poleceń](/pl/docs/cli).
 
 ## Zatrzymywanie serwera
 
-Naciśnij `Ctrl-C`, aby zatrzymać serwer. Terminal wysyła `SIGINT` do procesu nadrzędnego i do każdego workera, więc bieżące żądania zatrzymują się natychmiast. Aby bieżące żądania mogły się zakończyć, wyślij `SIGTERM` tylko do procesu nadrzędnego, na przykład `kill -TERM <master-pid>`. Pełną tabelę sygnałów zawiera [Model procesów](/pl/docs/process-model).
+Naciśnij `Ctrl-C`, aby zatrzymać serwer. Pierwszy sygnał `SIGINT` lub `SIGTERM` zamyka nasłuchy, obsługuje otwarte połączenia do końca i czysto zatrzymuje serwer. Naciśnij `Ctrl-C` drugi raz, aby wymusić natychmiastowe wyjście z kodem `130`. Pełną tabelę sygnałów zawiera [Model procesów](/pl/docs/process-model).
 
 ## Co dalej
 
-- [Tryb Worker](/pl/docs/worker) opisuje trwałą pętlę, stan, wycieki pamięci, wymianę workerów i inicjalizację aplikacji.
+- [Tryb Worker](/pl/docs/worker) opisuje trwałą pętlę, stan, wycieki pamięci, ponowne uruchamianie aplikacji i inicjalizację aplikacji.
 - [Konfiguracja](/pl/docs/configuration) wymienia każdy klucz `rapira.toml` i jego wartość domyślną.
 - [Frameworki](/pl/docs/frameworks/) zawiera przewodniki integracji dla Symfony, Laravela i Yii3.

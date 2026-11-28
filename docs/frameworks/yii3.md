@@ -5,14 +5,14 @@ description: Running Yii3 in Worker mode with a resident HttpApplicationRunner, 
 
 # Yii3
 
-Yii3 supports persistent processes. A worker can initialize the application once and reset request state after each response. The official [`yiisoft/yii-runner-roadrunner`](https://github.com/yiisoft/yii-runner-roadrunner) runner uses the same design. This page describes a persistent worker, a per-request alternative, and integration test results.
+Yii3 supports persistent workers. A worker can initialize the application once and reset request state after each response. The official [`yiisoft/yii-runner-roadrunner`](https://github.com/yiisoft/yii-runner-roadrunner) runner uses the same design. This page describes a persistent worker, a per-request alternative, and integration test results.
 
 ::: info Verified with
 - **PHP 8.5.8**: NTS, embed SAPI
 - **Rapira 0.8.0**
 - **yiisoft/app** template 1.4, with **yii-runner-http 3.2.1** (router-fastroute 4.x)
 
-Tests ran both worker scripts with this software. They covered routing, URLs, request bodies, sessions, uploads, errors, and 200 sequential requests. The examples on this page use the v0.9 configuration format.
+Tests ran both worker scripts with this software. They covered routing, URLs, request bodies, sessions, uploads, errors, and 200 sequential requests. The examples on this page use the v0.10 configuration format.
 :::
 
 ## Yii3 and Worker mode
@@ -160,7 +160,7 @@ listen = "127.0.0.1:8000"
 [http.pool]
 entrypoint = "/srv/app/worker.php"
 mode = "worker"
-processes = 8
+workers = 8
 max_requests = 500
 request_terminate_timeout_secs = 30
 
@@ -200,7 +200,7 @@ Tests applied the same checks to both designs with the `yiisoft/app` template. T
 
 **The application receives form data, JSON bodies, and uploads.** `$_POST` contained form fields, and `php://input` contained the JSON body. The temporary upload file was readable during the request. The PSR-7 `ServerRequest` contained all these values.
 
-**An action exception returns `500`, and the worker continues.** `ErrorCatcher` creates the error response and logs the exception. The same worker processes the next request normally. See [Worker mode](/docs/worker) for errors that stop a worker.
+**An action exception returns `500`, and the worker continues.** `ErrorCatcher` creates the error response and logs the exception. The same worker processes the next request normally. See [Worker mode](/docs/worker) for errors that recycle an app.
 
 ## Classic mode alternative
 
@@ -220,5 +220,5 @@ This configuration uses the standard application code without a worker script. E
 Keep `public/index.php` as a second entry script. Classic mode and the PHP built-in server use it.
 
 ::: question Must I change the `cli-server` condition in `public/index.php`?
-No. This condition serves static files and changes `SCRIPT_NAME` for the PHP built-in server. Rapira does not run it, because `PHP_SAPI` is `fastcgi` on PHP 8.4 and `rapira` on PHP 8.5. See [Installation](/docs/intro/installation) for the SAPI name.
+No. This condition serves static files and changes `SCRIPT_NAME` for the PHP built-in server. Rapira does not run it, because `PHP_SAPI` is `fastcgi` on PHP 8.4 and `rapira` on PHP 8.5 and PHP 8.6. See [Installation](/docs/intro/installation) for the SAPI name.
 :::

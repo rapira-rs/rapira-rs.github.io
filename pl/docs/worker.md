@@ -6,7 +6,7 @@ faqLevel: 2
 
 # Tryb Worker
 
-Tryb Worker utrzymuje aktywny proces PHP między żądaniami. Skrypt inicjalizuje aplikację raz, a następnie czeka na żądania w pętli. Stan aplikacji pozostaje w pamięci, więc skrypt workera musi nim zarządzać.
+Tryb Worker utrzymuje aktywną aplikację PHP w każdym wątku workera między żądaniami. Skrypt inicjalizuje aplikację raz, a następnie czeka na żądania w pętli. Stan aplikacji pozostaje w pamięci, więc skrypt workera musi nim zarządzać.
 
 W [trybie Classic](/pl/docs/classic) skrypt wejściowy za każdym razem wykonuje się w nowym żądaniu PHP, a Rapira usuwa stan aplikacji po wysłaniu odpowiedzi. Ten stan obejmuje autoloader, kontener, konfigurację, trasy i połączenia z bazą danych.
 
@@ -64,7 +64,7 @@ Pozostałe klucze opisuje [Konfiguracja](/pl/docs/configuration).
 
 Żądanie w trybie Worker odpowiada jednej iteracji pętli `while`. Przed każdym wywołaniem handlera Rapira ponownie wypełnia zmienne superglobalne. Po wywołaniu Rapira uruchamia funkcje shutdown żądania, opróżnia bufory wyjścia i zamyka sesję. Rapira wysyła odpowiedź po tych krokach. Wartości, które skrypt przechowuje poza handlerem, pozostają w pamięci.
 
-Przed pierwszym wywołaniem `handle_request()` `$_SERVER` zawiera środowisko procesu i ścieżkę skryptu wejściowego, tak jak pod PHP CLI. Pełną listę zawierają [Tryby wykonania](/pl/docs/execution-modes).
+Przed pierwszym wywołaniem `handle_request()` `$_SERVER` zawiera środowisko startowe i środowisko puli oraz ścieżkę skryptu wejściowego, tak jak pod PHP CLI. Pełną listę zawierają [Tryby wykonania](/pl/docs/execution-modes).
 
 ## Jedna pętla na worker
 
@@ -83,11 +83,13 @@ while (\Rapira\handle_request($web)) {
 
 Obiekty utworzone **poza** handlerem pozostają do końca cyklu workera. Przykłady to autoloader, kontener, trasy, konfiguracja, otwarte połączenia i dane w pamięci podręcznej. Rapira nie tworzy tego stanu dla każdego żądania.
 
+Każda instancja aplikacji startuje w rozwiązanym katalogu skryptu wejściowego, a wywołanie `chdir()` dotyczy późniejszych żądań tej instancji aplikacji. W trybie ZTS wywołanie `proc_open()` bez `$cwd` uruchamia proces potomny w katalogu, w którym uruchomiono Rapirę; przekaż `getcwd()` jako `$cwd`, aby użyć katalogu aplikacji.
+
 Wartości utworzone **wewnątrz** handlera należą do jednego żądania. PHP zwalnia je po powrocie handlera i usunięciu ostatnich referencji.
 
 Skrypt workera określa czas życia stanu. Umieść stan aplikacji przed pętlą. Umieść stan żądania w handlerze albo wyzeruj go przed następnym żądaniem.
 
-Otwieraj `php://input` wewnątrz handlera w każdym żądaniu. Strumień `php://input` otwarty we wcześniejszym żądaniu lub podczas inicjalizacji może zwrócić treść późniejszego żądania albo zakończyć proces workera.
+Otwieraj `php://input` wewnątrz handlera w każdym żądaniu. Uchwyt otwarty we wcześniejszym żądaniu lub podczas inicjalizacji może zwrócić treść późniejszego żądania albo zakończyć się błędem.
 
 ::: warning
 Stan globalny również pozostaje między żądaniami. Przykłady to właściwości statyczne, singletony, rejestry i zmiany `ini_set()`. php-fpm odrzuca te wartości na końcu każdego żądania. Worker Rapiry je zachowuje.
@@ -97,9 +99,11 @@ Użyj [trybu Classic](/pl/docs/classic), jeśli aplikacja nie może zerować sta
 
 ## Funkcje shutdown
 
-Cykl workera to jedno wykonanie skryptu workera, od inicjalizacji do końca skryptu. PHP uruchamia każdą funkcję shutdown zarejestrowaną przez kod inicjalizacji raz, na końcu cyklu. PHP uruchamia każdą funkcję shutdown zarejestrowaną przez handler raz, na końcu tego żądania.
+Cykl workera to jedno wykonanie skryptu workera, od inicjalizacji do końca skryptu. PHP uruchamia każdą funkcję shutdown zarejestrowaną przez kod inicjalizacji raz, na końcu cyklu. PHP uruchamia każdą funkcję shutdown zarejestrowaną przez handler raz, na końcu tego żądania, w bieżącym katalogu aplikacji.
 
-Rejestruj sprzątanie zasobów procesu podczas inicjalizacji. Rejestruj sprzątanie zasobów żądania wewnątrz handlera.
+Na końcu cyklu PHP przywraca katalog zapisany przed uruchomieniem skryptu wejściowego (zwykle katalog, w którym uruchomiono Rapirę), a następnie uruchamia callbacki shutdown z inicjalizacji i końcowe destruktory. W kodzie shutdown cyklu używaj ścieżki bezwzględnej, na przykład `__DIR__ . '/var/last.log'`.
+
+Rejestruj sprzątanie zasobów cyklu podczas inicjalizacji. Rejestruj sprzątanie zasobów żądania wewnątrz handlera.
 
 ```php
 register_shutdown_function(static function (): void {
@@ -143,7 +147,7 @@ Więcej informacji zawiera [Przesyłanie odpowiedzi](/pl/docs/http#przesyłanie-
 
 `handle_request()` potrzebuje rezydentnej pętli, którą ma wyłącznie tryb Worker. W trybie Classic i w trybie Dispatcher rzuca `Rapira\Exception\NotInWorkerModeError`. Wszystkie klasy wyjątków Rapiry implementują interfejs znacznikowy `Rapira\Exception\RapiraThrowable`. Niektóre błędy użycia to zwykłe `\Error` lub `\ValueError`, a `catch` dla `RapiraThrowable` ich nie przechwytuje. Przykładem jest wywołanie `handle_request()` wewnątrz jego handlera.
 
-`Rapira\get_mode()` zwraca [tryb](/pl/docs/execution-modes) bieżącego procesu jako przypadek `Rapira\Mode`. Skrypt działający w więcej niż jednym trybie odczytuje go, zanim wejdzie w pętlę:
+`Rapira\get_mode()` zwraca [tryb](/pl/docs/execution-modes) puli workera jako przypadek `Rapira\Mode`. Skrypt działający w więcej niż jednym trybie odczytuje go, zanim wejdzie w pętlę:
 
 ```php
 if (\Rapira\get_mode() === \Rapira\Mode::Worker) {
@@ -160,11 +164,11 @@ Zeruj ten stan na początku albo na końcu handlera. Zeruj też stan żądania w
 
 **Niezebrane cykle referencji.** Zliczanie referencji w PHP natychmiast zwalnia większość wartości. Cykle referencji zwalnia dopiero kolektor cykli. Przykład wywołuje `gc_collect_cycles()` między żądaniami. To wywołanie jest opcjonalne, ale zapewnia przewidywalny czas zbierania.
 
-**Żądania, które się nie kończą.** Worker nie może obsłużyć innego żądania podczas wykonywania bieżącego żądania. `http.pool.request_terminate_timeout_secs` ogranicza czas trwania jednego żądania. Gdy żądanie przekroczy limit, Rapira zatrzymuje workera i uruchamia nowy. Ten klucz i `http.pool.max_requests` opisuje [Konfiguracja](/pl/docs/configuration). Sekwencję zatrzymania opisuje [Model procesów](/pl/docs/process-model).
+**Żądania, które się nie kończą.** Worker nie może obsłużyć innego żądania podczas wykonywania bieżącego żądania. `http.pool.request_terminate_timeout_secs` ustawia limit watchdoga czasu rzeczywistego dla jednego żądania. Po osiągnięciu limitu watchdog przerywa PHP i wybudza zablokowany zapis odpowiedzi. Po kolejnych pięciu sekundach Rapira jednorazowo loguje wciąż zablokowanego workera i kończy działanie z kodem `124` tylko wtedy, gdy każdy worker w puli pozostaje zablokowany. Ten klucz i `http.pool.max_requests` opisuje [Konfiguracja](/pl/docs/configuration). Szczegóły watchdoga opisuje [Model procesów](/pl/docs/process-model).
 
-**Inicjalizacja zawodzi.** Skrypt workera musi wywołać `handle_request()` i otrzymać żądanie. Nieprzechwycony wyjątek podczas inicjalizacji może zakończyć skrypt wcześniej. Rapira liczy to jako nieudany rozruch. Worker czeka wtedy do 5 sekund na żądanie, odpowiada na nie kodem `503` i ponownie uruchamia skrypt.
+**Inicjalizacja zawodzi.** Skrypt workera musi wywołać `handle_request()` i otrzymać żądanie. Nieprzechwycony wyjątek podczas inicjalizacji może zakończyć skrypt wcześniej. Rapira zlicza nieudany rozruch. Opóźnienie ponownej próby zaczyna się od 500 ms, podwaja się po każdym kolejnym błędzie i zatrzymuje na 5 sekundach. Nadchodzące żądanie w czasie oczekiwania nie przyspiesza kolejnego rozruchu; dopóki żaden worker w puli nie jest gotowy, żądania w kolejce otrzymują `503`. Udany rozruch zeruje licznik błędów i opóźnienie.
 
-Po pięciu kolejnych nieudanych rozruchach Rapira zapisuje w logu `worker keeps failing to boot; flagged unhealthy`, a worker kończy działanie. Proces nadrzędny uruchamia nowego workera po opóźnieniu. Przy starcie serwera, jeśli żaden worker puli nie zakończył rozruchu ani nie obsłużył żądania, serwer zamiast tego zatrzymuje się z [kodem wyjścia](/pl/docs/cli#kody-wyjscia) 70. Nadzór nad workerami opisuje [Model procesów](/pl/docs/process-model).
+Gdy worker osiągnie `http.pool.max_boot_failures` (domyślnie `5`), zanim jego pula obsłużyła żądanie, serwer zatrzymuje się z [kodem wyjścia](/pl/docs/cli#exit-codes) `70`. Po obsłużeniu żądania przez pulę worker ponawia próby z narastającym opóźnieniem zamiast zatrzymywać serwer. Zarządzanie pulą opisuje [Model procesów](/pl/docs/process-model#pool-management).
 
 **Nieprzechwycony wyjątek dotyczy jednego żądania, nie workera.** Jeśli handler rzuci wyjątek, Rapira najpierw wywołuje callback zarejestrowany przez `set_exception_handler()`. Jeśli żaden callback nie obsłuży wyjątku, Rapira zwraca `500`, chyba że handler wysłał już nagłówek odpowiedzi. W obu przypadkach pętla działa dalej. Wywołanie `exit()` lub `die()` w handlerze kończy tylko bieżące żądanie, a Rapira wysyła wyjście jako odpowiedź. Błąd krytyczny kończy skrypt workera, a Rapira uruchamia skrypt ponownie z nową inicjalizacją.
 

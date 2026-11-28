@@ -48,7 +48,7 @@ Hello, world!
 Method: GET
 ```
 
-Worker processes stay active between requests. Rapira creates the workers once and keeps an initialized PHP interpreter in each worker. Classic mode removes the script state after each request. This state includes variables, the autoloader, and framework objects.
+Worker threads stay active between requests. Rapira creates the workers once and keeps an initialized PHP interpreter in each worker thread. Classic mode removes the script state after each request. This state includes variables, the autoloader, and framework objects.
 
 ## Worker mode
 
@@ -66,7 +66,7 @@ $handler = static function () use (&$handled): void {
     $handled++;
     header('Content-Type: text/plain');
     echo "Hello, " . ($_GET['name'] ?? 'anonymous') . "!\n";
-    echo "worker " . getmypid() . " handled {$handled} request(s)\n";
+    echo "this worker handled {$handled} request(s)\n";
 };
 
 while (\Rapira\handle_request($handler)) {
@@ -99,9 +99,9 @@ rapira serve rapira.toml
 curl '127.0.0.1:8000/?name=world'
 ```
 
-Run the `curl` command several times. A worker's counter increases when that process handles another request. By default, Rapira sets the worker count from the available CPUs. The operating system selects a worker for each connection. Each worker has a separate count. The output process identifier shows which worker returned the response.
+Run the `curl` command several times. A worker's counter increases when that worker handles another request. By default, Rapira sets the worker count from the available CPUs. Each worker thread pulls waiting requests from the pool queue and keeps its own count.
 
-Set `processes = 1` in `[http.pool]` to create one worker. See [process model](/docs/process-model) for pool supervision.
+Set `workers = 1` in `[http.pool]` to create one worker. See [process model](/docs/process-model) for pool management.
 
 Objects created before the `while` loop remain in memory until the worker script restarts. Examples include the Composer autoloader, container, connections, routes, and templates. Rapira initializes this state once instead of for each request. Only request state is new in each iteration.
 
@@ -113,20 +113,20 @@ The handler can call `rapira_finish_request()` to send the response before the h
 
 ## Configuration file
 
-The configuration file holds every setting. The `rapira serve` command accepts only the path to this file. To use four workers, add `processes = 4` to the existing `[http.pool]` table.
+The configuration file holds every setting. The `rapira serve` command accepts only the path to this file. To use four workers, add `workers = 4` to the existing `[http.pool]` table.
 
 ::: info
 A relative `http.pool.entrypoint` uses the configuration file directory as its base. The current directory does not affect it.
 :::
 
-The file also controls worker replacement, request timeouts, logging, and the supervisor pidfile. The server does not start if the file contains an unknown key. See [Configuration](/docs/configuration) for all configuration file settings and [CLI](/docs/cli) for the command.
+The file also controls app recycling, request timeouts, logging, and the server pidfile. The server does not start if the file contains an unknown key. See [Configuration](/docs/configuration) for all configuration file settings and [CLI](/docs/cli) for the command.
 
 ## Stopping the server
 
-Press `Ctrl-C` to stop the server. The terminal sends `SIGINT` to the master and to each worker, so current requests stop immediately. To let current requests finish, send `SIGTERM` only to the master process, for example `kill -TERM <master-pid>`. See [Process model](/docs/process-model) for the complete signal table.
+Press `Ctrl-C` to stop the server. The first `SIGINT` or `SIGTERM` closes listeners, drains open connections, and stops the server cleanly. Press `Ctrl-C` a second time to force an immediate exit with code `130`. See [Process model](/docs/process-model) for the complete signal table.
 
 ## Next steps
 
-- [Worker mode](/docs/worker) describes the persistent loop, state, memory leaks, worker replacement, and application initialization.
+- [Worker mode](/docs/worker) describes the persistent loop, state, memory leaks, app recycling, and application initialization.
 - [Configuration](/docs/configuration) lists each `rapira.toml` key and its default.
 - [Frameworks](/docs/frameworks/) provides integration guides for Symfony, Laravel, and Yii3.

@@ -5,7 +5,7 @@ description: "Pętle workera we frameworkach, stan żądania, stan trwały, obs�
 
 # Integracja z frameworkami
 
-W trybie Classic aplikacja frameworkowa działa bez zmian. Skonfiguruj Rapirę do używania istniejącego skryptu wejściowego. W trybie Worker proces PHP pozostaje aktywny między żądaniami. Budowa frameworka określa, który stan aplikacji może pozostać w pamięci. Ta strona opisuje zasady dla wszystkich frameworków. Przewodniki po frameworkach opisują tylko zachowanie konkretnego frameworka.
+W trybie Classic aplikacja frameworkowa działa bez zmian. Skonfiguruj Rapirę do używania istniejącego skryptu wejściowego. W trybie Worker worker PHP pozostaje aktywny między żądaniami. Budowa frameworka określa, który stan aplikacji może pozostać w pamięci. Ta strona opisuje zasady dla wszystkich frameworków. Przewodniki po frameworkach opisują tylko zachowanie konkretnego frameworka.
 
 ::: info Sprawdzone na
 
@@ -13,18 +13,18 @@ W trybie Classic aplikacja frameworkowa działa bez zmian. Skonfiguruj Rapirę d
 - **Rapira 0.8.0**
 - **Symfony 7.4.15** i **8.1.2**, **Yii3** szablon aplikacji 1.4 (yii-runner-http 3.2.1)
 
-Testy uruchamiały te aplikacje na Linuksie z jednym procesem workera. Stwierdzenia o frameworkach na tej stronie pochodzą z tych testów. Przykłady na tej stronie używają formatu konfiguracji v0.9. Ustawienia Rapiry opisuje [Konfiguracja](/pl/docs/configuration).
+Testy uruchamiały te aplikacje na Linuksie z jednym procesem workera. Stwierdzenia o frameworkach na tej stronie pochodzą z tych testów. Przykłady na tej stronie używają formatu konfiguracji v0.10. Ustawienia Rapiry opisuje [Konfiguracja](/pl/docs/configuration).
 :::
 
 ## Tryby Classic i Worker
 
 **Tryb Classic używa istniejącego skryptu wejściowego.** Uruchamia nowe żądanie PHP dla każdego żądania HTTP. Framework działający pod php-fpm działa również w tym trybie. Więcej informacji zawiera strona [tryb Classic](/pl/docs/classic). Tylko poniższe sekcje o plikach statycznych, TLS i OPcache dotyczą trybu Classic.
 
-**Tryb Worker utrzymuje aktywny proces.** Skrypt inicjalizuje aplikację i pobiera pracę w pętli. Stan aplikacji pozostaje między żądaniami. Więcej informacji zawierają strony [tryby wykonania](/pl/docs/execution-modes) i [tryb Worker](/pl/docs/worker).
+**Tryb Worker utrzymuje aktywnego workera.** Skrypt inicjalizuje aplikację i pobiera pracę w pętli. Stan aplikacji pozostaje między żądaniami. Więcej informacji zawierają strony [tryby wykonania](/pl/docs/execution-modes) i [tryb Worker](/pl/docs/worker).
 
 Jedna baza kodu może używać obu trybów. Zachowaj `public/index.php`. Dodaj `worker.php` do katalogu głównego projektu. Klucz `http.pool.mode` wybiera tryb wykonania, a `http.pool.entrypoint` wybiera skrypt. Tryb Classic pozostaje dostępny, jeśli migracja do trybu Worker się nie powiedzie.
 
-Każdy worker używa katalogu swojego skryptu wejściowego jako katalogu roboczego. Dlatego ścieżki względne w `worker.php` wskazują pliki względem katalogu głównego projektu. Ścieżki względne w `public/index.php` wskazują pliki względem `public/`. Wywołanie `chdir()` w kodzie PHP działa do następnego startu aplikacji, na przykład do przeładowania lub do ponownego uruchomienia po `max_requests`. W trybie Classic działa do następnego przeładowania.
+Każdy worker startuje w rozwiązanym katalogu skryptu wejściowego. Dlatego ścieżki względne w `worker.php` wskazują pliki względem katalogu głównego projektu. Ścieżki względne w `public/index.php` wskazują pliki względem `public/`. Wywołanie `chdir()` w trybach Worker i Dispatcher dotyczy późniejszych żądań tej samej instancji aplikacji. W trybie Classic każde żądanie startuje w katalogu skryptu wejściowego i przywraca zapisany katalog przed callbackami shutdown.
 
 ## Pętla Worker
 
@@ -59,7 +59,7 @@ Skrypt wykonuje te operacje:
 
 Wewnątrz handlera Rapira ustawia `SCRIPT_NAME` na `/worker.php`, ponieważ `worker.php` jest skryptem wejściowym. `DOCUMENT_ROOT` zawiera katalog skryptu. `REQUEST_URI` zawiera ścieżkę klienta. Symfony i Yii3 poprawnie kierowały żądania oraz tworzyły adresy URL z tymi wartościami. Utworzone adresy URL nie zawierały `worker.php`. Przed integracją innego frameworka sprawdź, czy tworzy adresy URL z `SCRIPT_NAME` zamiast z `REQUEST_URI`.
 
-Przed pierwszym żądaniem `$_SERVER` zawiera środowisko procesu. W tym czasie `SCRIPT_NAME` zawiera bezwzględną ścieżkę skryptu, a `DOCUMENT_ROOT` jest pusty. `$_SERVER` żądania nie zawiera środowiska procesu. Odczytaj zmienne środowiskowe przed pętlą albo użyj `getenv()` w handlerze. Nie obliczaj prefiksu adresu URL z `$_SERVER` przed pętlą. Więcej informacji zawiera sekcja [`$_SERVER` przed pierwszym żądaniem](/pl/docs/execution-modes#server-przed-pierwszym-zadaniem).
+Przed pierwszym żądaniem `$_SERVER` zawiera środowisko startowe i środowisko puli. W tym czasie `SCRIPT_NAME` zawiera bezwzględną ścieżkę skryptu, a `DOCUMENT_ROOT` jest pusty. `$_SERVER` żądania zawiera wpisy [`[http.pool.env]`](/pl/docs/configuration#http-pool-env) (nadpisywane przez zmienne żądania o tej samej nazwie) i nie zawiera środowiska procesu systemu operacyjnego. Odczytaj zmienne środowiskowe procesu przed pętlą albo użyj `getenv()` w handlerze. Nie obliczaj prefiksu adresu URL z `$_SERVER` przed pętlą. Więcej informacji zawiera sekcja [`$_SERVER` przed pierwszym żądaniem](/pl/docs/execution-modes#server-przed-pierwszym-zadaniem).
 
 ## Stan pojedynczego żądania i stan rezydentny
 
@@ -67,15 +67,15 @@ Rapira odtwarza wszystko w lewej kolumnie przy każdym żądaniu. Zwykły kod PH
 
 | Nowe dla każdego żądania | Pozostaje między żądaniami |
 | ------------------------ | -------------------------- |
-| `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE`: Rapira wypełnia je danymi żądania. `$_SERVER` nie zawiera środowiska procesu | Autoloader Composera i każda wczytana przez niego klasa |
+| `$_GET`, `$_POST`, `$_SERVER`, `$_COOKIE`: Rapira wypełnia je danymi żądania. Ze środowiska procesu `$_SERVER` zawiera tylko zmienne z [`[http.pool.env]`](/pl/docs/configuration#http-pool-env) | Autoloader Composera i każda wczytana przez niego klasa |
 | `php://input`: nieprzetworzona treść żądania, `CONTENT_TYPE` i `CONTENT_LENGTH` | Właściwości i zmienne `static`, które zachowują wartości między żądaniami |
 | `$_FILES` i przesłane pliki tymczasowe | Obiekty utworzone przed pętlą, na przykład kontener, kernel i aplikacja |
 | Dane sesji: `session_start()`, cookie żądania i pole odpowiedzi `Set-Cookie` | Otwarte zasoby: połączenia z bazą danych, klienty pamięci podręcznej, strumienie |
-| Stan odpowiedzi: kod statusu, nagłówki, `setcookie()` i bufory wyjścia | Proces: ten sam pid i jeden rezydentny interpreter PHP dla każdego workera |
+| Stan odpowiedzi: kod statusu, nagłówki, `setcookie()` i bufory wyjścia | Wątek workera: jeden rezydentny interpreter PHP ZTS dla każdego workera |
 | Funkcje shutdown zarejestrowane **wewnątrz** handlera | Wartości `$_ENV` wczytane przed pętlą |
 | Zegar `max_execution_time`, uruchamiany ponownie dla każdego żądania | |
 
-Rapira uruchamia nowy zegar `max_execution_time` dla każdego żądania. Czas, w którym worker czeka na żądanie, nie wlicza się do tego limitu.
+Rapira uruchamia nowy zegar `max_execution_time` dla każdego żądania i zatrzymuje go podczas oczekiwania na pracę lub miejsce w strumieniu odpowiedzi. Domyślnie [`http.pool.execution_clock`](/pl/docs/configuration#http-pool) ma wartość `"wall"` (czas rzeczywisty). Na Linuksie z timerami per wątek ustaw `http.pool.execution_clock = "cpu"`, aby liczyć wyłącznie czas procesora wątku workera.
 
 Trzy opisane niżej zachowania dotyczą rezydentnego workera.
 
@@ -97,7 +97,7 @@ Funkcje shutdown dla żądania rejestruj wewnątrz handlera. Dotyczy to na przyk
 
 Rapira nie odtwarza `$_ENV` przy każdym żądaniu. Wartości, które kod zapisuje w `$_ENV` przed pętlą, pozostają do ponownego uruchomienia skryptu workera. Wczytaj konfigurację środowiska przed pętlą. Nie zapisuj danych żądania w `$_ENV`.
 
-Zmiana `$_ENV` nie zmienia środowiska procesu. Użyj `putenv()`, gdy `getenv()` lub procesy potomne muszą widzieć wartość. W środowisku produkcyjnym ustaw zmienne w jednostce usługi, kontenerze lub orkiestratorze.
+Zmiana `$_ENV` nie zmienia `getenv()` ani środowiska procesu. W trybie ZTS `putenv()` aktualizuje lokalną dla wątku warstwę odczytywaną przez `getenv()` bez zmiany środowiska procesu systemu operacyjnego. Procesy potomne dziedziczą środowisko startowe systemu operacyjnego, chyba że przekażesz `getenv()` do `proc_open()`. W środowisku produkcyjnym ustaw zmienne środowiskowe w [`[http.pool.env]`](/pl/docs/configuration#http-pool-env), jednostce usługi, kontenerze lub orkiestratorze.
 :::
 
 ## Obsługa błędów
@@ -153,11 +153,11 @@ Trwałe aplikacje Symfony i Yii3 miały stabilne użycie pamięci podczas tych s
 
 ## OPcache i zmieniony kod
 
-Rapira uruchamia PHP raz w procesie nadrzędnym przed utworzeniem workerów. OPcache tworzy jeden segment pamięci współdzielonej, a każdy worker dziedziczy to samo mapowanie. Skompilowane skrypty pozostają w pamięci podręcznej między żądaniami i workerami we wszystkich trybach.
+Rapira uruchamia PHP raz w głównym wątku przed startem workerów. OPcache współdzieli skompilowany bytecode między wszystkimi wątkami workerów we wszystkich trybach.
 
-W PHP 8.4 OPcache jest osobnym plikiem `opcache.so`, który wymaga wiersza `zend_extension` w `php.ini`. Więcej informacji zawiera sekcja [php.ini](/pl/docs/intro/installation#php-ini).
+W PHP 8.4 OPcache jest osobnym plikiem `opcache.so`, który wymaga wiersza `zend_extension` w `php.ini`. PHP 8.5 i PHP 8.6 zawierają OPcache w `libphp`. Więcej informacji zawiera sekcja [php.ini](/pl/docs/intro/installation#php-ini).
 
-W środowisku produkcyjnym `opcache.validate_timestamps = 0` wyłącza sprawdzanie plików dla każdego żądania. To ustawienie wyłącza automatyczne unieważnianie pamięci podręcznej. Segment OPcache należy do procesu nadrzędnego i pozostaje podczas wymiany workerów. Przeładowanie opróżnia pamięć podręczną, więc przeładowanie po wdrożeniu wczytuje nowy kod. Pliki, które wczytuje `opcache.preload`, wymagają pełnego ponownego uruchomienia. Sekwencję opisuje [wdrożenie produkcyjne](/pl/docs/deployment).
+W środowisku produkcyjnym `opcache.validate_timestamps = 0` wyłącza sprawdzanie plików dla każdego żądania. To ustawienie wyłącza automatyczne unieważnianie pamięci podręcznej. Przeładowanie opróżnia OPcache, więc przeładowanie po wdrożeniu wczytuje nowy kod, chyba że ustawiono `opcache.file_cache`. Pliki, które wczytuje `opcache.preload`, wymagają pełnego ponownego uruchomienia. Sekwencję opisuje [wdrożenie produkcyjne](/pl/docs/deployment).
 
 Podczas programowania trwała aplikacja nie czyta ponownie kodu inicjalizacji. To zachowanie nie zależy od OPcache. Po zmianie skryptu workera lub zainicjalizowanych usług naciśnij Ctrl-C. Następnie ponownie uruchom `rapira serve rapira.toml`.
 
@@ -167,6 +167,6 @@ Podczas programowania trwała aplikacja nie czyta ponownie kodu inicjalizacji. T
 - **[Laravel](/pl/docs/frameworks/laravel):** most `rapira/laravel` uruchamia jeden skrypt wejściowy w trybach Classic, Worker i Dispatcher. Worker Laravel Octane resetuje stan aplikacji między żądaniami.
 - **[Yii3](/pl/docs/frameworks/yii3):** `StateResetter` zeruje trwały kontener po każdym żądaniu. Worker może też tworzyć nowy runner dla każdego żądania.
 
-Inne frameworki mogą używać tego samego podstawowego skryptu workera. Użyj trybu Worker tylko wtedy, gdy aplikacja może obsłużyć wiele żądań w jednym procesie. Najpierw utwórz aplikację wewnątrz handlera. Ten wariant nie wymaga obsługi trwałych procesów przez framework.
+Inne frameworki mogą używać tego samego podstawowego skryptu workera. Użyj trybu Worker tylko wtedy, gdy aplikacja może obsłużyć wiele żądań w jednym workerze. Najpierw utwórz aplikację wewnątrz handlera. Ten wariant nie wymaga obsługi trwałych workerów przez framework.
 
 Sprawdź aplikację w tym wariancie. Następnie zachowaj aplikację w pamięci. Zeruj stan żądania po każdym żądaniu. Użyj [trybu Classic](/pl/docs/classic), jeśli żaden wariant Worker nie działa prawidłowo.

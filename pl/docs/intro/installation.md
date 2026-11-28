@@ -6,7 +6,7 @@ faqLevel: 2
 
 # Instalacja
 
-Każdy pakiet lub archiwum dla Linuksa lub macOS zawiera plik binarny `rapira` i bibliotekę interpretera `libphp`. Serwer ładuje tę bibliotekę do swojego procesu. Te pakiety i archiwa nie zawierają polecenia `php`, php-fpm ani katalogu z plikami ini. Rapira nie wymaga systemowej instalacji PHP. Pliki ZIP dla Windowsa opisuje sekcja [Windows](#windows).
+Każdy pakiet lub archiwum dla Linuksa lub macOS zawiera plik binarny `rapira` i jej bezpieczną wątkowo (ZTS) bibliotekę interpretera `libphp`. Serwer ładuje tę bibliotekę do swojego procesu. Te pakiety i archiwa nie zawierają polecenia `php`, php-fpm ani katalogu z plikami ini. Rapira nie wymaga systemowej instalacji PHP. Pliki ZIP dla Windowsa opisuje sekcja [Windows](#windows).
 
 ::: question Czym jest `libphp` i czym różni się od polecenia `php`?
 PHP buduje kilka interfejsów do swojego silnika. Te interfejsy to Server Application Programming Interfaces, czyli SAPI. Każdy używa silnika Zend i rozszerzeń, ale ma inny interfejs programu:
@@ -32,7 +32,9 @@ Podczas inicjalizacji proces `rapira` ładuje `libphp` do swojej przestrzeni adr
 
 ## Wybór wersji PHP
 
-Nazwa każdego pliku do pobrania zawiera `php8.4` lub `php8.5`. Ten tekst określa wersję pomocniczą PHP w jego `libphp`. Wybierz 8.5, chyba że zależność aplikacji wymaga 8.4.
+Nazwa każdego pliku do pobrania zawiera `php8.4`, `php8.5` lub `php8.6`. Ten tekst określa wersję pomocniczą PHP w jego `libphp`. Wybierz 8.5 lub 8.6, chyba że zależność aplikacji wymaga 8.4.
+
+Wiele workerów z włączonym OPcache wymaga [poprawki blokowania wątków w PHP](https://github.com/php/php-src/commit/36c6d1f500f7ec477f6eae0b0f5c46b041d82347). Rapira sprawdza wersję PHP 8.4.29, 8.5.14 lub 8.6.1 albo nowszą w każdej wersji pomocniczej.
 
 Rapira nie używa ani nie zmienia istniejącego systemowego PHP, puli php-fpm ani PHP z Homebrew. Composer, `bin/console` i `artisan` nadal używają systemowego PHP CLI.
 
@@ -46,7 +48,7 @@ Zainstaluj pakiet dla drugiej wersji PHP. Menedżer pakietów zastąpi zainstalo
 
 ## Artefakty wydania
 
-Pliki dla Linuksa i macOS znajdują się na [stronie wydań Rapiry](https://github.com/rapira-rs/rapira/releases). Pliki dla Windowsa znajdują się na [stronie wydań Rapiry dla Windowsa](https://github.com/rapira-rs/rapira-windows/releases). Na [stronie pobierania](/pl/download) wybierz system operacyjny, architekturę, wersję PHP i format pakietu. Strona pokazuje też wartość SHA-256. Każdy artefakt `php8.5` ma odpowiadający mu artefakt `php8.4`.
+Pliki dla Linuksa i macOS znajdują się na [stronie wydań Rapiry](https://github.com/rapira-rs/rapira/releases). Pliki dla Windowsa znajdują się na [stronie wydań Rapiry dla Windowsa](https://github.com/rapira-rs/rapira-windows/releases). Na [stronie pobierania](/pl/download) wybierz system operacyjny, architekturę, wersję PHP i format pakietu. Strona pokazuje też wartość SHA-256. Każdy artefakt `php8.5` ma odpowiadające mu artefakty `php8.4` i `php8.6`.
 
 Na Linuksie użyj pakietu, aby uzyskać standardowe lokalizacje plików i automatyczne zależności bibliotek. Użyj archiwum dla jednego katalogu, obrazu kontenera, artefaktu wdrożenia lub instalacji bez uprawnień roota. Archiwum dla Linuksa wymaga też bibliotek systemowych. Ich listę znajdziesz w sekcji [Archiwa tar na Linuksie i macOS](#archiwa-tar-na-linuksie-i-macos).
 
@@ -68,7 +70,7 @@ rapira --version
 
 Pakiet instaluje serwer bez jednostki usługi, pliku konfiguracyjnego i katalogu z plikami ini. Konfigurację systemd opisuje strona [Wdrożenie produkcyjne](/pl/docs/deployment).
 
-Pakiety wymagają glibc 2.34 lub nowszej. Minimalne obsługiwane wersje to **Debian 12 i Ubuntu 22.04**.
+Pakiety PHP 8.4 i PHP 8.5 wymagają glibc 2.34 oraz OpenSSL 3.0 lub nowszego, na przykład **Debian 12 i Ubuntu 22.04**. Pakiety PHP 8.6 wymagają OpenSSL 3.3 lub nowszego, na przykład **Debian 13 i Ubuntu 26.04**. Na Debianie 12 i Ubuntu 24.04 używaj PHP 8.4 lub PHP 8.5 albo zaktualizuj OpenSSL.
 
 ::: question Dlaczego ścieżka pliku zaczyna się od `./`?
 Początkowe `./` mówi aptowi, aby użył pliku lokalnego zamiast nazwy pakietu z repozytorium.
@@ -88,7 +90,7 @@ sudo dnf install ./rapira-php8.5-0.9.0-1.x86_64.rpm
 rapira --version
 ```
 
-Pakiet RPM wymaga glibc 2.34 lub nowszej. **RHEL 9**, Rocky 9, AlmaLinux 9 i aktualne wersje Fedory spełniają to wymaganie.
+Pakiety RPM dla PHP 8.4 i PHP 8.5 wymagają glibc 2.34 oraz OpenSSL 3.0 lub nowszego, na przykład **RHEL 9**, Rocky 9, AlmaLinux 9 i Fedora. Pakiety RPM dla PHP 8.6 wymagają OpenSSL 3.3 oraz **RHEL 9.7** lub nowszego.
 
 ## Archiwa tar na Linuksie i macOS
 
@@ -151,7 +153,7 @@ Plik binarny zawiera **względny rpath** do interpretera. Linux używa `$ORIGIN/
 ::: question Jakich bibliotek systemowych potrzebuje archiwum?
 Na macOS katalog `lib/rapira` zawiera `libphp.dylib` i wszystkie wymagane biblioteki niesystemowe. Katalog jest samowystarczalny.
 
-Na Linuksie katalog `lib/rapira` zawiera `libphp.so` i biblioteki z jej kompilacji, takie jak ICU, libxml2, SQLite, Oniguruma i libpq. System musi udostępniać OpenSSL 3, libcurl, zlib i libstdc++. Pakiety deb i RPM deklarują te biblioteki, glibc i libgcc jako zależności.
+Na Linuksie katalog `lib/rapira` zawiera `libphp.so` i biblioteki z jej kompilacji, takie jak ICU, libxml2, SQLite, Oniguruma i libpq. System musi udostępniać OpenSSL 3.0 (OpenSSL 3.3 lub nowszy dla PHP 8.6), libcurl, zlib i libstdc++. Pakiety deb i RPM deklarują te biblioteki, glibc i libgcc jako zależności.
 :::
 
 ## Weryfikacja sum kontrolnych
@@ -174,19 +176,14 @@ grep rapira-v0.9.0-php8.5-macos-aarch64.tar.gz rapira-v0.9.0-SHA256SUMS.txt | sh
 
 ## Docker
 
-Obraz kontenera `ghcr.io/rapira-rs/rapira` zawiera plik binarny `rapira` i jego `libphp.so`. Obraz używa `FROM scratch` i nie ma systemu bazowego, powłoki ani punktu wejścia. Nie może działać samodzielnie. Skopiuj jego pliki do obrazu aplikacji:
+Obraz kontenera `ghcr.io/rapira-rs/rapira` zawiera Rapirę, PHP bezpieczne wątkowo (ZTS) i popularne rozszerzenia PHP na Debianie Trixie. Dodaj swoją aplikację do obrazu:
 
 ```dockerfile
-FROM php:8.5-cli-trixie
-COPY --from=ghcr.io/rapira-rs/rapira:php8.5 / /
-RUN apt-get update \
-    && xargs -r apt-get install -y --no-install-recommends < /usr/local/share/rapira/debian-packages.txt \
-    && rm -rf /var/lib/apt/lists/*
+FROM ghcr.io/rapira-rs/rapira:php8.5
 COPY . /app
-CMD ["rapira", "serve", "/app/rapira.toml"]
 ```
 
-Katalog aplikacji zawiera plik `rapira.toml`:
+Obraz uruchamia `rapira serve /app/rapira.toml`. Uruchom kontener poleceniem `docker run --init`, aby proces init usuwał zakończone procesy potomne. Katalog aplikacji zawiera plik `rapira.toml`:
 
 ```toml
 [http]
@@ -197,26 +194,28 @@ entrypoint = "/app/public/index.php"
 mode = "classic"
 ```
 
-Obraz zawiera `/usr/local/bin/rapira`, `/usr/local/lib/libphp.so` i OPcache. W PHP 8.4 OPcache jest osobnym plikiem `opcache.so` z plikiem ini. W PHP 8.5 jest częścią `libphp.so`.
+Obraz zawiera `/usr/local/bin/rapira` i PHP w `/usr/local`, w tym `/usr/local/lib/libphp.so`. Zmienna środowiskowa `PHP_VERSION` zawiera wersję poprawkową PHP. W PHP 8.4 OPcache jest osobnym plikiem `opcache.so` z plikiem INI, który go włącza. W PHP 8.5 i PHP 8.6 OPcache jest częścią `libphp.so`.
 
-Obraz zawiera też `bcmath`, `intl`, `pdo_pgsql`, `pgsql`, `igbinary` i `redis` jako moduły współdzielone wraz z plikami INI, które je włączają. Redis obsługuje serializację igbinary.
+Wszystkie obrazy zawierają `bcmath`, `intl`, `mbstring`, `pdo_pgsql`, `pgsql` i `sodium`. Obrazy PHP 8.4 i PHP 8.5 zawierają też `igbinary`. Rapira nie dołącza rozszerzenia `redis`.
 
-Katalog `/usr/local/share/rapira` zawiera jeszcze dwa pliki. `PHP_VERSION.txt` zawiera wersję poprawkową dołączonego PHP. `debian-packages.txt` wymienia pakiety potrzebne do uruchomienia `libphp` i jej rozszerzeń współdzielonych. Zainstaluj te pakiety w obrazie aplikacji, także gdy obraz bazowy zawiera PHP.
+Obraz zachowuje polecenia pomocnicze oficjalnego obrazu PHP: `docker-php-ext-install`, `docker-php-ext-enable`, `docker-php-ext-configure`, `docker-php-source` i `docker-php-entrypoint`. Używaj rozszerzeń zgodnych z ZTS, gdy dodajesz je do obrazu poleceniem `docker-php-ext-install`:
 
-Proces budowania obrazu używa `libphp.so` z `php:8.4-cli-trixie` lub `php:8.5-cli-trixie`. Dodaje sześć rozszerzeń współdzielonych wymienionych powyżej. Dodaj inne rozszerzenia w obrazie bazowym aplikacji. W obrazie bazowym PHP polecenie `docker-php-ext-install` kompiluje je dla tej samej `libphp.so`.
+```dockerfile
+FROM ghcr.io/rapira-rs/rapira:php8.5
+RUN docker-php-ext-install pdo_mysql
+COPY . /app
+```
 
-::: question Dlaczego obraz jest budowany `FROM scratch`?
-Obraz scratch zawiera tylko pliki, które build do niego kopiuje. Dlatego `COPY --from=ghcr.io/rapira-rs/rapira:php8.5 / /` kopiuje tylko pliki Rapiry. Obraz bazowy aplikacji wybierasz sam.
-:::
+Obrazy PHP 8.6 nie mają poleceń `pecl` i `pear`, tak jak oficjalny obraz PHP 8.6.
 
 Każdy tag określa swoją wersję pomocniczą PHP. Te tagi obsługują amd64 i arm64:
 
 | Tag | Na co wskazuje |
 | --- | --- |
-| `X.Y.Z-php8.4`, `X.Y.Z-php8.5` | Jeden build wydania. Ten tag nigdy się nie zmienia. |
-| `X.Y-php8.4`, `X.Y-php8.5` | Najnowsze stabilne wydanie z wersją `X.Y`. |
-| `php8.4`, `php8.5` | Najnowsze stabilne wydanie. |
-| `nightly-php8.4`, `nightly-php8.5` | Najnowszy build nocny. |
+| `X.Y.Z-php8.4`, `X.Y.Z-php8.5`, `X.Y.Z-php8.6` | Jedno wydanie. Dla najnowszego wydania aktualizacja PHP przenosi ten tag na nowy build. |
+| `X.Y-php8.4`, `X.Y-php8.5`, `X.Y-php8.6` | Najnowsze stabilne wydanie z wersją `X.Y`. |
+| `php8.4`, `php8.5`, `php8.6` | Najnowsze stabilne wydanie. |
+| `nightly-php8.4`, `nightly-php8.5`, `nightly-php8.6` | Najnowszy build nocny. |
 
 Rejestr zawiera też tagi dla konkretnej architektury, na przykład `X.Y.Z-php8.5-amd64` i `X.Y.Z-php8.5-arm64`.
 
@@ -225,6 +224,14 @@ Tag `latest` nie istnieje. Każda kompilacja Rapiry używa nagłówków jednej w
 ::: question Na co wskazuje tag nocny?
 Każdy udany przebieg CI na `main` buduje obrazy z tego commita. Build dostaje niezmienny tag `X.Y.Z-nightly.<short-sha>-php8.5`. `X.Y.Z` to wersja repozytorium. `<short-sha>` to pierwsze siedem znaków identyfikatora commita. Tag `nightly-php8.5` wskazuje na ten build. Rejestr przechowuje dziesięć najnowszych buildów nocnych.
 :::
+
+### Obrazy bazowe
+
+Rapira buduje swoje obrazy na [oficjalnych obrazach PHP](https://hub.docker.com/_/php) na Debianie Trixie: `php:8.4-zts-trixie`, `php:8.5-zts-trixie` i `php:8.6-cli-trixie`. Oficjalny obraz PHP 8.6 CLI zawiera ZTS oraz bibliotekę embed.
+
+### Aktualizacje po wydaniach PHP
+
+Workflow GitHub Actions co 15 minut sprawdza skrót każdego bazowego obrazu PHP. Gdy oficjalny obraz PHP się zmieni, workflow buduje ponownie najnowsze wydanie Rapiry na tym obrazie i przenosi jego tagi. Dzięki temu obrazy dostają wydania poprawkowe PHP i poprawki pakietów Debiana bez nowego wydania Rapiry.
 
 ## Kompilacja libphp
 
@@ -236,7 +243,8 @@ Pakiety i archiwa wydań dla Linuksa i macOS używają `libphp` zbudowanej z `--
 - **XML**: libxml, dom, xml, simplexml, xmlreader, xmlwriter.
 - **Bazy danych**: PDO z `pdo_sqlite` i `pdo_pgsql`, a także `sqlite3` i `pgsql`.
 - **Arytmetyka dziesiętna i internacjonalizacja**: bcmath i intl.
-- **Serializacja i pamięć podręczna**: igbinary i redis, z włączoną serializacją igbinary dla Redis.
+- **Serializacja**: igbinary na PHP 8.4 i PHP 8.5. Rapira nie dołącza rozszerzenia `redis`.
+- **Kryptografia**: sodium.
 - **Pamięć współdzielona i System V IPC**: shmop, sysvmsg, sysvsem, sysvshm.
 - **Daty, metadane obrazów i tłumaczenia**: calendar, exif, gettext.
 - **Interfejs do funkcji zewnętrznych**: ffi.
@@ -244,10 +252,10 @@ Pakiety i archiwa wydań dla Linuksa i macOS używają `libphp` zbudowanej z `--
 
 Dla innych rozszerzeń, takich jak `pdo_mysql`, APCu lub Imagick, zbuduj `libphp` z wymaganymi opcjami. Następnie skompiluj Rapirę z tą biblioteką. Zobacz [Budowanie ze źródeł](/pl/docs/intro/build-from-source).
 
-Każdy artefakt używa najnowszej dostępnej wersji poprawkowej swojej serii PHP 8.4 lub PHP 8.5. W archiwum plik `share/php/PHP_VERSION.txt` zawiera dokładną wersję. Na działającym serwerze wersję podają `PHP_VERSION` i `phpinfo()`. Gdy ustawiona jest sekcja `[observability.metrics]`, wersję podaje też etykieta `php_version` metryki `rapira_build_info`. Zobacz [Metryki i kontrole stanu](/pl/docs/observability). `rapira --version` pokazuje tylko wersję Rapiry.
+Każdy artefakt używa wersji poprawkowej ze swojej serii PHP 8.4, PHP 8.5 lub PHP 8.6. W archiwum plik `share/php/PHP_VERSION.txt` zawiera dokładną wersję. Na działającym serwerze wersję podają `PHP_VERSION` i `phpinfo()`. Gdy ustawiona jest sekcja `[observability.metrics]`, wersję podaje też etykieta `php_version` metryki `rapira_build_info`. Zobacz [Metryki i kontrole stanu](/pl/docs/observability). `rapira --version` pokazuje tylko wersję Rapiry.
 
 ::: question Dlaczego na PHP 8.4 `PHP_SAPI` zwraca `fastcgi`?
-Na PHP 8.4 OPcache uruchamia się tylko dla stałej listy nazw SAPI. Rapira rejestruje SAPI jako `fastcgi`, aby włączyć OPcache. PHP 8.5 usunęło tę listę, więc `PHP_SAPI` i `php_sapi_name()` zwracają `rapira`. Wiersz *Server API* w `phpinfo()` pokazuje `Rapira` dla obu wersji. Kod, który sprawdza `PHP_SAPI`, musi akceptować obie wartości.
+Na PHP 8.4 OPcache uruchamia się tylko dla stałej listy nazw SAPI. Rapira rejestruje SAPI jako `fastcgi`, aby włączyć OPcache. PHP 8.5 i PHP 8.6 usunęły tę listę, więc `PHP_SAPI` i `php_sapi_name()` zwracają `rapira`. Wiersz *Server API* w `phpinfo()` pokazuje `Rapira` dla wszystkich wersji. Kod, który sprawdza `PHP_SAPI`, musi akceptować obie wartości.
 :::
 
 ## php.ini
@@ -267,14 +275,14 @@ zend_extension=/usr/lib/rapira/opcache.so
 ;zend_extension=/opt/rapira/lib/rapira/opcache.so
 ```
 
-Na PHP 8.5 OPcache jest częścią `libphp`. Ta linia nie jest potrzebna.
+Na PHP 8.5 i PHP 8.6 OPcache jest częścią `libphp`. Ta linia nie jest potrzebna.
 
 ::: question Gdzie PHP samo szuka `php.ini`?
 PHP najpierw sprawdza `PHPRC`. Potem sprawdza domyślną ścieżkę ustawioną podczas kompilacji PHP. Ta ścieżka zwykle nie istnieje w systemie docelowym. Rapira nie czyta `php.ini` z bieżącego katalogu.
 :::
 
 ::: question Dlaczego plik nazywa się `php.ini`, a nie `php-rapira.ini`?
-PHP najpierw sprawdza `php-<sapi-name>.ini`, a potem `php.ini`. Nazwa SAPI to `fastcgi` na 8.4 i `rapira` na 8.5. Zwykły `php.ini` obsługuje obie wersje.
+PHP najpierw sprawdza `php-<sapi-name>.ini`, a potem `php.ini`. Nazwa SAPI to `fastcgi` na 8.4 oraz `rapira` na 8.5 i 8.6. Zwykły `php.ini` obsługuje wszystkie wersje.
 :::
 
 ## Dystrybucja

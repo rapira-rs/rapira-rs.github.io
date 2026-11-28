@@ -1,6 +1,6 @@
 ---
 title: Pliki statyczne
-description: "Serwowanie plików, zanim żądanie dotrze do PHP: klucze [http.static], reguły middleware i cache plików w każdym workerze."
+description: "Serwowanie plików, zanim żądanie dotrze do PHP: klucze [http.static], reguły middleware i współdzielony cache plików w pamięci."
 faqLevel: 2
 ---
 
@@ -21,7 +21,7 @@ root = "public"     # Wymagany. Ścieżki względne używają katalogu tego plik
 forbid = [".php"]   # Opcjonalny. Ta lista zastępuje wartość domyślną.
 ```
 
-`middleware` trzyma łańcuch middleware w kolejności listy. `static` to na razie jedyna nazwa, jaką ten klucz przyjmuje.
+`middleware` trzyma łańcuch middleware w kolejności listy. Wbudowane nazwy to `"static"` i `"compress"`.
 
 `root` określa katalog z plikami do serwowania. Nie ma wartości domyślnej, więc tabela musi go ustawić. Ścieżka względna używa katalogu pliku konfiguracyjnego jako bazy, tak samo jak `http.pool.entrypoint`.
 
@@ -84,19 +84,19 @@ Middleware nie ustawia `Cache-Control`. Ustaw to pole w reverse proxy, gdy klien
 
 ## Cache plików
 
-Każdy proces workera przechowuje w pamięci pliki, które serwuje. Cache nie jest konfigurowalny. Używa tych stałych wartości:
+Serwer utrzymuje jeden współdzielony cache plików w pamięci dla wszystkich shardów I/O HTTP. Cache nie jest konfigurowalny. Używa tych stałych wartości:
 
 - Wpis cache'u jest ważny przez jedną sekundę.
 - Cache nie przechowuje pliku większego niż 256 KiB. Taki plik przy każdym żądaniu idzie strumieniem z dysku.
-- Każdy worker przechowuje najwyżej 16 MiB. Dlatego cache może użyć 16 MiB pamięci na każdy proces z `http.pool.processes`.
+- Współdzielony cache przechowuje łącznie najwyżej 16 MiB.
 
-Po jednej sekundzie następne żądanie pliku wykonuje na nim `stat`. Worker zachowuje wpis, gdy numer urządzenia, numer i-węzła, czas modyfikacji i długość są takie same. W przeciwnym razie odczytuje plik ponownie. Rapira przestaje serwować usunięty plik najpóźniej po jednej sekundzie.
+Po jednej sekundzie następne żądanie pliku wykonuje na nim `stat`. Rapira zachowuje wpis, gdy numer urządzenia, numer i-węzła, czas modyfikacji i długość są takie same. W przeciwnym razie odczytuje plik ponownie. Rapira przestaje serwować usunięty plik najpóźniej po jednej sekundzie.
 
 Pełny cache nadal serwuje swoje wpisy. Najpierw usuwa wygasłe wpisy. Jeśli nadal jest pełny, nie zapisuje nowego pliku.
 
-Nowy proces workera zaczyna z pustym cache'em. Dlatego wymiana workera lub restart Rapiry czyści cache. Przeładowanie zachowuje cache, ponieważ proces workera pozostaje.
+Restart Rapiry czyści cache. Przeładowanie zachowuje cache, ponieważ proces serwera pozostaje.
 
-Katalog główny musi używać lokalnego nośnika. Middleware wykonuje `stat` i `open` w wątku, który obsługuje żądania. Wolny system plików opóźnia inne połączenia w tym workerze.
+Katalog główny musi używać lokalnego nośnika. Middleware wykonuje `stat` i `open` w wątku sharda I/O, który obsługuje połączenie. Wolny system plików opóźnia inne połączenia w tym shardzie.
 
 ::: question Dlaczego cache nie wykrywa mojego zmienionego pliku?
 Cache porównuje numer urządzenia, numer i-węzła, czas modyfikacji i długość pliku. Nie wykrywa zmiany pliku w miejscu, która zachowuje czas modyfikacji i długość. `ETag` zawiera tylko czas modyfikacji i długość. Gdy zmiana nazwy zastępuje plik nowym plikiem o tych samych dwóch wartościach, klient, który sprawdza aktualność swojej kopii, zachowuje starą kopię. Zmiana uprawnień też zachowuje wpis. Aby usunąć wpis, usuń plik, zmień jego czas modyfikacji lub uruchom Rapirę ponownie.

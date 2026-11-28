@@ -80,7 +80,7 @@ try {
 
         try {
             $metadata = $call->getResponseMetadata();
-            $metadata->addHeader('x-worker', (string) getmypid());
+            $metadata->addHeader('x-server', 'rapira');
             $metadata->addTrailer('x-result', 'echoed');
             $call->respond($call->getMessage());
         } catch (WorkDiscardedException) {
@@ -107,10 +107,10 @@ reflection = true
 [grpc.pool]
 entrypoint = "grpc.php"
 mode = "dispatcher"
-processes = 2
+workers = 2
 ```
 
-`descriptor_set` używa katalogu pliku konfiguracyjnego jako podstawy. Konfiguracja obsługująca tylko gRPC nie wymaga sekcji `[http]`.
+Względna ścieżka `descriptor_set` używa katalogu pliku konfiguracyjnego jako podstawy. Klucz przyjmuje też adres URL: zobacz [Wczytywanie zestawu deskryptorów z adresu URL](#descriptor-set-url). Konfiguracja obsługująca tylko gRPC nie wymaga sekcji `[http]`.
 
 Uruchom serwer z `app/`:
 
@@ -239,7 +239,7 @@ Opcjonalny trzeci argument `Status` to lista obiektów `Rapira\Grpc\ErrorDetail`
 
 Rapira nie przechwytuje `Rapira\Grpc\Exception\GrpcException`. Przechwyć go i przekaż jego właściwość `$status` do `fail()`.
 
-Klient otrzymuje `UNAVAILABLE`, gdy Rapira odrzuci wywołanie, zanim PHP je otrzyma. Dzieje się tak, gdy kolejka workerów pozostaje pełna przez 30 sekund, gdy pula się zatrzymuje lub gdy start PHP w workerze się nie powiódł. Interceptor także może odrzucić wywołanie, zanim PHP je otrzyma. Interceptor ustawia status, na przykład `UNAUTHENTICATED`. Zobacz [Interceptory](#interceptors).
+Klient otrzymuje `UNAVAILABLE`, gdy Rapira odrzuci wywołanie, zanim PHP je otrzyma. Dzieje się tak, gdy kolejka puli pozostaje pełna przez 30 sekund, gdy pula się zatrzymuje lub gdy żaden worker w puli nie jest gotowy podczas opóźnienia po nieudanym rozruchu. Interceptor także może odrzucić wywołanie, zanim PHP je otrzyma. Interceptor ustawia status, na przykład `UNAUTHENTICATED`. Zobacz [Interceptory](#interceptors).
 
 ## Metadane
 
@@ -267,7 +267,7 @@ Rapira zamienia nazwy metadanych odpowiedzi na małe litery. Następnie nazwa mo
 
 Interceptor sprawdza wywołanie, zanim PHP je otrzyma. Wymień interceptory w `grpc.interceptors` w kolejności łańcucha. Każdy interceptor ma własną tabelę. Rapira ma jeden interceptor: `auth`.
 
-### Uwierzytelnianie {#uwierzytelnianie}
+### Uwierzytelnianie {#authentication}
 
 `auth` przyjmuje wywołanie tylko wtedy, gdy wywołanie zawiera skonfigurowany token bearer. Zapisz tokeny w pliku, po jednym tokenie w wierszu:
 
@@ -305,7 +305,7 @@ Wywołanie bez prawidłowego tokena otrzymuje `UNAUTHENTICATED`. Unarne wywołan
 - Wywołanie nieznanej metody bez tokena otrzymuje `UNAUTHENTICATED`, a nie `UNIMPLEMENTED`.
 - PHP nadal otrzymuje wartość `authorization` wywołania, które przeszło kontrolę.
 
-Proces nadrzędny wczytuje plik tokenów przy starcie. Plik, którego Rapira nie może odczytać, plik bez tokenów i nieprawidłowy token zatrzymują start. Uruchom ponownie Rapirę, aby wczytać zmieniony plik tokenów. Przeładowanie zachowuje stare tokeny.
+Rapira wczytuje plik tokenów przy starcie. Plik, którego Rapira nie może odczytać, plik bez tokenów i nieprawidłowy token zatrzymują start. Uruchom ponownie Rapirę, aby wczytać zmieniony plik tokenów. Przeładowanie zachowuje stare tokeny.
 
 ## Terminy zakończenia i anulowanie
 
@@ -321,11 +321,33 @@ grpcurl -plaintext -max-time 2 -d '{"text":"hello"}' 127.0.0.1:50051 example.v1.
 
 Po przekroczeniu terminu klient otrzymuje `DEADLINE_EXCEEDED`, a `isCancelled()` zwraca `true`. Rapira nie może zatrzymać kodu PHP, więc PHP kontynuuje wywołanie. Sprawdzaj `isCancelled()` podczas długich operacji. Przechwytuj `WorkDiscardedException` przy wywoływaniu metod odpowiedzi, ponieważ anulowanie może nastąpić po sprawdzeniu.
 
-Limit `receive()` określa, jak długo PHP czeka na nową pracę. Jest niezależny od terminu zakończenia wywołania. `grpc.pool.request_terminate_timeout_secs` nadzoruje czas działania procesu. Zastępuje workera, gdy wywołanie trwa dłużej niż limit.
+Limit `receive()` określa, jak długo PHP czeka na nową pracę. Jest niezależny od terminu zakończenia wywołania. `grpc.pool.request_terminate_timeout_secs` ustawia limit watchdoga czasu rzeczywistego, który przerywa PHP, gdy wywołanie przekroczy ten limit.
+
+## Wczytywanie zestawu deskryptorów z adresu URL {#descriptor-set-url}
+
+`descriptor_set` to ścieżka lub adres URL. Wartość, która zaczyna się od `http://` lub `https://`, jest adresem URL, tak jak w przypadku [wejścia obrazu Buf](https://buf.build/docs/reference/inputs/#image-formats). Każda inna wartość jest ścieżką.
+
+```toml
+[grpc]
+descriptor_set = "https://schemas.example.com/billing/v42/api.binpb"
+```
+
+Rapira pobiera zestaw za pomocą żądania GET przy starcie, przed startem workerów. Nieudane pobranie zatrzymuje start z kodem wyjścia 1. Rapira nie ponawia pobrania i nie przechowuje lokalnej kopii zestawu.
+
+- Treść odpowiedzi musi być binarnym zestawem. Rapira nie dekoduje skompresowanego zestawu ani zestawu w formacie JSON.
+- Pobieranie podąża za najwyżej 10 przekierowaniami. Podąża też za przekierowaniem z adresu URL `https://` na adres URL `http://`. Status odpowiedzi 400 lub wyższy zatrzymuje start.
+- HTTPS używa systemowego magazynu certyfikatów. Na Linuksie ustaw `SSL_CERT_FILE` lub `SSL_CERT_DIR`, aby zastąpić ten magazyn, na przykład dla prywatnego urzędu certyfikacji. Na macOS magazynem jest pęk kluczy, a te dwie zmienne nie mają wpływu.
+- Rapira wysyła część userinfo adresu URL (`https://user:password@host/api.binpb`) jako poświadczenia HTTP Basic. Pobieranie nie ma innego ustawienia uwierzytelniania. Wpisy logu pokazują adres URL bez części userinfo i bez zapytania.
+- Pobieranie używa proxy, które wskazuje `ALL_PROXY`, `HTTPS_PROXY` lub `HTTP_PROXY`. `NO_PROXY` zawiera listę hostów, które nie wymagają proxy.
+- Połączenie, nagłówek odpowiedzi i treść mają osobne limity czasu, każdy po 30 sekund. Maksymalny rozmiar zestawu to 64 MiB.
+
+::: warning
+Rapira nie sprawdza zawartości zestawu za pomocą sumy kontrolnej ani podpisu. Użyj adresu URL `https://` hosta, któremu ufasz. Upewnij się, że host nie przekierowuje na adres URL `http://`: przy `http://` każdy host na ścieżce sieciowej może zmienić zestaw. Nie zastępuj zestawu pod adresem URL: umieść wersję w ścieżce adresu URL i użyj nowego adresu URL dla każdej zmiany zestawu. Wtedy każda instancja wczyta ten sam zestaw.
+:::
 
 ## Usługi i refleksja
 
-Proces nadrzędny wczytuje zestaw deskryptorów przed forkowaniem workerów. Nieprawidłowy zestaw, brak importowanych plików lub nieznana usługa wskazana w konfiguracji uniemożliwiają uruchomienie. Uruchom ponownie Rapirę po zmianie zestawu deskryptorów. Przeładowanie zachowuje wczytany zestaw.
+Rapira wczytuje zestaw deskryptorów przy starcie przed startem workerów. Nieprawidłowy zestaw, nieudane pobranie, brak importowanych plików lub nieznana usługa wskazana w konfiguracji uniemożliwiają uruchomienie. Uruchom ponownie Rapirę po zmianie zestawu deskryptorów. Przeładowanie zachowuje wczytany zestaw.
 
 Domyślnie pula obsługuje usługi z plików, których nie importuje żaden inny plik zestawu. Plik importowany przez inny plik jest zależnością, na przykład `google/longrunning/operations.proto`. Jego usługi nie są obsługiwane. Ustaw `grpc.services`, aby wskazać obsługiwane usługi, na przykład `["billing.v1.InvoiceService"]`. Użyj tego klucza, gdy kilka instancji Rapira współdzieli jeden zestaw, lub aby obsłużyć usługę z importowanego pliku.
 
@@ -341,7 +363,7 @@ grpcurl -plaintext -import-path proto -proto echo.proto -d '{"text":"hello"}' 12
 
 ## Kontrole stanu
 
-Rapira obsługuje [protokół kontroli stanu gRPC](https://github.com/grpc/grpc/blob/master/doc/health-checking.md) (`grpc.health.v1.Health`) w każdym workerze. `Check` i `Watch` zgłaszają `SERVING` dla pustej nazwy `""` i dla każdej obsługiwanej usługi. Podczas zatrzymywania zgłaszają `NOT_SERVING`.
+Rapira obsługuje [protokół kontroli stanu gRPC](https://github.com/grpc/grpc/blob/master/doc/health-checking.md) (`grpc.health.v1.Health`) na nasłuchu gRPC. `Check` i `Watch` zgłaszają `SERVING` dla pustej nazwy `""` i dla każdej obsługiwanej usługi. Podczas zatrzymywania zgłaszają `NOT_SERVING`.
 
 Usługa health nie sprawdza PHP. Worker, w którym start PHP się nie powiódł, zgłasza `SERVING`, a jego wywołania otrzymują `UNAVAILABLE`. `grpc.services` nie może wskazywać usług health ani refleksji, ponieważ Rapira obsługuje je sama.
 
@@ -372,15 +394,11 @@ Limit treści żądania obejmuje pięciobajtową kopertę unarnego żądania z r
 Konwersja JSON dekoduje zawartość każdego `google.protobuf.Any` z budżetem 32 MiB dla zdekodowanych elementów. Przekroczenie tego budżetu zwraca `INTERNAL` i zapisuje ostrzeżenie. Klienci binarnego protobuf nie używają tej konwersji.
 :::
 
-::: warning Jedno połączenie używa jednego workera
-Jeden proces workera obsługuje każde połączenie. Klient gRPC zwykle wysyła wszystkie wywołania kanału jednym połączeniem HTTP/2. Taki klient otrzymuje przepustowość jednego workera, niezależnie od rozmiaru puli. Aby użyć więcej workerów, otwórz kilka połączeń lub użyj load balancera L7, który rozdziela wywołania.
-:::
-
 ## Wspólne uruchomienie HTTP i gRPC
 
-Jedna konfiguracja może zawierać `[http]` i `[grpc]`. Każda wtyczka ma własny nasłuch, skrypt wejściowy PHP i pulę workerów. Proces nadrzędny nadzoruje obie pule. Pula gRPC obsługuje te same ustawienia liczby workerów i wymiany workerów co pula HTTP, z `mode = "dispatcher"`.
+Jedna konfiguracja może zawierać `[http]` i `[grpc]` dla PHP ZTS. Każda wtyczka ma własny nasłuch, skrypt wejściowy PHP, kolejkę i pulę workerów w jednym procesie serwera. Pula gRPC przyjmuje ustawienia liczby workerów, ponownego uruchamiania aplikacji, środowiska, zegara wykonania i watchdoga z puli HTTP, z `mode = "dispatcher"`.
 
-Wszystkie ustawienia gRPC opisuje [Konfiguracja](./configuration#grpc), a nadzór nad pulami opisuje [Model procesów](./process-model).
+Wszystkie ustawienia gRPC opisuje [Konfiguracja](./configuration#grpc), a zarządzanie pulami opisuje [Model procesów](./process-model).
 
 ## Windows
 
@@ -388,6 +406,4 @@ Wszystkie ustawienia gRPC opisuje [Konfiguracja](./configuration#grpc), a nadzó
 
 - `grpc.listen` akceptuje tylko adres TCP.
 - `grpc.interceptors` i tabela `[grpc.auth]` nie są dostępne.
-- Pula gRPC to statyczna pula wątków interpretera PHP w jednym procesie. `grpc.pool.processes` ustawia liczbę wątków.
-- `getmypid()` zwraca ten sam identyfikator procesu w każdym interpreterze.
 - Błąd startu PHP w dowolnej puli zatrzymuje serwer z kodem wyjścia 70.

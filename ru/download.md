@@ -62,7 +62,7 @@ FROM ghcr.io/rapira-rs/rapira:php8.5
 COPY . /app
 ```
 
-Каждый тег называет версию PHP, например `php8.4`, `php8.5`, `php8.6` или `nightly-php8.5`. Все теги и образы PHP - в разделе [Docker](/ru/docs/intro/installation#docker).
+Каждый тег называет версию PHP, например `php8.4`, `php8.5`, `php8.6` или `nightly-php8.5`. Все теги и расширения в составе образа - в разделе [Docker](/ru/docs/intro/installation#docker).
 
 </DownloadCard>
 

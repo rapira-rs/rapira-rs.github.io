@@ -62,7 +62,7 @@ FROM ghcr.io/rapira-rs/rapira:php8.5
 COPY . /app
 ```
 
-每个标签都标明 PHP 版本，例如 `php8.4`、`php8.5`、`php8.6` 或 `nightly-php8.5`。全部标签和 PHP 镜像见 [Docker](/zh/docs/intro/installation#docker)。
+每个标签都标明 PHP 版本，例如 `php8.4`、`php8.5`、`php8.6` 或 `nightly-php8.5`。全部标签和随附扩展见 [Docker](/zh/docs/intro/installation#docker)。
 
 </DownloadCard>
 

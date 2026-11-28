@@ -174,14 +174,14 @@ grep rapira-v0.9.0-php8.5-macos-aarch64.tar.gz rapira-v0.9.0-SHA256SUMS.txt | sh
 
 ## Docker
 
-The `ghcr.io/rapira-rs/rapira` container image contains Rapira, NTS PHP, and common PHP extensions on Debian Trixie. Add your application to the image:
+The `ghcr.io/rapira-rs/rapira` container image contains Rapira, thread-safe (ZTS) PHP, and common PHP extensions on Debian Trixie. Add your application to the image:
 
 ```dockerfile
 FROM ghcr.io/rapira-rs/rapira:php8.5
 COPY . /app
 ```
 
-The image starts `rapira serve /app/rapira.toml`. The application directory holds a `rapira.toml`:
+The image starts `rapira serve /app/rapira.toml`. Run the container with `docker run --init` so that an init process removes exited child processes. The application directory holds a `rapira.toml`:
 
 ```toml
 [http]
@@ -194,9 +194,9 @@ mode = "classic"
 
 The image contains `/usr/local/bin/rapira` and PHP in `/usr/local`, with `/usr/local/lib/libphp.so`. The `PHP_VERSION` environment variable contains the PHP patch version. For PHP 8.4, OPcache is a separate `opcache.so` with an INI file that enables it. For PHP 8.5 and PHP 8.6, OPcache is part of `libphp.so`.
 
-All images include `bcmath`, `intl`, `mbstring`, `pdo_pgsql`, `pgsql`, and `sodium`. The PHP 8.4 and PHP 8.5 images also include `igbinary` and `redis`. Redis supports igbinary serialization. No release of `igbinary` or `redis` compiles on PHP 8.6, so the PHP 8.6 images do not include them.
+All images include `bcmath`, `intl`, `mbstring`, `pdo_pgsql`, `pgsql`, and `sodium`. The PHP 8.4 and PHP 8.5 images also include `igbinary`. Rapira does not bundle the `redis` extension.
 
-The image keeps the helper commands of the official PHP image: `docker-php-ext-install`, `docker-php-ext-enable`, `docker-php-ext-configure`, `docker-php-source`, and `docker-php-entrypoint`. Add other extensions with `docker-php-ext-install`:
+The image keeps the helper commands of the official PHP image: `docker-php-ext-install`, `docker-php-ext-enable`, `docker-php-ext-configure`, `docker-php-source`, and `docker-php-entrypoint`. Use ZTS-compatible extensions when you add to the image with `docker-php-ext-install`:
 
 ```dockerfile
 FROM ghcr.io/rapira-rs/rapira:php8.5
@@ -223,23 +223,13 @@ There is no `latest` tag. Each Rapira build uses the headers of one PHP minor ve
 Each successful CI run on `main` builds images from that commit. The build gets an immutable `X.Y.Z-nightly.<short-sha>-php8.5` tag. `X.Y.Z` is the repository version. `<short-sha>` is the first seven characters of the commit identifier. The `nightly-php8.5` tag points to that build. The registry keeps the ten newest nightly builds.
 :::
 
-### PHP images
+### Base images
 
-The Rapira image uses the PHP image `ghcr.io/rapira-rs/php:<minor>-nts` as its base. The PHP images come from the [rapira-rs/docker](https://github.com/rapira-rs/docker) repository. A PHP image contains PHP and the PHP extensions of the official PHP image. It does not contain Rapira or the other extensions of the Rapira image. Each PHP minor version has an NTS image and a thread-safe (ZTS) image on Debian Trixie, Debian Bookworm, Alpine 3.24, and Alpine 3.23. Rapira runs only on NTS PHP, so the Rapira image uses the NTS image on Debian Trixie.
-
-The PHP images support amd64 and arm64. In the tags, `<suite>` is `trixie`, `bookworm`, `alpine3.24`, or `alpine3.23`, and `<variant>` is `nts` or `zts`:
-
-| Tag | What it points at |
-| --- | --- |
-| `X.Y-<suite>-<variant>` | The newest build of that PHP minor version, for example `8.5-alpine3.24-nts`. |
-| `X.Y.Z-<suite>-<variant>` | The newest build of one PHP patch release, for example `8.5.13-alpine3.24-nts`. |
-| `X.Y-<variant>`, `X.Y.Z-<variant>` | The same image as the `trixie` tag, for example `8.5-nts`. |
-
-The build gets PHP from the signed php-src release tag and verifies the tag with the keys of the PHP release managers. It follows the recipe of the official PHP image. Each PHP image includes `libphp.so`. The official PHP 8.6 images are ZTS only, but these PHP images also have NTS builds of PHP 8.6.
+Rapira builds its images on the [official PHP images](https://hub.docker.com/_/php) on Debian Trixie: `php:8.4-zts-trixie`, `php:8.5-zts-trixie`, and `php:8.6-cli-trixie`. The official PHP 8.6 CLI image includes ZTS and the embed library.
 
 ### Updates on PHP releases
 
-A GitHub Actions workflow checks the php-src release tags every 15 minutes. When a PHP minor version gets a new patch release, the workflow builds the PHP images of that minor version. Then a second workflow builds the newest Rapira release again on the new NTS PHP image and moves its tags. The PHP images are also built again one time each week to install package updates. Thus, the images get PHP and package fixes without a new Rapira release.
+A GitHub Actions workflow checks the digest of each base PHP image every 15 minutes. When an official PHP image changes, the workflow builds the newest Rapira release again on that image and moves its tags. Thus, the images get PHP patch releases and Debian package fixes without a new Rapira release.
 
 ## The libphp build
 

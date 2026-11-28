@@ -174,14 +174,14 @@ grep rapira-v0.9.0-php8.5-macos-aarch64.tar.gz rapira-v0.9.0-SHA256SUMS.txt | sh
 
 ## Docker
 
-Образ контейнера `ghcr.io/rapira-rs/rapira` содержит Rapira, NTS PHP и распространённые расширения PHP на Debian Trixie. Добавьте в образ своё приложение:
+Образ контейнера `ghcr.io/rapira-rs/rapira` содержит Rapira, потокобезопасный (ZTS) PHP и распространённые расширения PHP на Debian Trixie. Добавьте в образ своё приложение:
 
 ```dockerfile
 FROM ghcr.io/rapira-rs/rapira:php8.5
 COPY . /app
 ```
 
-Образ запускает `rapira serve /app/rapira.toml`. В каталоге приложения лежит `rapira.toml`:
+Образ запускает `rapira serve /app/rapira.toml`. Запускайте контейнер командой `docker run --init`, чтобы процесс init убирал завершившиеся дочерние процессы. В каталоге приложения лежит `rapira.toml`:
 
 ```toml
 [http]
@@ -194,9 +194,9 @@ mode = "classic"
 
 Образ содержит `/usr/local/bin/rapira` и PHP в `/usr/local`, в том числе `/usr/local/lib/libphp.so`. Переменная окружения `PHP_VERSION` содержит патч-версию PHP. В PHP 8.4 OPcache поставляется отдельным файлом `opcache.so` с INI-файлом, который его включает. В PHP 8.5 и PHP 8.6 OPcache входит в `libphp.so`.
 
-Все образы включают `bcmath`, `intl`, `mbstring`, `pdo_pgsql`, `pgsql` и `sodium`. Образы PHP 8.4 и PHP 8.5 также включают `igbinary` и `redis`. Redis поддерживает сериализацию igbinary. Ни один релиз `igbinary` и `redis` не собирается на PHP 8.6, поэтому образы PHP 8.6 их не включают.
+Все образы включают `bcmath`, `intl`, `mbstring`, `pdo_pgsql`, `pgsql` и `sodium`. Образы PHP 8.4 и PHP 8.5 также включают `igbinary`. Rapira не поставляет расширение `redis`.
 
-В образе есть вспомогательные команды официального образа PHP: `docker-php-ext-install`, `docker-php-ext-enable`, `docker-php-ext-configure`, `docker-php-source` и `docker-php-entrypoint`. Добавляйте другие расширения командой `docker-php-ext-install`:
+В образе есть вспомогательные команды официального образа PHP: `docker-php-ext-install`, `docker-php-ext-enable`, `docker-php-ext-configure`, `docker-php-source` и `docker-php-entrypoint`. Используйте расширения, совместимые с ZTS, когда добавляете их в образ командой `docker-php-ext-install`:
 
 ```dockerfile
 FROM ghcr.io/rapira-rs/rapira:php8.5
@@ -223,23 +223,13 @@ COPY . /app
 Каждый успешный прогон CI на `main` собирает образы из этого коммита. Сборка получает неизменяемый тег `X.Y.Z-nightly.<short-sha>-php8.5`. `X.Y.Z` - это версия в репозитории. `<short-sha>` - это первые семь символов идентификатора коммита. Тег `nightly-php8.5` указывает на эту сборку. Реестр хранит десять самых новых ночных сборок.
 :::
 
-### Образы PHP
+### Базовые образы
 
-Образ Rapira использует образ PHP `ghcr.io/rapira-rs/php:<minor>-nts` как базовый. Образы PHP собирает репозиторий [rapira-rs/docker](https://github.com/rapira-rs/docker). Образ PHP содержит PHP и расширения PHP официального образа PHP. Он не содержит Rapira и остальные расширения образа Rapira. Для каждой минорной версии PHP есть образ NTS и потокобезопасный (ZTS) образ на Debian Trixie, Debian Bookworm, Alpine 3.24 и Alpine 3.23. Rapira работает только на NTS PHP, поэтому образ Rapira использует образ NTS на Debian Trixie.
-
-Образы PHP поддерживают amd64 и arm64. В тегах `<suite>` означает `trixie`, `bookworm`, `alpine3.24` или `alpine3.23`, а `<variant>` означает `nts` или `zts`:
-
-| Тег | На что указывает |
-| --- | --- |
-| `X.Y-<suite>-<variant>` | Самая новая сборка этой минорной версии PHP, например `8.5-alpine3.24-nts`. |
-| `X.Y.Z-<suite>-<variant>` | Самая новая сборка одного патч-релиза PHP, например `8.5.13-alpine3.24-nts`. |
-| `X.Y-<variant>`, `X.Y.Z-<variant>` | Тот же образ, что и тег `trixie`, например `8.5-nts`. |
-
-Сборка берёт PHP из подписанного тега релиза php-src и проверяет тег ключами релиз-менеджеров PHP. Она следует рецепту официального образа PHP. Каждый образ PHP содержит `libphp.so`. Официальные образы PHP 8.6 есть только в варианте ZTS, а у этих образов PHP есть и сборки NTS PHP 8.6.
+Rapira собирает свои образы на основе [официальных образов PHP](https://hub.docker.com/_/php) на Debian Trixie: `php:8.4-zts-trixie`, `php:8.5-zts-trixie` и `php:8.6-cli-trixie`. Официальный образ PHP 8.6 CLI включает ZTS и библиотеку embed.
 
 ### Обновления при релизах PHP
 
-Workflow в GitHub Actions проверяет теги релизов php-src каждые 15 минут. Когда минорная версия PHP получает новый патч-релиз, workflow собирает образы PHP этой минорной версии. Затем второй workflow заново собирает самый новый релиз Rapira на новом образе NTS PHP и сдвигает его теги. Раз в неделю образы PHP также собираются заново, чтобы установить обновления пакетов. Так образы получают исправления PHP и пакетов без нового релиза Rapira.
+Workflow в GitHub Actions проверяет дайджест каждого базового образа PHP каждые 15 минут. Когда официальный образ PHP изменяется, workflow заново собирает самый новый релиз Rapira на этом образе и сдвигает его теги. Так образы получают патч-релизы PHP и исправления пакетов Debian без нового релиза Rapira.
 
 ## Сборка libphp
 

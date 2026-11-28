@@ -62,7 +62,7 @@ FROM ghcr.io/rapira-rs/rapira:php8.5
 COPY . /app
 ```
 
-Każdy tag wskazuje wersję PHP, na przykład `php8.4`, `php8.5`, `php8.6` lub `nightly-php8.5`. Wszystkie tagi i obrazy PHP opisuje sekcja [Docker](/pl/docs/intro/installation#docker).
+Każdy tag wskazuje wersję PHP, na przykład `php8.4`, `php8.5`, `php8.6` lub `nightly-php8.5`. Wszystkie tagi i dołączone rozszerzenia opisuje sekcja [Docker](/pl/docs/intro/installation#docker).
 
 </DownloadCard>
 

@@ -62,7 +62,7 @@ FROM ghcr.io/rapira-rs/rapira:php8.5
 COPY . /app
 ```
 
-Each tag names its PHP version, for example `php8.4`, `php8.5`, `php8.6`, or `nightly-php8.5`. See [Docker](/docs/intro/installation#docker) for all tags and the PHP images.
+Each tag names its PHP version, for example `php8.4`, `php8.5`, `php8.6`, or `nightly-php8.5`. See [Docker](/docs/intro/installation#docker) for all tags and bundled extensions.
 
 </DownloadCard>
 

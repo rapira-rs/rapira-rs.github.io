@@ -9,7 +9,7 @@ Wdrożenie produkcyjne musi utrzymać dostępność Rapiry po ponownym uruchomie
 
 Rapira nie definiuje układu wdrożenia. Nie wymaga określonej ścieżki konfiguracji ani supervisora procesów. Ta strona definiuje konwencję używaną przez pozostałą dokumentację. Najpierw zainstaluj plik binarny zgodnie z [Instalacją](/pl/docs/intro/installation).
 
-Rapira jest też dostępna jako obraz `ghcr.io/rapira-rs/rapira`. Obraz zawiera PHP, a ty dodajesz do niego swoją aplikację. Kontener używa polityki restartów środowiska uruchomieniowego zamiast systemd. Pozostałe ustawienia nie zmieniają się. Więcej informacji zawiera sekcja [Docker](/pl/docs/intro/installation#docker).
+Rapira jest też dostępna jako obraz `ghcr.io/rapira-rs/rapira`. Obraz zawiera PHP, a ty dodajesz do niego swoją aplikację. Uruchom kontener z opcją `--init`, aby proces init usuwał zakończone procesy potomne. Kontener używa polityki restartów środowiska uruchomieniowego zamiast systemd. Pozostałe ustawienia nie zmieniają się. Więcej informacji zawiera sekcja [Docker](/pl/docs/intro/installation#docker).
 
 ## Jednostka systemd
 

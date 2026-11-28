@@ -62,7 +62,7 @@ FROM ghcr.io/rapira-rs/rapira:php8.5
 COPY . /app
 ```
 
-Cada etiqueta indica su versión de PHP, por ejemplo `php8.4`, `php8.5`, `php8.6` o `nightly-php8.5`. Consulta [Docker](/es/docs/intro/installation#docker) para ver todas las etiquetas y las imágenes de PHP.
+Cada etiqueta indica su versión de PHP, por ejemplo `php8.4`, `php8.5`, `php8.6` o `nightly-php8.5`. Consulta [Docker](/es/docs/intro/installation#docker) para ver todas las etiquetas y las extensiones incluidas.
 
 </DownloadCard>
 
